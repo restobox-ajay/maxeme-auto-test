@@ -1,0 +1,18 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Inventory Discrepancy Found{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Inventory Discrepancy Found</h2>
+    <p>A recalculation found that a cached inventory bucket did not match what it recomputed from source of truth. The cached value has been corrected automatically — this email is a signal to investigate why it drifted.</p>
+
+    <div class="order-summary" style="background: transparent; border: none; border-top: 1px solid #e2e8f0; margin-top: 20px; padding: 20px 0 0 0;">
+        <p style="margin: 0; font-size: 14px;"><strong>Product:</strong> {{ product.sku ?: ('#' ~ product.id) }} — {{ product.name }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Warehouse:</strong> {{ warehouse.name }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Bucket:</strong> {{ bucket }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Cached value:</strong> {{ cachedQuantity }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Recomputed value:</strong> {{ recomputedQuantity }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Found by:</strong> {{ source }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Found at:</strong> {{ "now"|date('F j, Y g:i A') }}</p>
+    </div>
+{% endblock %}

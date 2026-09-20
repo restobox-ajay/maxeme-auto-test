@@ -1,0 +1,127 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Movement History | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'movements',
+        heading: 'Movement History',
+        lead: 'The ledger. "Who moved this and why" answerable without a database client — and the only place a recall can be answered from, because a terminal row says how much left, never to whom.'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="movements-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'occurred' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'occurred', dir: currentSort == 'occurred' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">When</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'type' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'type', dir: currentSort == 'type' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Type</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'product', dir: currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Product</a>
+                        </th>
+                        <th>From</th>
+                        <th>To</th>
+                        {# Lot and serial have their own columns so the two filters below them
+                           have headers that mean what the boxes do. Both are inside the From/To
+                           labels as well, but a recall is read down one column, not out of two
+                           composite strings. #}
+                        <th>Lot</th>
+                        <th>Serial</th>
+                        <th class="is-sortable{% if currentSort == 'quantity' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'quantity', dir: currentSort == 'quantity' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Qty</a>
+                        </th>
+                        <th>Reason</th>
+                        <th>Reference</th>
+                        <th class="is-sortable{% if currentSort == 'actor' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'actor', dir: currentSort == 'actor' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Actor</a>
+                        </th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th>
+                            <input type="date" name="filters[from]" form="movements-filters" value="{{ filters.from }}" aria-label="Moved on or after" onchange="this.form.submit()">
+                            <input type="date" name="filters[to]" form="movements-filters" value="{{ filters.to }}" aria-label="Moved on or before" onchange="this.form.submit()">
+                        </th>
+                        <th>
+                            <select name="filters[type]" form="movements-filters" aria-label="Filter type" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for t in types %}<option value="{{ t }}"{{ filters.type == t ? ' selected' : '' }}>{{ t }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[product]" form="movements-filters" value="{{ filters.product }}" placeholder="SKU or name" aria-label="Filter product"></th>
+                        <th>
+                            <select name="filters[warehouse]" form="movements-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">Any warehouse</option>
+                                {% for w in warehouses %}<option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[location]" form="movements-filters" aria-label="Filter bin" onchange="this.form.submit()">
+                                <option value="">Any bin</option>
+                                {% for b in bins %}<option value="{{ b.id }}"{{ filters.location == b.id ~ '' ? ' selected' : '' }}>{{ b.warehouse.name }} — {{ b.code }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        {# The controller matches this against the lot's id, which is what the
+                           lot barcode encodes (LOT-n), so it is a number and not the batch code. #}
+                        <th><input type="number" name="filters[lot]" form="movements-filters" min="1" value="{{ filters.lot }}" placeholder="Lot id" aria-label="Filter lot id"></th>
+                        <th><input type="text" name="filters[serial]" form="movements-filters" value="{{ filters.serial }}" placeholder="Serial" aria-label="Filter serial"></th>
+                        <th></th>
+                        <th></th>
+                        <th><input type="text" name="filters[reference]" form="movements-filters" value="{{ filters.reference }}" placeholder="Order, RMA" aria-label="Filter reference"></th>
+                        <th>
+                            <input type="text" name="filters[actor]" form="movements-filters" value="{{ filters.actor }}" placeholder="Who" aria-label="Filter actor">
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_inventory_depth_movements') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for m in rows %}
+                    {% set detail = m.toDetail ? m.toDetail : m.fromDetail %}
+                    <tr class="data-item-row">
+                        <td data-label="When">{{ m.group.occurredAt|date('Y-m-d H:i') }}</td>
+                        <td data-label="Type">{{ m.group.type }}</td>
+                        <td data-label="Product"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: m.product.id}) }}">{{ m.product.sku ?: m.product.name }}</a></td>
+                        <td data-label="From">{{ m.fromDetail ? m.fromDetail.label : 'outside the system' }}</td>
+                        <td data-label="To">{{ m.toDetail ? m.toDetail.label : 'outside the system' }}</td>
+                        <td data-label="Lot">{{ detail and detail.lot ? detail.lot.label : '—' }}</td>
+                        <td data-label="Serial">{{ detail and detail.serial ? detail.serial : '—' }}</td>
+                        <td data-label="Qty"><strong>{{ m.quantity }}</strong></td>
+                        {# The stored reason code and the free-text note, in that order and both
+                           optional (#585). They answer different questions — what class of thing
+                           happened, and what this particular one was — so neither stands in for the
+                           other, and a group written before the code existed shows only its note. #}
+                        <td data-label="Reason">
+                            {% if m.group.adjustmentReason %}<span class="badge info">{{ m.group.adjustmentReason.label }}</span>{% endif %}
+                            {{ m.group.reason ?: (m.group.adjustmentReason ? '' : '—') }}
+                            {% if m.reversesMovement %}<span class="badge warn">reverses #{{ m.reversesMovement.id }}</span>{% endif %}
+                        </td>
+                        <td data-label="Reference">{{ m.group.reference ?: '—' }}</td>
+                        <td data-label="Actor">{{ m.group.actor ?: '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="11" class="empty-table-cell"><strong>No movements match.</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. Hidden because
+               the visible Filter button in the last cell is the one people use. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'movements'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="movements-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_inventory_depth_movements',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

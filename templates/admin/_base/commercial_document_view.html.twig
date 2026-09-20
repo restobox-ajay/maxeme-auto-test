@@ -1,0 +1,159 @@
+{#
+    THE frame for a sell-side document's VIEW screen — the order's, the quote's and the invoice's,
+    once. `admin/order/detail.html.twig`, `admin/estimate/detail.html.twig` and
+    `admin/invoice/detail.html.twig` extend this and fill its blocks.
+
+    ## The rule this template is built on
+
+    PARAMETERS AND BLOCKS, NEVER `{% if document == 'invoice' %}`. Nothing below asks which document
+    it is rendering. A difference arrives as a value set at the top of the child, as a block the
+    child fills, or — where it is a whole region with a context of its own — as a TEMPLATE PATH,
+    the same way `sales_document_action_bar` takes its `barTemplate` and `sales_detail_line_table`
+    takes its `footTemplate`. A difference that can be expressed none of those ways belongs in the
+    child, not in a branch here.
+
+    ## VIEW ONLY
+
+    There are two bases, and this is the read-only one. It renders no form controls of its own and
+    no `{{ form_* }}`; it does not know how to save anything. The edit screens get their own base —
+    "edit and view can be quite different".
+
+    ## The frame, and what may move
+
+    The frame is FIXED: these regions, in this order, on all three documents. What a stored layout
+    may eventually do is move a MOVABLE block, or switch an OPTIONAL one off. Nothing here reads
+    such a layout yet and nothing persists one — this is the skeleton and the names it will use.
+
+        slug                 fixed?     what it is
+        ────────────────────────────────────────────────────────────────────────────────────────
+        hero                 fixed      eyebrow, number, status, back
+        action_bar           fixed      the shared sell-side action bar (a template path)
+        summary_grid         fixed      the three cards: info, billing, shipping
+        document_actions     movable    this document's own transition controls. Optional.
+        line_items           FIXED      "that block is solid, that's not something that we can just
+                                        toss around and change" — position is not negotiable
+        totals               FIXED      fees, shipping, tax, totals — "pretty fixed", same ruling
+        stock_overrides      movable    sold/billed beyond stock. Optional.
+        add_message          movable    post to the timeline. Optional.
+        related_documents    movable    the documents raised from this one. Optional.
+        activity_log         movable    this document's own timeline
+        change_history       movable    the generic AuditLog panel
+        page_end             fixed      modals — last in the body because that is what they are
+
+    `summary_grid` is three named sub-slots — `summary_info`, `summary_billing`, `summary_shipping`
+    — and `summary_info` is in turn `summary_info_heading`, `summary_info_status` and
+    `summary_info_rows`, so the one field each document genuinely owns beside its heading (payment
+    status, quote acceptance, order status) has a named place to sit without the card around it
+    being copied three times.
+
+    ## Where a person may add their own content
+
+    Two predefined slots, and only two: `{slotPrefix}_after_summary` and `{slotPrefix}_after_totals`.
+    They are `injection_point()`s, which is the mechanism this application already uses for exactly
+    this, and they render nothing at all until something registers against them. Content goes into a
+    predefined slot; it does not go between two blocks of the frame.
+
+    Parameters (set at the top of the child, outside its blocks)
+    -----------------------------------------------------------
+    document          required  the entity. Passed to the injection slots so a provider knows what
+                                it is decorating. NOT branched on.
+    slotPrefix        required  'admin_order_detail' | 'admin_estimate_detail' |
+                                'admin_invoice_detail'. Names this document's own injection slots.
+    actionBarTemplate required  template path for the action bar — each document's `_tab_nav`,
+                                which is the thing that knows its own routes and lock rules.
+    actionBarContext  required  the variables that template needs.
+
+    Blocks
+    ------
+    Every slug above is a block. The four hero sub-blocks and the three summary sub-blocks are
+    listed beside them. All are empty by default except `line_items_heading`, which the frame names
+    because the three tables are one table.
+#}
+{% extends 'admin/_main/layout.html.twig' %}
+
+{% block admin_body %}
+    {# `totals` is captured rather than printed in place: the wrapper below is the frame's, and a
+       document that itemises its money inside the line table's own <tfoot> must not be given an
+       empty flex row to push it about. Capturing is how the frame owns the wrapper without
+       imposing it. #}
+    {% set totalsBody %}{% block totals %}{% endblock %}{% endset %}
+
+    {# ── hero ─────────────────────────────────────────────────────────────── #}
+    <section class="panel compact-panel" style="margin-bottom: 0; border-bottom: 0; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">{% block hero_eyebrow %}{% endblock %}</p>
+                {# Queue item 41: the status, big and loud, beside the number. The Info card below
+                   carries its own labelled badge as a FIELD; this is the one a reader sees without
+                   looking for it. #}
+                <div class="title-with-status">
+                    <h1>{% block hero_title %}{% endblock %}</h1>
+                    {% block hero_status %}{% endblock %}
+                </div>
+            </div>
+            <div class="panel-actions">
+                {% block hero_actions %}{% endblock %}
+            </div>
+        </div>
+    </section>
+
+    {# ── action_bar ───────────────────────────────────────────────────────── #}
+    {% include actionBarTemplate with actionBarContext only %}
+
+    {# ── summary_grid ─────────────────────────────────────────────────────── #}
+    <div class="order-detail-grid">
+
+        {# ── summary_info ─────────────────────────────────────────────────── #}
+        <section class="detail-panel order-detail-panel">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; border-bottom:1px solid var(--line-light); padding-bottom:12px;">
+                <h2 style="margin:0; border:0; padding:0;">{% block summary_info_heading %}{% endblock %}</h2>
+                {% block summary_info_status %}{% endblock %}
+            </div>
+
+            {% block summary_info_rows %}{% endblock %}
+        </section>
+
+        {% block summary_billing %}{% endblock %}
+
+        {% block summary_shipping %}{% endblock %}
+    </div>
+    {{ injection_point(slotPrefix ~ '_after_summary', {document: document}) }}
+
+    {# ── document_actions ─────────────────────────────────────────────────── #}
+    {% block document_actions %}{% endblock %}
+
+    {# ── line_items — FIXED. The card is the frame's; only the table inside it is the
+           document's, and that table is already one shared component. ────────────────── #}
+    <section class="table-card no-search no-paginate detail-page-card" style="margin-top: 8px;">
+        <div class="table-header">
+            <h2>{% block line_items_heading %}Products{% endblock %}</h2>
+        </div>
+        {% block line_items_table %}{% endblock %}
+    </section>
+
+    {# ── totals — FIXED. ──────────────────────────────────────────────────── #}
+    {% if totalsBody|trim is not empty %}
+        <div style="display:flex; justify-content:flex-end; margin-top:0;margin-right:20px;">{{ totalsBody }}</div>
+    {% endif %}
+    {{ injection_point(slotPrefix ~ '_after_totals', {document: document}) }}
+
+    {# ── stock_overrides ──────────────────────────────────────────────────── #}
+    {% block stock_overrides %}{% endblock %}
+
+    {# ── add_message ──────────────────────────────────────────────────────── #}
+    {% block add_message %}{% endblock %}
+
+    {# ── related_documents ────────────────────────────────────────────────── #}
+    {% block related_documents %}{% endblock %}
+
+    {# ── activity_log ─────────────────────────────────────────────────────── #}
+    {% block activity_log %}{% endblock %}
+
+    {# ── change_history (generic AuditLog, distinct from the document's own timeline above) ── #}
+    {% block change_history %}
+        {% include 'admin/_shared/_audit_history_panel.html.twig' with {logs: auditHistory|default([])} only %}
+    {% endblock %}
+
+    {# ── page_end ─────────────────────────────────────────────────────────── #}
+    {% block page_end %}{% endblock %}
+{% endblock %}

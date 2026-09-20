@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Fires after `git checkout` / `git switch`. Warns if the branch now checked out expects
+# migrations this database has not run. Read-only, never blocks — see check-migrations.sh.
+#
+# Args: $1 previous HEAD, $2 new HEAD, $3 flag (1 = branch checkout, 0 = file checkout).
+# Only branch checkouts are interesting; `git checkout -- some/file` must stay silent.
+[ "${3:-0}" = "1" ] || exit 0
+
+exec "$(dirname "$0")/check-migrations.sh"

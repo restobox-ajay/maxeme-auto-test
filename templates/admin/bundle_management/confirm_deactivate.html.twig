@@ -1,0 +1,27 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Confirm deactivate | App Management | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Configuration</p>
+                <h1>Turn off "{{ name }}"?</h1>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        {#
+           No JavaScript anywhere near this: this is the page an admin reaches when something is
+           already going wrong, which is the worst possible place for a control that needs a
+           script to run. The "confirmed" field is what tells toggle() this is the SECOND POST, not
+           the first — the first one that landed here changed nothing at all.
+        #}
+        <form method="post" action="{{ path('admin_bundle_management_toggle', {source: source}) }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="confirmed" value="1">
+            <button type="submit" class="link-button danger">Continue and turn all of it off</button>
+        </form>
+        <a href="{{ path('admin_bundle_management_index') }}">Cancel, change nothing</a>
+    </section>
+{% endblock %}

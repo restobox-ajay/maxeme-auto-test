@@ -1,0 +1,55 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}WooCommerce Reconciliation | Admin{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .inline-fields { display: inline-flex; gap: 6px; align-items: center; }
+    </style>
+{% endblock %}
+{% block admin_body %}
+    {% include '@WooCommerce/_nav.html.twig' with {
+        current: 'reconciliation',
+        heading: 'Reconciliation',
+        lead: 'Every product the SKU resolver had to mint on its own, because no existing SKU matched. Confirm each one is a real, permanent product, or point it at one that already existed.'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table>
+            <thead>
+                <tr>
+                    <th>Store</th>
+                    <th>Woo SKU</th>
+                    <th>Auto-created product</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mapping in mappings %}
+                    <tr>
+                        <td data-label="Store">{{ mapping.connection.name }}</td>
+                        <td data-label="Woo SKU">{{ mapping.wooSku }}</td>
+                        <td data-label="Auto-created product">{{ mapping.product.sku }} &mdash; {{ mapping.product.name }}</td>
+                        <td data-label="Created">{{ mapping.createdAt|date('Y-m-d H:i') }}</td>
+                        <td data-label="Actions" class="row-actions">
+                            <form method="post" action="{{ path('admin_bundle_woocommerce_reconciliation_keep', {id: mapping.id}) }}" class="inline-fields">
+                                {{ csrf_field() }}
+                                <button class="table-action" type="submit">Keep as new product</button>
+                            </form>
+                            <form method="post" action="{{ path('admin_bundle_woocommerce_reconciliation_merge', {id: mapping.id}) }}" class="inline-fields">
+                                {{ csrf_field() }}
+                                <input type="text" name="sku" placeholder="Merge into SKU&hellip;" required>
+                                <button class="table-action" type="submit">Merge</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell"><span>Nothing needs reconciliation right now.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div></div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with { count: mappings|length, label: 'mappings' } only %}
+        </div>
+    </section>
+{% endblock %}

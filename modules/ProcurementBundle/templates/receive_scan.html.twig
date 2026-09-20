@@ -1,0 +1,274 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Scan goods in | Admin{% endblock %}
+{% block admin_body %}
+    {# Scoped to this screen and shipped inside the bundle, the same way the scan console's styling
+       is: remove the bundle and this goes with it, and no cache-buster has to be bumped. #}
+    <style>
+        .scan-in { max-width: 34rem; margin: 0 auto; }
+        .scan-in .scan-input { font-size: 1.5rem; width: 100%; padding: 0.6rem; letter-spacing: 0.05em; }
+        .scan-in .scan-step { font-size: 1.1rem; }
+        .scan-in .scan-crumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+        .scan-in .scan-crumbs span { background: rgba(127,127,127,0.15); padding: 0.2rem 0.5rem; border-radius: 0.2rem; font-size: 0.85rem; }
+        .scan-in .button { min-height: 2.75rem; }
+        .scan-in .qty { width: 5rem; font-size: 1.2rem; padding: 0.4rem; }
+        .scan-in .divider-label { text-align: center; font-size: 0.8rem; opacity: 0.7; margin: 1rem 0; }
+        .scan-in .po-pick-list { display: flex; flex-direction: column; gap: 0.4rem; }
+        .scan-in .po-pick-list button { text-align: left; padding: 0.6rem 0.8rem; }
+        .scan-tally-line { font-size: 0.95rem; margin: 0.6rem 0; }
+        .scan-tally-line strong { font-size: 1.1rem; }
+        details.scan-tally { margin-top: 0.4rem; }
+        details.scan-tally summary { cursor: pointer; font-size: 0.85rem; }
+        .received-by-fact { background: rgba(127,127,127,0.1); border-radius: 0.3rem; padding: 0.5rem 0.7rem; font-size: 0.9rem; }
+    </style>
+
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'receipts',
+        heading: 'Scan goods in'
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the form it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    {# Step 1 gates everything else: resolving what this delivery is against is the one question
+       that has to be answered before a scan means anything — the same "select or scan the PO"
+       first step the reference receiving flows (NetSuite, D365) all open on, rather than one of
+       several forms sitting on the page at once. Resolved once (a PO, or a vendor+warehouse pair
+       for an unordered delivery), it becomes a one-line fact in the crumbs below, not a form. #}
+    {% set resolved = order or (vendorId > 0 and warehouseId > 0) %}
+
+    {% if not resolved %}
+        <section class="panel scan-in">
+            <h2 class="scan-step">Which delivery is this?</h2>
+
+            <form method="get" action="{{ path('admin_bundle_procurement_receive_scan') }}">
+                {{ include('@Procurement/_scan_slip_state.html.twig', {lines: lines}) }}
+                <label>Scan the PO barcode
+                    <input class="scan-input" type="text" name="po_number" autofocus autocomplete="off"
+                           placeholder="Scan or type the PO number, then Enter">
+                </label>
+                <div class="form-actions"><button class="button primary" type="submit">Find it</button></div>
+            </form>
+
+            {% if openOrders is not empty %}
+                <p class="divider-label">or pick an open one</p>
+                <form method="get" action="{{ path('admin_bundle_procurement_receive_scan') }}">
+                    {{ include('@Procurement/_scan_slip_state.html.twig', {lines: lines}) }}
+                    <div class="po-pick-list">
+                        {% for open in openOrders %}
+                            <button class="button outline" type="submit" name="po" value="{{ open.id }}">
+                                {{ open.poNumber }} · {{ open.vendorName }} · {{ open.quantityOutstanding|qty }} outstanding
+                            </button>
+                        {% endfor %}
+                    </div>
+                </form>
+            {% endif %}
+
+            <details>
+                <summary>No purchase order — receive against a vendor instead</summary>
+                <form method="get" action="{{ path('admin_bundle_procurement_receive_scan') }}" class="form-grid">
+                    {{ include('@Procurement/_scan_slip_state.html.twig', {lines: lines}) }}
+                    <input type="hidden" name="po" value="0">
+                    <label>Vendor
+                        <select name="vendor">
+                            <option value="0">—</option>
+                            {% for v in vendors %}<option value="{{ v.id }}" {{ vendorId == v.id ? 'selected' : '' }}>{{ v.name }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label>Warehouse
+                        <select name="warehouse">
+                            <option value="0">—</option>
+                            {% for w in warehouses %}<option value="{{ w.id }}" {{ warehouseId == w.id ? 'selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <div class="form-actions"><button class="button" type="submit">Set</button></div>
+                </form>
+            </details>
+        </section>
+    {% else %}
+        <section class="panel scan-in">
+            <div class="scan-crumbs">
+                {% if order %}
+                    <span>{{ order.poNumber }}</span>
+                    <span>{{ order.vendorName }}</span>
+                    <span>{{ order.warehouse.name }}</span>
+                {% else %}
+                    {% set crumbVendor = vendors|filter(v => v.id == vendorId)|first %}
+                    {% set crumbWarehouse = warehouses|filter(w => w.id == warehouseId)|first %}
+                    <span>no purchase order</span>
+                    {% if crumbVendor %}<span>{{ crumbVendor.name }}</span>{% endif %}
+                    {% if crumbWarehouse %}<span>{{ crumbWarehouse.name }}</span>{% endif %}
+                {% endif %}
+            </div>
+
+            {% if pending %}
+                {# The console is holding a unit whose PRODUCT it knows and whose IDENTITY it does not.
+                   One input, because that is how a dock works with a wedge scanner: scan the carton,
+                   scan the label on it, scan the next carton. #}
+                <h2 class="scan-step">{{ pendingNeeds.capturesSerial ? 'Scan the serial' : 'Scan the batch code' }}</h2>
+                <p class="scan-target"><strong>{{ pending.sku }}</strong> — {{ pending.name }}{{ pendingNeeds.capturesSerial ? '' : ' (applies to all ' ~ pendingQuantity ~ ')' }}</p>
+            {% else %}
+                <h2 class="scan-step">Scan a carton</h2>
+            {% endif %}
+            <form id="scan-in-form" method="post" action="{{ path('admin_bundle_procurement_receive_scan_step') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="po" value="{{ order ? order.id : 0 }}">
+                <input type="hidden" name="vendor" value="{{ vendorId }}">
+                <input type="hidden" name="warehouse" value="{{ warehouseId }}">
+                {{ include('@Procurement/_scan_slip_state.html.twig', {lines: lines}) }}
+
+                {# Which shelf everything on the slip is going to — picked once per session, inline
+                   here rather than a separate downstream section, since it rides along with
+                   whatever scan is submitted next and the receiver rarely changes it mid-delivery. #}
+                <label>Bin
+                    <select name="bin">
+                        <option value="0">— no bin —</option>
+                        {% for bin in bins %}<option value="{{ bin.id }}" {{ binId == bin.id ? 'selected' : '' }}>{{ bin.code }}</option>{% endfor %}
+                    </select>
+                </label>
+
+                {% if pending %}
+                    <input type="hidden" name="pending" value="{{ pending.id }}">
+                    <input type="hidden" name="pending_q" value="{{ pendingQuantity }}">
+                    {% if pendingNeeds.capturesExpiry %}
+                        <label>Expiry — the last usable day on this batch
+                            <input type="date" name="expiry">
+                        </label>
+                    {% endif %}
+                    <input class="scan-input" type="text" name="code" autofocus autocomplete="off"
+                           placeholder="{{ pendingNeeds.capturesSerial ? 'Scan the serial, then Enter' : 'Scan the batch code, then Enter' }}">
+                    <div class="form-actions">
+                        <button class="button primary" type="submit" name="action" value="capture">Accept</button>
+                        {% if pendingNeeds.unidentifiedMayBeDeclared %}
+                            <button class="button" type="submit" name="action" value="unidentified">No {{ pendingNeeds.capturesSerial ? 'serial' : 'batch code' }} on these units</button>
+                        {% endif %}
+                        <button class="button" type="submit" name="action" value="abandon">That was not it — drop this one</button>
+                    </div>
+                {% else %}
+                    <label>How many
+                        <input class="qty" type="number" name="quantity" min="1" value="1">
+                    </label>
+                    <input class="scan-input" type="text" name="code" autofocus autocomplete="off" placeholder="Scan or type, then Enter">
+                    <div class="form-actions"><button class="button primary" type="submit">Accept scan</button></div>
+                {% endif %}
+            </form>
+            {% include '@Barcode/_camera.html.twig' with {formId: 'scan-in-form'} only %}
+
+            <p class="scan-tally-line"><strong>{{ scannedTotal }}</strong> unit(s) on the slip</p>
+            <details class="scan-tally">
+                <summary>View the slip so far</summary>
+                <table class="admin-grid-table compact">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Item</th>
+                            <th>Scanned</th>
+                            <th>Identity captured</th>
+                            <th>Against</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                            <tr>
+                                <td>{{ line.product.sku }}</td>
+                                <td>{{ line.product.name }}</td>
+                                <td>{{ line.quantity + line.serials|length }}</td>
+                                <td>
+                                    {% if line.serials|length %}
+                                        {{ line.serials|length }} serial(s): {{ line.serials|join(', ') }}
+                                    {% elseif line.lot %}
+                                        batch {{ line.lot }}{{ line.expiry ? ', expires ' ~ line.expiry : '' }}
+                                    {% elseif line.unidentified %}
+                                        <span class="badge warn">none captured — goes to the tracking worklist</span>
+                                    {% elseif line.needs.capturesNothing %}
+                                        nothing is tracked for this product
+                                    {% else %}
+                                        <span class="badge warn">still needs {{ line.needs.identityNoun }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if line.orderLine %}
+                                        order line, {{ line.outstanding }} outstanding
+                                    {% elseif order %}
+                                        <strong>not on this order</strong> — recorded as a substitution
+                                    {% else %}
+                                        no purchase order
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5">Nothing scanned yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </details>
+        </section>
+
+        <section class="panel">
+            <h2>Book it in</h2>
+            <form method="post" action="{{ path('admin_bundle_procurement_receive_submit') }}" class="form-grid">
+                {{ csrf_field() }}
+                <input type="hidden" name="purchase_order_id" value="{{ order ? order.id : 0 }}">
+                {% if not order %}
+                    <input type="hidden" name="vendor_id" value="{{ vendorId }}">
+                    <input type="hidden" name="warehouse_id" value="{{ warehouseId }}">
+                {% endif %}
+
+                {#
+                   One posted line per SERIAL, plus one for whatever was counted without a serial of its
+                   own. That is not a presentation choice: a serial identifies one unit, so seventy
+                   serials are seventy receipt lines of one, and `uniq_live_serial` allows a serial one
+                   live row at a time. `row` counts across both loops so the indices never collide.
+
+                   A product that IS on the order settles its line; one that is not is recorded with no
+                   order line at all, which is what a vendor substitution is and what goods_receipt_line
+                   has always allowed.
+                #}
+                {% set row = 0 %}
+                {% for line in lines %}
+                    {% for serial in line.serials %}
+                        {% if line.orderLine %}
+                            <input type="hidden" name="lines[{{ row }}][purchase_order_line_id]" value="{{ line.orderLine.id }}">
+                        {% else %}
+                            <input type="hidden" name="lines[{{ row }}][product_id]" value="{{ line.product.id }}">
+                        {% endif %}
+                        <input type="hidden" name="lines[{{ row }}][quantity]" value="1">
+                        <input type="hidden" name="lines[{{ row }}][serial]" value="{{ serial }}">
+                        <input type="hidden" name="lines[{{ row }}][location_id]" value="{{ binId }}">
+                        {% set row = row + 1 %}
+                    {% endfor %}
+
+                    {% if line.quantity > 0 %}
+                        {% if line.orderLine %}
+                            <input type="hidden" name="lines[{{ row }}][purchase_order_line_id]" value="{{ line.orderLine.id }}">
+                        {% else %}
+                            <input type="hidden" name="lines[{{ row }}][product_id]" value="{{ line.product.id }}">
+                        {% endif %}
+                        <input type="hidden" name="lines[{{ row }}][quantity]" value="{{ line.quantity }}">
+                        {% if line.lot %}<input type="hidden" name="lines[{{ row }}][lot_code]" value="{{ line.lot }}">{% endif %}
+                        {% if line.expiry %}<input type="hidden" name="lines[{{ row }}][expiry]" value="{{ line.expiry }}">{% endif %}
+                        {% if line.unidentified %}<input type="hidden" name="lines[{{ row }}][unidentified]" value="1">{% endif %}
+                        <input type="hidden" name="lines[{{ row }}][location_id]" value="{{ binId }}">
+                        {% set row = row + 1 %}
+                    {% endif %}
+                {% endfor %}
+
+                <label>Packing slip <input type="text" name="packing_slip" maxlength="80"></label>
+                {# Received by is who is signed in and doing the scanning, not a name to type —
+                   ReceivingController::submit() already falls back to the session's own user when
+                   this field is absent, so nothing is posted here at all; this just shows who that
+                   will be. #}
+                {% set receiverName = (app.user.firstName ~ ' ' ~ app.user.lastName)|trim %}
+                <div class="received-by-fact">Received by <strong>{{ receiverName is not empty ? receiverName : app.user.email }}</strong></div>
+                <label class="span-2">Notes <textarea name="notes" rows="2"></textarea></label>
+
+                <div class="form-actions span-2">
+                    <button class="button primary" type="submit" {{ scannedTotal == 0 ? 'disabled' : '' }}>Book in {{ scannedTotal }} unit(s)</button>
+                    <a class="button" href="{{ path('admin_bundle_procurement_receive', order ? {po: order.id} : {}) }}">Type it instead</a>
+                    <a class="button" href="{{ path('admin_bundle_procurement_receive_scan', order ? {po: order.id} : {}) }}">Start the slip again</a>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ rfq.documentNumber }} | Admin{% endblock %}
+
+{#
+    The tender: what was asked, where it goes, who was asked, and what each of them came back with.
+
+    ## The replies table is a COMPARISON, not an entry form
+
+    It used to hold one two-column pricing form per reply, nested inside a cell — five vendors meant
+    five forms stacked on one page, and the only way to see what a vendor had quoted was to read the
+    boxes of the form you were about to overwrite. Each reply is now a document with its own screen
+    (`rfq_vendor_reply_detail.html.twig`), and this table is the side-by-side: status, lines priced,
+    total, and a link to each.
+
+    That is also what makes the money rule visible. Every figure in this table belongs to ONE reply.
+    The RFQ itself has no total anywhere on this page and must not grow one — see `Rfq`'s class
+    docblock and the argued exception in EveryDocumentDeclaresItsContractTest.
+#}
+
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'rfqs',
+        heading: rfq.documentNumber,
+        status: rfq.status.value,
+        lead: rfq.warehouse ? 'Deliver to ' ~ rfq.warehouse.name ~ '.' : 'No destination warehouse chosen yet.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            {% if rfq.status.value == 'Draft' %}
+                <a class="button" href="{{ path('admin_bundle_procurement_rfq_edit', {id: rfq.id}) }}">Edit requirement</a>
+            {% endif %}
+            {% if rfq.status.value in ['Draft', 'Sent'] %}
+                <form method="post" action="{{ path('admin_bundle_procurement_rfq_cancel', {id: rfq.id}) }}" class="inline-form">
+                    {{ csrf_field() }}
+                    <button class="button danger" type="submit">Cancel RFQ</button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+
+    {# ── Where it goes ───────────────────────────────────────────────────────────────────────── #}
+    <div class="order-detail-grid">
+        <section class="detail-panel order-detail-panel">
+            <h2>Requirement</h2>
+            <div class="detail-row"><label>RFQ #:</label><strong>{{ rfq.documentNumber }}</strong></div>
+            <div class="detail-row"><label>Status:</label><strong>{% include 'admin/_partials/document_status.html.twig' with {status: rfq.status.value, loud: false} only %}</strong></div>
+            <div class="detail-row"><label>Raised:</label><strong>{{ rfq.createdAt|date('Y-m-d') }}</strong></div>
+            <div class="detail-row"><label>Tendered:</label><strong>{{ rfq.sentAt ? rfq.sentAt|date('Y-m-d') : 'Not yet' }}</strong></div>
+            <div class="detail-row"><label>Closed:</label><strong>{{ rfq.closedAt ? rfq.closedAt|date('Y-m-d') : '-' }}</strong></div>
+            <div class="detail-row"><label>Lines:</label><strong>{{ rfq.lines|length }}</strong></div>
+            <div class="detail-row"><label>Vendors asked:</label><strong>{{ rfq.replies|length }}</strong></div>
+            <div class="detail-row"><label>Notes:</label><strong>{{ rfq.notes|default('-') }}</strong></div>
+        </section>
+
+        <section class="detail-panel order-detail-panel">
+            <h2>Deliver To</h2>
+            {# The site, and since queue item 37 the site's ADDRESS: a warehouse has one now, so
+               "the site the goods would go to" is finally sayable on an RFQ. Read live off the
+               building rather than frozen — an RFQ is a question, not a record of a transaction,
+               and the answer a vendor is quoting against is where that building is today. #}
+            <div class="detail-row" id="rfq-delivery-warehouse"><label>Warehouse:</label><strong>{{ rfq.warehouse ? rfq.warehouse.name ~ (rfq.warehouse.addressSummary ? ' — ' ~ rfq.warehouse.addressSummary : '') : 'Not chosen yet' }}</strong></div>
+            {% if rfq.deliveryAddress %}
+                <div class="detail-row"><label>Address:</label><strong>{{ rfq.deliveryAddress|nl2br }}</strong></div>
+            {% else %}
+                {# Not blank, and not silence: a tender with no address of its own is quoted against
+                   this company's own address, so that is what the screen shows and says. #}
+                <div class="detail-row"><label>Address:</label><strong>{{ app_setting('company_name', '')|default('-') }}</strong></div>
+                <div class="detail-row"><label></label><strong>{{ app_setting('company_address', '')|default('-') }}</strong></div>
+                <div class="detail-row"><label></label><strong>{{ [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', '')), app_setting('company_postal_code', '')]|filter(v => v)|join(', ')|default('-') }}</strong></div>
+                <div class="detail-row"><label></label><strong><em>No delivery address stated on this RFQ — the company address above stands in.</em></strong></div>
+            {% endif %}
+        </section>
+
+        <section class="detail-panel order-detail-panel">
+            <h2>Prices</h2>
+            <div class="detail-row"><label>On this document:</label><strong>None</strong></div>
+            <p class="field-hint">
+                An RFQ states no currency and no total. It asks several vendors the same question, so it has no
+                single counterparty to owe anything to. Every price in this flow lives on one vendor's reply,
+                below — open one to see or record what that vendor quoted.
+            </p>
+        </section>
+    </div>
+
+    <section class="table-card no-search no-paginate detail-page-card">
+        <div class="table-header"><h2>Requirement lines</h2></div>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Item</th><th>Product</th><th>SKU</th><th>Qty</th><th>Notes</th></tr></thead>
+            <tbody>
+                {% for line in rfq.lines %}
+                    <tr>
+                        <td data-label="Item">{{ line.name }}</td>
+                        <td data-label="Product">{{ line.product ? line.product.sku ~ ' — ' ~ line.product.name : 'Not in the catalog' }}</td>
+                        <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                        <td data-label="Qty">{{ line.quantity }}</td>
+                        <td data-label="Notes">{{ line.notes|default('-') }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell"><span>No requirement lines yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    {% if rfq.status.value == 'Draft' %}
+        <section class="panel">
+            <h2>Tender to vendors</h2>
+            <p class="lead">Select every vendor this requirement should go to. Sending creates one reply per vendor and freezes the requirement.</p>
+            <form method="post" action="{{ path('admin_bundle_procurement_rfq_send', {id: rfq.id}) }}">
+                {{ csrf_field() }}
+                <div class="form-grid">
+                    {% for vendor in vendors %}
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="vendor_ids[]" value="{{ vendor.id }}">
+                            {{ vendor.name }}
+                        </label>
+                    {% else %}
+                        <p class="field-hint">No active vendors to ask. Add one under Vendors first.</p>
+                    {% endfor %}
+                </div>
+                <button class="button primary" type="submit">Send RFQ</button>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if rfq.replies|length > 0 %}
+        <section class="table-card no-search no-paginate detail-page-card">
+            <div class="table-header"><h2>Vendor replies</h2></div>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Reply</th><th>Vendor</th><th>Status</th><th>Quoted</th><th>Dated</th><th>Total</th><th>Actions</th></tr></thead>
+                <tbody>
+                    {% for reply in rfq.replies %}
+                        {# Priced lines out of the requirement's, computed here rather than carried:
+                           a reply line with a NULL unit cost is a line nobody has quoted yet, which
+                           is a different fact from a quote of $0.00 and is what decides whether this
+                           reply can be accepted at all (RfqVendorReply::isFullyPriced()). #}
+                        {% set priced = 0 %}
+                        {% for l in reply.lines %}{% if l.unitCost is not null %}{% set priced = priced + 1 %}{% endif %}{% endfor %}
+                        <tr>
+                            <td data-label="Reply"><a href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">{{ reply.documentNumber }}</a></td>
+                            <td data-label="Vendor">{{ reply.vendorName }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: reply.status.value, loud: false} only %}</td>
+                            <td data-label="Quoted">{{ priced }} of {{ rfq.lines|length }} lines</td>
+                            <td data-label="Dated">{{ reply.documentDate|default('-') }}</td>
+                            {# The reply's own money, in the reply's own currency. There is no column
+                               total under this one on purpose: summing four competing quotes for the
+                               same goods would produce a number that means nothing. #}
+                            <td data-label="Total">{{ reply.currency }} {{ reply.total|amount }}</td>
+                            <td data-label="Actions">
+                                <a class="table-action" href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">Open</a>
+                                {% if reply.status.allowsPricing %}
+                                    <a class="table-action" href="{{ path('admin_bundle_procurement_rfq_reply_edit', {id: reply.id}) }}">Record prices</a>
+                                {% endif %}
+                                {% if reply.status.value == 'Accepted' and reply.purchaseOrder %}
+                                    <a class="table-action" href="{{ path('admin_bundle_procurement_purchase_order', {id: reply.purchaseOrder.id}) }}">View PO</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+            <div class="table-footer">
+                <p class="field-hint">
+                    Accepting a reply converts it into a purchase order and marks every other reply on this RFQ
+                    Rejected — the quote that was not taken stays visible here rather than disappearing. Accept and
+                    decline both live on the reply itself, where the prices being accepted are on screen.
+                </p>
+            </div>
+        </section>
+    {% endif %}
+
+    {# Who changed the requirement, from the generic AuditLog — the same panel the quote and order
+       detail screens end with. #}
+    {% include 'admin/_shared/_audit_history_panel.html.twig' with {logs: auditHistory|default([])} only %}
+{% endblock %}

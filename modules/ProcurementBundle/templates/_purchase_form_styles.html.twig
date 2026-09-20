@@ -1,0 +1,88 @@
+{#
+    The scoped layout rules the purchase ENTRY forms share (#655, queue items 15 and 45).
+
+    These lived inline at the bottom of `purchase_order_edit.html.twig`, which made them a property
+    of that one screen rather than of the markup they style — and `_purchase_charge_row.html.twig`
+    is a SHARED partial whose `.purchase-charge-*` classes were defined only in that one template.
+    So any second form including the charge row rendered it unstyled, which is exactly what the
+    vendor bill form needed to do. Moving them here fixes that at the root instead of copying the
+    block a second time.
+
+    Nothing here is a COLOUR decision and nothing here is a trait. The owner's ruling of 2026-09-12
+    is that core CSS owns the trait vocabulary — 'late' looks the same everywhere — and a bundle
+    never invents one locally. These are widths, gaps and a rule under the grand-total row: layout
+    for a form that core has never seen, carried beside the markup it belongs to. Status, money and
+    every other stateful thing on these screens uses core's own classes (`order-status`, `button`,
+    `flash`, `table-card`), not one of these.
+
+    Included, never duplicated: one `<style>` per page, and the two forms are two pages.
+#}
+<style>
+    .purchase-charge-bar { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 14px; flex-wrap: wrap; }
+    /* A Main Line fee's row lands directly under the table now (sellDocChargeRowAnchor() in
+       app.js, targeting _purchase_lines_table.html.twig's own mainline-fee-anchor marker — the
+       buy-side twin of sales_lines_table.html.twig's identical marker). Matches app.css's own
+       `.wide-table-wrap > .order-charge-line-row` rule for the same row, scoped here to the first
+       .purchase-charge-row directly after the table rather than every one — Before Tax/After Tax
+       rows (also .purchase-charge-row, anchored down by the totals box) must not pick this up. */
+    table.po-lines-table + .purchase-charge-row,
+    table.bill-lines-table + .purchase-charge-row {
+        padding: 8px 12px;
+        border-top: 1px solid var(--line-light);
+        background: #f8fafc;
+    }
+    table.po-lines-table + .purchase-charge-row > span,
+    table.bill-lines-table + .purchase-charge-row > span {
+        justify-content: flex-start;
+    }
+    /* Matches .order-lines-toolbar .order-add-line-bar exactly (public/assets/css/app.css) —
+       #full-parity, 2026-09-15: without `width: auto` here, this bar was allocated a fixed share
+       of the toolbar's flex row instead of shrinking to its own content, so its own selects wrapped
+       onto extra lines below Add Product/Add Blank Line instead of sitting beside them. */
+    .order-lines-toolbar .purchase-charge-bar { margin-top: 0; margin-bottom: 0; width: auto; }
+    /* Matches .order-lines-toolbar .order-add-line-bar select exactly — a global `select { width:
+       100% }` rule (app.css) is what actually stretched each select to its container's full width;
+       `width: auto` on the wrapper alone doesn't touch that, since it's the SELECTS that were
+       filling whatever width they were given, not the wrapper collapsing around them. */
+    .order-lines-toolbar .purchase-charge-bar select { width: auto; min-width: 150px; }
+    /* Matches .order-total-box/.order-total-box div exactly (public/assets/css/app.css) —
+       #full-parity, 2026-09-15, corrected: this box used to be independently-authored flex rows
+       with no max-width or right-alignment, which is why it rendered full-width on the left
+       instead of the sell side's fixed-width box docked to the right of the line table. */
+    .purchase-total-box { display: grid; gap: 8px; width: min(430px, 100%); margin: 28px 0 0 auto; color: #000; font-size: 0.78rem; font-weight: 700; }
+    .purchase-total-row { display: grid; grid-template-columns: 1fr 120px; gap: 12px; align-items: center; }
+    .purchase-total-row span { text-align: right; }
+    .purchase-total-row.grand { border-top: 2px solid #334155; padding-top: 6px; font-size: 1.1em; }
+    .purchase-charge-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .purchase-charge-row > span { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .purchase-charge-label { width: 180px; }
+    .purchase-charge-slug { width: 120px; }
+    .purchase-charge-select { width: auto; }
+    .purchase-charge-amount { width: 110px; }
+    .po-line-tax, .po-line-subtotal { text-align: right; white-space: nowrap; }
+
+    /* Batch/lot capture (#full-parity, 2026-09-13) — same layout as the sell side's
+       .order-batch-cell/.order-batch-row (public/assets/css/app.css), scoped here under the
+       po-/bill- prefixed classes app.js's generic batch functions key off.
+
+       NO unconditional `.js-only { display: none }` rule here (#full-parity, 2026-09-15,
+       corrected: one used to live in this exact spot, claiming to "mirror the sell side's own
+       no-JS progressive-enhancement rule" while doing the opposite of it). The sell side's real
+       rule lives ONLY inside <noscript> (commercial_document_edit.html.twig's own
+       no_js_noscript_style block, which this page already includes) — .js-only elements are
+       VISIBLE by default and hidden only when scripting is actually off. An unconditional rule
+       here hid every .js-only control (Add Product, Add Blank Line, the charge category filter)
+       permanently, JS or not — the opposite of "hidden until scripting runs". #}
+    .po-batch-cell, .bill-batch-cell { vertical-align: top; padding: 10px 6px; }
+    .po-batch-row, .bill-batch-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+    .po-batch-row .js-batch-label, .bill-batch-row .js-batch-label {
+        width: 80px; flex-shrink: 0; min-height: 26px; height: 26px; padding: 2px 4px;
+        font-size: 0.8rem; line-height: 1.1; border: 1px solid var(--line); border-radius: 6px;
+        background-color: #fff; color: var(--ink); box-sizing: border-box;
+    }
+    .po-batch-row .js-batch-date, .bill-batch-row .js-batch-date {
+        flex: 1 1 0; min-width: 0; min-height: 26px; height: 26px; padding: 2px 4px;
+        font-size: 0.8rem; line-height: 1.1; border: 1px solid var(--line); border-radius: 6px;
+        background-color: #fff; color: var(--ink); box-sizing: border-box;
+    }
+</style>

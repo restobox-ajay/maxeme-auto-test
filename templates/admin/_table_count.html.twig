@@ -1,0 +1,17 @@
+{% set totalItems = total|default(count|default(0)) %}
+{% set visibleCount = count|default(totalItems) %}
+{% set pageNumber = currentPage|default(page|default(1)) %}
+{% set pageSize = perPage|default(limit|default(currentLimit|default(currentPageLimit|default(visibleCount)))) %}
+{% set countClass = className|default('') %}
+
+{% if totalItems > 0 %}
+    {% set startItem = ((pageNumber - 1) * pageSize) + 1 %}
+    {% set endItem = min(totalItems, startItem + visibleCount - 1) %}
+{% else %}
+    {% set startItem = 0 %}
+    {% set endItem = 0 %}
+{% endif %}
+
+<span class="table-count{{ countClass ? ' ' ~ countClass : '' }}">
+    Showing {{ startItem }} to {{ endItem }} of {{ totalItems }} {{ label|default('entries') }}
+</span>

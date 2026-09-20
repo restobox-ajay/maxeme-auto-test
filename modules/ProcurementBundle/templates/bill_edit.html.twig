@@ -1,0 +1,272 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+
+{# Rebuilt against the shared base + line/charge partials PurchaseOrder's own edit screen uses
+   (docs/plans/... vendor-sheet-and-po-csv-import.md's #698 follow-up) — this file and
+   _purchase_order_tab_nav.html.twig-adjacent bill_detail.html.twig were both deleted by 3afde7e0
+   ("Rebuild PurchaseOrder edit/detail with full sell-side charge/tax JS parity"), which rebuilt
+   only PurchaseOrder's half and left Bill's own equivalent rebuild for later — see that commit's own
+   message. `bill_detail.html.twig` was already on the shared `commercial_document_view.html.twig`
+   base from an earlier pass and is restored verbatim; this file genuinely needed rework, since the
+   line/charge partials it calls (`_purchase_line_row.html.twig`, `_purchase_lines_table.html.twig`,
+   `_purchase_add_line_bar.html.twig`, `_purchase_lines_footer.html.twig`) were expanded by that same
+   commit (new columns, `spares`, `hook`) and this form's old calls into them predate that shape.
+
+   ## `hook: ''` throughout — not an oversight, the documented default
+
+   PurchaseOrder's JS live charge/fee/tax editing (`hook: 'po'`) has no Bill equivalent: there are no
+   `admin_bundle_procurement_bill_fee_lines`/`_tax_breakdown` AJAX routes, and `_purchase_add_line_bar
+   .html.twig`'s own docblock states outright — "`hook: ''` (default, VendorBill's current state)
+   renders exactly as before: no JS button, no hook classes, the submit is simply the control." That
+   is what this form still does for charges: real submits, same as before this rebuild. Building the
+   AJAX endpoints + app.js wiring for live bill charge/tax preview is a separate, larger pass, not a
+   difference this template invents an opinion about.
+
+   Line-adding is the same story for a different reason: `_purchase_lines_table.html.twig`'s spare
+   rows carry no CSS/JS rule hiding them based on scripting state (checked directly — neither
+   app.css nor app.js references `.no-js-row` for that purpose), so the two spare rows below whatever
+   is saved work exactly as they always did for Bill, `hook` or not.
+#}
+
+{% set productsRemote = remote|default(false) %}
+{% set _columns = [{key: 'po_line', label: 'Against PO line'}]|merge(constant('App\\Service\\PurchaseDocumentLineColumns::BASE')|json_encode|json_decode)|merge([{key: 'actions', label: 'Actions'}]) %}
+{% set _isDraft = not bill or bill.status == 'Draft' %}
+
+{% block title %}{{ bill ? 'Edit ' ~ bill.billNumber : 'New Bill' }} | Admin{% endblock %}
+
+{# Bill has no customer/vendor-chooser step distinct from the workspace itself — a vendor is chosen
+   inline (or via `?po=`), never by posting one field and being redirected into a second page load —
+   same reasoning PurchaseOrderController::editFrameContext()'s own docblock gives, just supplied
+   here as plain `{% set %}` rather than a controller method, matching this form's pre-rebuild
+   convention (VendorBillController has no editFrameContext() equivalent). #}
+{% set workspaceReady = true %}
+{% set formId = 'bill-form' %}
+{% set formAction = path('admin_bundle_procurement_bill_save') %}
+{# The one JS hook this form still carries regardless of the charge/line-adding question above: the
+   batch cell's submit-time serialize and the product-select tracksBatch re-sync both key off it,
+   same as PurchaseOrder's own form — a different feature from either of the two discussed above. #}
+{% set formClass = 'js-bill-form' %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+{% set heroEyebrow = 'Apps › Inventory › Procurement' %}
+{% set heroLead = bill
+    ? ''
+    : 'Enter a bill against a purchase order, or on its own. Their invoice number is the only thing that can answer "have we seen this one before" — it is what the duplicate-payment guard reads.' %}
+
+{% block hero_heading %}<h1>{{ bill ? 'Edit ' ~ bill.billNumber : 'New Bill' }}</h1>{% endblock %}
+{% block hero_actions %}
+    <a class="button back-button" href="{{ bill ? path('admin_bundle_procurement_bill', {id: bill.id}) : path('admin_bundle_procurement_bills') }}">Back</a>
+{% endblock %}
+
+{% block form_attributes %} data-next-line-index="{{ (bill ? bill.lines|length : 0) + 2 }}" data-bill-charges="{{ chargeRows|json_encode|e('html_attr') }}" data-bill-vendor-rates="{{ vendorRates|json_encode|e('html_attr') }}"{% endblock %}
+
+{% block form_head %}
+    <input type="hidden" name="id" value="{{ bill ? bill.id : 0 }}">
+    {# Only a brand new standalone bill posts a fixed 0 here — it has no vendor yet, so there is
+       nothing to scope a purchase order picker to. Every other case gets the picker below, which is
+       what attaches a bill to an order after the fact and what detaches one attached to the wrong
+       order. #}
+    {% if not bill and not order %}
+        <input type="hidden" name="purchase_order_id" value="0">
+    {% endif %}
+    {# Tells the save this post came from a form that shows charges, so removing the last row really
+       does clear the bill's charges instead of looking like a post that never carried any. Omitted
+       on a brand-new bill, which has nothing stored to protect. #}
+    {% if bill %}<input type="hidden" name="charge_lines_present" value="1">{% endif %}
+
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents|default([])} only %}
+    {% include '@Procurement/_purchase_flash_messages.html.twig' %}
+{% endblock %}
+
+{% block top_actions %}{% endblock %}
+
+{% block context %}
+    {%- import '@Procurement/_purchase_address_cards.html.twig' as address_form %}
+    <div class="order-workspace-grid">
+        <section class="order-form-panel">
+            <h2>Bill Info</h2>
+            {% if bill or order %}
+                {# The vendor is settled once the document exists: the order names it when there is
+                   one, and a saved bill carries its own. Posted as a hidden field so that DETACHING
+                   from the order still leaves the save a vendor to fall back to — without it,
+                   unlinking would post no vendor at all and 404. #}
+                <input type="hidden" name="vendor_id" value="{{ bill ? bill.vendor.id : order.vendor.id }}">
+                <div class="order-field-row static">
+                    <label>Vendor:</label>
+                    <strong>{{ bill ? bill.vendorName : order.vendorName }}</strong>
+                </div>
+                <label class="order-field-row">
+                    <span>Against purchase order:</span>
+                    <select name="purchase_order_id" aria-label="Against purchase order">
+                        <option value="0">— none, this bill stands alone —</option>
+                        {% for candidate in linkableOrders %}
+                            <option value="{{ candidate.id }}"{{ order and order.id == candidate.id ? ' selected' : '' }}>{{ candidate.poNumber }} — {{ candidate.status.value }} — {{ candidate.currency }} {{ candidate.total|amount }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% else %}
+                <label class="order-field-row">
+                    <span>Vendor:</span>
+                    <select name="vendor_id" required>
+                        <option value=""></option>
+                        {% for vendor in vendors %}
+                            <option value="{{ vendor.id }}"{{ bill and bill.vendor.id == vendor.id ? ' selected' : '' }}>{{ vendor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+            <div class="order-field-row static">
+                <label>Bill number:</label>
+                <strong>{{ bill ? bill.billNumber : nextNumber }}</strong>
+            </div>
+            <label class="order-field-row">
+                <span>Their invoice number:</span>
+                <input type="text" name="vendor_invoice_no" maxlength="80" value="{{ bill ? bill.vendorInvoiceNo : '' }}">
+            </label>
+            <label class="order-field-row">
+                <span>Dated:</span>
+                <input type="date" name="document_date" value="{{ bill ? bill.documentDate : 'now'|date('Y-m-d') }}">
+            </label>
+            <label class="order-field-row">
+                <span>Due:</span>
+                <input type="date" name="due_date" value="{{ bill ? bill.dueDate : '' }}">
+            </label>
+            {% if order %}
+                <input type="hidden" name="warehouse_id" value="{{ order.warehouse.id }}">
+                <div class="order-field-row static">
+                    <label>Receiving warehouse:</label>
+                    <strong>{{ order.warehouse.name }}</strong>
+                </div>
+            {% else %}
+                <label class="order-field-row">
+                    <span>Receiving warehouse:</span>
+                    <select name="warehouse_id">
+                        <option value="0">— not stated —</option>
+                        {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}"{{ receivingWarehouse and receivingWarehouse.id == warehouse.id ? ' selected' : '' }}>{{ warehouse.name }}{% if warehouse.province %} ({{ warehouse.province }}){% else %} — no province on file{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+            {% set _notYetSavedBody = '' %}
+            {% if receivingWarehouse %}
+                {% set _notYetSavedBody %}
+                    {% if receivingWarehouse.province %}
+                        Tax province: <strong>{{ receivingWarehouse.province }}</strong>, from {{ receivingWarehouse.name }}'s address — nothing is frozen onto this bill yet; saving this draft takes it, and approving freezes it.
+                    {% else %}
+                        <strong>{{ receivingWarehouse.name }} has no province recorded</strong>, so this bill would have no tax province and taxable goods on it would compute no tax. Record the address under Config &rsaquo; Warehouses before you save. A bill with taxable goods and no province cannot be approved.
+                    {% endif %}
+                {% endset %}
+            {% endif %}
+            <p class="form-note span-2" id="bill-tax-province-note">
+                {% include '@Procurement/_purchase_tax_province_note_edit.html.twig' with {
+                    documentNoun: 'bill',
+                    cannotFreezeSentence: 'A bill with taxable goods and no province cannot be approved.',
+                    isDraft: _isDraft,
+                    hasProvince: bill and bill.taxProvince,
+                    provinceDisplay: (bill and bill.taxProvince) ? (provinces[bill.taxProvince]|default(bill.taxProvince) ~ ' (' ~ bill.taxProvince ~ ')') : '',
+                    warehouse: receivingWarehouse,
+                    savingRetakesSentence: 'Saving this draft takes it again; approving freezes it.',
+                    frozenPastDraftSentence: 'It was frozen when this bill left Draft, and editing the bill does not restate it — moving a warehouse does not re-tax a bill that has already been authorised.',
+                    warehouseKnownButNotSavedYet: receivingWarehouse and not bill,
+                    notYetSavedBody: _notYetSavedBody,
+                    noWarehouseSentence: 'No receiving warehouse is named, so this bill has no tax province.',
+                    noWarehouseRemedySentence: 'Name one above and save, and its address answers. A bill with taxable goods and no province cannot be approved.',
+                } only %}
+            </p>
+            <label class="order-field-row span-2">
+                <span>Notes:</span>
+                <textarea name="notes" rows="2">{{ bill ? bill.notes : '' }}</textarea>
+            </label>
+        </section>
+
+        {% if addressVendor %}
+            {{ address_form.address_cards(addressVendor, addresses, addressBook) }}
+        {% else %}
+            <section class="order-form-panel">
+                <p class="lead">Choose a vendor — their address book appears here, and is frozen onto the document at your next save.</p>
+            </section>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block lines_toolbar %}
+    {{ include('@Procurement/_purchase_lines_toolbar.html.twig', {sentinel: bill is not null}, with_context = false) }}
+{% endblock %}
+
+{% block lines_note %}{% endblock %}
+
+{% block lines_table %}
+    {{ include('@Procurement/_purchase_lines_table.html.twig', {
+        tableClass: 'bill-lines-table',
+        colPrefix: 'bill',
+        lineColumns: _columns,
+        lineRows: lineRows,
+        lineRowOptions: {
+            lineClass: 'bill-line-row',
+            actionsTemplate: '@Procurement/_purchase_line_actions.html.twig',
+            taxClasses: taxClasses,
+            taxCodeBlankLabel: '',
+            showRemove: true,
+            warehouses: warehouses|map(w => w.name),
+            documentWarehouseName: receivingWarehouse ? receivingWarehouse.name : '',
+        },
+        products: products,
+        productsRemote: productsRemote,
+        spares: true,
+        emptyLinesMessage: 'No lines yet.',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block lines_after_table %}
+    {# "Save & add more lines" — the RFQ form's own wording and mechanism, kept here rather than
+       dropped: unlike PurchaseOrder, Bill has no CSV line importer to fall back on for a long
+       vendor invoice, so the real-submit round trip (save what's typed, come back with two fresh
+       spares) is still this form's only way to enter more than two lines at once. #}
+    <div class="form-actions">
+        <button class="button" type="submit" name="action" value="save_continue">Save &amp; add more lines</button>
+    </div>
+{% endblock %}
+
+{% block lines_footer %}
+    {# "No tax province on this bill" — the Tax-row twin of the #bill-tax-province-note panel above,
+       re-evaluated LIVE off the receiving warehouse, same as PurchaseOrder's identical note. #}
+    {% set _beforeTotalTaxSlot %}
+        {% if not (bill and bill.taxProvince) %}
+            <div class="purchase-total-row"><span>Tax:</span><strong id="bill-total-tax-empty">
+                {%- if bill and receivingWarehouse and receivingWarehouse.province %} no tax province on this bill: {{ receivingWarehouse.name }} records {{ receivingWarehouse.province }}, but this bill was entered before that
+                {%- elseif receivingWarehouse and receivingWarehouse.province %} nothing is saved yet: saving this draft takes {{ receivingWarehouse.province }} from {{ receivingWarehouse.name }}
+                {%- elseif receivingWarehouse %} no tax province: {{ receivingWarehouse.name }} has no province on file
+                {%- else %} no tax province: name a receiving warehouse with a province to calculate tax
+                {%- endif %}</strong></div>
+        {% endif %}
+    {% endset %}
+    <h2>Freight and other charges</h2>
+    <p class="lead">A charge added after tax is never taxed — that combination is refused.</p>
+    {{ include('@Procurement/_purchase_lines_footer.html.twig', {
+        chargeLines: chargeRows,
+        beforeTaxFeeLines: [],
+        afterTaxFeeLines: [],
+        taxLines: taxLines,
+        subtotalDisplay: (bill ? bill.subtotal : '0.00')|amount,
+        taxLinesTotalDisplay: (bill ? bill.tax : '0.00')|amount,
+        grandTotalDisplay: (bill ? bill.total : '0.00')|amount,
+        taxClasses: taxClasses,
+        currency: bill ? bill.currency : (order ? order.currency : 'CAD'),
+        beforeTotalTaxSlot: _beforeTotalTaxSlot,
+        idPrefix: 'bill',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block bottom_actions %}
+    <div class="form-actions"><button class="button primary" type="submit">Save draft</button></div>
+{% endblock %}
+
+{% block after_form %}
+    <section class="panel">
+        <p class="lead">A bill cannot charge for more of a purchase order line than it has left.</p>
+    </section>
+
+    {% include '@Procurement/_purchase_form_styles.html.twig' %}
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendors | Admin{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {#
+       The column widths, the only thing this screen needs that `app.css` does not already give it.
+       They live here rather than in `app.css` because that file is core and this is a bundle: the
+       standing rule is that a bundle uses what core provides and does not edit it. `.company-table`
+       cannot simply be reused — its nth-child widths are cut for the customer list's eight columns
+       and this table has ten.
+
+       `min-width` is what makes the table scroll horizontally inside `.table-scroll-region` instead
+       of crushing ten columns into the viewport, and it is the same device `.company-table` uses
+       (1540px there, for eight).
+    #}
+    <style>
+        .vendor-table {
+            min-width: 1680px;
+            table-layout: fixed;
+        }
+        .vendor-table th,
+        .vendor-table td {
+            padding: 10px 9px;
+            border-right: 1px solid var(--line-light);
+            font-size: 0.78rem;
+        }
+        .vendor-table th {
+            overflow: hidden;
+            text-overflow: clip;
+            white-space: nowrap;
+        }
+        .vendor-table th:last-child,
+        .vendor-table td:last-child {
+            border-right: 0;
+        }
+        .vendor-table th:nth-child(1),
+        .vendor-table td:nth-child(1) { width: 230px; }
+        .vendor-table th:nth-child(2),
+        .vendor-table td:nth-child(2) { width: 220px; }
+        .vendor-table th:nth-child(3),
+        .vendor-table td:nth-child(3) { width: 190px; }
+        .vendor-table th:nth-child(4),
+        .vendor-table td:nth-child(4) { width: 240px; }
+        .vendor-table th:nth-child(5),
+        .vendor-table td:nth-child(5) { width: 170px; }
+        .vendor-table th:nth-child(6),
+        .vendor-table td:nth-child(6) { width: 150px; }
+        .vendor-table th:nth-child(7),
+        .vendor-table td:nth-child(7) { width: 100px; }
+        .vendor-table th:nth-child(8),
+        .vendor-table td:nth-child(8) { width: 110px; }
+        .vendor-table th:nth-child(9),
+        .vendor-table td:nth-child(9) { width: 70px; }
+        .vendor-table th:nth-child(10),
+        .vendor-table td:nth-child(10) { width: 100px; }
+        .vendor-table .filter-row th {
+            padding: 8px 9px;
+            background: #fff;
+        }
+        .vendor-table .filter-row input,
+        .vendor-table .filter-row select {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 9px;
+            border-width: 1px;
+            border-radius: 5px;
+            font-size: 0.78rem;
+        }
+    </style>
+{% endblock %}
+
+{% block admin_body %}
+    {#
+       The vendor list, conformed to `/admin/company` (#660).
+
+       What changed and why, because the shape of this file is the point:
+
+       * Creating a vendor is `/vendors/new`, a page of its own, reached by Create Vendor in the
+         title row. The inline create form that used to sit here is gone. It was also the cause of
+         the squeezed layout: `.content-frame` is clamped to `calc(100vh - 3rem)` whenever a
+         `.table-card` below it carries a `.table-scroll-region`, and a plain `section.panel` is not
+         `flex: 0 0 auto`, so the create panel was compressed and its text ran over the table.
+       * One filter input per column, under that column's header, instead of one search box spanning
+         three of them. Same `filters[...]` naming as the customer list.
+       * Row actions are one dropdown, matching the customer list's. The delete guard is unchanged:
+         `VendorController::delete()` still counts `purchase_order.vendor_id`,
+         `goods_receipt.vendor_id` and `vendor_bill.vendor_id` and refuses with the numbers, and a
+         vendor with history is set Inactive on its record instead. The Delete panel on the vendor's
+         own record — a plain form, no scripting — is the other way to reach it.
+       * NOTHING but the grid is inside `.table-card`. The paragraph explaining the delete rule used
+         to sit under the table inside the card, where the same 100vh clamp made it overlap the
+         grid; it is on the record's own Delete panel, which is where somebody deleting a vendor is.
+    #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendors',
+        heading: 'Vendors',
+        createPath: path('admin_bundle_procurement_vendor_create'),
+        createLabel: 'Create Vendor'
+    } only %}
+
+    {#
+       The columns, declared once and read by BOTH header rows.
+
+       Two rows that must stay the same width — #621 asserts the filter row, the body rows and the
+       empty state all match the header — so they are generated from one list rather than typed out
+       twice and kept in step by hand.
+
+       Every column here is sortable, and every `sort` below is a key VendorRepository::ordered()
+       actually implements — a header link for a sort that does nothing is worse than silence
+       (#622). Primary Contact and Remit-To Address are the two that are not plain columns on
+       `vendor`; they sort through the at-most-one primary contact and the at-most-one remit-to
+       address, which is the same device the customer list uses for Billing Address.
+    #}
+    {% set columns = [
+        {label: 'Vendor Name',      sort: 'name',          filter: 'name',          kind: 'text'},
+        {label: 'Primary Email',    sort: 'email',         filter: 'email',         kind: 'text'},
+        {label: 'Primary Contact',  sort: 'contact',       filter: 'contact',       kind: 'text'},
+        {label: 'Remit-To Address', sort: 'remitTo',       filter: 'remitTo',       kind: 'text'},
+        {label: 'Account Number',   sort: 'accountNumber', filter: 'accountNumber', kind: 'text'},
+        {label: 'Payment Term',     sort: 'paymentTerm',   filter: 'paymentTerm',   kind: 'text'},
+        {label: 'Currency',         sort: 'currency',      filter: 'currency',      kind: 'text'},
+        {label: 'Status',           sort: 'status',        filter: 'status',        kind: 'status'},
+        {label: 'ID',               sort: 'id',            filter: 'id',            kind: 'text'}
+    ] %}
+
+    <section class="table-card vendor-admin-grid no-paginate">
+        <form method="get" id="vendor-filters" action="{{ path('admin_bundle_procurement_vendors') }}" class="js-auto-submit-form">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="page" value="1">
+            {# A real submit button, so the filter row applies by pressing Enter with JavaScript off.
+               Hidden because the filter row has nowhere to put nine of them. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-scroll-region">
+                <div class="wide-table-wrap">
+                    <table class="admin-grid-table vendor-table">
+                        <thead>
+                            <tr>
+                                {% for column in columns %}
+                                    {% set nextDir = currentSort == column.sort and currentDir == 'asc' ? 'desc' : 'asc' %}
+                                    <th class="is-sortable{% if currentSort == column.sort %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="{{ column.sort }}">
+                                        <a href="{{ path('admin_bundle_procurement_vendors', {filters: filters, limit: limit, page: 1, sort: column.sort, dir: nextDir}) }}">{{ column.label }}</a>
+                                    </th>
+                                {% endfor %}
+                                <th style="width: 100px; text-align: center;">Actions</th>
+                            </tr>
+                            <tr class="filter-row">
+                                {% for column in columns %}
+                                    <th>
+                                        {% if column.kind == 'status' %}
+                                            <select name="filters[{{ column.filter }}]" data-filter-field="{{ column.filter }}" aria-label="Filter {{ column.label|lower }}">
+                                                <option value=""></option>
+                                                {% for status in statuses %}
+                                                    <option value="{{ status }}"{{ filters[column.filter] == status ? ' selected' : '' }}>{{ status }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        {% else %}
+                                            <input type="text" name="filters[{{ column.filter }}]" value="{{ filters[column.filter] }}" data-filter-field="{{ column.filter }}" aria-label="Filter {{ column.label|lower }}">
+                                        {% endif %}
+                                    </th>
+                                {% endfor %}
+                                <th style="width: 100px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% include '@Procurement/_vendor_list_rows.html.twig' with {rows: rows} only %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'vendors'} only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_procurement_vendors',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

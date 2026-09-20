@@ -1,0 +1,98 @@
+framework:
+    rate_limiter:
+        # Guards the "request a password reset / account setup email" endpoints
+        # (admin and customer) against unbounded email sending and token
+        # regeneration — login_throttling in security.yaml only covers the
+        # login form itself, not these separate routes.
+        password_reset_request:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '15 minutes'
+
+        # Guest registration (POST /auth/register, route customer_register) — issue #336.
+        # Nothing guarded this endpoint before: login_throttling in security.yaml covers the login
+        # form only, and password_reset_request covers the reset routes only. CSRF is not a barrier
+        # here either — tokens are session-scoped and reusable, so a client can GET the form once,
+        # scrape _token and post with it repeatedly.
+        #
+        # An accepted POST buys an attacker: one email to a `company_email` THEY chose (the address
+        # is used verbatim as the `to:`), one email to every Active AdminUser, a Company +
+        # CustomerUser + 1-2 CompanyAddress rows, and one deliberately-expensive password hash.
+        # Mail is still sent inline, so it also holds the worker.
+        #
+        # Three tiers rather than one, because one number cannot express both shapes of abuse:
+        # the 5-minute tier stops a burst, the hourly tier stops a slow drip that would slide
+        # under it, and the daily tier caps the total. Registration is a once-per-company act, so
+        # even the tightest tier is far above what a real customer needs — two attempts inside five
+        # minutes already means something went wrong, and the count is only spent on submissions
+        # that pass validation (see AuthController::register()), never on a corrected typo.
+        customer_registration_burst:
+            policy: 'sliding_window'
+            limit: 2
+            interval: '5 minutes'
+
+        customer_registration_hourly:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 hour'
+
+        customer_registration_daily:
+            policy: 'sliding_window'
+            limit: 6
+            interval: '1 day'
+
+        # Consumed as one unit by the controller, keyed per client IP. CompoundLimiter::consume()
+        # consumes every sub-limiter and reports the most restrictive result, so the caller makes
+        # a single decision and cannot accidentally consult two tiers and honour only one.
+        customer_registration:
+            policy: 'compound'
+            limiters:
+                - customer_registration_burst
+                - customer_registration_hourly
+                - customer_registration_daily
+
+        # Second limiter for the same endpoint, keyed on the submitted `company_email` instead of
+        # the client IP — issue #336 asks for this to be considered, and it is the tier that
+        # actually bounds the mail-amplification angle. The IP tiers above cap what ONE source can
+        # send; they do nothing about a botnet pointing a thousand fresh IPs at one victim's inbox.
+        # Keyed on the recipient, the cap holds no matter how many sources are involved: an address
+        # receives at most 6 registration emails a day, full stop.
+        #
+        # The tradeoff, stated plainly: someone can spend 6 accepted POSTs to stop a specific
+        # address registering for the rest of the day. That is a real griefing vector, but it is a
+        # day-long delay on a once-in-a-company's-lifetime action and it is recoverable by waiting
+        # or by contacting support — whereas an unbounded mail-bomb aimed at a third party burns
+        # this domain's sending reputation, which is not.
+        customer_registration_recipient:
+            policy: 'sliding_window'
+            limit: 6
+            interval: '1 day'
+
+        # Throttles the customer API. Keyed per credential rather than per IP by
+        # App\Security\Api\ApiKeyAuthenticator: a credential is one named user, so the limit follows
+        # the account that owns it instead of whatever network it happens to call from.
+        api_catalog:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'
+
+        # The same endpoint before a key has been identified, keyed per IP. api_catalog cannot cover
+        # this: it needs a credential id, and every failure path (unknown key, revoked key, blocked
+        # account, disabled company or user) throws before one exists — so without this, invalid
+        # traffic is unthrottled while valid traffic is capped. Set well above api_catalog's 60 so a
+        # busy office NATed behind one address is not punished for its neighbours, while still
+        # bounding key-guessing the way login_throttling bounds password-guessing.
+        api_unauthenticated:
+            policy: 'sliding_window'
+            limit: 300
+            interval: '1 minute'
+
+        # Database console: caps switch-on (which emails a security alert) and
+        # open (which mints a session credential), keyed per Tech Support user,
+        # so a stolen session cannot flood alert recipients or spawn sessions.
+        # The gateway that redeems the credential is throttled separately, by IP,
+        # in public/db-admin.php (it runs outside the kernel).
+        db_console:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '5 minutes'

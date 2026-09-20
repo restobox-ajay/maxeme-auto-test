@@ -1,0 +1,141 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Barcodes | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default(1) %}
+    {% if pageCount < 1 %}{% set pageCount = 1 %}{% endif %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+
+    {% include '@Barcode/_nav.html.twig' with {
+        current: 'barcodes',
+        heading: 'Barcodes',
+        lead: 'Every scannable identifier on every product. A product has many in real life — a UPC on the pack, a case GTIN on the carton, and a different part number at each supplier — so each one is a row here rather than a column on the product.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <h2>Open a product</h2>
+        <p class="lead">
+            Type or scan a SKU, or any barcode already on any product. A hardware scanner works here the same way it
+            works on the scan console: it types the code and presses Enter.
+        </p>
+        <form method="get" action="{{ path('admin_bundle_barcodes_open') }}" class="form-grid">
+            <label>SKU or barcode
+                <input type="text" name="code" autocomplete="off" placeholder="Scan or type, then Enter" required>
+            </label>
+            <div class="form-actions"><button class="button primary" type="submit">Open</button></div>
+        </form>
+    </section>
+
+    <section class="table-card product-barcode-grid no-paginate"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        {# Outside the table on purpose: the per-row delete actions below are their own <form>s and
+           forms cannot nest. The filter controls in the table reference this one by id. #}
+        <form id="product-barcode-filters" method="get" action="{{ path('admin_bundle_barcodes') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+        </form>
+
+        <div class="table-header">
+            <h2>{{ total }} barcode{{ total == 1 ? '' : 's' }}</h2>
+        </div>
+
+        <div class="table-scroll-region">
+            <table class="admin-grid-table product-barcode-table">
+                <thead>
+                    <tr>
+                        {% set nextDir = currentSort == 'code' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'code' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_bundle_barcodes', {sort: 'code', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Code</a></th>
+                        {% set nextDir = currentSort == 'kind' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'kind' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_bundle_barcodes', {sort: 'kind', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Kind</a></th>
+                        {% set nextDir = currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_bundle_barcodes', {sort: 'product', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Product</a></th>
+                        {% set nextDir = currentSort == 'party' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'party' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_bundle_barcodes', {sort: 'party', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Whose</a></th>
+                        <th>Labels encode</th>
+                        <th>Added</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[code]" value="{{ filters.code|default('') }}" form="product-barcode-filters" aria-label="Filter code"></th>
+                        <th>
+                            <select name="filters[kind]" form="product-barcode-filters" aria-label="Filter kind">
+                                <option value=""></option>
+                                {% for value, label in kinds %}
+                                    <option value="{{ value }}" {{ filters.kind|default('') == value ? 'selected' : '' }}>{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[product]" value="{{ filters.product|default('') }}" form="product-barcode-filters" aria-label="Filter product"></th>
+                        <th><input type="text" name="filters[party]" value="{{ filters.party|default('') }}" form="product-barcode-filters" aria-label="Filter whose code this is"></th>
+                        <th></th>
+                        <th></th>
+                        {# A real, visible submit button: this form has three text inputs, and without one
+                           pressing Enter in any of them would do nothing at all. #}
+                        <th><button class="button" type="submit" form="product-barcode-filters">Filter</button></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td><code>{{ row.code }}</code></td>
+                            <td>{{ row.kind }}</td>
+                            <td>
+                                <a href="{{ path('admin_bundle_barcodes_product', {id: row.product.id}) }}">{{ row.product.sku }}</a>
+                                — {{ row.product.name }}
+                            </td>
+                            <td>{{ row.party|default('—') }}</td>
+                            <td>{{ row.primary ? 'Yes' : '—' }}</td>
+                            <td>{{ row.createdAt|date('Y-m-d') }}</td>
+                            <td>
+                                <a class="table-action" href="{{ path('admin_bundle_barcodes_product', {id: row.product.id}) }}">Edit</a>
+                                <button class="table-action danger" type="submit" form="delete-barcode-{{ row.id }}">Delete</button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7">
+                            No barcodes yet. Nothing was invented for you: a product with no barcode still prints its SKU
+                            on a label and still scans by its SKU, exactly as it did before this screen existed.
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-footer">
+            <label class="per-page-label">
+                Per page
+                <select name="limit" form="product-barcode-filters" onchange="this.form.submit()">
+                    {% for size in pageSizes %}
+                        <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: rows|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit,
+                label: 'barcodes'
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_bundle_barcodes',
+                routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+    {# Emitted after the table, never inside it: a <form> nested in a <form> is invalid HTML and the
+       browser drops the inner one. The row's button reaches this by id. #}
+    {% for row in rows %}
+        <form id="delete-barcode-{{ row.id }}" method="post" action="{{ path('admin_bundle_barcodes_delete', {id: row.id}) }}" hidden>
+            {{ csrf_field() }}
+        </form>
+    {% endfor %}
+{% endblock %}

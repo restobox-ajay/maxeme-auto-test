@@ -1,0 +1,87 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ editing ? 'Edit ' ~ editing.code : 'Add a unit' }} | Admin{% endblock %}
+{% block admin_body %}
+    {# One template for both create and edit, reached at `admin_product_unit_of_measure_new` and
+       `admin_product_unit_of_measure_edit`, posting to the one `admin_product_unit_of_measure_save`
+       either way.
+
+       The hidden `id` is still `{{ '{{ editing ? editing.id : 0 }}' }}` and `save()` still reads it
+       to decide between `UnitOfMeasureService::update()` and `::add()`. That is what keeps editing
+       working, and it is exactly what the debit memo and vendor return screens get wrong by
+       hard-coding `0` into the same field. Splitting the route moved the FORM to its own page; the
+       id rides inside it as before, and the service is still the only thing that writes. #}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products &middot; Units of Measure</p>
+                <h1>{{ editing ? 'Edit "' ~ editing.code ~ '"' : 'Add a unit' }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_product_unit_of_measure_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}<div class="flash flash-success">{{ msg }}</div>{% endfor %}
+    {% for msg in app.flashes('error') %}<div class="flash flash-error">{{ msg }}</div>{% endfor %}
+
+    <section class="form-card">
+        {% if editing and editingReferences|length > 0 %}
+            {# Said before anything is typed, not after the save bounces. The refusal itself lives in
+               UnitOfMeasureService and applies to this post whatever this page renders. #}
+            <p class="lead">
+                This unit is referenced by
+                {% for label, count in editingReferences %}<strong>{{ label }}</strong> ({{ count }}){{ loop.last ? '' : ', ' }}{% endfor %}.
+                Its <strong>name</strong> and <strong>rounding precision</strong> can still be corrected. Its
+                <strong>code</strong>, <strong>family</strong> and <strong>factor</strong> are frozen: changing them
+                would restate every one of those rows at once, with nothing recorded and nothing to reconcile. A unit
+                that needs a different ratio is a new unit &mdash; add it, then repoint the products that use it.
+            </p>
+        {% endif %}
+        <form class="form-grid" method="post" action="{{ path('admin_product_unit_of_measure_save') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ editing ? editing.id : 0 }}">
+
+            <label>
+                Code <span class="req">*</span>
+                <input type="text" name="code" maxlength="16" required value="{{ editing ? editing.code : '' }}">
+                <small>What a document prints &mdash; EA, KG, L. Upper-cased and unique.</small>
+            </label>
+
+            <label>
+                Name <span class="req">*</span>
+                <input type="text" name="name" maxlength="80" required value="{{ editing ? editing.name : '' }}">
+                <small>What a person reads on the product form.</small>
+            </label>
+
+            <label>
+                Family
+                <select name="family">
+                    {% for family in families %}
+                        <option value="{{ family }}"{{ editing and editing.family == family ? ' selected' : '' }}>{{ family }}</option>
+                    {% endfor %}
+                </select>
+                <small>What it measures. Nothing converts across families.</small>
+            </label>
+
+            <label>
+                Factor to family base <span class="req">*</span>
+                <input type="text" name="factor_to_family_base" inputmode="decimal" required
+                       value="{{ editing ? editing.factorToFamilyBase : '1.000000' }}">
+                <small>How many of the family's base unit one of these holds. KG is 1000 G; EA is 1.</small>
+            </label>
+
+            <label>
+                Rounding precision <span class="req">*</span>
+                <input type="text" name="rounding_precision" inputmode="decimal" required
+                       value="{{ editing ? editing.roundingPrecision : '1.000000' }}">
+                <small>The smallest step a quantity may take. 1 means whole numbers only.</small>
+            </label>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">{{ editing ? 'Save unit' : 'Add unit' }}</button>
+                <a class="button" href="{{ path('admin_product_unit_of_measure_index') }}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

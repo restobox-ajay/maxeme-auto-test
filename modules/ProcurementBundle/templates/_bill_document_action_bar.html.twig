@@ -1,0 +1,42 @@
+{#
+    Bill's `actionBarTemplate` for `commercial_document_view.html.twig` — the same role
+    `_document_action_bar.html.twig` plays for PurchaseOrder, and for the same reason: `detail()` is
+    the only GET route for this document, so there is nothing for a real tab bar to say here.
+
+    What it carries beyond the flash messages `@Procurement/_nav.html.twig` used to render for every
+    other purchase-side screen (this document has no app.js hook, so a flash has to be real, visible
+    markup): the duplicate-invoice-number and received-elsewhere warnings, which are `report`-driven
+    and belong at the very top of the page, above the summary cards, exactly where they sat before
+    this screen joined the shared frame. `report` is passed in explicitly because the frame includes
+    this template `with actionBarContext only` — nothing else on the page leaks into this slot.
+
+    Parameters
+    ----------
+    report  required  the three-way-match report `VendorBillController::detail()` builds.
+    bill    required  the vendor bill, for the duplicate-invoice-number notice's own wording.
+#}
+{% include '@Procurement/_purchase_flash_messages.html.twig' %}
+
+{% if report.duplicateVendorInvoiceNumber %}
+    <div class="flash flash-error">
+        Vendor invoice {{ bill.vendorInvoiceNo }} is already on file for {{ bill.vendorName }}. Paying the same
+        invoice twice is the most expensive clerical error in AP, and it happens because the same PDF arrives twice
+        by email. Check before approving — this is a warning and not a block, because vendors do reuse their own
+        numbers.
+    </div>
+{% endif %}
+
+{# The fourth document in the three-way match: where the goods actually landed. A bill's warehouse
+   is the only input to its frozen tax province (queue item 32), so a bill naming a building the
+   receipts contradict was taxed at the wrong province's rates — and until this notice nothing in
+   the estate said so. Warned and not blocked, exactly as the duplicate above is: a split delivery
+   and a mis-booked receipt look identical from here, and only a human knows which this is. The
+   sentence comes from the report so this screen and the timeline entry written at approval cannot
+   disagree about a finding whose entire subject is two records disagreeing. #}
+{% if report.receivedElsewhere %}
+    <div class="flash flash-error" id="bill-received-elsewhere">
+        {{ report.describeReceivedElsewhere }}
+        Check the receipts before approving — a split delivery is legitimate, a receipt booked to
+        the wrong warehouse is not, and they look the same from here.
+    </div>
+{% endif %}

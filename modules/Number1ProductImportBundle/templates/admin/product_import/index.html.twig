@@ -1,0 +1,172 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Number1 Product CSV Import | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Bulk updates</p>
+                <h1>Number1 Product CSV Import</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_bundle_number1_product_import_template') }}">Download example CSV</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" enctype="multipart/form-data" class="form-grid">
+            {{ csrf_field() }}
+
+            <div class="span-2">
+                <label class="file-upload-label">
+                    CSV file <span class="req">*</span>
+                    <small>The QuickBooks Item List export — headers must include NAME, REFNUM, DESC, QNTY, PRICE, COST, TAXABLE, SALESTAXCODE.</small>
+                </label>
+                <input type="file" name="csv_file" accept=".csv,text/csv" required>
+            </div>
+
+            <label>
+                Fallback category
+                <select name="fallback_category_id">
+                    <option value="" {{ selectedFallbackCategorySelection == '' ? 'selected' : '' }}>None — leave uncategorized if NAME doesn't match a category</option>
+                    <option value="{{ createCategoryValue }}" {{ selectedFallbackCategorySelection == createCategoryValue ? 'selected' : '' }}>Create a category automatically for each unmatched segment</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {{ selectedFallbackCategorySelection == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="import-inline-help">Used when NAME's first colon-separated segment (e.g. "TIRE" in "TIRE:12' TIRE:PO1006H1") doesn't match an existing category name. "Create automatically" makes one new category per unmatched segment (e.g. "Tire", "Wheels") and reuses it on later uploads.</small>
+            </label>
+
+            <label>
+                Default sales tax code
+                <select name="default_sales_tax_code">
+                    <option value="E" {{ defaultSalesTaxCode == 'E' ? 'selected' : '' }}>E &mdash; Exempt</option>
+                    <option value="G" {{ defaultSalesTaxCode == 'G' ? 'selected' : '' }}>G &mdash; GST only</option>
+                    <option value="S" {{ defaultSalesTaxCode == 'S' ? 'selected' : '' }}>S &mdash; GST + PST</option>
+                </select>
+                <small class="import-inline-help">Used when a row's SALESTAXCODE cell is blank (or the file has no SALESTAXCODE column at all), unless TAXABLE = N forces it to Exempt. This setting is saved and reused on every future upload.</small>
+            </label>
+
+            <label>
+                If a SKU is missing from this file
+                <select name="missing_rows">
+                    <option value="do_nothing" {{ missingRows == 'do_nothing' ? 'selected' : '' }}>Do nothing</option>
+                    <option value="inactivate" {{ missingRows == 'inactivate' ? 'selected' : '' }}>Set missing products as Inactive</option>
+                </select>
+                <small class="import-inline-help">Applies to products already in the catalog whose REFNUM doesn't appear anywhere in this upload.</small>
+            </label>
+
+            <label class="checkbox-label">
+                <input type="checkbox" name="store_vendor_meta" value="yes" {{ storeMeta ? 'checked' : '' }}>
+                Store vendor/accounting metadata (QuickBooks item name, supplier, GL accounts, notes) as custom fields on each product
+            </label>
+
+            {# One flag per bucket, none bundled and none defaulted: whether a fresh count already
+               accounts for stock mid-transfer, quarantined, held in a cart, reserved or already
+               committed to an invoice is information only the person running this import has — see
+               CoreInventoryTotalCountService's own docblock for why this app never guesses it. #}
+            {% for row in clearBucketRows %}
+                {% if row.offered %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="{{ row.field }}" value="yes" {{ row.checked ? 'checked' : '' }}>
+                        {{ row.label }}
+                        <small class="import-inline-help">{{ row.help|raw }}</small>
+                    </label>
+                {% endif %}
+            {% endfor %}
+
+            {% if tsbcAvailable %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="enable_tire_tsbc" value="yes" {{ enableTireTsbc ? 'checked' : '' }}>
+                    Enable TSBC for Tire products
+                    <small class="import-inline-help">Marks every <strong>newly created</strong> product that lands in the Tire category as eligible for the BC Tire Stewardship (TSBC) fee, so a BC order containing that product charges TSBC per unit. Rows this upload only updates are never re-stamped &mdash; a per-product TSBC checkbox an admin set or cleared by hand always wins.</small>
+                </label>
+            {% endif %}
+
+            <label>
+                Fallback fulfillment region
+                <select name="fallback_region_id">
+                    <option value="0" {{ fallbackRegionId == 0 ? 'selected' : '' }}>None &mdash; don't update inventory for a blank LOCATION</option>
+                    {% for region in regions %}
+                        <option value="{{ region.id }}" {{ fallbackRegionId == region.id ? 'selected' : '' }}>{{ region.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="import-inline-help">Used when a row's LOCATION cell is blank (or the file has no LOCATION column at all) &mdash; QNTY is applied to this region instead of being dropped. This setting is saved and reused on every future upload. Rows with a non-blank LOCATION are matched/mapped as usual on the next step.</small>
+            </label>
+
+            <div class="span-2">
+                <article class="panel">
+                    <h2>Column mapping</h2>
+                    <div class="table-shell">
+                        <table class="admin-grid-table table">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Use</th>
+                                    <th>Becomes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>REFNUM</code></td>
+                                    <td><span class="badge danger">Required</span></td>
+                                    <td>Product SKU — matches an existing product (updates it) or creates a new one.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>DESC</code>, <code>NAME</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Product name (DESC preferred, falls back to NAME). NAME's first segment is also used to guess the category.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>QNTY</code>, <code>LOCATION</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>After upload, you'll match each distinct non-blank LOCATION value to a Fulfillment Region — a region matching the LOCATION name already is auto-selected, and one with no match is pre-selected to be created automatically. QNTY then becomes that region's inventory count for that row. Rows with a blank LOCATION use the fallback region below instead.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>PRICE</code>, <code>COST</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Original (retail) price and cost price.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>TAXABLE</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td><code>TAXABLE = N</code> forces the sales tax code to Exempt, regardless of SALESTAXCODE.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>SALESTAXCODE</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Sales tax code, unless overridden by TAXABLE.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>INVITEMTYPE</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Product type, stored as-is.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>VENDOR</code>, <code>ACCNT</code>, <code>ASSETACCNT</code>, <code>COGSACCNT</code>, <code>NOTES</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Stored as "Number 1 — &hellip;" custom fields on the product (see checkbox above) — bookkeeping/reference data, not used in pricing or inventory.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>VALUE</code></td>
+                                    <td><span class="muted">Ignored</span></td>
+                                    <td>QuickBooks' own computed QNTY&times;COST column — no independent meaning.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <ul>
+                        <li>Each row = one product. Blank cells never overwrite an existing value on update.</li>
+                        <li>Re-uploading the same file updates the same products in place — it does not create duplicates.</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Import CSV</button>
+            </div>
+        </form>
+    </section>
+
+    {% include 'admin/product/_import_results.html.twig' with {result: result} %}
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Return {{ return.documentNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_returns',
+        heading: return.documentNumber,
+        status: return.status.value,
+        lead: return.vendor.name
+            ~ (return.goodsReceipt ? ' · raised against receipt ' ~ return.goodsReceipt.receiptNumber : ' · no receipt named')
+            ~ (return.purchaseOrder ? ' · bought on ' ~ return.purchaseOrder.poNumber : '')
+    } only %}
+
+    <section class="form-card">
+        <div class="form-grid">
+            <div><p class="eyebrow">Requested</p><p><strong>{{ return.requestedAt|date('Y-m-d') }}</strong></p></div>
+            <div><p class="eyebrow">Authorised</p><p><strong>{{ return.authorisedAt ? return.authorisedAt|date('Y-m-d') : '—' }}</strong></p></div>
+            <div><p class="eyebrow">Shipped</p><p><strong>{{ return.shippedAt ? return.shippedAt|date('Y-m-d') : '—' }}</strong></p></div>
+            <div><p class="eyebrow">Units</p><p><strong>{{ return.totalUnits }}</strong>{% if return.warehouse %} from {{ return.warehouse.name }}{% endif %}</p></div>
+        </div>
+        {% if return.reason %}<p class="field-hint">Reason: {{ return.reason }}</p>{% endif %}
+    </section>
+
+    <section class="table-card">
+        <div class="table-header"><h2>Lines</h2></div>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Item</th><th>SKU</th><th>Qty</th><th>Reason</th><th>Came in on</th></tr></thead>
+            <tbody>
+                {% for line in return.lines %}
+                    <tr>
+                        <td data-label="Item">{{ line.name }}</td>
+                        <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                        <td data-label="Qty">{{ line.quantity }}</td>
+                        <td data-label="Reason">{{ line.reason|default('-') }}</td>
+                        {# Which delivery this row came off, now that the save records it. #}
+                        <td data-label="Came in on">{{ line.goodsReceiptLine ? line.goodsReceiptLine.receipt.receiptNumber : '-' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell"><span>This return names nothing. Authorising it will be refused.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            {% if return.status.value == 'Requested' %}
+                {# The save has always been able to update a request; until now nothing linked to it,
+                   so a mistyped draft could only be declined and retyped. #}
+                <a class="button" href="{{ path('admin_bundle_procurement_vendor_return_edit', {id: return.id}) }}">Edit</a>
+                <form method="post" action="{{ path('admin_bundle_procurement_vendor_return_action', {id: return.id, action: 'authorise'}) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Authorise</button>
+                </form>
+            {% endif %}
+
+            {% if return.status.value == 'Authorised' %}
+                <form method="post" action="{{ path('admin_bundle_procurement_vendor_return_ship', {id: return.id}) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    <label>
+                        Ship from
+                        <select name="warehouse_id" required>
+                            {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button class="button primary" type="submit">Ship goods</button>
+                </form>
+            {% endif %}
+
+            {% if return.status.value == 'Shipped' %}
+                <form method="post" action="{{ path('admin_bundle_procurement_vendor_return_action', {id: return.id, action: 'close'}) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Close</button>
+                </form>
+                <a class="button" href="{{ path('admin_bundle_procurement_debit_memo_new', {vendor_return: return.id}) }}">Raise debit memo</a>
+            {% endif %}
+
+            {# Offered from Requested too, which is how a mistaken draft is abandoned. One verb and
+               one terminal state rather than a second "Cancel" button: SalesReturnStatus argues the
+               case on the sell side — "a return the customer changed their mind about is Declined,
+               with the reason saying so" — and two terminal not-happening states would be a choice
+               with no consequence attached to it. The note decline() writes records the from-state,
+               so "was Requested" and "was Shipped" stay legible as the different events they are. #}
+            {% if return.status.value in ['Requested', 'Authorised', 'Shipped'] %}
+                <form method="post" action="{{ path('admin_bundle_procurement_vendor_return_action', {id: return.id, action: 'decline'}) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    <input type="text" name="reason" placeholder="{{ return.status.value == 'Requested' ? 'Why is it being dropped?' : 'Why is it declined?' }}">
+                    <button class="button danger" type="submit">Decline</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if return.status.value == 'Requested' %}
+            <p class="field-hint">
+                Nothing has been agreed with the vendor and no goods have moved, so this return can be
+                declined where it stands &mdash; a draft raised by mistake does not have to be
+                authorised first just to get rid of it. It keeps its number, and the note records that
+                it never got past Requested. Authorising is the promise to the vendor about what is
+                coming back; after that its lines are fixed and only shipping or declining remain.
+            </p>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ product.sku }} barcodes | Admin{% endblock %}
+{% block admin_body %}
+    {# Scoped to this screen and shipped inside the bundle rather than in the global stylesheet, the
+       same way the scan console's styling is: remove the bundle and this goes with it, and no
+       cache-buster has to be bumped for a feature most instances never turn on. #}
+    <style>
+        .barcode-preview { display: inline-block; vertical-align: middle; }
+        .barcode-preview .bars { position: relative; height: 34px; }
+        .barcode-preview .bar { position: absolute; top: 0; height: 34px; background: #000; }
+        .barcode-preview .qr { position: relative; }
+        .barcode-preview .cell { position: absolute; background: #000; }
+        .barcode-preview .caption { font-size: 0.7rem; letter-spacing: 0.08em; text-align: center; }
+        .barcode-symbols { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; }
+    </style>
+
+    {% include '@Barcode/_nav.html.twig' with {
+        current: 'barcodes',
+        heading: 'Barcodes — ' ~ (product.sku ?: product.name),
+        lead: 'Every scannable identifier this product answers to. Scanning any of them on the scan console, at receiving or at dispatch lands on this product.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Product</p>
+                <h2>{{ product.sku }} — {{ product.name }}</h2>
+                <p class="lead">
+                    {% if primary %}
+                        Labels for this product encode <code>{{ primary.code }}</code> ({{ primary.kind }}).
+                    {% else %}
+                        This product has no barcode, so labels encode its SKU <code>{{ product.sku }}</code> — exactly
+                        what they encoded before barcodes existed. Nothing here has been invented for it.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="panel-actions">
+                <a class="button" href="{{ path('admin_bundle_barcodes') }}">All barcodes</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>What it answers to</h2>
+        <table class="admin-grid-table compact">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Kind</th>
+                    <th>Whose</th>
+                    <th>Note</th>
+                    <th>How it prints</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><code>{{ row.code }}</code>{{ row.primary ? ' ★' : '' }}</td>
+                        <td>{{ row.kind }}</td>
+                        <td>{{ row.party|default('—') }}</td>
+                        <td>{{ row.note|default('—') }}</td>
+                        <td>
+                            {% set preview = previews[row.id]|default(null) %}
+                            {% if preview %}
+                                <div class="barcode-symbols">
+                                    <div class="barcode-preview">
+                                        <div class="bars" style="width: {{ preview.modules * 1.4 }}px;">
+                                            {% for bar in preview.bars %}
+                                                <div class="bar" style="left: {{ bar[0] * 1.4 }}px; width: {{ bar[1] * 1.4 }}px;"></div>
+                                            {% endfor %}
+                                        </div>
+                                        <div class="caption">Code 128</div>
+                                    </div>
+                                    <div class="barcode-preview">
+                                        <div class="qr" style="width: {{ preview.qr|length * 3 }}px; height: {{ preview.qr|length * 3 }}px;">
+                                            {% for y, line in preview.qr %}
+                                                {% for x, dark in line %}
+                                                    {% if dark %}<div class="cell" style="left: {{ x * 3 }}px; top: {{ y * 3 }}px; width: 3px; height: 3px;"></div>{% endif %}
+                                                {% endfor %}
+                                            {% endfor %}
+                                        </div>
+                                        <div class="caption">QR</div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <em>Cannot be printed — Code 128 does not cover every character in it.</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not row.primary %}
+                                <button class="table-action" type="submit" form="primary-barcode-{{ row.id }}">Make primary</button>
+                            {% endif %}
+                            <button class="table-action" type="submit" form="delete-barcode-{{ row.id }}">Delete</button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6">No barcodes on this product yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="lead">The one marked ★ is what a label encodes.</p>
+    </section>
+
+    <section class="panel">
+        <h2>Add one from the carton</h2>
+        <p class="lead">
+            Type it, or scan it — the code field takes a hardware scanner's keystrokes and its Enter the same way every
+            other scan field in this application does. A UPC, EAN or GTIN has its check digit verified before it is
+            saved, because a transposed pair of digits produces a number that quietly names somebody else's product.
+        </p>
+        <form method="post" action="{{ path('admin_bundle_barcodes_attach', {id: product.id}) }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>Code
+                <input type="text" name="code" maxlength="64" autocomplete="off" required autofocus placeholder="Scan or type, then Enter">
+            </label>
+            <label>Kind
+                <select name="kind">
+                    {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Whose code is it
+                <input type="text" name="party" maxlength="120" autocomplete="off">
+                <small>The supplier or customer this part number belongs to. Blank for a manufacturer's own GTIN.</small>
+            </label>
+            <label>Note
+                <input type="text" name="note" maxlength="255" autocomplete="off">
+            </label>
+            <label class="span-2">
+                <input type="checkbox" name="primary" value="1"> Labels for this product should encode this one
+            </label>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Add barcode</button></div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Generate one</h2>
+        <p class="lead">For goods that arrived carrying no barcode at all. Print it, stick it on, scan it.</p>
+        <form method="post" action="{{ path('admin_bundle_barcodes_generate', {id: product.id}) }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>Note
+                <input type="text" name="note" maxlength="255" autocomplete="off">
+            </label>
+            <div class="form-actions"><button class="button primary" type="submit">Generate an internal barcode</button></div>
+        </form>
+    </section>
+
+    {# After the sections, never inside another form: a nested <form> is invalid HTML and the browser
+       drops the inner one. The row buttons above reach these by id. #}
+    {% for row in rows %}
+        <form id="primary-barcode-{{ row.id }}" method="post" action="{{ path('admin_bundle_barcodes_primary', {id: row.id}) }}" hidden>
+            {{ csrf_field() }}
+        </form>
+        <form id="delete-barcode-{{ row.id }}" method="post" action="{{ path('admin_bundle_barcodes_delete', {id: row.id}) }}" hidden>
+            {{ csrf_field() }}
+        </form>
+    {% endfor %}
+{% endblock %}

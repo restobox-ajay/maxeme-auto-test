@@ -1,0 +1,19 @@
+{# The Actions cell of an exception row — the one or two things a person can actually DO about it.
+
+   Plain links in `.row-actions` with core's `.table-action`, the way /admin/bundles/procurement/rfqs
+   renders a single row action, rather than the `.row-action-menu` dropdown the document grids use:
+   that dropdown is opened by app.js and this application's baseline is that it works without
+   JavaScript. A dropdown is worth the trade when it collects six actions; it is not worth it to hide
+   one link behind a button that does nothing with scripting off.
+
+   An em dash when there is nothing: every move on this screen is gated on the state that would
+   refuse it, so a row whose order is cancelled and whose bill is paid genuinely has nothing left to
+   offer. Saying so is the honest answer — inventing a control that would be refused on the next
+   screen is the defect item 47 exists to fix. #}
+<td data-label="Actions" class="row-actions">
+    {% for move in moves %}
+        <a class="table-action" href="{{ move.href }}">{{ move.label }}</a>
+    {% else %}
+        &mdash;
+    {% endfor %}
+</td>

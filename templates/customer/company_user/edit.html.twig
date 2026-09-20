@@ -1,0 +1,120 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Edit Company User | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-company-users-header">
+        <h1>Edit Company User</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">›</span>
+            <a href="{{ path('customer_company_users') }}">My Company User</a>
+            <span aria-hidden="true">›</span>
+            <span>Edit Company User</span>
+        </nav>
+    </section>
+
+    {% if errors is defined and errors is not empty %}
+        <div class="alert error" style="margin-bottom: 14px;">
+            <strong>Please fix the highlighted fields.</strong>
+        </div>
+    {% endif %}
+
+    <section class="table-card customer-company-user-create-card">
+        <div class="table-header">
+            <h2>Company User</h2>
+        </div>
+        <div class="customer-company-profile-body">
+            <form method="post" action="{{ path('customer_company_users_edit', {id: user.id}) }}" class="form-grid customer-company-user-create-form" novalidate>
+                {{ csrf_field() }}
+
+                <label>First Name <span class="req">*</span>
+                    <input class="form-control" name="first_name" value="{{ values.first_name|default('') }}" required>
+                    {% if errors.first_name|default('') %}<span class="error-message">{{ errors.first_name }}</span>{% endif %}
+                </label>
+
+                <label>Last Name <span class="req">*</span>
+                    <input class="form-control" name="last_name" value="{{ values.last_name|default('') }}" required>
+                    {% if errors.last_name|default('') %}<span class="error-message">{{ errors.last_name }}</span>{% endif %}
+                </label>
+
+                <label class="span-2">Email <span class="req">*</span>
+                    <input class="form-control" type="email" name="email" value="{{ values.email|default('') }}" required>
+                    {% if errors.email|default('') %}<span class="error-message">{{ errors.email }}</span>{% endif %}
+                </label>
+
+                <label class="span-2">Status
+                    <select class="form-control" name="status">
+                        <option {{ values.status|default('Active') == 'Active' ? 'selected' : '' }}>Active</option>
+                        <option {{ values.status|default('Active') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                    </select>
+                </label>
+
+                <label class="span-2">Role
+                    <select class="form-control" name="role">
+                        <option {{ values.role|default('Company Staff') == 'Company Staff' ? 'selected' : '' }}>Company Staff</option>
+                        <option {{ values.role|default('Company Staff') == 'Owner' ? 'selected' : '' }}>Owner</option>
+                    </select>
+                </label>
+
+                <label class="span-2">New Password <span class="req">*</span> <span class="field-hint">(both password fields required if changing password)</span>
+                    <div style="position: relative;">
+                        <input class="form-control" type="password" id="ccu_password" name="password" autocomplete="new-password" style="padding-right: 40px;">
+                        <button type="button" onclick="togglePassword('ccu_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    {% if errors.password|default('') %}<span class="error-message">{{ errors.password }}</span>{% endif %}
+                </label>
+
+                <label class="span-2">Confirm New Password <span class="req">*</span>
+                    <div style="position: relative;">
+                        <input class="form-control" type="password" id="ccu_confirm_password" name="confirm_password" autocomplete="new-password" style="padding-right: 40px;">
+                        <button type="button" onclick="togglePassword('ccu_confirm_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    <span id="ccu_password_match_msg" style="color: #ef4444; font-size: 0.75rem; display: none; margin-top: 4px; font-weight: 500;">Passwords do not match</span>
+                </label>
+
+                <div class="span-2 customer-company-user-create-actions">
+                    <a class="button outline ccu-back-btn" href="{{ path('customer_company_users') }}">Back</a>
+                    <button class="button primary ccu-create-btn" type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        function togglePassword(fieldId, button) {
+            const input = document.getElementById(fieldId);
+            if (!input) return;
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            button.innerHTML = type === 'password'
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.956 9.956 0 012.323-3.592M6.223 6.223A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.542 7a9.96 9.96 0 01-4.131 5.411M3 3l18 18"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.88 9.88a3 3 0 104.24 4.24"/></svg>';
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const password = document.getElementById('ccu_password');
+            const confirm = document.getElementById('ccu_confirm_password');
+            const msg = document.getElementById('ccu_password_match_msg');
+            if (!password || !confirm || !msg) return;
+
+            function validatePassword() {
+                if (confirm.value !== '' && password.value !== confirm.value) {
+                    msg.style.display = 'block';
+                } else {
+                    msg.style.display = 'none';
+                }
+            }
+
+            password.addEventListener('input', validatePassword);
+            confirm.addEventListener('input', validatePassword);
+        });
+    </script>
+{% endblock %}

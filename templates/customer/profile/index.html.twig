@@ -1,0 +1,152 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}My Profile | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-profile-header">
+        <h1>My Profile</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">&rsaquo;</span>
+            <span>My Profile</span>
+        </nav>
+    </section>
+
+    {% if errors is defined and errors is not empty %}
+        <div class="form-error-banner">Please fix the highlighted fields below.</div>
+    {% endif %}
+
+    <form method="post" action="{{ path('customer_profile') }}" class="customer-profile-form-shell" novalidate>
+        {{ csrf_field() }}
+
+        <section class="customer-company-profile-grid">
+            <section class="table-card customer-company-profile-card">
+                <div class="table-header">
+                    <h2>Account</h2>
+                </div>
+                <div class="customer-company-profile-body">
+                    <div class="form-grid customer-company-profile-form">
+                        <label>First Name <span class="req">*</span>
+                            <input class="form-control" name="first_name" value="{{ values.first_name|default(user.firstName ?: '') }}" required>
+                            {% if errors.first_name|default('') %}<span class="error-message">{{ errors.first_name }}</span>{% endif %}
+                        </label>
+
+                        <label>Last Name <span class="req">*</span>
+                            <input class="form-control" name="last_name" value="{{ values.last_name|default(user.lastName ?: '') }}" required>
+                            {% if errors.last_name|default('') %}<span class="error-message">{{ errors.last_name }}</span>{% endif %}
+                        </label>
+
+                        <label class="span-2">Email
+                            <input class="form-control" value="{{ user.email }}" readonly>
+                        </label>
+
+                        <label class="span-2">Phone Number
+                            <input class="form-control" name="phone_number" value="{{ values.phone_number|default(user.phoneNumber ?: '') }}">
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <div class="customer-company-profile-right">
+                <section class="table-card customer-company-profile-card">
+                    <div class="table-header">
+                        <h2>Reset Password</h2>
+                    </div>
+                    <div class="customer-company-profile-body">
+                        <div class="form-grid customer-company-profile-form">
+                            <label class="span-2">Password <span class="req">*</span> <span class="field-hint">(all three password fields required if changing password)</span>
+                                <div style="position: relative;">
+                                    <input class="form-control" type="password" id="profile_current_password" name="current_password" autocomplete="current-password" placeholder="••••••••" style="padding-right: 40px;">
+                                    <button type="button" onclick="togglePassword('profile_current_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;" aria-label="Toggle password visibility">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    </button>
+                                </div>
+                                {% if errors.current_password|default('') %}<span class="error-message">{{ errors.current_password }}</span>{% endif %}
+                            </label>
+
+                            <label class="span-2">New Password <span class="req">*</span>
+                                <div style="position: relative;">
+                                    <input class="form-control" type="password" id="profile_new_password" name="new_password" autocomplete="new-password" placeholder="••••••••" minlength="8" style="padding-right: 40px;">
+                                    <button type="button" onclick="togglePassword('profile_new_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;" aria-label="Toggle password visibility">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    </button>
+                                </div>
+                                {% if errors.new_password|default('') %}<span class="error-message">{{ errors.new_password }}</span>{% endif %}
+                            </label>
+
+                            <label class="span-2">Confirm New Password <span class="req">*</span>
+                                <div style="position: relative;">
+                                    <input class="form-control" type="password" id="profile_confirm_new_password" name="confirm_new_password" autocomplete="new-password" placeholder="••••••••" minlength="8" style="padding-right: 40px;">
+                                    <button type="button" onclick="togglePassword('profile_confirm_new_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;" aria-label="Toggle password visibility">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                    </button>
+                                </div>
+                                <span id="profile_password_match_msg" style="color: #ef4444; font-size: 0.75rem; display: none; margin-top: 4px; font-weight: 500;">Passwords do not match</span>
+                                {% if errors.confirm_new_password|default('') %}<span class="error-message">{{ errors.confirm_new_password }}</span>{% endif %}
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="customer-company-profile-actions">
+                    <button class="button primary" type="submit">Update Profile</button>
+                </div>
+            </div>
+        </section>
+    </form>
+
+    <script>
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+
+            if (type === 'text') {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>`;
+            } else {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form[action="{{ path('customer_profile') }}"]');
+            const current = document.getElementById('profile_current_password');
+            const password = document.getElementById('profile_new_password');
+            const confirm = document.getElementById('profile_confirm_new_password');
+            const msg = document.getElementById('profile_password_match_msg');
+            if (!form || !current || !password || !confirm || !msg) return;
+
+            function validatePasswordMatch() {
+                const hasConfirm = confirm.value !== '';
+                const mismatch = hasConfirm && password.value !== confirm.value;
+                msg.style.display = mismatch ? 'block' : 'none';
+                confirm.style.borderColor = mismatch ? '#ef4444' : '';
+                confirm.style.boxShadow = mismatch ? '0 0 0 3px rgba(239, 68, 68, 0.12)' : '';
+                return !mismatch;
+            }
+
+            password.addEventListener('input', validatePasswordMatch);
+            confirm.addEventListener('input', validatePasswordMatch);
+
+            form.addEventListener('submit', function(event) {
+                const wantsPasswordChange = current.value !== '' || password.value !== '' || confirm.value !== '';
+
+                if (!wantsPasswordChange) {
+                    return;
+                }
+
+                if (current.value === '') {
+                    current.focus();
+                    event.preventDefault();
+                    return;
+                }
+
+                if (password.value !== confirm.value) {
+                    validatePasswordMatch();
+                    confirm.focus();
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+
+{% endblock %}

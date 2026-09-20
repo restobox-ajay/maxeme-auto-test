@@ -1,0 +1,118 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Procurement Settings | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'settings',
+        heading: 'Procurement Settings',
+        lead: 'Match tolerances and what a receiver must capture per product.'
+    } only %}
+
+    <section class="panel">
+        <h2>Match tolerances</h2>
+        <form method="post" action="{{ path('admin_bundle_procurement_settings_save') }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>Quantity tolerance % <input type="text" name="procurement_quantity_tolerance_percent" value="{{ quantityTolerance }}" inputmode="decimal"></label>
+            <label>Price tolerance % <input type="text" name="procurement_price_tolerance_percent" value="{{ priceTolerance }}" inputmode="decimal"></label>
+            {# The global minimum shelf life (item 68). On this form rather than a new one because it
+               is the same kind of thing as the two above it: one number, stored in `app_setting`,
+               that changes what receiving does to every product. #}
+            <label class="span-2">Minimum shelf life at receiving (days)
+                <input type="text" id="minimum-shelf-life-days" name="procurement_minimum_shelf_life_days" value="{{ minimumShelfLifeDays }}" inputmode="numeric">
+                <small>
+                    How much shelf life a delivery must have left when it arrives. <strong>0 means no minimum</strong>
+                    and is the default. 90 is three months. An expiry date that is <strong>already past</strong> is
+                    warned about whatever this says, including at 0 &mdash; those goods are not sellable on arrival,
+                    and that is not a question about a threshold.
+                </small>
+            </label>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Save</button></div>
+        </form>
+        <p class="lead">
+            <strong>Days, not months, and it warns rather than blocks.</strong> A month is not a length &mdash; a
+            &ldquo;2 month&rdquo; minimum is 59 days in February and 62 in July, so the same pallet would pass in one
+            month and fail in the next. And a date closer than this does not refuse the delivery: by the time anybody
+            reads the date the goods are on the dock, so refusing the record would not refuse the pallet, it would only
+            make real stock invisible. Receiving asks for a <em>reason</em> instead, and records who gave it on the
+            receipt. A product can override this figure below &mdash; in either direction.
+        </p>
+        <p class="lead">
+            The purchase order, receipt and vendor bill prefixes now sit with every other document prefix on
+            <a href="{{ path('admin_document_prefixes') }}">Settings &rarr; Document Prefixes</a>. They are still this
+            bundle's — that screen shows them because this bundle registers them, and they disappear from it when the
+            bundle is switched off. Prefixes are not retroactive: documents already numbered keep the prefix they were
+            given, and each sequence has its own counter so they never collide.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>Receiving rules</h2>
+        <p class="lead">This is where you say which products need a batch, an expiry, or a serial captured at receiving.</p>
+        <p class="lead">
+            Batch, expiry and serial are set on the product's tracking policy, not here. This screen sets whether
+            the receiver has to name a bin, and this product's own minimum shelf life if it is not the global one.
+        </p>
+        <p class="lead">
+            The shelf-life box has three states: <em>blank</em> follows the global minimum, <em>0</em> is exempt from
+            the minimum, and a number is this product's own minimum. Exempt is never exempt from the expiry date
+            itself — goods that already expired are still flagged.
+        </p>
+
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Product</th><th>Batch</th><th>Expiry</th><th>Serial</th><th>Bin</th><th>Minimum shelf life</th></tr></thead>
+            <tbody>
+                {% for rule in rules %}
+                    <tr id="receiving-rule-{{ rule.product.id }}">
+                        <td>{{ rule.product.sku ?: rule.product.name }}</td>
+                        <td>{{ rule.lotRequired ? 'required' : '' }}</td>
+                        <td>{{ rule.expiryRequired ? 'required' : '' }}</td>
+                        <td>{{ rule.serialRequired ? 'required' : '' }}</td>
+                        <td>{{ rule.locationRequired ? 'required' : '' }}</td>
+                        <td id="receiving-rule-shelf-life-{{ rule.product.id }}">
+                            {%- if rule.minimumShelfLifeDays is null -%}
+                                global ({{ minimumShelfLifeDays }} day(s))
+                            {%- elseif rule.minimumShelfLifeDays == 0 -%}
+                                exempt &mdash; no minimum
+                            {%- else -%}
+                                {{ rule.minimumShelfLifeDays }} day(s)
+                            {%- endif -%}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell">
+                        <strong>No product has a receiving rule of its own yet.</strong>
+                        <span>Every product needs no bin and follows the global minimum shelf life. Set the first
+                        exception below. Batch and serial requirements are not listed here unless a
+                        product also has a rule row — they come from the tracking policy on the product.</span>
+                    </td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+
+        <form method="post" action="{{ path('admin_bundle_procurement_receiving_rule_save') }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>Product
+                <select name="product_id" required>
+                    {% for product in products %}
+                        <option value="{{ product.id }}">{{ product.sku ?: product.name }}</option>
+                    {% else %}
+                        <option value="">No dimensional products — switch one on its product page first</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {# Batch, expiry and serial had boxes here and no longer do (item 67). They were a second
+               copy of what the product's TRACKING POLICY already declares, and receiving consulted
+               this copy — which nothing ever wrote to — so every guard it had passed silently. They
+               are derived from the policy now and are set on the product, in one place. #}
+            <label class="checkbox-label"><input type="checkbox" name="location_required" value="1"> Destination bin required</label>
+            <label>Minimum shelf life (days)
+                <input type="text" id="rule-minimum-shelf-life-days" name="minimum_shelf_life_days" value="" inputmode="numeric" placeholder="blank = follow the global">
+                <small>Blank follows the global. 0 exempts this product entirely. A number is its own minimum.</small>
+            </label>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Set rule</button></div>
+        </form>
+        <p class="lead">
+            Serialised products are received one unit per line: Inventory Depth allows a serial exactly one row holding
+            stock at a time, so two of anything under one serial is a contradiction rather than a quantity.
+        </p>
+    </section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{# A computed Main Line freight/fee charge — the buy-side twin of sales_fee_line_row.html.twig.
+   Rendered as a real row in a purchase document's line table, dash-filled in every column that
+   does not apply to it, so a freight charge taxed alongside the goods shows up next to the
+   products it was taxed with and not only in the totals box below.
+
+   NOT an editable or removable line: it is recomputed from scratch on every save
+   (PurchaseOrderController::save() / VendorBillController::save(), both via
+   PurchaseDocumentChargeLines), so it carries no `lines[...]` inputs and nothing here posts.
+
+   Parameters
+   ----------
+   rowClass        required  the document's own line-row class — 'po-line-row' or 'bill-line-row'.
+                             Pairs with `fee-line-row`, which is added here.
+   label           required  the charge's name, in the first cell
+   amount          required  the money, in the `subtotalColumn` cell, always number_format(2)
+   columns         required  the line table's columns in order — its length is how many cells this
+                             row spans.
+   subtotalColumn  required  which entry of `columns` carries the amount, by name rather than
+                             index, so the caller states the column rather than counting to it.
+   labelled        required  true to put `data-label` on every cell, for the responsive
+                             stacked-table CSS.
+   taxCodeColumn   optional  which entry of `columns` carries `taxCode`.
+   taxCode         optional  the charge's own tax class ('E'/'G'/'S'), plain text — never editable.
+   taxAmountColumn optional  which entry of `columns` carries `taxAmount`.
+   taxAmount       optional  this charge's own tax, computed in isolation from the rest of the
+                             document — not a share of the merged tax row the totals box shows. #}
+{% macro fee_line_row(rowClass, label, amount, columns, subtotalColumn, labelled, taxCodeColumn, taxCode, taxAmountColumn, taxAmount) %}
+    <tr class="{{ rowClass }} fee-line-row">
+{% for column in columns %}
+        <td{% if labelled %} data-label="{{ column }}"{% endif %}>{% if loop.first %}{{ label }}{% elseif column == subtotalColumn %}${{ amount|amount }}{% elseif taxCodeColumn is defined and column == taxCodeColumn %}{{ taxCode|default('') ?: '—' }}{% elseif taxAmountColumn is defined and column == taxAmountColumn %}${{ taxAmount|default(0)|amount }}{% else %}—{% endif %}</td>
+{% endfor %}
+    </tr>
+{% endmacro %}

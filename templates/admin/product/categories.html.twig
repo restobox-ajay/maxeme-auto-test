@@ -1,0 +1,103 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Product Categories | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Product category</p>
+                <h1>Product Categories</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_category_create') }}">Add category</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set filters = filters|default({}) %}
+    {% set routeQuery = {q: search|default(''), sort: currentSort|default('hierarchy'), dir: currentDir|default('asc'), limit: currentLimit, filters: filters} %}
+    <section class="table-card category-admin no-paginate"
+             data-ajax-url="{{ path('admin_category_index') }}"
+             data-default-sort="hierarchy"
+             data-default-dir="asc"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        {# Not wrapped around the table: see admin/company_fulfillment_region/index.html.twig for
+           why filter-row controls reference this by id instead of being nested inside it. #}
+        <form id="category-grid-filters-form" method="get" action="{{ path('admin_category_index') }}" class="js-auto-submit-form">
+            <input type="hidden" name="q" value="{{ search|default('') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="limit" value="{{ currentLimit }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        </form>
+        <div class="table-scroll-region">
+        <div class="table-header">
+            <div class="table-tools">
+                <input class="table-search category-search" type="search" placeholder="Search categories..." aria-label="Search categories">
+                <button class="button primary js-category-search" type="button">Search</button>
+            </div>
+        </div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Parent category</th>
+                    <th>Status</th>
+                    <th>Client catalog</th>
+                    <th>Products</th>
+                    <th>Actions</th>
+                </tr>
+                <tr class="filter-row">
+                    <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" form="category-grid-filters-form" data-filter-field="id" aria-label="Filter ID"></th>
+                    <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" form="category-grid-filters-form" data-filter-field="name" aria-label="Filter name"></th>
+                    <th><input type="text" name="filters[parent]" value="{{ filters.parent|default('') }}" form="category-grid-filters-form" data-filter-field="parent" aria-label="Filter parent category"></th>
+                    <th>
+                        <select name="filters[status]" form="category-grid-filters-form" data-filter-field="status" aria-label="Filter status">
+                            <option value=""></option>
+                            <option value="Visible" {{ filters.status|default('') == 'Visible' ? 'selected' : '' }}>Visible</option>
+                            <option value="Hidden" {{ filters.status|default('') == 'Hidden' ? 'selected' : '' }}>Hidden</option>
+                        </select>
+                    </th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% include 'admin/product/_category_rows.html.twig' %}
+                </tbody>
+        </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: categories|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_category_index',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Link Invoice to Order: {{ invoice.documentNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel" style="margin-bottom:0; border-bottom:0; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Link to a sales order</p>
+                <h1>{{ invoice.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">Back to invoice</a>
+            </div>
+        </div>
+    </section>
+
+    {# ── Pick an order ─────────────────────────────────────────────────────
+       Choosing one re-renders this page with the match report below, so what does and does not line
+       up is on screen before anything is committed (#539 stage 5). #}
+    <section class="panel detail-page-card" style="margin-top:0; border-radius:0 0 var(--radius-md) var(--radius-md);">
+        <p style="margin:0 0 14px; font-size:0.83rem; color:#64748b; line-height:1.55;">
+            An invoice may be attached to any of {{ invoice.company.name }}'s live orders. The SKUs this
+            invoice bills must be on that order, with enough quantity left to invoice. Shipping and other
+            charges are not matched, and prices need not agree — an invoice may charge a different price
+            from the order it bills.
+        </p>
+        <form method="get" action="{{ path('admin_invoice_link', {id: invoice.id}) }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <select name="order_id" class="form-control" style="min-height:38px; min-width:280px; border:1px solid var(--line); border-radius:6px; padding:0 10px;">
+                <option value="">Choose a sales order…</option>
+                {% for order in orders %}
+                    <option value="{{ order.id }}" {{ candidate and candidate.id == order.id ? 'selected' : '' }}>
+                        {{ order.orderNumber }} — {{ order.status }} — {{ order.documentDate }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="button outline">Check this order</button>
+        </form>
+        {% if orders is empty %}
+            <p style="margin:14px 0 0; font-size:0.83rem; color:#b45309;">
+                {{ invoice.company.name }} has no approved order to link this invoice to. An order must be
+                approved before anything can be invoiced against it.
+            </p>
+        {% endif %}
+    </section>
+
+    {% if report %}
+        {# ── The match report ──────────────────────────────────────────────
+           Blocking mismatches refuse the link; notices do not. An order line this invoice does not
+           bill is exactly what a part-invoice looks like, so it is reported rather than refused. #}
+        <section class="panel detail-page-card" style="margin-top:20px;">
+            <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b; margin:0 0 12px;">
+                {{ invoice.documentNumber }} against {{ candidate.orderNumber }}
+            </h2>
+
+            {% if report.blockers is empty %}
+                <p style="margin:0 0 14px; font-size:0.875rem; color:#15803d; font-weight:600;">
+                    Every SKU on this invoice matches a line on {{ candidate.orderNumber }} with enough quantity left.
+                </p>
+            {% else %}
+                <p style="margin:0 0 10px; font-size:0.875rem; color:#b91c1c; font-weight:600;">
+                    This invoice cannot be linked to {{ candidate.orderNumber }} yet:
+                </p>
+                <ul style="margin:0 0 14px; padding-left:20px;">
+                    {% for mismatch in report.blockers %}
+                        <li style="font-size:0.875rem; color:#7f1d1d; line-height:1.6;">{{ mismatch.message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if report.notices is not empty %}
+                <p style="margin:0 0 10px; font-size:0.875rem; color:#92400e; font-weight:600;">Worth knowing:</p>
+                <ul style="margin:0 0 14px; padding-left:20px;">
+                    {% for mismatch in report.notices %}
+                        <li style="font-size:0.875rem; color:#78350f; line-height:1.6;">{{ mismatch.message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if report.linkable %}
+                <form method="post" action="{{ path('admin_invoice_link_save', {id: invoice.id}) }}">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="order_id" value="{{ candidate.id }}">
+                    <button type="submit" class="button primary">Link to {{ candidate.orderNumber }}</button>
+                </form>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    {# ── What this invoice bills ───────────────────────────────────────── #}
+    <section class="table-card no-search no-paginate detail-page-card" style="margin-top:20px; margin-bottom:50px;">
+        <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9;">
+            <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Lines on this invoice</h2>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th style="width:160px;">SKU</th>
+                        <th style="width:110px; text-align:right;">Qty</th>
+                        <th style="width:120px; text-align:right;">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in invoice.lines %}
+                        <tr>
+                            <td style="font-size:0.875rem;">{{ line.name }}</td>
+                            <td style="font-size:0.83rem; color:#64748b;">{{ line.sku ?: '—' }}</td>
+                            <td style="text-align:right; font-size:0.875rem;">{{ line.quantity }}</td>
+                            <td style="text-align:right; font-size:0.875rem;">{{ line.price }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="empty-table-cell"><span>This invoice has no lines.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

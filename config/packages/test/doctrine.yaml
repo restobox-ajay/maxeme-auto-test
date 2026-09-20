@@ -1,0 +1,12 @@
+doctrine:
+    dbal:
+        # config/packages/doctrine.yaml sets this to '%kernel.debug%', which is TRUE under APP_ENV=test.
+        # Doctrine then stores every query, its parameters and a full PHP backtrace in
+        # BacktraceDebugDataHolder so the profiler can render them — and the data collector holds live
+        # references for the whole process, so none of it is ever collectable.
+        #
+        # One PHP process runs the entire Codeception suite (the Symfony module boots a single kernel
+        # and reuses its connection), so thousands of queries each retained a backtrace and the run
+        # climbed to ~2GB, hitting codeception.yml's memory_limit. Nothing in the test suite reads the
+        # profiler, so the collection is pure overhead here.
+        profiling_collect_backtrace: false

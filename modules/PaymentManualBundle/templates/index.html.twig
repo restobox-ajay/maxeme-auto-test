@@ -1,0 +1,52 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Manual Payment Methods | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Payments</p>
+                <h1>Manual Payment Methods</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button" href="{{ path('admin_bundle_payment_manual_new') }}">+ Add Payment Method</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for paymentMethod in paymentMethods %}
+                <tr>
+                    <td>{{ paymentMethod.name }}</td>
+                    <td>{{ paymentMethod.slug }}</td>
+                    <td class="row-actions">
+                        <a href="{{ path('admin_bundle_payment_manual_edit', {id: paymentMethod.id}) }}">Edit</a>
+                        <form method="post" action="{{ path('admin_bundle_payment_manual_delete', {id: paymentMethod.id}) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('Delete {{ paymentMethod.name|e('js') }}?')">
+                            {{ csrf_field() }}
+                            <button type="submit" class="link-button danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-row">No manual payment methods yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

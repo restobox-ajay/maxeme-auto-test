@@ -1,0 +1,100 @@
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/*
+/vendor/
+###< symfony/framework-bundle ###
+
+# Local Caddy vhost — machine-specific absolute paths, not shared
+/Caddyfile
+
+###> symfony/phpunit-bridge ###
+.phpunit.result.cache
+/phpunit.xml
+###< symfony/phpunit-bridge ###
+
+# SQLite database
+/var/*.db
+
+# Keep var/log/ present in every fresh checkout: Symfony only creates it lazily on the first
+# real log write, but the messenger:consume cron job's `>> var/log/messenger.log` redirect
+# needs the directory to already exist the very first time cron fires (see messenger.yaml).
+!/var/log/
+/var/log/*
+!/var/log/.gitkeep
+
+# Working-session planning docs (not meant to be tracked)
+fixes.md
+# plan*.md
+PLAN*.md
+job*.md
+fixes*.md
+
+settings.json
+# The blanket "settings.json" rule above catches this too, but this one has to be tracked --
+# it is what registers the SessionStart hook, so every future Claude Code on the web session
+# for this repo picks it up. Nothing else in the repo is named settings.json (checked).
+!/.claude/settings.json
+/tmp-theme
+THEME_PLAN.md
+FORMS_TEST_CHECKLIST.md
+public/uploads/
+NEWS_BUNDLE_PLAN.md
+API_MANAGER_REVIEW.md
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+
+# Untracked working-tree scratch/scaffolding, ignored to keep git status clean (not deleted
+# from disk, just not committed for now)
+/CLAUDE.md
+/CUSTOMER_IMPORT_PLAN.md
+/DB_RESET_FOR_NUMBER1_INVENTORY_PLAN.md
+/RIM_API_IMPORT_PLAN.md
+/SUGGESTED_PRICE_BUNDLE_PLAN.md
+/SUGGESTED_PRICE_CORE_ADAPTATION_PLAN.md
+/api_response_json.json
+/customer.csv
+/plan.md
+/product.csv
+/rim_api_response.json
+/tests/TEST_LOOP_LOG.md
+/tests/ISSUE_LOOP_LOG.md
+
+# scripts/test-loop/ is tracked; only its run logs are scratch
+/scripts/test-loop/logs/*.log
+
+# scripts/issue-loop/ itself is not checked in
+/scripts/issue-loop/logs/*.log
+/scripts/issue-loop/run-issue-loop.sh
+/scripts/issue-loop/prompts/conventions.md
+/scripts/issue-loop/questions/
+
+# scripts/task-loop/ itself is not checked in (personal boss-task queue, not shared)
+/scripts/task-loop/logs/*.log
+/scripts/task-loop/run-task-loop.sh
+/scripts/task-loop/prompts/conventions.md
+/scripts/task-loop/TASKS.md
+/scripts/task-loop/TASKS2.md
+/scripts/task-loop/TASKS3.md
+/task_output.log
+
+# Local scratch directory in the app root, not shared.
+/temp/
+
+# Claude Code's own isolated-worktree scratch directories, not app content.
+/.claude/worktrees/
+
+# Personal per-developer config overrides (Symfony loads config/packages/dev/*.yaml after the
+# flat config/packages/*.yaml pass, so anything dropped here wins on that one machine only).
+# Some bundle options (e.g. web_profiler's toolbar) are read as an immediate boolean at
+# container-compile time and can't be driven by %env()% in .env.local, so this is the fallback
+# for a personal override that still needs a real, resolved value.
+/config/packages/dev/
+
+# Per-project SSH host config (see ~/.ssh/config Include). Never committed.
+.sshconfig

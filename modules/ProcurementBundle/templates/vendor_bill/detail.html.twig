@@ -1,0 +1,258 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+
+{# Built from purchase_order/detail.html.twig, copied then adapted (#full-parity, 2026-09-14) —
+   replaces the deleted bill_detail.html.twig, per direct instruction to reuse PO's own shared
+   partials (address panel via `sales_detail_address_panel.html.twig`, the line table, the totals
+   box, the Message box, the Activity Log) rather than build a fresh set. VendorBill→PurchaseOrder
+   throughout, except where a real domain difference exists — each stated below.
+
+   VendorBill has no Order-To/Ship-From pair the way PurchaseOrder does: there is exactly one
+   address concept, Remit To, so `summary_billing` renders it alone (spanning the two columns
+   PurchaseOrder splits between Order To and Ship From) and `summary_shipping` stays empty.
+
+   VendorBill has no fulfilment history of its own (`showFulfillment: false` below) — Ordered/
+   Received/Outstanding is PurchaseOrderLine's own concept; VendorBillLine states a single
+   Quantity, what was charged, same as an invoice line.
+
+   Two real, VendorBill-only concepts with no PurchaseOrder or sell-side equivalent, stated plainly
+   rather than left out silently: the three-way match (`report`, `matchLine.isClean()`) and
+   Disputed status (`canBeDisputed()`/`canReturnToDraft()`, both moved into
+   `_vendor_bill_tab_nav.html.twig`'s own action cluster).
+
+   One real, documented gap versus PO's own detail page: PurchaseOrderController wires a Message
+   box and Activity-Log delete buttons (`_purchase_detail_add_message.html.twig`,
+   `_purchase_detail_activity_log.html.twig`'s own `deleteRoute`) onto named log-add/log-delete
+   routes. VendorBillController has neither route — `VendorBillLog` rows are written only by status
+   transitions, nothing posts a freeform message onto one today. The Activity Log itself is real
+   and rendered read-only below, as `logs` — VendorBillController::detail() adapts `bill.logs`
+   (VendorBillLog's own createdAt/userName/comment/type) into the same occurredAt/actorName/
+   summary/action shape `_purchase_detail_activity_log.html.twig` now reads off PurchaseOrder's
+   AuditLog rows (56ec9f52, #full-parity, 2026-09-14 — VendorBillLog has not itself converged onto
+   AuditLog, so this adapts at the read side instead of teaching the partial a second shape). The
+   Message box and per-row Delete are left off rather than pointed at routes that do not exist. #}
+
+{% set document = bill %}
+{% set slotPrefix = 'admin_vendor_bill_detail' %}
+{# Same fallback vendor_bill/edit.html.twig's own `_deliverTo` uses: a bill linked to a purchase
+   order takes that order's own warehouse (`deriveTaxProvinceFrom()`'s source of truth, per
+   VendorBill's own docblock), not `bill.warehouse` alone — reading `bill.warehouse` directly here
+   would disagree with the edit screen for a bill entered before the link existed and never
+   re-saved since (its own frozen `warehouse` predates the PO). #}
+{% set _deliverTo = bill.purchaseOrder ? bill.purchaseOrder.warehouse : bill.warehouse %}
+{% set actionBarTemplate = '@Procurement/_vendor_bill_tab_nav.html.twig' %}
+{% set actionBarContext = {bill: bill, suggestedDisputeReason: suggestedDisputeReason|default('')} %}
+
+{% set feeLines = chargeRows|default([]) %}
+{% set feeTotalsMainLine = 0 %}
+{% set mainLineFeeRows = [] %}
+{% set beforeTaxFeeRows = [] %}
+{% set afterTaxFeeRows = [] %}
+{% set shippingLines = [] %}
+{% for charge in feeLines %}
+    {% if charge.type == 'freight' and charge.placement == 'main_line' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + charge.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass}]) %}
+    {% elseif charge.type == 'fee' and charge.placement == 'main_line' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + charge.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass}]) %}
+    {% elseif charge.type == 'freight' %}
+        {% set shippingLines = shippingLines|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% elseif charge.type == 'fee' and charge.placement == 'after_tax_line' %}
+        {% set afterTaxFeeRows = afterTaxFeeRows|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% elseif charge.type == 'fee' %}
+        {% set beforeTaxFeeRows = beforeTaxFeeRows|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% endif %}
+{% endfor %}
+
+{% block title %}{{ bill.billNumber }} | Admin{% endblock %}
+
+{% block hero_eyebrow %}Vendor bill detail{% endblock %}
+{% block hero_title %}{{ bill.billNumber }}{% endblock %}
+
+{# Matches PurchaseOrder's own detail page: the workflow actions live in the tab bar's right-aligned
+   cluster (`_vendor_bill_tab_nav.html.twig`), not in a second panel below the address cards. #}
+{% block document_actions %}{% endblock %}
+
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: bill.status} only %}{% endblock %}
+{% block hero_actions %}<a class="button back-button" href="{{ path('admin_bundle_procurement_bills') }}">Back</a>{% endblock %}
+
+{% block summary_info_heading %}Bill Info{% endblock %}
+{% block summary_info_rows %}
+    <div class="detail-row">
+        <label>Document Date:</label>
+        <strong>{{ bill.documentDate }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Due Date:</label>
+        <strong>{{ bill.dueDate ?: '-' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Their Invoice Number:</label>
+        <strong>{{ bill.vendorInvoiceNo ?: '-' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Name:</label>
+        <strong><a href="{{ path('admin_bundle_procurement_vendor', {id: bill.vendor.id}) }}" style="color:var(--admin-blue-hover);">{{ bill.vendorName ?: bill.vendor.name }}</a></strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Email:</label>
+        <strong style="color:var(--admin-blue-hover);">{{ bill.vendor.email|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Phone:</label>
+        <strong>{{ bill.vendor.phone|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Purchase Order:</label>
+        <strong>
+            {% if bill.purchaseOrder %}
+                <a href="{{ path('admin_bundle_procurement_purchase_order', {id: bill.purchaseOrder.id}) }}" style="color:var(--admin-blue-hover);">{{ bill.purchaseOrder.poNumber }}</a>
+            {% else %}
+                Not on a purchase order
+            {% endif %}
+        </strong>
+    </div>
+    <div class="detail-row">
+        <label>Deliver to:</label>
+        <strong>{{ _deliverTo ? _deliverTo.name : '-' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Notes:</label>
+        <strong>{{ bill.notes|default('-') }}</strong>
+    </div>
+    {# Tax province note, via `_purchase_tax_province_note_view.html.twig` — a genuine
+       VendorBill-domain concept with no sell-side counterpart (Invoice never derives its tax
+       province from a warehouse). Placement and wording match that partial's own docblock
+       (`cannotFreezeHere`, unconditional, and the Disputed remedy appended separately below it). #}
+    <div class="detail-row" id="bill-receiving-warehouse">
+        <label>Tax province:</label>
+        <strong>
+            {% include '@Procurement/_purchase_tax_province_note_view.html.twig' with {
+                documentNoun: 'bill',
+                hasProvince: bill.taxProvince,
+                provinceDisplay: bill.taxProvince,
+                provinceTail: 'frozen onto this bill when it was approved.',
+                warehouse: _deliverTo,
+                showWarehouseClause: _deliverTo and not _deliverTo.province,
+                warehouseClauseText: (_deliverTo.name|default('')) ~ ' has no province on file',
+                cannotFreezeSentence: 'A bill with taxable goods and no province cannot be approved.',
+                cannotFreezeHere: true,
+                showDraftRemedy: bill.status == 'Draft' and _deliverTo,
+            } only %}
+            {% if bill.status == 'Disputed' %}
+                Return this bill to draft, fix it, and save — the control is in the bar above.
+            {% endif %}
+        </strong>
+    </div>
+{% endblock %}
+
+{# One address concept — Remit To — spanning the two columns PurchaseOrder splits between Order To
+   and Ship From, so the grid does not leave an empty third panel. `summary_shipping` stays empty. #}
+{% block summary_billing %}
+    <div style="grid-column: span 2;">
+        {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+            address: bill.effectiveRemitToAddress,
+            title: 'Remit To',
+            fallbacks: {
+                companyName: bill.vendorName,
+                country: 'Canada',
+            },
+        } only %}
+    </div>
+{% endblock %}
+{% block summary_shipping %}{% endblock %}
+
+{% block line_items_heading %}Lines{% endblock %}
+{% block line_items_table %}
+    {{ include('@Procurement/_purchase_detail_line_table.html.twig', {
+        lines: bill.lines,
+        perLineTax: perLineTax|default([]),
+        perLineTaxLabel: perLineTaxLabel|default([]),
+        emptyMessage: 'No lines on this bill.',
+        tableStyle: '',
+        feeRows: mainLineFeeRows,
+        showFulfillment: false,
+        currency: '',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block totals %}
+    {% include '@Procurement/purchase_detail_totals_box.html.twig' with {
+        subtotal: bill.subtotal + feeTotalsMainLine,
+        shippingLines: shippingLines,
+        beforeTaxRows: beforeTaxFeeRows,
+        afterTaxRows: afterTaxFeeRows,
+        taxLines: taxLines|default([]),
+        tax: bill.tax,
+        total: bill.total,
+        taxRowIds: true,
+    } only %}
+{% endblock %}
+
+{# The three-way match (#555) — a genuine VendorBill-only concept, no PurchaseOrder or sell-side
+   equivalent: ordered/received/charged has nothing to compare on a document that only ever
+   describes what was CHARGED. Stated here rather than left out silently, per the standing rule on
+   "no sell-side equivalent" claims. #}
+{% block related_documents %}
+    <section id="bill-three-way-match" class="table-card no-search no-paginate detail-page-card" style="margin-top:20px;">
+        <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9;">
+            <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Three-Way Match</h2>
+            {# `onExceptionWorklist` is `bill.status.counts()` — the same predicate
+               ExceptionController::billsInScope() binds to. Its own docblock states the exact
+               defect this restates: "the bill's own page said 'N exception(s). Every one needs a
+               human.' about a draft whose exceptions no worklist would ever show" — so that phrase
+               belongs here only once the bill actually reached the worklist, and `#bill-exception-
+               scope` says so plainly the rest of the time rather than leaving the reader to work
+               out why a Draft's own count means nothing yet. #}
+            <p id="bill-exception-count" class="lead" style="margin:4px 0 0; font-size:0.78rem; color:#64748b;">
+                {{ report.exceptionCount() }} exception(s).{% if onExceptionWorklist and report.exceptionCount() > 0 %} Every one needs a human.{% endif %}
+            </p>
+            {% if not onExceptionWorklist %}
+                <p id="bill-exception-scope" style="margin:4px 0 0; font-size:0.78rem; color:#64748b;">
+                    {% if bill.status == 'Draft' %}
+                        A Draft bill's exceptions are not on the Exceptions worklist until it is approved — nothing here needs a human yet.
+                    {% else %}
+                        A {{ bill.status }} bill is not on the Exceptions worklist — it is withdrawn and charges nothing.
+                    {% endif %}
+                </p>
+            {% endif %}
+            <p style="margin:4px 0 0; font-size:0.78rem; color:#64748b;">{{ report.summary() }}</p>
+        </div>
+        {% if report.exceptions()|length > 0 %}
+            <div class="wide-table-wrap">
+                <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Exception</th>
+                            <th style="text-align:right;">Amount at Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in report.exceptions() %}
+                            <tr>
+                                <td>{{ line.description }}</td>
+                                <td>{{ line.describeExceptions() }}</td>
+                                <td style="text-align:right;">${{ line.amountAtRisk() }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
+
+{# No Message box: VendorBillController has no log-add route to post to yet (see the file-level
+   note above) — left off rather than pointed at a route that does not exist. #}
+{% block add_message %}{% endblock %}
+
+{% block activity_log %}
+    {{ include('@Procurement/_purchase_detail_activity_log.html.twig', {
+        logs: logs,
+        deleteRoute: null,
+        documentId: bill.id,
+        sectionStyle: 'margin-top:20px; margin-bottom:50px;',
+        showVendorNotified: false,
+    }, with_context = false) }}
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Product Import | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Bulk updates</p>
+                <h1>Product Import</h1>
+                <p class="muted"><strong>Tax class:</strong> any product whose <code>sales_tax_code</code> is blank — or whose CSV has no such column — is set to <strong>S (GST&nbsp;+&nbsp;PST taxable)</strong> on import. Enter <code>E</code>, <code>G</code>, or <code>S</code> in that column to set it explicitly.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_product_detail_index') }}">Back to products</a>
+                <a class="button" href="{{ path('admin_import_log') }}">Import log</a>
+                <a class="button primary" href="{{ path('admin_product_import_template') }}">Download CSV template</a>
+            </div>
+            <p class="muted" style="margin-top:10px;">
+                Use the CSV template for import upload. It includes the correct product columns and matches the import rules on this page.
+            </p>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form class="form-grid js-product-import-form" method="post" enctype="multipart/form-data">
+            {{ csrf_field() }}
+            <div class="span-2">
+                <label class="file-upload-label">
+                    CSV file <span class="req">*</span>
+                    <small>Tip: Use the downloaded CSV template. Upload CSV only. If you work in Excel, save/export the Products sheet back to CSV before importing. Column names are case-insensitive.</small>
+                </label>
+
+                <div class="image-dropzone" id="csv-dropzone" aria-label="CSV file upload">
+                    <div class="image-dropzone-inner" id="csv-dropzone-inner">
+                        <div class="dropzone-icon" aria-hidden="true">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <p class="dropzone-label"><strong>Click to upload</strong> or drag and drop</p>
+                        <p class="dropzone-hint">CSV only</p>
+                    </div>
+                    <input type="file" name="csv_file" accept=".csv,text/csv" id="product-csv-input" class="dropzone-file-input" required>
+                </div>
+
+                <div class="file-new-preview image-new-preview" id="csv-new-preview" hidden>
+                    <div class="file-icon" aria-hidden="true">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
+                    </div>
+                    <div class="image-new-info">
+                        <span class="image-new-name" id="csv-new-name"></span>
+                        <span class="image-new-size" id="csv-new-size"></span>
+                    </div>
+                    <button class="image-remove-btn" type="button" id="csv-new-remove" title="Remove selected file">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            </div>
+
+            <label>
+                Primary key
+                <select name="primary_key">
+                    <option value="sku" {{ primaryKey == 'sku' ? 'selected' : '' }}>SKU (Recommended)</option>
+                    <option value="id" {{ primaryKey == 'id' ? 'selected' : '' }}>Product ID (update only)</option>
+                </select>
+                <small class="import-inline-help">When using SKU, missing products are created. When using ID, rows must match an existing product.</small>
+            </label>
+
+            <label>
+                If product is missing from CSV
+                <select name="missing_rows">
+                    <option value="do_nothing" {{ missingRows == 'do_nothing' ? 'selected' : '' }}>Do nothing</option>
+                    <option value="inactive_missing" {{ missingRows == 'inactive_missing' ? 'selected' : '' }}>Set missing products as Inactive</option>
+                </select>
+                <small class="import-inline-help">Applies to products not deleted in the database.</small>
+            </label>
+
+            <div class="span-2">
+                <article class="panel">
+                    <h2>Column naming policy</h2>
+                    <p>Use snake_case headers. Spaces and dashes are accepted and normalized automatically.</p>
+                    <ul>
+                        <li><strong>Core</strong>: <code>sku</code>, <code>name</code>, <code>status</code>, <code>category</code>, <code>type</code>, <code>unit</code>, <code>weight</code>, <code>cost_price</code>, <code>original_price</code>, <code>deposit</code>, <code>sales_tax_code</code>, <code>visible</code>, <code>private</code>, <code>deleted</code></li>
+                        <li><strong>Inventory</strong>: <code>fulfillment_region__&lt;region_slug&gt;</code> (example: <code>fulfillment_region__main</code>)</li>
+                        <li><strong>Price grid</strong>: <code>price__&lt;price_list_id&gt;</code> (example: <code>price__1</code>, <code>price__2</code>)</li>
+                        <li><strong>Single price</strong>: <code>sale_price</code> + <code>price_list_id</code> (or <code>price_list</code> by name)</li>
+                        <li><strong>Bundle fees</strong>: <code>fee__&lt;slug&gt;</code> (example: <code>fee__BC-tsbc</code>) — only present when the owning bundle is installed and active</li>
+                    </ul>
+                    <small>Unknown fulfillment regions, price lists, or fee columns are skipped with a warning.</small>
+                </article>
+            </div>
+
+            <div class="span-2">
+                <article class="panel">
+                    <h2>How to use the template</h2>
+                    <p>Download the CSV template first, then fill each product on one row. Do not remove the header row.</p>
+                    <div class="table-shell">
+                        <table class="admin-grid-table table">
+                            <thead>
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Use</th>
+                                    <th>What to enter</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>sku</code></td>
+                                    <td><span class="badge danger">Required</span></td>
+                                    <td>Unique product SKU. If two rows use the same SKU in one CSV, the later row is marked duplicate and skipped.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>name</code></td>
+                                    <td><span class="badge danger">Required for new</span></td>
+                                    <td>Product name. Keep this filled for new products.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>status</code></td>
+                                    <td><span class="badge warn">Recommended</span></td>
+                                    <td>Use one of
+                                        {% for status in enum_cases('App\\Enum\\ProductStatus') %}<code>{{ status.value }}</code>{{ loop.last ? '' : ', ' }}{% endfor %}.
+                                        Anything else is not applied and the row is reported as a warning.
+                                        <code>Draft</code> means the product is not ready to transact and is waiting
+                                        on somebody &mdash; not sellable, not in the customer catalogue, not counted.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>category</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Use an existing category name or category ID. Leave blank if not needed.</td>
+                                </tr>
+                                {# The column this screen used to say nothing about while the downloadable
+                                   guide taught `12/Case` for it — a pack size, not a unit. Said here in the
+                                   terms of the thing that decides it: a unit of measure is a row on Units of
+                                   Measure, and a cell naming anything else costs the row nothing but leaves
+                                   a product somebody has to finish. #}
+                                <tr>
+                                    <td><code>unit</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>
+                                        A unit code or name from
+                                        <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a>
+                                        &mdash; <code>EA</code> and <code>Each</code> both find the same unit. A pack size such as
+                                        <code>12/Case</code> is <strong>not</strong> a unit of measure: the row still imports, with
+                                        the product's unit left unset and flagged on its product form for someone to settle. The
+                                        import never creates a unit.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>weight</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Enter a number like <code>10</code> or <code>10.5</code>. Values like <code>10lbs</code> or <code>10 kg</code> are also accepted and will be auto-converted to <code>10</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>sales_tax_code</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Tax class: <code>E</code> (Exempt), <code>G</code> (GST only), or <code>S</code> (GST&nbsp;+&nbsp;PST). <strong>Leave blank — or omit the column — to default to <code>S</code>.</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><code>visible</code>, <code>private</code>, <code>deleted</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Use <code>Yes</code>/<code>No</code>, <code>True</code>/<code>False</code>, or <code>1</code>/<code>0</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>fulfillment_region__main</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Enter a numeric quantity only. Use <code>0</code> if empty stock. Negative numbers are stored as <code>0</code>.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>price__1</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Enter numeric price only, for example <code>12.50</code>. Do not type currency symbols.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>fee__BC-tsbc</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Enter <code>1</code>/<code>yes</code>/<code>true</code> to enable, <code>0</code>/<code>no</code>/<code>false</code> to disable. Leave blank to leave the existing value alone. Only present when the owning fee bundle is installed and active.</td>
+                                </tr>
+                                <tr>
+                                    <td>Other optional fields</td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Leave blank if you do not want to update that value.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <ul>
+                        <li>Each row = one product.</li>
+                        <li>Do not rename inventory or price columns from the template.</li>
+                        <li>For updates, match by the selected primary key at the top of this page.</li>
+                        <li>If a field needs a number, use a valid number format. For weight, values like <code>10lbs</code> are auto-cleaned to <code>10</code>.</li>
+                        <li>After import, the report below shows which row uploaded, which row failed, which row is duplicate, and the exact reason.</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Import CSV</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel compact-panel">
+        <p class="muted">Submitting takes you to a column-matching screen — already filled in for a CSV using the expected header names — then queues the import as a background process and takes you to its status page. No need to keep this tab active while it processes.</p>
+    </section>
+{% endblock %}

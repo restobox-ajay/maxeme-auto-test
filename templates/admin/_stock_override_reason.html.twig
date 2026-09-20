@@ -1,0 +1,54 @@
+{#
+  Why a line is being sold or billed for more than the region has available (#326).
+
+  One partial, included from every place a sell-side quantity box is rendered, so the control cannot
+  differ between the order form and the standalone invoice form the way two hand-written copies
+  eventually would. The receiving form's `_short_dated_reason.html.twig` is the same partial for the
+  same job at the dock, and this deliberately copies it rather than inventing a second mechanism.
+
+  ## Where it is included from, and why that is one place and not three
+
+  The quantity box is itself one shared partial now — `admin/_partials/sales_line_row.html.twig` —
+  so this is included from the END OF ITS QUANTITY CELL and from nowhere else on a rendered row. The
+  cell is the only thing on the page that already knows this row's posted index, and the reason is
+  per LINE: it has to post as `lines[N][stock_override_reason]` beside the `lines[N][qty]` it
+  explains, or the server pairs a decision with the wrong figure. The shared row renders it only
+  where the caller passes `showsStockOverride`, which is the order form and the standalone invoice
+  create screen — the two whose saves read it.
+
+  The order form's two row <template>s carry a copy through this same partial, because app.js builds
+  a row from them rather than from the server, and a line typed with scripting on is otherwise the
+  one line an admin cannot explain. `__INDEX__` is substituted globally, so the box lands under the
+  same index as the quantity beside it.
+
+  It is a text box and not a checkbox, on purpose. A tick records that somebody clicked. The only
+  question anybody asks about an oversell a fortnight later is on what grounds it was taken, and a
+  tick answers none of it — which is exactly the difference between an override and a shrug.
+
+  **It is not an accusation.** Selling past the shelf is the operator's call: they know about the
+  delivery landing Friday, the drop-ship, the substitution. The save is not refused because the
+  decision is doubted, it waits because the RECORD is the point, and a record with an empty reason
+  on it is the same as no record while looking like one.
+
+  StockOverrideReasons reads this box, treating blank and whitespace as absent;
+  StockOverrideRecorder refuses to write a row without one and writes
+  `sales_order_line_stock_override` / `invoice_line_stock_override` — with this text, the person, and
+  the figures the decision was measured against — when there is one. The decision then appears on
+  the document, under "Sold beyond stock" / "Billed beyond stock".
+
+  No `required` attribute, for the same reason nothing else on these forms has one: the line may be
+  comfortably within stock, and `required` cannot say "only if" without JavaScript.
+
+  Parameters:
+    name  the posted field name — `lines[7][stock_override_reason]`. One spelling on both screens
+          now: the standalone invoice form's parallel `line_*[]` arrays were replaced by the order
+          form's indexed rows, which `AbstractAdminController::postedLineRows()` now reads for
+          every sell-side screen.
+    id    the element id to anchor to
+    value what was typed last time, so a refused save comes back with it still in the box. The
+          standalone invoice screen re-renders from the post and passes it; the order form re-renders
+          from the SAVED order and has nothing to pass, so its box comes back empty — see the note
+          in sales_line_row.html.twig.
+#}
+<br><input type="text" id="{{ id }}" name="{{ name }}" maxlength="255"
+           value="{{ value|default('') }}" placeholder="Reason, if this goes beyond available stock">

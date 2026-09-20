@@ -1,0 +1,149 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Admin Menu | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Configuration</p>
+                <h1>Admin Menu</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_bundle_admin_menu_custom_create') }}">+ Add custom menu item</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        {# Deliberately a warning callout above the table rather than a footnote below it: the
+           person here is Tech Support, i.e. exactly who might reach for this as a permissions
+           tool, and they need to read this before they hide/move anything. #}
+        <div class="alert warn">
+            <strong>This only changes the sidebar.</strong> Hiding, reordering or reparenting an entry does <strong>NOT</strong> restrict access &mdash; every page stays fully reachable by its URL, and anyone who has the link or a bookmark can still open it. Use this to tidy the menu, not to control permissions. To actually restrict a page, its route needs a role check in the controller.
+        </div>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <input type="hidden" id="admin-menu-reorder-token" value="{{ csrf_token_value() }}">
+        <table class="admin-grid-table data-table" id="admin-menu-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Label</th>
+                    <th>Type</th>
+                    <th>Parent</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr draggable="true" data-type="{{ row.type }}" data-id="{{ row.id }}">
+                        <td class="drag-handle" title="Drag to reorder">&#8942;&#8942;</td>
+                        <td>{{ row.groupLabel ? row.groupLabel ~ ' › ' : '' }}{{ row.label }}</td>
+                        <td>{{ row.isGroup ? row.source ~ ' (group)' : row.source }}</td>
+                        <td>
+                            {% if row.isGroup %}
+                                &mdash;
+                            {% else %}
+                                <form method="post" action="{{ path('admin_bundle_admin_menu_reparent', {key: row.id}) }}" class="inline-select-form">
+                                    {{ csrf_field() }}
+                                    <select name="parent" onchange="this.form.submit()">
+                                        {% if row.type == 'core' %}
+                                            <option value="" {{ row.hasParentOverride ? '' : 'selected' }}>Default</option>
+                                            <option value="__root__" {{ row.hasParentOverride and row.parentKey is null ? 'selected' : '' }}>Top level</option>
+                                        {% else %}
+                                            <option value="" {{ row.parentKey is null ? 'selected' : '' }}>Top level</option>
+                                        {% endif %}
+                                        {% for option in parentOptions %}
+                                            <option value="{{ option.key }}" {{ row.parentKey == option.key ? 'selected' : '' }}>{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </form>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge {{ row.hidden ? 'danger' : '' }}">{{ row.hidden ? 'Hidden' : 'Visible' }}</span></td>
+                        <td class="row-actions">
+                            {% if row.type == 'custom' %}
+                                <a class="table-action" href="{{ path('admin_bundle_admin_menu_custom_update', {id: row.dbId}) }}">Edit</a>
+                                <form method="post" action="{{ path('admin_bundle_admin_menu_custom_delete', {id: row.dbId}) }}"
+                                      style="display:inline"
+                                      onsubmit="return confirm('Delete menu item {{ row.label|e('js') }}?')">
+                                    {{ csrf_field() }}
+                                    <button type="submit" class="table-action danger">Delete</button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{{ path('admin_bundle_admin_menu_toggle', {key: row.id}) }}" style="display:inline">
+                                    {{ csrf_field() }}
+                                    <button type="submit" class="link-button{{ row.hidden ? '' : ' danger' }}">
+                                        {{ row.hidden ? 'Show' : 'Hide' }}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-row">No admin menu items are registered yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+    (function () {
+        var table = document.getElementById('admin-menu-table');
+        if (!table) { return; }
+        var tbody = table.querySelector('tbody');
+        var dragged = null;
+
+        tbody.addEventListener('dragstart', function (e) {
+            var row = e.target.closest('tr[draggable="true"]');
+            if (!row) { return; }
+            dragged = row;
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        tbody.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            var target = e.target.closest('tr[draggable="true"]');
+            if (!target || target === dragged) { return; }
+            var rect = target.getBoundingClientRect();
+            var before = (e.clientY - rect.top) < rect.height / 2;
+            tbody.insertBefore(dragged, before ? target : target.nextSibling);
+        });
+
+        tbody.addEventListener('drop', function (e) {
+            e.preventDefault();
+            persistOrder();
+        });
+
+        function persistOrder() {
+            var order = Array.prototype.map.call(tbody.querySelectorAll('tr[draggable="true"]'), function (row) {
+                return { type: row.getAttribute('data-type'), id: row.getAttribute('data-id') };
+            });
+
+            var tokenField = document.getElementById('admin-menu-reorder-token');
+            var body = new URLSearchParams();
+            body.set('_token', tokenField ? tokenField.value : '');
+            body.set('order', JSON.stringify(order));
+
+            fetch('{{ path('admin_bundle_admin_menu_reorder') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+        }
+    })();
+    </script>
+{% endblock %}

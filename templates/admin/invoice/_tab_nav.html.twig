@@ -1,0 +1,60 @@
+{#
+    The invoice's screens, in one place.
+
+    Expects: invoice, `current` naming which tab is being viewed ('view', 'print', 'packing-slip'
+    or 'payments'), and `printable` — true only on a page that IS the printed document, where
+    "Print" means this page rather than a link to it.
+
+    One partial rather than the same <nav> copied onto four templates, which is how the order side
+    ended up with four near-identical copies of its own tab bar (detail, form, log and the invoice
+    document each grew one).
+
+    The <nav> itself is `admin/_partials/sales_document_action_bar.html.twig` now, shared with the
+    order's and the quote's. What stays here is everything that is the INVOICE's: the four screens
+    and two documents raised against it, which of them a draft withholds, and the narrow window in
+    which it may be edited at all.
+
+    `pdf: null` below: NOT a standalone Invoice PDF tab (dropped in the left-alignment pass) — the
+    PDF/Download disclosure's own "Print Invoice"/"Download Invoice" already reach the identical
+    `admin_invoice_print` route, and a bar does not need the same PDF reachable from two buttons,
+    the same reasoning `admin/order/_tab_nav.html.twig` already applies. Quote is unaffected in the
+    same direction: its own standalone tab is gone too, for the identical reason.
+#}
+{% include 'admin/_partials/sales_document_action_bar.html.twig' with {
+    document: invoice,
+    idPrefix: 'invoice',
+    documentNoun: 'invoice',
+    ariaLabel: 'Invoice detail actions',
+    navClass: 'no-print',
+    view: {href: path('admin_invoice_detail', {id: invoice.id}), current: current == 'view'},
+    edit: (invoice.canEditOnStatus() and not document_is_locked(invoice))
+        ? {href: path('admin_invoice_edit', {id: invoice.id}), label: 'Edit'}
+        : null,
+    pdf: null,
+    barTemplate: 'admin/invoice/_bar_actions.html.twig',
+    barContext: {current: current},
+    printMenuTemplate: 'admin/invoice/_print_menu.html.twig',
+    printContext: {current: current, printable: printable|default(false)},
+    cloneUrl: path('admin_invoice_clone', {id: invoice.id}),
+    lockUrl: path('admin_invoice_lock', {id: invoice.id}),
+    unlockUrl: path('admin_invoice_unlock', {id: invoice.id}),
+    overflowTemplate: 'admin/invoice/_overflow_actions.html.twig',
+    overflowContext: {availableActions: availableActions|default([])},
+} only %}
+{#
+    `admin_invoice_edit` exists now — order-linked or not, an invoice may be corrected the same way
+    it is created, refused only on `Invoice::canEditOnStatus()` (Completed, Cancelled — raise a
+    credit memo instead) or a manual freeze. `canEditOnStatus()` is the one and only authoritative
+    "can this be edited" gate; nothing else here re-derives that answer. This mirrors
+    `InvoiceController::edit()`'s own guards exactly, which is deliberate: the tab and the route
+    must refuse on the same facts, or the tab would offer a link the route immediately bounces, or
+    the route would accept a save the tab never offered a way to reach.
+
+    A Completed or Cancelled invoice stays without an Edit tab: it changes through documents raised
+    against it instead — a payment, a credit note, a sales return — because by then it is a record
+    of something that already happened (Completed) or is permanent by construction (Cancelled),
+    not a working document this screen still owns.
+
+    It is also why the shared bar takes `edit` as a nullable VALUE rather than a boolean: a document
+    that may be edited right now hands it a href, and one that may not hands it nothing.
+#}

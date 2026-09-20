@@ -1,0 +1,29 @@
+namespace: Tests
+support_namespace: Support
+bootstrap: _bootstrap.php
+paths:
+    tests: tests
+    output: tests/_output
+    data: tests/Support/Data
+    support: tests/Support
+    envs: tests/_envs
+actor_suffix: Tester
+settings:
+    # Codeception's own default (1024M) is tight enough that the full Functional suite runs
+    # right up against it; the frontend-menu-item registry adds a handful of extra queries to
+    # nearly every customer-page render, which was enough to tip a full run over the edge.
+    #
+    # Raised again from 2048M, which the suite exhausted outright — a hard
+    # "Allowed memory size of 2147483648 bytes exhausted" partway through, not a slow test. The
+    # whole suite runs in ONE PHP process and grows across it: Codeception retains every test's
+    # result and step log for the final report, and Doctrine's identity map and metadata caches
+    # keep growing as each test builds fixtures — the `cleanup: true` rollback undoes the database
+    # writes, not the in-process object graph.
+    #
+    # So this number tracks test COUNT, not any single test's cost, and it will need raising again.
+    # It is a stopgap. The durable fixes are splitting the run into groups or finding what actually
+    # retains between tests; neither belongs in the change that happened to cross the line.
+    memory_limit: 4608M
+extensions:
+    enabled:
+        - Codeception\Extension\RunFailed

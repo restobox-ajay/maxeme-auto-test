@@ -1,0 +1,88 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Trace {{ lot.label }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'lot_trace',
+        heading: 'Trace lot ' ~ lot.label,
+        lead: lot.product.sku ~ ' — ' ~ lot.product.name
+    } only %}
+
+    <section class="panel">
+        <h2>Status</h2>
+        <p class="lead">
+            {% if lot.status == 'recalled' %}
+                <span class="badge danger">Recalled</span> — excluded from the Order/Invoice line lot picker, and any save naming this lot directly is measured as having nothing available.
+            {% elseif lot.status == 'on_hold' %}
+                <span class="badge warn">On Hold</span> — excluded from the Order/Invoice line lot picker, and any save naming this lot directly is measured as having nothing available.
+            {% else %}
+                <span class="badge success">Available</span> — sellable and pickable like any other lot.
+            {% endif %}
+        </p>
+        <form method="post" action="{{ path('admin_bundle_inventory_depth_lot_trace_status', {id: lot.id}) }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>
+                Change status
+                <select name="status">
+                    <option value="available"{{ lot.status == 'available' ? ' selected' : '' }}>Available</option>
+                    <option value="on_hold"{{ lot.status == 'on_hold' ? ' selected' : '' }}>On Hold</option>
+                    <option value="recalled"{{ lot.status == 'recalled' ? ' selected' : '' }}>Recalled</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button class="button primary" type="submit">Update status</button>
+            </div>
+        </form>
+        <p class="lead">
+            <strong>Lot code:</strong> {{ lot.code }} &nbsp;
+            <strong>Expiry:</strong> {{ lot.expiry ? lot.expiry|date('Y-m-d') : 'Does not expire' }} &nbsp;
+            <strong>Received:</strong> {{ lot.receivedAt ? lot.receivedAt|date('Y-m-d') : '—' }} &nbsp;
+            <strong>Source:</strong> {{ lot.source ?: '—' }}
+        </p>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="table-header"><h2>Where it is now</h2></div>
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead>
+                <tr><th>Warehouse</th><th>Bin</th><th>Status</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>
+            {% for row in locations %}
+                <tr class="data-item-row{{ row.status != 'available' ? ' is-oversold' : '' }}">
+                    <td data-label="Warehouse">{{ row.warehouse }}</td>
+                    <td data-label="Bin">{{ row.location }}</td>
+                    <td data-label="Status">{{ row.status }}</td>
+                    <td data-label="Quantity">{{ row.quantity }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4" class="empty-table-cell"><strong>No stock currently carries this lot.</strong></td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div></div>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="table-header">
+            <h2>Who it was sold to <span class="badge">{{ soldTo|length }}</span></h2>
+        </div>
+        <p class="lead">Every issued invoice line naming this lot — a recall notice list, ready to generate.</p>
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead>
+                <tr><th>Customer</th><th>Invoice</th><th>Invoice Date</th><th>Invoice Status</th><th>Quantity</th></tr>
+            </thead>
+            <tbody>
+            {% for row in soldTo %}
+                <tr class="data-item-row">
+                    <td data-label="Customer">{{ row.companyName }}</td>
+                    <td data-label="Invoice"><a href="{{ path('admin_invoice_detail', {id: row.invoice.id}) }}">{{ row.invoice.documentNumber }}</a></td>
+                    <td data-label="Invoice Date">{{ row.invoiceDate ?: '—' }}</td>
+                    <td data-label="Invoice Status">{{ row.status }}</td>
+                    <td data-label="Quantity">{{ row.quantity }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="empty-table-cell"><strong>No issued invoice has shipped units of this lot.</strong></td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div></div>
+    </section>
+{% endblock %}

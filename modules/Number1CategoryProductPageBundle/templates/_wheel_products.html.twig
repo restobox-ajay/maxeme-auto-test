@@ -1,0 +1,88 @@
+{% set modelColumn = null %}
+{% set specColumns = [] %}
+{% for column in listColumns %}
+    {% if column.slug == 'rim_model' %}
+        {% set modelColumn = column %}
+    {% else %}
+        {% set specColumns = specColumns|merge([column]) %}
+    {% endif %}
+{% endfor %}
+<table class="admin-grid-table wheel-list-table">
+    <thead>
+        <tr>
+            <th class="wheel-list-image-col">Image</th>
+            <th class="wheel-list-col-head">{{ modelColumn ? modelColumn.label : 'Model' }}</th>
+            <th class="wheel-list-sku-col">Sku</th>
+            <th class="wheel-list-desc-col">Description</th>
+            {% for column in specColumns %}
+                <th class="wheel-list-col-head">{{ column.label }}</th>
+            {% endfor %}
+            <th class="wheel-list-price-col">Price<br>Suggested</th>
+            <th class="wheel-list-stock-col">Stock</th>
+            <th class="wheel-list-ordered-col">Ordered</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for product in products %}
+        <tr class="product-card wheel-list-row{{ app.user ? '' : ' guest-product-card' }}"
+            data-search="{{ product.sku }} {{ product.name }} {{ product.category }} {{ product.inventory }} {{ product.description }}">
+            <td class="wheel-list-image-cell">
+                <a class="product-media {{ product.image or app_setting('product_image_placeholder_url') ? '' : 'is-empty' }}" href="{{ path('customer_product_detail', {id: product.id, region: app.request.query.get('region', selectedRegion|default(''))}) }}">
+                    {% if product.image %}
+                        <img src="/uploads/products/{{ product.image }}" alt="{{ product.name }}" onerror="this.closest('.product-media').classList.add('is-empty'); this.remove();">
+                    {% elseif app_setting('product_image_placeholder_url') %}
+                        <img src="{{ app_setting('product_image_placeholder_url') }}" alt="{{ product.name }}" class="product-media-placeholder">
+                    {% endif %}
+                </a>
+            </td>
+            <td class="wheel-list-cell" data-column="{{ modelColumn ? modelColumn.slug : 'rim_model' }}">{{ modelColumn ? (product.customFields[modelColumn.slug]|default('-')) : '-' }}</td>
+            <td class="wheel-list-sku-cell">
+                {% if app.user %}{{ product.sku }}{% endif %}
+            </td>
+            <td class="wheel-list-desc-cell">
+                <h2>
+                    <a class="product-title-link" href="{{ path('customer_product_detail', {id: product.id, region: app.request.query.get('region', selectedRegion|default(''))}) }}">{{ product.name }}</a>
+                </h2>
+                {% if app.user %}{{ injection_point('product_description_after', {product: product}) }}{% endif %}
+                {% if not app.user %}
+                    <p class="product-unit">{{ product.unit ?: '-' }}</p>
+                {% endif %}
+            </td>
+            {% for column in specColumns %}
+                <td class="wheel-list-cell" data-column="{{ column.slug }}">{{ product.customFields[column.slug]|default('-') }}</td>
+            {% endfor %}
+            <td class="wheel-list-price-cell">
+                {% if app.user %}
+                    <strong class="product-price"><span class="hrp-real-value">{{ product.price }}</span>{{ suggested_price_html(product) }}</strong>
+                {% endif %}
+            </td>
+            <td class="wheel-list-stock-cell">
+                {% if product.inventory == 'In stock' %}
+                    <span class="product-avail avail-in-stock">In Stock</span>
+                {% elseif product.inventory == 'Out of stock' %}
+                    <span class="product-avail avail-out-stock">Out of Stock</span>
+                {% elseif product.inventory == 'Company only' %}
+                    <span class="product-avail avail-company">Company only</span>
+                {% else %}
+                    <span class="product-avail avail-low">{{ product.inventory }}</span>
+                {% endif %}
+            </td>
+            <td class="wheel-list-ordered-cell">
+                {% if app.user and product.inventory != 'Out of stock' %}
+                    <form method="post" action="{{ path('customer_cart_add') }}" class="btn-cart-form">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="sku" value="{{ product.sku }}">
+                        <input type="hidden" name="qty" value="1">
+                        <input type="hidden" name="redirect_to" value="{{ app.request.requestUri }}">
+                        <button class="btn-cart js-product-card-cart-btn" type="submit" data-modal-target="cart-modal-{{ product.sku }}" data-available-qty="{{ product.availableQuantity|default(0) }}" data-sku="{{ product.sku }}" data-name="{{ product.name }}" data-price="{{ product.price }}" data-unit="{{ product.unit }}" data-size="{{ product.size }}" data-image="{{ product.image ? '/uploads/products/' ~ product.image : '' }}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                            Add to Cart
+                        </button>
+                    </form>
+                    {% include 'customer/catalog/_cart_qty_modal.html.twig' with {product: product} only %}
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

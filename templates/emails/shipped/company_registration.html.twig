@@ -1,0 +1,42 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Company Registration{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Company registration received</h2>
+
+    <p>Hello{% if contact_name is defined and contact_name %} <strong>{{ contact_name }}</strong>{% endif %},</p>
+
+    <p>
+        Thanks for registering <strong>{{ company_name|default('your company') }}</strong> with {{ site_name() }}.
+        We've received your company details successfully.
+    </p>
+
+    <div class="order-summary">
+        <p style="margin: 0 0 12px 0; font-weight: 800; color: #0f172a;">Registration summary</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse;">
+            <tr>
+                <td style="padding: 6px 0; font-size: 14px; color: #475569;">Company</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700; text-align: right;">{{ company_name|default('-') }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 6px 0; font-size: 14px; color: #475569;">Company Code</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: right;">{{ company_code|default('-') }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 6px 0; font-size: 14px; color: #475569;">Company Email</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: right;">{{ company_email|default('-') }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 6px 0; font-size: 14px; color: #475569;">Login Email</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: right;">{{ user_email|default('-') }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <p>Your registration is pending approval. We will email you again as soon as an administrator activates your account.</p>
+
+    <p style="margin-top: 30px; font-size: 13px; color: #64748b;">
+        If you didn't request this registration, please ignore this email{% if support_email is defined and support_email %} or contact support at <span class="highlight">{{ support_email }}</span>{% endif %}.
+    </p>
+{% endblock %}

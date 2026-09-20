@@ -1,0 +1,47 @@
+{# The colgroup and the header row of a sell-side document's line table, both built from the SAME
+   ordered column list `sales_line_row.html.twig` renders its cells from.
+
+   The three forms each carried their own copy of both, next to a third hand-written list of column
+   names for the shared fee row, with a comment on each saying the three must not be allowed to
+   drift apart. Three hand-maintained lists with a note asking someone to remember is not a
+   mechanism — a header and a row that disagree about columns is exactly the defect a shared row
+   invites, and it shows up as a table one cell out of alignment rather than as an error. Now there
+   is one list per document and everything that has to count the columns counts the same thing.
+
+   Column entries are {key, label, col, header}:
+
+     key     what sales_line_row.html.twig renders in that position
+     label   the column's name — the <th> text, and the row cells' data-label where the document
+             labels them, and what the shared fee row spans by
+     col     optional, the colgroup class SUFFIX for this column, so an order gets
+             .order-col-qty and a quote .estimate-col-qty from one entry. Defaults to `key`.
+     header  optional, the <th> text where it differs from `label`. Two documents need it: the
+             quote's Actions column is labelled for the responsive CSS but deliberately shows an
+             EMPTY header (the column is 26px of round buttons and a caption would not fit), and on
+             the quote CREATE page the Price header reads "Price (optional)" while the cell's
+             data-label stays "Price". Defaults to `label`.
+
+   Parameters
+   ----------
+   columns  required  the column list, in order
+   prefix   required for cols() only — 'order' or 'estimate', the colgroup class prefix. Both
+                      tables are table-layout: fixed, so these <col> classes and not the cell
+                      contents decide how the width divides. The standalone invoice's column set
+                      IS order's own, so it calls cols() with prefix 'order' too, sizing off
+                      .order-col-* rather than a table-specific copy of the same rules. #}
+
+{% macro cols(columns, prefix) %}
+    <colgroup>
+        {%- for column in columns %}
+        <col class="{{ prefix }}-col-{{ column.col|default(column.key) }}">
+        {%- endfor %}
+    </colgroup>
+{% endmacro %}
+
+{% macro head(columns) %}
+    <tr>
+        {%- for column in columns %}
+        <th>{{ column.header is defined ? column.header : column.label|default('') }}</th>
+        {%- endfor %}
+    </tr>
+{% endmacro %}

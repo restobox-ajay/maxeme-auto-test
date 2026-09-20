@@ -1,0 +1,8 @@
+{# The ORDER's PDF / Download menu — the slot the shared action bar renders inside its disclosure.
+   Expects: `document`, the SalesOrder.
+
+   The invoice, the packing slip and Send Invoice belong to the INVOICE since #539 stage 6, and are
+   reached per invoice from the Invoices table on the detail screen — an order billed across three
+   invoices has three of each, and this menu could offer one. #}
+<a id="order-action-print" href="{{ path('admin_order_document', {id: document.id}) }}" target="_blank">Print Sales Order</a>
+<a id="order-action-download" href="{{ path('admin_order_document', {id: document.id, download: 1}) }}">Download Sales Order</a>

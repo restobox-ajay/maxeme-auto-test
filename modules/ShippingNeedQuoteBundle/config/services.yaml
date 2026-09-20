@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingNeedQuoteBundle\:
+        resource: '../src/'
+
+    ShippingNeedQuoteBundle\Shipping\NeedQuoteShippingCalculator:
+        tags: ['app.shipping_option_fallback']
+
+    ShippingNeedQuoteBundle\Bundle\ShippingNeedQuoteBundleDescriptor:
+        tags: ['app.bundle_descriptor']

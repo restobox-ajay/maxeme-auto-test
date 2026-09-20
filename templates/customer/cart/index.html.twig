@@ -1,0 +1,207 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Cart | {{ site_name() }}{% endblock %}
+
+{% block customer_body %}
+    {% include 'customer/_main/_cart_hold_banner.html.twig' %}
+    {% set customerCompany = app.user ? app.user.company : null %}
+
+    <section class="checkout-page-head cart-page-head" aria-label="Cart heading">
+        <div>
+            <h1>MY CART</h1>
+        </div>
+        <nav aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span>&rsaquo;</span>
+            <span>My Cart</span>
+        </nav>
+    </section>
+
+    <section class="cart-layout cart-page-layout" aria-label="Cart contents">
+        <div class="table-card cart-table-card no-paginate">
+            {% if blocked|default(false) %}
+                <div class="cart-empty alert error">
+                    No fulfillment region is currently enabled for your account. Please contact your account representative before checking out.
+                </div>
+            {% elseif rows is empty %}
+                <div class="cart-empty alert warn">
+                    Your cart is empty. Browse the catalog to add products.
+                </div>
+            {% else %}
+                {% if hasUnresolvedRows|default(false) %}
+                    <div class="cart-empty alert warn">
+                        One or more items don't have a fixed price and require a custom quote. You can still check out — we'll follow up with pricing before anything ships.
+                    </div>
+                {% endif %}
+                <form method="post" action="{{ path('customer_cart_update') }}">
+                    {{ csrf_field() }}
+                    <div class="cart-table-wrap">
+                        <table class="cart-table" aria-label="Cart items">
+                            <colgroup>
+                                <col class="cart-col-product">
+                                <col class="cart-col-price">
+                                <col class="cart-col-qty">
+                                <col class="cart-col-total">
+                                <col class="cart-col-actions">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Name/Description</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Subtotal</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in rows %}
+                                    <tr>
+                                        <td>
+                                            <div class="cart-product">
+                                                <div class="cart-product-meta">
+                                                    <div class="cart-product-name">{{ row.name }} ({{ row.sku }}){% if row.unit %}, {{ row.unit }}{% endif %}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if row.priceResolved %}
+                                                <span class="cart-money">${{ row.price|price }}</span>
+                                            {% else %}
+                                                <span class="cart-money cart-price-tbd">Quote required</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="cart-qty-control">
+                                                <button class="cart-qty-btn js-cart-qty-dec" type="button" aria-label="Decrease quantity">-</button>
+                                                <input class="cart-qty" type="number" min="1" max="999" name="qty[{{ row.sku }}]" value="{{ row.qty }}" inputmode="numeric" aria-label="Quantity for {{ row.name }}">
+                                                <button class="cart-qty-btn js-cart-qty-inc" type="button" aria-label="Increase quantity">+</button>
+                                            </div>
+                                            {# Only for a line part of which cannot ship yet (#548).
+                                               Nothing renders for a SKU nobody has opted a warehouse
+                                               into, which is the whole catalogue by default. The
+                                               line is NOT capped in that case - being allowed to
+                                               order beyond stock is the point - so this explains
+                                               why the quantity was left alone. #}
+                                            {% if row.backordered|default(0) > 0 %}
+                                                <small class="cart-backorder-note">{{ row.shipsNow|qty }} ships now, {{ row.backordered|qty }} on backorder</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if row.priceResolved %}
+                                                <strong class="cart-money">${{ row.subtotal|amount }}</strong>
+                                            {% else %}
+                                                <strong class="cart-money cart-price-tbd">TBD</strong>
+                                            {% endif %}
+                                        </td>
+                                        <td class="cart-actions">
+                                            <button class="button danger-soft cart-remove" type="submit" formaction="{{ path('customer_cart_remove') }}" formnovalidate name="sku" value="{{ row.sku }}" aria-label="Remove {{ row.name }}" title="Remove {{ row.name }}">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                {% for feeLine in feeLines|default([]) %}
+                                    {% if feeLine.placement == 'main_line' %}
+                                        <tr class="cart-line-row fee-line-row">
+                                            <td>{{ feeLine.label }}</td>
+                                            <td>&mdash;</td>
+                                            <td>&mdash;</td>
+                                            <td><strong class="cart-money">${{ feeLine.amount|amount }}</strong></td>
+                                            <td>&mdash;</td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="cart-table-toolbar">
+                        <button class="button primary" type="submit">Update Cart</button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="cart-bottom-grid">
+            <section class="cart-profile-card" aria-label="Your profile">
+                <h2>Your Profile</h2>
+                <dl>
+                    {% for field in cartInfoFields %}
+                        <div>
+                            <dt>{{ field.label }}:</dt>
+                            <dd>{{ field.value }}</dd>
+                        </div>
+                    {% endfor %}
+                </dl>
+                <div class="cart-profile-actions">
+                    <a class="button outline cart-secondary-btn" href="{{ path('customer_catalog') }}">Continue shopping</a>
+                    {% if rows is not empty %}
+                        <form method="post" action="{{ path('customer_cart_clear') }}">
+                            {{ csrf_field() }}
+                            <button class="button outline cart-clear-btn" type="submit">Clear cart</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </section>
+
+            <aside class="cart-summary" aria-label="Cart summary">
+                <div class="card cart-summary-card">
+                    <div class="card-header">
+                        <h2>Cart Totals</h2>
+                    </div>
+                    <div class="cart-summary-body">
+                        {% if pricingRegion|default('') %}
+                            <div class="cart-summary-row">
+                                <span>Pricing Region:</span>
+                                <strong>{{ pricingRegion }}</strong>
+                            </div>
+                        {% endif %}
+                        <div class="cart-summary-row">
+                            <span>Subtotal:</span>
+                            <strong>${{ (subtotal|default(0) + feeTotalsMainLine|default(0))|amount }}</strong>
+                        </div>
+                        <div class="cart-summary-row">
+                            <span>Shipping:{% if shippingTbd|default(false) %} <em>(Choose a shipping method at checkout)</em>{% elseif shippingWaived|default(false) %} <em>({{ shippingLabel }} &mdash; Free shipping over ${{ freeShippingThreshold|default(0)|amount('compact') }})</em>{% elseif shippingLabel|default(null) %} <em>({{ shippingLabel }})</em>{% endif %}</span>
+                            {% if shippingTbd|default(false) %}
+                                <strong class="cart-price-tbd">TBD</strong>
+                            {% else %}
+                                <strong{{ shippingEstimate|default(0) <= 0 ? ' class="cart-summary-free"' : '' }}>{{ shippingEstimate|default(0) <= 0 ? 'FREE' : '$' ~ shippingEstimate|amount }}</strong>
+                            {% endif %}
+                        </div>
+                        {% for feeLine in feeLines|default([]) %}
+                            {% if feeLine.placement == 'before_tax_line' %}
+                                <div class="cart-summary-row">
+                                    <span>{{ feeLine.label }}:</span>
+                                    <strong>${{ feeLine.amount|amount }}</strong>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        {% for taxLine in taxLines|default([]) %}
+                            <div class="cart-summary-row">
+                                <span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span>
+                                <strong>${{ taxLine.amount|amount }}</strong>
+                            </div>
+                        {% endfor %}
+                        {% for feeLine in feeLines|default([]) %}
+                            {% if feeLine.placement == 'after_tax_line' %}
+                                <div class="cart-summary-row">
+                                    <span>{{ feeLine.label }}:</span>
+                                    <strong>${{ feeLine.amount|amount }}</strong>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        <div class="cart-summary-row total">
+                            <span>Grand Total:</span>
+                            <strong>${{ grandTotal|default(0)|amount }}</strong>
+                        </div>
+                        
+                    </div>
+                    <div class="card-footer cart-summary-actions">
+                        {{ injection_point('cart_before_checkout', {cart: rows, company: customerCompany}) }}
+                        <a class="button primary full-width{{ (rows is empty or blocked|default(false)) ? ' is-disabled' : '' }}" href="{{ path('customer_checkout') }}" aria-label="Proceed to checkout" aria-disabled="{{ (rows is empty or blocked|default(false)) ? 'true' : 'false' }}">
+                            Next Step
+                        </a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,922 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Product | Admin{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .ss-item.ss-multi-item:not(.is-hidden) { display: flex; gap: 10px; align-items: center; }
+        .ss-item.is-hidden { display: none !important; }
+        .ss-item.ss-multi-item input[type="checkbox"] { pointer-events: none; }
+        .ss-item.ss-multi-item.is-selected { background: rgba(37, 99, 235, 0.12); color: var(--ink); }
+        .ss-item.ss-multi-item.is-selected:hover { background: rgba(37, 99, 235, 0.16); }
+        .ss-item.ss-multi-all { font-weight: 700; }
+        .ss-hidden-select { display: none; }
+
+        .wc-help-tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.08);
+            color: #111827;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            cursor: help;
+            user-select: none;
+        }
+        .wc-help-tip:focus {
+            outline: 2px solid rgba(37, 99, 235, 0.6);
+            outline-offset: 2px;
+        }
+        .wc-help-tip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 50%;
+            top: -10px;
+            transform: translate(-50%, -100%);
+            width: 260px;
+            max-width: min(260px, 70vw);
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #111827;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.25;
+            text-align: center;
+            white-space: normal;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease;
+            z-index: 50;
+        }
+        .wc-help-tip::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: -10px;
+            transform: translate(-50%, -10%);
+            border: 7px solid transparent;
+            border-top-color: #111827;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease;
+            z-index: 51;
+        }
+        .wc-help-tip:hover::after,
+        .wc-help-tip:hover::before,
+        .wc-help-tip:focus::after,
+        .wc-help-tip:focus::before {
+            opacity: 1;
+        }
+    </style>
+{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Create / edit product</p>
+                <h1>{{ mode }} Product</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ app.request.query.get('redirect') ? path(app.request.query.get('redirect')) : path('admin_product_detail_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card product-form-card">
+        <form class="form-grid product-form-grid" method="post" enctype="multipart/form-data">
+            {{ csrf_field() }}
+            <div class="span-2 product-image-field">
+                <span class="field-label">Product Images</span>
+
+                <div class="image-gallery-grid" id="image-gallery-grid">
+                    {% for image in product.images|default([]) %}
+                        <div class="image-gallery-item{{ image.primary ? ' is-primary' : '' }}" draggable="true" data-image-id="{{ image.id }}">
+                            <div class="image-gallery-drag-handle" title="Drag to reorder" aria-hidden="true">
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="3" r="1.4"/><circle cx="12" cy="3" r="1.4"/><circle cx="4" cy="8" r="1.4"/><circle cx="12" cy="8" r="1.4"/><circle cx="4" cy="13" r="1.4"/><circle cx="12" cy="13" r="1.4"/></svg>
+                            </div>
+                            <button class="image-gallery-remove-btn" type="button" title="Remove image">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                            <img class="image-gallery-thumb" src="/uploads/products/{{ image.filename }}" alt="{{ product.name }}">
+                            <div class="image-gallery-primary-flag">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                Primary photo
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if product.images|default([])|length > 1 %}
+                    <p class="image-gallery-hint">Drag a photo into the first spot to make it the primary photo customers see first.</p>
+                {% endif %}
+
+                <div class="image-gallery-order-fields" id="image-gallery-order-fields"></div>
+                <input type="hidden" name="primary_image_id" id="primary-image-id-input" value="">
+
+                <div class="image-dropzone" id="image-dropzone">
+                    <div class="image-dropzone-inner" id="image-dropzone-inner">
+                        <div class="dropzone-icon" aria-hidden="true">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <p class="dropzone-label"><strong>Click to upload</strong> or drag and drop</p>
+                        <p class="dropzone-hint">JPG, PNG, WebP or GIF &middot; Max 5 MB &middot; multiple files allowed</p>
+                    </div>
+                    <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp,image/gif" id="product-image-input" class="dropzone-file-input" multiple>
+                </div>
+            </div>
+
+            <div class="product-form-main">
+                <label>
+                    Name <span class="req">*</span>
+                    <input type="text" name="name" value="{{ product.name }}" required>
+                </label>
+                <label>
+                    Sku <span class="req">*</span>
+                    <input type="text" name="sku" value="{{ product.sku }}" required>
+                </label>
+                <label>
+                    Type
+                    <input type="text" name="type" value="{{ product.type }}">
+                </label>
+                {# #601 phase 1 (#643): what every quantity of this product is counted in. THE unit
+                   control, not a pointer at one.
+
+                   It has been wrong twice. First it was a free-text box typed beside a "Base Unit"
+                   select further down the page, so a product could display EA while declaring KG
+                   with nothing able to say which was right. Then the box became read-only and sent
+                   the admin down the page to the select — one fact, one control, and the control
+                   somewhere else, which is a field that does not do its job. The select is here now
+                   and there is no Base Unit section: everything that block carried came with it. #}
+                <label>
+                    Unit of Measure
+                    {% if unitsOfMeasure is defined and unitsOfMeasure|length > 0 %}
+                        <select name="unit_id"{{ baseUnitBlockers|default({})|length > 0 ? ' disabled' : '' }}>
+                            <option value="0"{{ baseUnitSelectedId|default(0) == 0 ? ' selected' : '' }}>Not set</option>
+                            {% for unit in unitsOfMeasure %}
+                                <option value="{{ unit.id }}"{{ baseUnitSelectedId|default(0) == unit.id ? ' selected' : '' }}>{{ unit.label }}</option>
+                            {% endfor %}
+                        </select>
+                        <small>
+                            Managed on <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a>.
+                            {% if baseUnitBlockers|default({})|length > 0 %}
+                                <strong>Locked:</strong> already used on existing inventory or order records.
+                                Changing it now would restate every one of them at once &mdash; a product that
+                                needs a different base is a new product.
+                            {% endif %}
+                            {% if baseUnitId|default(0) == 0 and baseUnitSelectedId|default(0) > 0 %}
+                                {# The label already names a unit — by code (`EA`) or by name (`Each`), which is
+                                   how this column was really filled in. Selected rather than saved: declaring it
+                                   is a write, and a write belongs to the admin's save, not to opening a page. #}
+                                <strong>Not declared yet:</strong> selected from this product's stored label
+                                <code>{{ product.unit }}</code>. Saving the product declares it.
+                            {% elseif baseUnitSelectedId|default(0) == 0 and product.unit %}
+                                {# The free-text column also collected values that were never units at all:
+                                   the product import's template guide used to document the `unit` column
+                                   with the example "12/Case", which is a pack size. Those cannot be mapped
+                                   to a unit of measure and must not be guessed at, so they are named here
+                                   for a human to resolve rather than silently converted or silently
+                                   dropped. This message is where an import sends them: a row whose unit
+                                   names no term imports with `unit_id` left NULL and lands here. #}
+                                <strong>Unmapped:</strong> this product's stored label is
+                                <code>{{ product.unit }}</code>, which matches no unit's code or name.
+                                If it names a pack size rather than a unit &mdash; <code>12/Case</code> &mdash;
+                                declare the base unit here, then add the pack as its own term on
+                                <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a>
+                                and tick it below.
+                            {% endif %}
+                        </small>
+                    {% else %}
+                        {# Nothing to choose from. Showing an empty select would read as "this product has
+                           no unit" when what is really empty is the list. #}
+                        <output class="derived-field">{{ product.unit ?: '—' }}</output>
+                        <small>
+                            No units of measure exist yet &mdash; add one on
+                            <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a>
+                            to declare this product's unit.
+                        </small>
+                    {% endif %}
+                </label>
+                {# #659: which units THIS product may be expressed in, and which one a line entry
+                   starts on.
+
+                   Conversion is global — `BOX-12` holds twelve because Units of Measure says so,
+                   once, for the whole instance — so the vocabulary grows without bound as pack sizes
+                   accumulate. This list is what stops all of it reaching the person entering an
+                   order: long in the catalogue, short on the line. A tyre never sees BAG.
+
+                   Scoped twice. To this product, and to its family — which is the family of the base
+                   unit above, derived rather than stored, because a family held in a second column
+                   is a fact that can disagree with itself. So the candidates below change when the
+                   Unit of Measure above is saved, and there is nothing to offer before it is.
+
+                   Blank is allowed and is not a half-finished product: some items do not
+                   participate, they are ordered in their base unit and nothing else. #}
+                <div class="span-2 available-unit-checklist">
+                    <span class="ss-field-label">Available units</span>
+                    {% if baseUnitId|default(0) == 0 %}
+                        <p class="muted">
+                            Set this product's <strong>Unit of Measure</strong> above and save. A product's available
+                            units are drawn from the family its base unit measures &mdash; count, weight, volume or
+                            length &mdash; and until one is declared there is no family to draw from.
+                        </p>
+                    {% else %}
+                        <input type="hidden" name="available_units_submitted" value="1">
+                        {% if familyUnits|default([])|length > 0 %}
+                            <div class="available-unit-checklist-rows">
+                                {% for unit in familyUnits %}
+                                    <label class="check-row available-unit-check">
+                                        <input type="checkbox" name="available_unit_ids[]" value="{{ unit.id }}"
+                                               {{ unit.id in availableUnitIds|default([]) ? 'checked' : '' }}>
+                                        {{ unit.code }} &mdash; {{ unit.name }}
+                                        <small>1 {{ unit.code }} = {{ unit.factorToFamilyBase }} of the {{ unitFamily }} base</small>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="muted">
+                                No other {{ unitFamily }} units exist yet &mdash; add one on
+                                <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a>.
+                            </p>
+                        {% endif %}
+                        <p class="muted">
+                            The base unit is always available and is not listed here: stock is stored in it, so a line
+                            can always be written in it.
+                        </p>
+                        <label>
+                            Default unit
+                            <select name="default_unit_id">
+                                <option value="0"{{ defaultUnitId|default(0) == 0 ? ' selected' : '' }}>Base unit</option>
+                                {% for unit in familyUnits|default([]) %}
+                                    <option value="{{ unit.id }}"{{ defaultUnitId|default(0) == unit.id ? ' selected' : '' }}>{{ unit.code }} &mdash; {{ unit.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small>
+                                Where a line entry opens. It must be one of the units ticked above &mdash; a dropdown
+                                whose pre-selected option is not in it would post a value the server then refuses.
+                            </small>
+                        </label>
+                    {% endif %}
+                </div>
+                <label>
+                    Weight
+                    <input type="number" step="0.001" min="0" name="weight" value="{{ product.weight }}">
+                </label>
+                <label>
+                    Cost Price
+                    <input type="number" step="0.01" min="0" name="cost_price" value="{{ product.costRaw }}">
+                </label>
+                <label>
+                    Original Price
+                    <input type="number" step="0.01" min="0" name="original_price" value="{{ product.originalRaw }}">
+                </label>
+                <label>
+                    Deposit
+                    <input type="number" step="0.01" min="0" name="deposit" value="{{ product.depositRaw }}">
+                </label>
+                {# The options came from a hand-kept ['Active', 'Inactive'] here until queue item 9
+                   added Draft. That list going stale was not cosmetic: a Draft product opened this
+                   form with NO option selected, so the browser posted back the first one and saving
+                   an unrelated edit silently activated a product whose base unit nobody had
+                   resolved. The list is the enum's own now, and a status the enum does not know
+                   keeps its place in the select instead of being overwritten by whatever is at the
+                   top. #}
+                {% set knownStatuses = enum_cases('App\\Enum\\ProductStatus')|map(case => case.value) %}
+                {% set currentStatus = product.status|default('') %}
+                {% set statusIsKnown = currentStatus in knownStatuses %}
+                <label>
+                    Status
+                    <select name="status" id="product-status-select">
+                        {% if currentStatus != '' and not statusIsKnown %}
+                            <option value="{{ currentStatus }}" selected>{{ currentStatus }} (unrecognised)</option>
+                        {% endif %}
+                        {% for status in knownStatuses %}
+                            <option value="{{ status }}" {{ currentStatus == status ? 'selected' : '' }}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                    <small id="product-status-note">
+                        {% if currentStatus != '' and not statusIsKnown %}
+                            <strong>Unrecognised:</strong> this product's stored status is
+                            <code>{{ currentStatus }}</code>, which the application does not know. It is
+                            not sellable and is not counted. Leaving the select alone keeps the value
+                            as it is; picking one of the others settles it.
+                        {% else %}
+                            <strong>Draft</strong> means the product is not ready to transact and is waiting
+                            on somebody &mdash; it is not sellable, not in the customer catalogue and not
+                            counted. <strong>Inactive</strong> means it has been withdrawn on purpose.
+                        {% endif %}
+                    </small>
+                </label>
+                <label>
+                    Category
+                    <select name="category_id">
+                        <option value="">No category</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {{ product.categoryId == category.id ? 'selected' : '' }}>{{ category.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <small>Optional. Add categories from Products &gt; Categories when needed.</small>
+                </label>
+                <label>
+                    Visible to Customers
+                    <select name="visible">
+                        {% for option in ['Yes', 'No'] %}
+                            <option value="{{ option }}" {{ product.visible == option ? 'selected' : '' }}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="check-row">
+                    <input type="hidden" name="featured" value="0">
+                    <input type="checkbox" name="featured" value="1" {{ product.featured == 'Yes' ? 'checked' : '' }}>
+                    Featured product
+                    <small>Shown first in the "Featured products" section on the storefront home page.</small>
+                </label>
+                <label>
+                    Archived
+                    <select name="deleted">
+                        {% for option in ['No', 'Yes'] %}
+                            <option value="{{ option }}" {{ product.deletedRaw == option ? 'selected' : '' }}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Sales Tax Code
+                    <div class="ss-wrap" id="ss-sales-tax-code">
+                        <button type="button" class="ss-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            {{ product.salesTaxCode|default('') ?: 'Select Sales Tax Code' }}
+                        </button>
+                        <div class="ss-panel" role="listbox">
+                            <div class="ss-search-wrap">
+                                <input class="ss-search" type="text" placeholder="Search..." autocomplete="off">
+                            </div>
+                            <ul class="ss-list">
+                                <li class="ss-item{{ (product.salesTaxCode|default('') == '') ? ' is-selected' : '' }}" data-value="" role="option">Select Sales Tax Code</li>
+                                <li class="ss-item{{ product.salesTaxCode == 'E' ? ' is-selected' : '' }}" data-value="E" role="option">E</li>
+                                <li class="ss-item{{ product.salesTaxCode == 'G' ? ' is-selected' : '' }}" data-value="G" role="option">G</li>
+                                <li class="ss-item{{ product.salesTaxCode == 'S' ? ' is-selected' : '' }}" data-value="S" role="option">S</li>
+                            </ul>
+                            <p class="ss-empty" hidden>No results found.</p>
+                        </div>
+                        <select class="ss-native" name="sales_tax_code" aria-hidden="true" tabindex="-1">
+                            <option value="" {{ (product.salesTaxCode|default('') == '') ? 'selected' : '' }}></option>
+                            <option value="E" {{ product.salesTaxCode == 'E' ? 'selected' : '' }}>E</option>
+                            <option value="G" {{ product.salesTaxCode == 'G' ? 'selected' : '' }}>G</option>
+                            <option value="S" {{ product.salesTaxCode == 'S' ? 'selected' : '' }}>S</option>
+                        </select>
+                    </div>
+                </label>
+                <label>
+                    Shipping Class
+                    <select name="shipping_class">
+                        <option value="" {{ product.shippingClass == '' ? 'selected' : '' }}>— None —</option>
+                        <option value="light" {{ product.shippingClass == 'light' ? 'selected' : '' }}>Light</option>
+                        <option value="bulk" {{ product.shippingClass == 'bulk' ? 'selected' : '' }}>Bulk</option>
+                    </select>
+                </label>
+                <label>
+                    Private
+                    <div class="ss-wrap ss-multi-wrap" id="ss-private-companies">
+                        <button type="button" class="ss-trigger" aria-haspopup="listbox" aria-expanded="false">
+                            {%- if product.privateCompanyIds is defined and product.privateCompanyIds|length > 0 -%}
+                                {%- set selectedLabels = [] -%}
+                                {%- for company in companies -%}
+                                    {%- if company.id in product.privateCompanyIds -%}
+                                        {%- set selectedLabels = selectedLabels|merge([company.label|default(company.name)]) -%}
+                                    {%- endif -%}
+                                {%- endfor -%}
+                                {{ selectedLabels|join(', ') }}
+                            {%- else -%}
+                                Select customers...
+                            {%- endif -%}
+                        </button>
+                        <div class="ss-panel" role="listbox">
+                            <div class="ss-search-wrap">
+                                <input class="ss-search" type="text" placeholder="Search customers..." autocomplete="off">
+                            </div>
+                            <ul class="ss-list">
+                                <li class="ss-item ss-multi-item ss-multi-all" data-value="__all__" role="option">
+                                    <input type="checkbox" tabindex="-1">
+                                    <span>Select all</span>
+                                </li>
+                                {% for company in companies %}
+                                    <li class="ss-item ss-multi-item{{ company.id in product.privateCompanyIds ? ' is-selected' : '' }}"
+                                        data-value="{{ company.id }}" role="option">
+                                        <input type="checkbox" tabindex="-1" {{ company.id in product.privateCompanyIds ? 'checked' : '' }}>
+                                        <span>{{ company.label|default(company.name) }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                            <p class="ss-empty" hidden>No results found.</p>
+                        </div>
+                        <select class="ss-hidden-select" name="private_companies[]" multiple aria-hidden="true" tabindex="-1">
+                            {% for company in companies %}
+                                <option value="{{ company.id }}" {{ company.id in product.privateCompanyIds ? 'selected' : '' }}>{{ company.label|default(company.name) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </label>
+            </div>
+
+            <div class="product-form-side">
+                <label>
+                    Remarks
+                    <textarea name="remarks">{{ product.remarks }}</textarea>
+                </label>
+
+                <label class="rich-text-field">
+                    Short Description
+                    <span class="editor-shell">
+                        <span class="editor-toolbar" aria-hidden="true">
+                            <span>&lt;&gt;</span>
+                            <span>P</span>
+                            <span>B</span>
+                            <span>I</span>
+                            <span>S</span>
+                            <span>=</span>
+                            <span>&equiv;</span>
+                            <span>&larr;</span>
+                            <span>&rarr;</span>
+                            <span>&#128279;</span>
+                            <span>&mdash;</span>
+                            <span>&#8599;</span>
+                        </span>
+                        <textarea name="short_description">{{ product.short }}</textarea>
+                    </span>
+                </label>
+
+                <label class="rich-text-field">
+                    Long Description
+                    <span class="editor-shell">
+                        <span class="editor-toolbar" aria-hidden="true">
+                            <span>&lt;&gt;</span>
+                            <span>P</span>
+                            <span>B</span>
+                            <span>I</span>
+                            <span>S</span>
+                            <span>=</span>
+                            <span>&equiv;</span>
+                            <span>&larr;</span>
+                            <span>&rarr;</span>
+                            <span>&#128279;</span>
+                            <span>&mdash;</span>
+                            <span>&#8599;</span>
+                        </span>
+                        <textarea name="long_description">{{ product.long }}</textarea>
+                    </span>
+                </label>
+            </div>
+
+            {% if feeFieldFragments is defined and feeFieldFragments|length > 0 %}
+            <div class="span-2 fee-fields-section">
+                <p class="section-label">Fees</p>
+                {% for fragment in feeFieldFragments %}
+                    {{ fragment|raw }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if customFieldFragment is defined and customFieldFragment %}
+            <div class="span-2 custom-fields-section">
+                <p class="section-label">Custom Fields</p>
+                {{ customFieldFragment|raw }}
+            </div>
+            {% endif %}
+
+            {# #573: what identity a unit of this product must carry, declared rather than inferred
+               from whatever lot or serial rows happen to exist. Rendered on every product — the
+               declaration is a core fact about the product and outlives any depth bundle that reads
+               it. "None" is what every product points at until someone opts one in. #}
+            {% if trackingPolicies is defined and trackingPolicies|length > 0 %}
+                <div class="span-2 tracking-policy-field">
+                    <p class="section-label">Tracking Policy</p>
+                    <label>
+                        <select name="tracking_policy_id">
+                            {# Value 0 is "points at no row", which behaves identically to the seeded
+                               "{{ trackingPolicyDefaultName }}" policy: TrackingPolicyRepository::policyFor()
+                               answers an inert policy for both. Offered so a product can be detached
+                               from a policy without one having to exist. #}
+                            <option value="0"{{ trackingPolicyId == 0 ? ' selected' : '' }}>Not set — nothing captured</option>
+                            {% for policy in trackingPolicies %}
+                                <option value="{{ policy.id }}"{{ trackingPolicyId == policy.id ? ' selected' : '' }}>{{ policy.name }} — {{ policy.describe }}</option>
+                            {% endfor %}
+                        </select>
+                        <small>
+                            Managed on <a href="{{ path('admin_tracking_policy_index') }}">Tracking Policies</a>.
+                            A missing batch or serial never blocks a receipt or an import — the row goes through
+                            carrying a placeholder and appears on the tracking worklist instead.
+                        </small>
+                    </label>
+                </div>
+            {% endif %}
+
+            {# #550: the mode toggle only appears when something can actually honour `dimensional` —
+               i.e. an inventory-depth bundle is installed and Active. With none, this whole block is
+               absent and the boxes below behave exactly as they always have. #}
+            {% if dimensionalInventoryAvailable|default(false) %}
+                <div class="span-2 inventory-mode-field">
+                    <p class="section-label">Inventory Mode</p>
+                    <label class="check-row" style="justify-content: flex-start; gap: 10px;">
+                        <input type="checkbox" name="inventory_mode_dimensional" value="1"{{ isDimensionalProduct|default(false) ? ' checked' : '' }}>
+                        Track this product by bin, lot and serial
+                        <span class="wc-help-tip"
+                              tabindex="0"
+                              role="button"
+                              aria-label="Inventory mode help"
+                              data-tooltip="Switching this on takes the current quantity as an opening balance — same total, bin and lot unspecified — and the quantity stops being typed here. Switching it off leaves the total exactly where it is and keeps the breakdown dormant.">?</span>
+                    </label>
+                </div>
+            {% endif %}
+
+            {# The same buckets /admin/inventory shows, one card per Fulfillment Region, for this one
+               product — see ProductController::bucketRowsByFulfillmentRegion(). A wide table (one
+               column per bucket) doesn't fit this form's width once every bucket is included, so
+               each region gets its own compact label/value list instead. Starting is the only
+               editable row; every other bucket is a fact written by a real movement or document
+               elsewhere, shown here read-only so an admin sees the whole picture before touching
+               the one number this screen actually owns. #}
+            <div class="span-2 inventory-region-cards" aria-label="Inventory by fulfillment region">
+                {% for row in bucketRows %}
+                    <div class="table-shell inventory-region-card">
+                        <table class="admin-grid-table table">
+                            <thead>
+                                <tr><th colspan="2">{{ row.region }}</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th>Starting</th>
+                                    {% if isDimensionalProduct|default(false) %}
+                                        {# The quantity field is replaced by a link to what maintains it.
+                                           Rendering a disabled box instead would still submit for a
+                                           browser that ignores `disabled`, and would read as
+                                           "temporarily unavailable" rather than "maintained elsewhere". #}
+                                        <td class="inventory-dimensional-note">
+                                            {{ row.cells.starting.value|qty }}
+                                            {% if dimensionalBreakdownUrl|default(null) %}
+                                                — <a href="{{ dimensionalBreakdownUrl }}">maintained by bin, lot and serial</a>
+                                            {% endif %}
+                                        </td>
+                                    {% else %}
+                                        {% set invVal = product.inventory[row.region]|default('') %}
+                                        <td>
+                                            {% if mode == 'Update' %}
+                                                <input type="hidden" class="js-inv-hidden" name="inventory[{{ row.region }}]" value="{{ invVal }}">
+                                                <input id="inventory_{{ loop.index }}"
+                                                       class="js-inv-input"
+                                                       type="number"
+                                                       min="0"
+                                                       step="1"
+                                                       name="inventory[{{ row.region }}]"
+                                                       value="{{ invVal }}"
+                                                       disabled>
+                                            {% else %}
+                                                <input id="inventory_{{ loop.index }}" type="number" min="0" step="1" name="inventory[{{ row.region }}]" value="{{ invVal }}">
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                                {% if mode == 'Update' and not isDimensionalProduct|default(false) %}
+                                    <tr>
+                                        <th>Override</th>
+                                        <td>
+                                            <label class="check-row" style="justify-content: flex-start; gap: 10px;">
+                                                <input type="checkbox" class="js-inv-override" aria-label="Manual override inventory for {{ row.region }}">
+                                                <span class="wc-help-tip"
+                                                      tabindex="0"
+                                                      role="button"
+                                                      aria-label="Manual override inventory help"
+                                                      data-tooltip="If checked, the number in Starting will override the existing inventory number and create an inventory transaction">?</span>
+                                            </label>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                                {% for key, column in bucketColumns %}
+                                    {% if key != 'starting' %}
+                                        <tr{% if column.kind == 'derived' %} class="inventory-available-row"{% endif %}>
+                                            <th>{{ column.label }}</th>
+                                            <td>{{ (column.kind == 'derived' ? row.available : row.cells[key].value)|qty }}</td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function ($) {
+    'use strict';
+
+    $(function () {
+        /* ── Inventory manual override (Update mode) ───────────────────────── */
+        $(document).on('change', '.js-inv-override', function () {
+            var $chk = $(this);
+            // Starting's number input and its hidden twin live in a different <tr> of the same
+            // per-region card table (Starting and Override are now separate rows, not sibling
+            // cells of one row) — scope by table, not row, to stay within this region's own card.
+            var $card = $chk.closest('table');
+            var $input = $card.find('input.js-inv-input').first();
+            var $hidden = $card.find('input.js-inv-hidden').first();
+            if (!$input.length || !$hidden.length) { return; }
+
+            var enabled = $chk.is(':checked');
+            $input.prop('disabled', !enabled);
+            $hidden.prop('disabled', enabled);
+            if (!enabled) {
+                // Revert visible input to stored value when turning override off
+                $input.val($hidden.val());
+            }
+        });
+
+        function initSingleSearchSelect($wrap) {
+            if (!$wrap || !$wrap.length) { return; }
+
+            var $trigger = $wrap.find('.ss-trigger');
+            var $search  = $wrap.find('.ss-search');
+            var $list    = $wrap.find('.ss-list');
+            var $empty   = $wrap.find('.ss-empty');
+            var $select  = $wrap.find('select.ss-native').first();
+
+            function open() {
+                $wrap.addClass('is-open');
+                $trigger.attr('aria-expanded', 'true');
+                $search.val('').trigger('input').focus();
+            }
+
+            function close() {
+                $wrap.removeClass('is-open');
+                $trigger.attr('aria-expanded', 'false');
+            }
+
+            function updateTrigger() {
+                var $opt = $select.find('option:selected').first();
+                var label = ($opt.length ? $opt.text().trim() : '') || '-';
+                $trigger.text(label);
+            }
+
+            function syncFromSelect() {
+                var val = ($select.val() || '').toString();
+                $wrap.toggleClass('has-selection', val !== '');
+                $list.find('.ss-item').each(function () {
+                    var $item = $(this);
+                    $item.toggleClass('is-selected', ($item.data('value') || '').toString() === val);
+                });
+                updateTrigger();
+            }
+
+            function filterList() {
+                var q = ($search.val() || '').toString().toLowerCase().trim();
+                var anyVisible = false;
+
+                $list.find('.ss-item').each(function () {
+                    var $item = $(this);
+                    var match = q === '' ? true : ($item.text().toLowerCase().indexOf(q) !== -1);
+                    $item.toggleClass('is-hidden', !match);
+                    if (match) { anyVisible = true; }
+                });
+
+                $empty.prop('hidden', anyVisible);
+            }
+
+            $trigger.on('click', function (e) {
+                e.stopPropagation();
+                $wrap.hasClass('is-open') ? close() : open();
+            });
+
+            $trigger.on('keydown', function (e) {
+                if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (!$wrap.hasClass('is-open')) { open(); }
+                    return;
+                }
+
+                if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    if (!$wrap.hasClass('is-open')) { open(); }
+                    var next = ($search.val() || '') + e.key;
+                    $search.val(next).trigger('input');
+                    e.preventDefault();
+                }
+            });
+
+            $search.on('input keyup change', filterList);
+
+            $list.on('click', '.ss-item:not(.is-hidden)', function (e) {
+                e.preventDefault();
+                var val = ($(this).data('value') || '').toString();
+                $select.val(val);
+                syncFromSelect();
+                close();
+            });
+
+            $(document).on('click.ss_single_' + ($wrap.attr('id') || ''), function (e) {
+                if (!$wrap.is(e.target) && !$wrap.has(e.target).length) {
+                    close();
+                }
+            });
+
+            $search.on('keydown', function (e) {
+                if (e.key === 'Escape') { close(); $trigger.focus(); }
+            });
+
+            syncFromSelect();
+        }
+
+        initSingleSearchSelect($('#ss-sales-tax-code'));
+
+        var $wrap = $('#ss-private-companies');
+        if (!$wrap.length) { return; }
+
+        var $trigger = $wrap.find('.ss-trigger');
+        var $search  = $wrap.find('.ss-search');
+        var $list    = $wrap.find('.ss-list');
+        var $empty   = $wrap.find('.ss-empty');
+        var $select  = $wrap.find('select[name="private_companies[]"]');
+
+        function open() {
+            $wrap.addClass('is-open');
+            $trigger.attr('aria-expanded', 'true');
+            $search.val('').trigger('input').focus();
+        }
+
+        function close() {
+            $wrap.removeClass('is-open');
+            $trigger.attr('aria-expanded', 'false');
+        }
+
+        function selectedValues() {
+            var out = [];
+            $select.find('option:selected').each(function () { out.push($(this).val().toString()); });
+            return out;
+        }
+
+        function updateTrigger() {
+            var selected = [];
+            $select.find('option:selected').each(function () {
+                var $opt = $(this);
+                selected.push({
+                    value: $opt.val().toString(),
+                    label: $opt.text().trim(),
+                });
+            });
+
+            $wrap.toggleClass('has-selection', selected.length > 0);
+            if (selected.length === 0) {
+                $trigger.text('Select customers...');
+                return;
+            }
+
+            var maxPills = 6;
+            $trigger.empty();
+
+            selected.slice(0, maxPills).forEach(function (it) {
+                var $pill = $('<span class="ss-pill"></span>').attr('data-value', it.value);
+                $pill.append($('<span class="ss-pill-label"></span>').text(it.label));
+                $pill.append($('<span class="ss-pill-remove" role="button" tabindex="-1" aria-hidden="true">&times;</span>'));
+                $trigger.append($pill);
+            });
+
+            if (selected.length > maxPills) {
+                $trigger.append($('<span class="ss-pill ss-pill--more"></span>').text('+' + (selected.length - maxPills)));
+            }
+        }
+
+        function syncFromSelect() {
+            var selected = new Set(selectedValues());
+            $list.find('.ss-item.ss-multi-item').each(function () {
+                var $item = $(this);
+                var val = $item.data('value').toString();
+                if (val === '__all__') { return; }
+
+                var on = selected.has(val);
+                $item.toggleClass('is-selected', on);
+                $item.find('input[type="checkbox"]').prop('checked', on);
+            });
+
+            var total = $select.find('option').length;
+            var selCount = $select.find('option:selected').length;
+            $list.find('[data-value="__all__"] input[type="checkbox"]').prop('checked', total > 0 && selCount === total);
+
+            updateTrigger();
+        }
+
+        function selectAll() {
+            $select.find('option').prop('selected', true);
+            syncFromSelect();
+        }
+
+        function clearAll() {
+            $select.find('option').prop('selected', false);
+            syncFromSelect();
+        }
+
+        $trigger.on('click', function (e) {
+            e.stopPropagation();
+            $wrap.hasClass('is-open') ? close() : open();
+        });
+
+        $trigger.on('click', '.ss-pill-remove', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var val = ($(this).closest('.ss-pill').data('value') || '').toString();
+            if (!val) { return; }
+
+            var $opt = $select.find('option[value="' + val.replace(/"/g, '\\"') + '"]');
+            if (!$opt.length) { return; }
+
+            $opt.prop('selected', false);
+            syncFromSelect();
+        });
+
+        $trigger.on('keydown', function (e) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (!$wrap.hasClass('is-open')) { open(); }
+                return;
+            }
+
+            if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (!$wrap.hasClass('is-open')) { open(); }
+                var next = ($search.val() || '') + e.key;
+                $search.val(next).trigger('input');
+                e.preventDefault();
+            }
+        });
+
+        $search.on('input', function () {
+            filterList();
+        });
+
+        $search.on('keyup change', function () {
+            filterList();
+        });
+
+        function filterList() {
+            var q = ($search.val() || '').toString().toLowerCase().trim();
+            var anyVisible = false;
+
+            $list.find('.ss-item').each(function () {
+                var $item = $(this);
+                var val = ($item.data('value') || '').toString();
+
+                if (val === '__all__') {
+                    $item.toggleClass('is-hidden', q !== '');
+                    return;
+                }
+
+                var match = q === '' ? true : ($item.text().toLowerCase().indexOf(q) !== -1);
+                $item.toggleClass('is-hidden', !match);
+                if (match) { anyVisible = true; }
+            });
+
+            $empty.prop('hidden', anyVisible);
+        }
+
+        $list.on('click', '.ss-item:not(.is-hidden)', function (e) {
+            e.preventDefault();
+            var $item = $(this);
+            var val = $item.data('value').toString();
+
+            if (val === '__all__') {
+                var total = $select.find('option').length;
+                var selCount = $select.find('option:selected').length;
+                (total > 0 && selCount === total) ? clearAll() : selectAll();
+                return;
+            }
+
+            var $opt = $select.find('option[value="' + val.replace(/"/g, '\\"') + '"]');
+            if (!$opt.length) { return; }
+            $opt.prop('selected', !$opt.prop('selected'));
+            syncFromSelect();
+        });
+
+        $(document).on('click.ss_private', function (e) {
+            if (!$wrap.is(e.target) && !$wrap.has(e.target).length) {
+                close();
+            }
+        });
+
+        $search.on('keydown', function (e) {
+            if (e.key === 'Escape') { close(); $trigger.focus(); }
+        });
+
+        syncFromSelect();
+    });
+}(jQuery));
+</script>
+{% endblock %}

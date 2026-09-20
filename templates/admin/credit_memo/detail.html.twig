@@ -1,0 +1,249 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Credit note {{ memo.documentNumber }} | Admin{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Credit note</p>
+                {# Queue item 41. The badge used to sit INSIDE the h1, which the admin console
+                   renders `white-space: nowrap; overflow: hidden; text-overflow: ellipsis` — so on
+                   a long document number the status was the half that got clipped. #}
+                <div class="title-with-status">
+                    <h1>{{ memo.documentNumber }}</h1>
+                    {% include 'admin/_partials/document_status.html.twig' with {status: memo.status} only %}
+                </div>
+                <p class="lead">
+                    {{ memo.company.name }}{% if typeName %} &middot; {{ typeName }}{% endif %}
+                    {% if memo.invoice %}
+                        &middot; raised from <a href="{{ path('admin_invoice_detail', {id: memo.invoice.id}) }}">{{ memo.invoice.documentNumber }}</a>
+                    {% else %}
+                        &middot; standalone
+                    {% endif %}
+                    {# #596: the RMA the goods came back on, when there is one. Provenance, exactly
+                       like the invoice, and the reason this note may not restock. #}
+                    {% if memo.salesReturn %}
+                        &middot; return <a href="{{ path('admin_sales_return_detail', {id: memo.salesReturn.id}) }}">{{ memo.salesReturn.documentNumber }}</a>
+                    {% endif %}
+                </p>
+                {% if memo.reason %}<p class="field-hint">{{ memo.reason }}</p>{% endif %}
+            </div>
+            <div class="panel-actions">
+                {% if memo.draft %}
+                    <a class="button" href="{{ path('admin_credit_memo_edit', {id: memo.id}) }}">Edit draft</a>
+                {% endif %}
+                <a class="button back-button" href="{{ path('admin_credit_memo_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {#
+        The balance, asked of the document rather than added up here.
+
+            balance = total − applied − refunded
+
+        DERIVED, never stored, for the reason no other cached figure in this app is trusted on its
+        own: a second copy of a number is a second answer waiting to disagree with the rows. It is
+        also what decides Open versus Closed, so the badge above and the figure below cannot drift.
+    #}
+    <section class="form-card">
+        <div class="form-grid">
+            <div>
+                <p class="eyebrow">Total</p>
+                <p><strong>${{ memo.total|amount }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Applied to invoices</p>
+                <p><strong>${{ memo.amountApplied|amount }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Refunded</p>
+                <p><strong>${{ memo.amountRefunded|amount }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Balance</p>
+                <p><strong style="color: {{ memo.balance > 0 ? '#0369a1' : '#64748b' }}">${{ memo.balance|amount }}</strong></p>
+            </div>
+        </div>
+        <p class="field-hint">
+            Status is worked out from these figures &mdash; <strong>{{ memo.status }}</strong>. It is not typed in.
+            {% if memo.salesReturn %}
+                The goods came back on return <strong>{{ memo.salesReturn.documentNumber }}</strong>, and that return's receipt is what recorded them. This note is the money; it may not also restock, or the same units would enter the ledger twice.
+            {% elseif memo.restock %}
+                This note says the goods came back: issuing it records them as <strong>returned</strong> stock, which is present but not sellable until somebody releases it from hold.
+            {% else %}
+                This note is financial only &mdash; no stock moved.
+            {% endif %}
+        </p>
+    </section>
+
+    <section class="table-card">
+        <div class="table-header"><h2>Lines</h2></div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead><tr><th>Item</th><th>SKU</th><th>Credits</th><th>Qty</th><th>Rate</th><th>Subtotal</th></tr></thead>
+            <tbody>
+                {% for line in memo.lines %}
+                    <tr>
+                        <td data-label="Item">{{ line.name }}</td>
+                        <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                        <td data-label="Credits">
+                            {% if line.invoiceLine %}
+                                <a href="{{ path('admin_invoice_detail', {id: line.invoiceLine.invoice.id}) }}">{{ line.invoiceLine.invoice.documentNumber }}</a>
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                        <td data-label="Qty">{{ line.quantity }}</td>
+                        <td data-label="Rate">${{ line.price|price }}</td>
+                        <td data-label="Subtotal">${{ line.subtotal|amount }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell"><span>This note has no lines.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    {#
+        Applications. THE RELATIONSHIP IS MANY-TO-MANY: this note may pay down several invoices, and
+        any one of those invoices may be taking credit from several notes. That is why each row here
+        carries its own amount and its own date rather than the note simply pointing at an invoice.
+    #}
+    <section class="table-card">
+        <div class="table-header"><h2>Applied to invoices</h2></div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead><tr><th>Invoice</th><th>Applied</th><th>Amount</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% if memo.status == 'Open' and applicableInvoices|length > 0 %}
+                    <tr>
+                        <td data-label="Invoice">
+                            <select form="apply-form" name="invoice_id" required>
+                                {% for invoice in applicableInvoices %}
+                                    <option value="{{ invoice.id }}"{{ memo.invoice and memo.invoice.id == invoice.id ? ' selected' : '' }}>{{ invoice.documentNumber }} &mdash; ${{ invoice.balance|amount }} owing</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="Applied"><input form="apply-form" type="date" name="applied_at" value="{{ "now"|date("Y-m-d") }}"></td>
+                        <td data-label="Amount"><input form="apply-form" type="number" step="0.01" min="0.01" max="{{ memo.balance }}" name="amount" value="{{ memo.balance }}" required></td>
+                        <td data-label="Actions"><button form="apply-form" class="button primary" type="submit">Apply</button></td>
+                    </tr>
+                {% endif %}
+                {% for application in memo.applications %}
+                    <tr>
+                        <td data-label="Invoice"><a href="{{ path('admin_invoice_detail', {id: application.invoice.id}) }}">{{ application.invoice.documentNumber }}</a></td>
+                        <td data-label="Applied">{{ application.appliedAt|date('Y-m-d') }}</td>
+                        <td data-label="Amount"><strong>${{ application.amount|amount }}</strong></td>
+                        <td data-label="Actions">
+                            <form method="post" action="{{ path('admin_credit_memo_application_withdraw', {id: memo.id, applicationId: application.id}) }}">
+                                {{ csrf_field() }}
+                                <button class="table-action danger" type="submit">Withdraw</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="empty-table-cell"><span>None of this note's balance has been applied to an invoice.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    {#
+        Refunds. The mirror of the invoice payments screen, deliberately: an admin logs a refund they
+        have ALREADY made, exactly as they log a payment that has already arrived. Nothing here talks
+        to a gateway, which is why credit_memo_refund carries no stripe_payment_intent_id.
+
+        The <form> elements sit outside the table and the controls are wired to them by the HTML5
+        `form` attribute — the same shape the payments screen uses, and for the same reason: a <form>
+        inside a <tr> is invalid HTML, and a parser foster-parents it away from its own inputs.
+    #}
+    <section class="table-card">
+        <div class="table-header"><h2>Refunds</h2></div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead><tr><th>Refunded</th><th>User</th><th>Method</th><th>Amount</th><th>Comment</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% if memo.status == 'Open' %}
+                    <tr>
+                        <td data-label="Refunded"><input form="refund-form" type="date" name="refunded_at" value="{{ "now"|date("Y-m-d") }}"></td>
+                        <td data-label="User">{{ app.user ? app.user.userIdentifier : 'Admin' }}</td>
+                        <td data-label="Method">
+                            <select form="refund-form" name="method">
+                                {% for method in refundMethods %}<option value="{{ method }}">{{ method }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="Amount"><input form="refund-form" type="number" step="0.01" min="0.01" max="{{ memo.balance }}" name="amount" placeholder="0.00" required></td>
+                        <td data-label="Comment"><input form="refund-form" type="text" name="comment" placeholder="Comment..."></td>
+                        <td data-label="Actions"><button form="refund-form" class="button primary" type="submit">Log refund</button></td>
+                    </tr>
+                {% endif %}
+                {% for refund in memo.refunds %}
+                    <tr>
+                        <td data-label="Refunded">{{ refund.refundedAt|date('Y-m-d') }}</td>
+                        <td data-label="User">{{ refund.user ? refund.user.userIdentifier : 'System' }}</td>
+                        <td data-label="Method">{{ refund.method }}</td>
+                        <td data-label="Amount"><strong>${{ refund.amount|amount }}</strong></td>
+                        <td data-label="Comment">{{ refund.comment }}</td>
+                        <td data-label="Actions">
+                            <form method="post" action="{{ path('admin_credit_memo_refund_delete', {id: memo.id, refundId: refund.id}) }}">
+                                {{ csrf_field() }}
+                                <button class="table-action danger" type="submit">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell"><span>No refunds have been recorded against this note.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            {% if memo.draft %}
+                <form method="post" action="{{ path('admin_credit_memo_action', {id: memo.id, action: 'issue'}) }}" id="issue-form">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Issue credit note</button>
+                </form>
+            {% endif %}
+            {% if memo.status != 'Void' %}
+                {#
+                    Item 38. A note whose issuing recorded goods coming back cannot be voided on one
+                    click, because the void has to say what became of those goods — so the button
+                    becomes a link to the confirmation screen that asks. A note that moved no stock
+                    keeps the plain post it always had: there is nothing to confirm.
+
+                    `movedStock` is read from the LEDGER, not from `memo.restock`. The flag says what
+                    the note CLAIMS; the ledger says what actually moved, and a restocking note whose
+                    products are all on simple inventory moved nothing at all.
+                #}
+                {% if movedStock %}
+                    <a class="button danger" id="void-confirm-link" href="{{ path('admin_credit_memo_void_confirm', {id: memo.id}) }}">Void&hellip;</a>
+                {% else %}
+                    <form method="post" action="{{ path('admin_credit_memo_action', {id: memo.id, action: 'void'}) }}" id="void-form">
+                        {{ csrf_field() }}
+                        <button class="button danger" type="submit">Void</button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% if memo.status != 'Void' %}
+            <p class="field-hint">Voiding is refused once anything has been applied or refunded: an allocation that has happened is a real accounting record, credited or refunded back rather than withdrawn behind the other document's back.</p>
+            {% if movedStock %}
+                <p class="field-hint" id="void-needs-an-answer">Issuing this note recorded goods coming back into stock, so voiding it will ask what became of them before anything is written.</p>
+            {% endif %}
+        {% endif %}
+        {% if voidOutcome %}
+            {# What the void decided about the goods, stated on the note itself so nobody has to go
+               and find the product in the inventory ledger to learn it. #}
+            <p class="field-hint" id="void-outcome">{{ voidOutcome }}</p>
+        {% endif %}
+    </section>
+
+    <form method="post" action="{{ path('admin_credit_memo_apply', {id: memo.id}) }}" id="apply-form">{{ csrf_field() }}</form>
+    <form method="post" action="{{ path('admin_credit_memo_refund', {id: memo.id}) }}" id="refund-form">{{ csrf_field() }}</form>
+{% endblock %}

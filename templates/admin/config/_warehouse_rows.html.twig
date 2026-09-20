@@ -1,0 +1,38 @@
+{% for warehouse in warehouses %}
+    <tr>
+        <td data-label="Name"><strong>{{ warehouse.name }}</strong></td>
+        {# Where the building is (queue item 32). "No address recorded" is said out loud rather than
+           left as a dash: a warehouse with no province is what makes a vendor bill compute no tax,
+           so it is a state an admin has to be able to see from the list. #}
+        {# Queue item 61: a warehouse may no longer be SAVED without a province, but rows written
+           before that rule still hold none, and they still load and read. This is where an admin
+           finds them — named, not inferred from an empty Location cell, because a warehouse can
+           have a street and a city and still compute no tax. #}
+        <td data-label="Location">
+            {{ warehouse.location ?: 'No address recorded' }}
+            {% if warehouse.provinceMissing|default('') %}
+                <span class="badge warn">No province &mdash; purchase orders here compute no tax</span>
+            {% endif %}
+        </td>
+        <td data-label="Serves Fulfillment Region">{{ warehouse.fulfillmentRegion ?: '—' }}</td>
+        <td data-label="Status"><span class="badge {{ warehouse.status == 'Inactive' ? 'danger-soft' : '' }}">{{ warehouse.status }}</span></td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_warehouse_update', {id: warehouse.id}) }}">Edit</a>
+                {# A warehouse that serves a region is deleted by deleting that region — the two are
+                   one thing, and removing only the building would leave the region orderable with
+                   nowhere to draw stock from. #}
+                {% if warehouse.fulfillmentRegion is empty %}
+                    <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_warehouse_delete', {id: warehouse.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ warehouse.name }} warehouse">Delete</button>
+                {% endif %}
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="5" class="empty-table-cell">
+            <strong>No warehouses found.</strong>
+            <span>Warehouses will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

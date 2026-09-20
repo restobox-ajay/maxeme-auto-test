@@ -1,0 +1,55 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}WooCommerce Sync Run | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Connectors › WooCommerce › Bulk Resync</p>
+                <h1>Run: {{ run.startedAt|date('Y-m-d H:i') }}</h1>
+            </div>
+            <a class="button back-button" href="{{ path('admin_bundle_woocommerce_bulk_resync') }}">Back to runs</a>
+        </div>
+    </section>
+
+    <section class="panel compact-panel">
+        <p class="lead">
+            Currently-failing pushes for {{ run.connection ? run.connection.name : 'any store' }} — the live Push
+            Queue state, not a frozen snapshot of this run specifically. A row here may have failed before this run,
+            after it, or as part of it; the Push Queue itself has no memory of which run last touched a given row.
+        </p>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Store</th>
+                    <th>Product</th>
+                    <th>Attempts</th>
+                    <th>Error</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in failures %}
+                    <tr>
+                        <td>{{ item.connection.name }}</td>
+                        <td>{{ item.product.sku }} &mdash; {{ item.product.name }}</td>
+                        <td>{{ item.attempts }}</td>
+                        <td>{{ item.errorMessage }}</td>
+                        <td class="row-actions">
+                            <form method="post" action="{{ path('admin_bundle_woocommerce_push_queue_push_one', {id: item.id}) }}">
+                                {{ csrf_field() }}
+                                <button class="button outline" type="submit">Push now</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-row">Nothing is currently failing.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

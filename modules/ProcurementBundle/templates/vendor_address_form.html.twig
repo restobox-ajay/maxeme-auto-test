@@ -1,0 +1,66 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ address ? 'Edit Address' : 'Add Address' }} | Admin{% endblock %}
+{#
+    The Add/Edit Address page — the counterpart of `admin/company/address_form.html.twig`. One view
+    serves both: `address` is the vendor's own row named by `?address=`, or null for a blank one —
+    see VendorController::addressForm(). Posts to the existing `admin_bundle_procurement_vendor_address_save`
+    (unchanged): only where this form lives is new, not how an address is written.
+#}
+{% block admin_body %}
+<div id="address-form">
+    <section class="panel compact-panel">
+        <p class="eyebrow">Vendor address</p>
+        <h1>{{ address ? 'Edit Address' : 'Add Address' }}: {{ vendor.name }}</h1>
+    </section>
+
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    <section class="form-card admin-record-form">
+        <form class="form-grid address-form-grid" method="post" action="{{ path('admin_bundle_procurement_vendor_address_save', {id: vendor.id}) }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="address_id" value="{{ address ? address.id : 0 }}">
+            <label>Label <input type="text" name="label" maxlength="80" placeholder="Head office" value="{{ address ? address.label : '' }}"></label>
+            <label class="address-left-wide">Entity name at this address <input type="text" name="company_name" maxlength="255" value="{{ address ? address.companyName : '' }}"></label>
+            <label>Contact first name <input type="text" name="first_name" maxlength="120" value="{{ address ? address.firstName : '' }}"></label>
+            <label>Contact last name <input type="text" name="last_name" maxlength="120" value="{{ address ? address.lastName : '' }}"></label>
+            <label class="address-left-wide">Email <input type="email" name="email_primary" maxlength="255" value="{{ address ? address.emailPrimary : '' }}"></label>
+            <label class="address-left-wide">Secondary email <input type="email" name="email_secondary" maxlength="255" value="{{ address ? address.emailSecondary : '' }}"></label>
+            <label>Phone at this address <input type="text" name="phone_number" maxlength="40" value="{{ address ? address.phone : '' }}"></label>
+            <label>Fax <input type="text" name="fax" maxlength="40" value="{{ address ? address.fax : '' }}"></label>
+            <label class="span-2">Street <input type="text" name="address_line_1" maxlength="200" value="{{ address ? address.addressLine1 : '' }}" required></label>
+            <label class="span-2">Street 2 <input type="text" name="address_line_2" maxlength="200" value="{{ address ? address.addressLine2 : '' }}"></label>
+            <label>City <input type="text" name="city" maxlength="120" value="{{ address ? address.city : '' }}" required></label>
+            {% set vendorAddressCountry = (address ? address.country : 'CA') ?: 'CA' %}
+            <label for="vendor-address-country">Country
+                {{ include('admin/_partials/region_select.html.twig', {
+                    kind: 'country', name: 'country', id: 'vendor-address-country',
+                    selected: vendorAddressCountry, target: 'province', label: 'Country',
+                }, with_context = false) }}
+            </label>
+            <label for="vendor-address-province">Province / state
+                {{ include('admin/_partials/region_select.html.twig', {
+                    kind: 'province', name: 'province', id: 'vendor-address-province',
+                    selected: address ? address.province : '', country: vendorAddressCountry, label: 'Province or state',
+                }, with_context = false) }}
+            </label>
+            <label>Postal code <input type="text" name="postal_code" maxlength="20" value="{{ address ? address.postalCode : '' }}"></label>
+            <small class="span-2">
+                The province list is the one for the country above it. Both are stored as short codes &mdash;
+                &ldquo;BC&rdquo; and &ldquo;CA&rdquo; &mdash; and the full name is shown beside the address in the list
+                above. Changing the country re-scopes the province list; with scripting off that happens when the page
+                comes back after saving.
+            </small>
+            <label class="span-2">Delivery instructions <textarea name="delivery_instructions" rows="2">{{ address ? address.deliveryInstructions : '' }}</textarea></label>
+            <label class="checkbox-label"><input type="checkbox" name="is_default" value="1"{{ address and address.default ? ' checked' : '' }}> Default — used for any purpose not assigned below</label>
+            <label class="checkbox-label"><input type="checkbox" name="is_order_to" value="1"{{ address and address.orderTo ? ' checked' : '' }}> Order to — where the purchase order is sent</label>
+            <label class="checkbox-label"><input type="checkbox" name="is_ship_from" value="1"{{ address and address.shipFrom ? ' checked' : '' }}> Ship from — where goods leave</label>
+            <label class="checkbox-label"><input type="checkbox" name="is_remit_to" value="1"{{ address and address.remitTo ? ' checked' : '' }}> Remit to — where payment goes</label>
+            <label class="checkbox-label"><input type="checkbox" name="is_return_to" value="1"{{ address and address.returnTo ? ' checked' : '' }}> Return to — where a vendor return is sent</label>
+            <div class="form-actions span-2">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">Back</a>
+                <button class="button primary" type="submit">{{ address ? 'Save address' : 'Add address' }}</button>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

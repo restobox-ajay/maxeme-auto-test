@@ -1,0 +1,19 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Procurement | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'index',
+        heading: 'Procurement',
+        lead: 'The buy side: who we buy from, what we ordered, what turned up, and what we were charged.'
+    } only %}
+
+    <section class="panel">
+        <h2>Right now</h2>
+        <div class="stat-row">
+            <p><strong>{{ vendorCount }}</strong> active vendor(s)</p>
+            <p><strong>{{ openOrders }}</strong> purchase order(s) still expecting goods</p>
+            <p><strong>{{ receiptCount }}</strong> receipt(s) recorded, <strong>{{ unorderedReceipts }}</strong> with no purchase order</p>
+            <p><strong>{{ payableBills }}</strong> bill(s) payable, <strong>{{ disputedBills }}</strong> disputed</p>
+        </div>
+    </section>
+{% endblock %}

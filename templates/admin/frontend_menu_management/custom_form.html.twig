@@ -1,0 +1,38 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Custom Menu Item | Admin{% endblock %}
+{% block admin_body %}
+    {% set isCreate = mode == 'Create' %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Configuration › Frontend Menu Management</p>
+                <h1>{{ mode }} Custom Menu Item</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_frontend_menu_management_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-create-form-panel">
+        <form method="post" class="form-grid" id="custom-menu-item-form">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                Label <span class="req">*</span>
+                <input type="text" name="label" value="{{ formData.label ?? (item ? item.label : '') }}" placeholder="e.g. Warranty Policy" required>
+            </label>
+
+            <label class="span-2">
+                URL <span class="req">*</span>
+                <input type="text" name="url" value="{{ formData.url ?? (item ? item.url : '') }}" placeholder="/warranty or https://example.com/warranty" required>
+                <span class="field-hint">Relative (e.g. "/warranty") or absolute (e.g. "https://example.com/warranty").</span>
+            </label>
+
+            <div class="form-actions">
+                <button type="submit" class="button primary">{{ isCreate ? 'Save Menu Item' : 'Update Menu Item' }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

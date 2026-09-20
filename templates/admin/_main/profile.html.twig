@@ -1,0 +1,173 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}My Profile | Admin{% endblock %}
+
+{% block admin_body %}
+<div class="profile-layout">
+    <div class="profile-main">
+        <section class="panel profile-panel">
+            <div class="profile-panel-head">
+                <div class="profile-panel-icon">A</div>
+                <div>
+                    <h2>Account Information</h2>
+                    <p>Update your display name and contact details.</p>
+                </div>
+            </div>
+            <form class="form-grid" method="post" action="{{ path('admin_profile') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="form_type" value="profile">
+                <label>
+                    Display name <span class="req">*</span>
+                    <input type="text" name="display_name" value="{{ values.display_name|default('') }}" placeholder="Your name" required>
+                    {% if errors.display_name|default('') %}<span class="error-message">{{ errors.display_name }}</span>{% endif %}
+                </label>
+                <label>
+                    Email address
+                    <input type="email" value="{{ admin.email }}" disabled>
+                </label>
+                <label>
+                    Phone number
+                    <input type="tel" name="phone_number" value="{{ values.phone_number|default('') }}" placeholder="+1 (555) 000-0000">
+                </label>
+                <label>
+                    Role
+                    <select disabled>
+                        <option selected>{{ roleLabel }}</option>
+                    </select>
+                </label>
+                <div class="panel-actions">
+                    <button class="button primary" type="submit">Save changes</button>
+                    <a class="button outline" href="{{ path('admin_profile') }}">Cancel</a>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel profile-panel">
+            <div class="profile-panel-head">
+                <div class="profile-panel-icon">S</div>
+                <div>
+                    <h2>Change Password</h2>
+                    <p>Use a strong, unique password to keep your account secure. All three fields below are required if you're changing your password.</p>
+                </div>
+            </div>
+            <form class="form-grid" method="post" action="{{ path('admin_profile') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="form_type" value="password">
+                <label class="span-2">
+                    Current password <span class="req">*</span>
+                    <div style="position: relative;">
+                        <input type="password" id="admin_profile_current_password" name="current_password" placeholder="********" autocomplete="current-password" style="padding-right: 40px;">
+                        <button type="button" onclick="togglePassword('admin_profile_current_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    {% if errors.current_password|default('') %}<span class="error-message">{{ errors.current_password }}</span>{% endif %}
+                </label>
+                <label>
+                    New password <span class="req">*</span>
+                    <div style="position: relative;">
+                        <input type="password" id="admin_profile_new_password" name="new_password" placeholder="********" autocomplete="new-password" style="padding-right: 40px;">
+                        <button type="button" onclick="togglePassword('admin_profile_new_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    {% if errors.new_password|default('') %}<span class="error-message">{{ errors.new_password }}</span>{% endif %}
+                </label>
+                <label>
+                    Confirm new password <span class="req">*</span>
+                    <div style="position: relative;">
+                        <input type="password" id="admin_profile_confirm_new_password" name="confirm_new_password" placeholder="********" autocomplete="new-password" style="padding-right: 40px;">
+                        <button type="button" onclick="togglePassword('admin_profile_confirm_new_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    {% if errors.confirm_new_password|default('') %}<span class="error-message">{{ errors.confirm_new_password }}</span>{% endif %}
+                </label>
+                <div class="panel-actions">
+                    <button class="button primary" type="submit">Update password</button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <aside class="profile-side">
+        <article class="panel profile-info-card">
+            <h3 class="profile-card-title">Account Details</h3>
+            <ul class="profile-detail-list">
+                <li>
+                    <span>Email</span>
+                    <strong>{{ admin.email }}</strong>
+                </li>
+                <li>
+                    <span>Role</span>
+                    <strong>{{ roleLabel }}</strong>
+                </li>
+                <li>
+                    <span>Member since</span>
+                    <strong>{{ admin.createdAt|date('M j, Y') }}</strong>
+                </li>
+                <li>
+                    <span>Status</span>
+                    <span class="badge">{{ admin.status }}</span>
+                </li>
+            </ul>
+        </article>
+
+        <article class="panel profile-info-card">
+            <h3 class="profile-card-title">Account Security</h3>
+            <ul class="profile-security-list">
+                <li>
+                    <div class="profile-sec-row">
+                        <span class="profile-sec-dot dot-warn"></span>
+                        <div>
+                            <strong>Two-factor auth</strong>
+                            <small>Not enabled</small>
+                        </div>
+                    </div>
+                    {# No Enable button: there is no two-factor implementation to enable. The button
+                       that used to sit here was `type="button"` with no name, no form, no data-url
+                       and no handler bound to it — it posted nothing and called nothing. A search of
+                       the whole codebase for two-factor/totp finds only this row: no secret or
+                       recovery codes on AdminUser, no route, no column, no bundle, no firewall step.
+                       A dead control on a security panel reads as a feature the admin merely has not
+                       switched on yet, which is worse than not offering it. #}
+                </li>
+                <li>
+                    <div class="profile-sec-row">
+                        <span class="profile-sec-dot dot-ok"></span>
+                        <div>
+                            <strong>Password</strong>
+                            <small>Managed from this page</small>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div class="profile-sec-row">
+                        <span class="profile-sec-dot dot-ok"></span>
+                        <div>
+                            <strong>Active session</strong>
+                            <small>{{ app.request.host }}</small>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </article>
+    </aside>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+
+            if (type === 'text') {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>`;
+            } else {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>`;
+            }
+        }
+    </script>
+{% endblock %}

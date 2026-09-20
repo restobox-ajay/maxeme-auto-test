@@ -1,0 +1,15 @@
+{% for category in categories %}
+    {% set hasChildren = category.children is defined and category.children is not empty %}
+    <div class="nav-category-tree-item {{ hasChildren ? 'has-children' : '' }}">
+        <a class="nav-dropdown-item nav-category-tree-link" role="menuitem"
+           href="{{ path('customer_catalog', { 'ProductSearch[category_id]': category.id }) }}">
+            <span>{{ category.name }}</span>
+        </a>
+
+        {% if hasChildren %}
+            <div class="nav-category-tree-children" role="menu">
+                {% include 'customer/_main/_nav_category_tree.html.twig' with {categories: category.children} only %}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}

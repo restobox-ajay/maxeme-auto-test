@@ -1,0 +1,137 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Audit Log | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Audit Log</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {# The URL is the only source of truth for what the grid is showing, so the controls are
+       repopulated straight from the query string rather than from anything the controller chose
+       to hand back — a pasted link and a submitted form then render identically. It also survives
+       the early-return branch in SystemController::auditLog(), which renders this template with
+       only logs/total/page/limit when the audit_log table is missing: `filters` and `search` are
+       simply absent there, so a control repopulated from them would silently render blank. #}
+    {% set currentFilters = app.request.query.all('filters') %}
+    {% set currentSearch = app.request.query.get('q', '') %}
+    {% set currentSort = currentSort|default('id') %}
+    {% set currentDir = currentDir|default('desc') %}
+    {% set routeQuery = {q: currentSearch, sort: currentSort, dir: currentDir, limit: currentLimit, filters: currentFilters} %}
+    {# data-link-controls stands the table JS down, exactly as the order and estimate grids do:
+       the form below is a plain GET form, so filtering is a normal navigation and every control's
+       state lives in the URL. The data-filter-field attributes stay for the shared JS that reads
+       them elsewhere (and for the selectors tests and styles use). #}
+    <section class="table-card audit-log-grid no-paginate"
+             data-link-controls="true"
+             data-ajax-url="{{ path('admin_audit_log') }}"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        <div class="table-scroll-region">
+        <div class="table-header">
+            {# The form *is* the .table-tools flex row (rather than a wrapper around it) so the
+               search box and button stay laid out as they were. The filter-row controls sit in
+               table cells and cannot be nested inside it, so they join via form="...".
+
+               js-audit-log-search is kept even though nothing in public/assets/js/app.js binds it:
+               removing dead hooks is a separate change, and the class is also a style/test selector. #}
+            <form id="audit-log-filters-form" class="table-tools" method="get" action="{{ path('admin_audit_log') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentLimit }}">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                <input class="table-search audit-log-search" type="search" name="q" value="{{ currentSearch }}" placeholder="Search area, entity, summary..." aria-label="Search audit log">
+                <button class="button primary js-audit-log-search" type="submit">Search</button>
+                <a class="button outline" href="{{ path('admin_audit_log') }}">Reset</a>
+            </form>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table audit-log-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="occurredAt">Occurred At</th>
+                        <th data-sort-field="actorName">Actor</th>
+                        <th data-sort-field="actorType">Type</th>
+                        <th data-sort-field="area">Area</th>
+                        <th data-sort-field="entityType">Entity Type</th>
+                        <th data-sort-field="entityId">Entity ID</th>
+                        <th data-sort-field="action">Action</th>
+                        <th data-sort-field="summary">Summary</th>
+                        <th>Data</th>
+                    </tr>
+                    <tr class="filter-row">
+                        {# occurred_at is a UTC instant while the admin types a day in the display
+                           timezone, so this goes through BusinessDate::localDayRangeUtc() exactly as
+                           the Email Log's Date filter does (see SystemController::auditLog()) rather
+                           than comparing the typed day against the raw stored value. #}
+                        <th><input type="date" name="filters[date]" form="audit-log-filters-form" value="{{ currentFilters.date|default('') }}" data-filter-field="date" aria-label="Filter occurred at" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"></th>
+                        {# Actor (the name) has no dedicated box: it joins the free-text q search
+                           instead, alongside Area, Entity Type, Entity ID and Summary. #}
+                        <th></th>
+                        <th>
+                            <select name="filters[actorType]" form="audit-log-filters-form" data-filter-field="actorType" aria-label="Filter actor type" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="" {{ currentFilters.actorType|default('') == '' ? 'selected' : '' }}>All actors</option>
+                                <option value="admin" {{ currentFilters.actorType|default('') == 'admin' ? 'selected' : '' }}>Admin</option>
+                                <option value="customer" {{ currentFilters.actorType|default('') == 'customer' ? 'selected' : '' }}>Customer</option>
+                                <option value="system" {{ currentFilters.actorType|default('') == 'system' ? 'selected' : '' }}>System</option>
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[area]" form="audit-log-filters-form" data-filter-field="area" aria-label="Filter area" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="">All areas</option>
+                                {% for area in areaOptions|default([]) %}
+                                    <option value="{{ area }}" {{ currentFilters.area|default('') == area ? 'selected' : '' }}>{{ area }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[action]" form="audit-log-filters-form" data-filter-field="action" aria-label="Filter action" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="">All actions</option>
+                                {% for action in actionOptions|default([]) %}
+                                    <option value="{{ action }}" {{ currentFilters.action|default('') == action ? 'selected' : '' }}>{{ action }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/system/_audit_log_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: logs|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_audit_log',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+    {% include 'admin/_shared/_audit_detail_modal.html.twig' %}
+
+{% endblock %}

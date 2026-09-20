@@ -1,0 +1,27 @@
+{#
+    Shared "Add Product / Pricing / Details / Inventory" switch-nav for the three product admin
+    grids: ProductController::details(), ProductController::prices(), InventoryController::index().
+
+    Include with `with {...} only` and these variables:
+      - addProductRedirect (string, required): route name to send "Add Product" back to.
+      - currentSort, currentDir, currentLimit, currentPage: current grid state.
+      - filters (map, default {}): the id/name/sku/category filter values.
+
+    Carries filter/sort/pagination state across the three pages so switching tabs shows the same
+    matching products instead of resetting the view (GH issue #408 item 5). All three controllers
+    fall back to sorting by id for a sort key they don't recognize, so it's safe to forward a sort
+    key (e.g. "default_price") that only makes sense on one of the three pages.
+#}
+{% set navQuery = {
+    sort: currentSort|default('id'),
+    dir: currentDir|default('asc'),
+    limit: currentLimit|default(100),
+    page: currentPage|default(1),
+    filters: filters|default({})
+} %}
+<div class="switch-nav" role="navigation" aria-label="Product admin pages">
+    <a class="button primary" href="{{ path('admin_product_inventory_create', {redirect: addProductRedirect}) }}">Add Product</a>
+    <a class="button outline" href="{{ path('admin_product_price_index', navQuery) }}">Pricing</a>
+    <a class="button outline" href="{{ path('admin_product_detail_index', navQuery) }}">Details</a>
+    <a class="button outline" href="{{ path('admin_inventory_index', navQuery) }}">Inventory</a>
+</div>

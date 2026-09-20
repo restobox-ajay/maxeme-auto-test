@@ -1,0 +1,136 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Number1 Rim API Import | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Bulk updates</p>
+                <h1>Number1 Rim API Import</h1>
+                <p class="muted"><strong>Tax class:</strong> the API carries no tax code, so any imported product without one is set to <strong>S (GST&nbsp;+&nbsp;PST taxable)</strong>. A tax class you set by hand in admin is kept across syncs.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel compact-panel" id="rim-import-status-panel"
+              data-status-url="{{ path('admin_bundle_number1_rim_import_status') }}"
+              data-initial-status="{{ syncStatus }}"
+              data-just-triggered="{{ app.request.query.get('synced') ? '1' : '0' }}">
+        <p class="eyebrow">Sync status</p>
+        <div id="rim-import-status-body">
+            {% include '@Number1RimImport/admin/rim_import/_status.html.twig' %}
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" class="form-grid">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                API URL
+                <input type="url" name="api_url" value="{{ apiUrl }}" placeholder="https://wheels.rimalloycanada.com/v1/get-wheels" required>
+                <small class="import-inline-help">The base endpoint, without the api_client_id/api_key query string — those are sent separately, below.</small>
+            </label>
+
+            <label>
+                API Client ID
+                <input type="text" name="api_client_id" value="{{ apiClientId }}">
+            </label>
+
+            <label>
+                API Key
+                <input type="text" name="api_key" value="{{ apiKey }}">
+            </label>
+
+            <label>
+                Category
+                <select name="category_id">
+                    <option value="" {{ categoryId == 0 ? 'selected' : '' }}>Auto (find-or-create "Wheels")</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {{ categoryId == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="import-inline-help">Every synced rim product gets this one category — the API has no per-row category data to derive from.</small>
+            </label>
+
+            <label>
+                Fulfillment region for Qty
+                <select name="region_id">
+                    <option value="" {{ regionId == 0 ? 'selected' : '' }}>Don't update inventory</option>
+                    {% for region in regions %}
+                        <option value="{{ region.id }}" {{ regionId == region.id ? 'selected' : '' }}>{{ region.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="import-inline-help">The API returns one flat Qty per row (no per-location breakdown) — pick which region that quantity applies to.</small>
+            </label>
+
+            <label class="checkbox-label span-2">
+                <input type="checkbox" name="deactivate_missing" value="yes" {{ deactivateMissing ? 'checked' : '' }}>
+                Set rim products missing from the latest pull to Inactive
+                <small class="import-inline-help">Scoped to products this bundle itself created/updated — never touches tires or CSV-imported products. Skipped automatically if a sync returns zero rows or the API call fails.</small>
+            </label>
+
+            <div class="form-actions span-2">
+                <button class="button" type="submit" name="action" value="save">Save Settings</button>
+                <button class="button primary" type="submit" name="action" value="sync" id="rim-import-sync-btn" {{ syncStatus == 'running' ? 'disabled' : '' }}>Save &amp; Sync Now</button>
+            </div>
+        </form>
+    </section>
+
+    {% include 'admin/product/_import_results.html.twig' with {result: result} %}
+
+    <script>
+        (function () {
+            var panel = document.getElementById('rim-import-status-panel');
+            var body = document.getElementById('rim-import-status-body');
+            var syncBtn = document.getElementById('rim-import-sync-btn');
+            if (!panel) { return; }
+
+            var status = panel.dataset.initialStatus;
+            var justTriggered = panel.dataset.justTriggered === '1';
+            // Poll whenever the file already says "running", OR we just redirected here right
+            // after triggering a sync — the spawned process needs to boot its own kernel before
+            // it writes status=running, so the very first load after clicking the button can
+            // easily still show a stale "idle"/"success" from before. justTriggered covers that
+            // race; without it, this would sometimes silently never start polling at all.
+            if (status !== 'running' && !justTriggered) { return; }
+
+            var statusUrl = panel.dataset.statusUrl;
+            var sawRunning = status === 'running';
+            var idlePollsBeforeGivingUp = 20; // ~30s at 1.5s each — generous kernel-boot allowance
+            var poll = function () {
+                fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.status === 'running') {
+                            sawRunning = true;
+                            setTimeout(poll, 3000);
+                            return;
+                        }
+                        if (data.status === 'success' || data.status === 'error') {
+                            // Navigate to the plain path, not reload() — reload() keeps the
+                            // current URL, and this URL still has ?synced=1 on it (from the
+                            // redirect that triggered this sync), which would make the freshly
+                            // loaded page think a sync was *just* triggered again and immediately
+                            // re-disable the button and start polling again, forever. Dropping the
+                            // query string here is what actually ends the cycle.
+                            window.location.href = window.location.pathname;
+                            return;
+                        }
+                        // Still "idle" — either the spawned process hasn't booted yet (the race
+                        // above), or nothing ever actually started. Keep polling for a while, but
+                        // give up eventually if we never once observe "running".
+                        if (!sawRunning && justTriggered && idlePollsBeforeGivingUp > 0) {
+                            idlePollsBeforeGivingUp--;
+                            setTimeout(poll, 1500);
+                        }
+                    })
+                    .catch(function () {
+                        setTimeout(poll, 5000);
+                    });
+            };
+
+            if (syncBtn) { syncBtn.disabled = true; }
+            setTimeout(poll, 3000);
+        })();
+    </script>
+{% endblock %}

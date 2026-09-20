@@ -1,0 +1,235 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor quote: {{ reply.documentNumber }} | Admin{% endblock %}
+
+{#
+    The vendor's quote, printed — the page that goes in the tender file, or to whoever approves the
+    spend before a purchase order is raised.
+
+    Laid out from @Procurement/purchase_order_document.html.twig, which the UI audit named as the one
+    screen in this bundle that uses the `is_pdf ? pdf_layout : layout` switch correctly, and which is
+    itself laid out from templates/admin/invoice/invoice.html.twig. Same dompdf constraints: one sans
+    family, only normal/bold weights (800/900 silently fall back to Times — see pdf_layout.html.twig),
+    and everything above the line table kept compact so the items start high on page 1.
+
+    ## What it is, and what it is not
+
+    It is a RECORD OF WHAT WAS QUOTED. It is not an order, and it commits nobody:
+
+      - no "amount due", no payment status, no remit-to. Nothing is owed on a quote — not even in
+        principle. The payable appears when the vendor bills us against a purchase order;
+      - no "please quote this number on your invoice" line, because this document is not sent to the
+        vendor. It came FROM them, over the phone or by email, and an admin wrote it down;
+      - it says plainly, at the foot, that accepting is a separate act.
+
+    The two address boxes point the way a buy-side document points: "Quote From" is the vendor,
+    "Deliver To" is our own site as the tender stated it.
+#}
+
+{% block admin_body %}
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Vendor quote document</p>
+                <h1>{{ reply.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">Back</a>
+                <a class="button" href="{{ path('admin_bundle_procurement_rfq_reply_print', {id: reply.id, pdf: 1}) }}">Download PDF</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="vq-page-container">
+        <div class="vq-document">
+
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#0f172a;border-collapse:collapse;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                <tr>
+                    <td width="65%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                        <span style="font-size:13px;font-weight:bold;color:#ffffff;">{{ site_name() }}</span>
+                    </td>
+                    <td width="35%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;text-align:right;font-size:16px;font-weight:bold;color:#ffffff;letter-spacing:-0.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">VENDOR QUOTE</td>
+                </tr>
+            </table>
+
+            <div class="vq-body">
+
+                <table class="vq-meta-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="vq-meta-col">
+                            <p><strong>Quote ref:</strong> <span style="color:#408dfb;">{{ reply.documentNumber }}</span></p>
+                            <p><strong>Quote date:</strong> {{ reply.documentDate ?: '-' }}</p>
+                            <p><strong>Against RFQ:</strong> {{ rfq.documentNumber }}</p>
+                            <p><strong>Status:</strong> {{ reply.status.value }}</p>
+                            <p><strong>Currency:</strong> {{ reply.currency }}</p>
+                            <p><strong>Our account with them:</strong> {{ reply.vendor.accountNumber|default('-') }}</p>
+                            <p><strong>Payment term:</strong> {{ reply.vendor.paymentTerm|default('-') }}</p>
+                        </td>
+                        {# Us, the buyer. Every line is an admin setting (Settings › Company
+                           Information) and the defaults are intentionally blank: never fall back to
+                           some other company's name. #}
+                        <td class="vq-meta-col">
+                            {% if app_setting('company_name', '') %}<p><strong>{{ app_setting('company_name', '') }}</strong></p>{% endif %}
+                            {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                            {% set _cityLine = [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', ''))]|filter(v => v)|join(', ') %}
+                            {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                            {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                        </td>
+                        <td class="vq-meta-col" style="text-align:right;">
+                            {% if app_setting('company_phone', '') %}<p><strong>Phone:</strong> {{ app_setting('company_phone', '') }}</p>{% endif %}
+                            {% if app_setting('app_email', '') %}<p><strong>Email:</strong> {{ app_setting('app_email', '') }}</p>{% endif %}
+                            <p><strong>GST Number:</strong> {{ app_setting('company_gst_number', '') ?: '-' }}</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="vq-section-title">Quote From / Deliver To</div>
+                <table class="vq-addr-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="address-box">
+                            <h3>Quote From (Vendor):</h3>
+                            <p><strong>{{ reply.vendorName ?: reply.vendor.name }}</strong></p>
+                            {% set _vendorAddress = reply.vendor.orderToAddress ? reply.vendor.orderToAddress.toSnapshot() : '' %}
+                            {% for addressLine in _vendorAddress|split("\n") %}
+                                {% if addressLine|trim %}<p>{{ addressLine }}</p>{% endif %}
+                            {% endfor %}
+                            {% if reply.vendor.phone %}<p style="margin-top:10px;"><strong>Phone:</strong> {{ reply.vendor.phone }}</p>{% endif %}
+                            {% if reply.vendor.email %}<p><strong>Email:</strong> {{ reply.vendor.email }}</p>{% endif %}
+                        </td>
+                        <td class="address-box">
+                            <h3>Deliver To:</h3>
+                            <p><strong>{{ rfq.warehouse ? rfq.warehouse.name : 'Warehouse not stated' }}</strong></p>
+                            {# The tender's own address where it has one — that is what every vendor
+                               quoted freight against — and this company's address where it does not. #}
+                            {% if rfq.deliveryAddress %}
+                                {% for addressLine in rfq.deliveryAddress|split("\n") %}
+                                    {% if addressLine|trim %}<p>{{ addressLine }}</p>{% endif %}
+                                {% endfor %}
+                            {% else %}
+                                {% if app_setting('company_name', '') %}<p>{{ app_setting('company_name', '') }}</p>{% endif %}
+                                {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                                {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                                {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                                {% if app_setting('company_country', '') %}<p>{{ country_name(app_setting('company_country', '')) }}</p>{% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="vq-section-title">Quoted Items</div>
+                <table class="vq-table" style="width:100%;table-layout:fixed;">
+                    <colgroup>
+                        <col style="width:10%;">
+                        <col style="width:34%;">
+                        <col style="width:14%;">
+                        <col style="width:14%;">
+                        <col style="width:14%;">
+                        <col style="width:14%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Quantity</th>
+                            <th>Description</th>
+                            <th>Our SKU</th>
+                            <th>Their note</th>
+                            <th style="text-align:right;">Unit cost</th>
+                            <th style="text-align:right;">Line total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>{{ row.requirement ? row.requirement.quantity : '-' }}</td>
+                                <td><strong>{{ row.requirement ? row.requirement.name : '(requirement removed — quote kept)' }}</strong></td>
+                                <td>{{ row.requirement and row.requirement.sku ? row.requirement.sku : '-' }}</td>
+                                <td>{{ row.line and row.line.notes ? row.line.notes : '-' }}</td>
+                                {# Not quoted is printed as such. A blank box and a quote of zero are
+                                   different answers and this document must not merge them. #}
+                                <td style="text-align:right;">{{ row.line and row.line.unitCost is not null ? row.line.unitCost|price : 'Not quoted' }}</td>
+                                <td style="text-align:right;">{{ row.line and row.line.subtotal is not null ? row.line.subtotal|amount : 'Not quoted' }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6" class="empty-table-cell"><strong>This RFQ has no requirement lines.</strong></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <table class="vq-footer-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="footer-note">
+                            {% if reply.notes %}
+                                <p class="footer-note-block"><strong>Quote notes:</strong> {{ reply.notes }}</p>
+                            {% endif %}
+                            {% if rfq.notes %}
+                                <p class="footer-note-block"><strong>Requirement notes:</strong> {{ rfq.notes }}</p>
+                            {% endif %}
+                            {% if unpriced > 0 %}
+                                <p class="footer-note-block"><strong>{{ unpriced }} line(s) have no price yet</strong>, so this quote is incomplete and cannot be accepted as it stands.</p>
+                            {% endif %}
+                        </td>
+                        <td class="footer-totals">
+                            {# Three rows, and there is no fourth. Nothing is owed against a quote:
+                               anything resembling AMOUNT DUE belongs on the vendor's bill. #}
+                            <table class="totals-inner" cellpadding="0" cellspacing="0">
+                                <tr><td>Subtotal:</td><td style="text-align:right;"><strong>{{ reply.subtotal|amount }}</strong></td></tr>
+                                <tr><td>Tax:</td><td style="text-align:right;"><strong>{{ reply.tax|amount }}</strong></td></tr>
+                                <tr class="grand-total-row"><td><strong>QUOTE TOTAL ({{ reply.currency }}):</strong></td><td style="text-align:right;"><strong>{{ reply.total|amount }}</strong></td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="vq-global-footer-note">
+                    This is one vendor's quote against {{ rfq.documentNumber }}, recorded by us. It is not an order
+                    and commits nobody: accepting it raises a purchase order, which is the document the vendor acts on.
+                </p>
+
+            </div>{# /vq-body #}
+        </div>{# /vq-document #}
+    </div>
+
+    <style>
+        /*
+         * Sized for the dompdf render, from @Procurement/purchase_order_document.html.twig's own
+         * block — the items table has to begin in the top third of page 1, so everything above it is
+         * compact, and only normal/bold font-weights are used because 800/900 make dompdf fall back
+         * to Times (see pdf_layout.html.twig). Prefixed vq- rather than sharing the po- names: both
+         * blocks are template-local (there is no app.css entry for either, and core is frozen), and
+         * two documents silently restyling each other through shared local names is worse than two
+         * blocks that can be diffed.
+         */
+        .vq-page-container { padding: 24px 0 30px; max-width: 820px; margin: 0 auto; }
+        .vq-document { background: #fff; border-radius: 4px; color: #1e293b; border: 1px solid #e2e8f0; overflow: hidden; font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif; }
+        .vq-body { padding: 12px 16px 14px; }
+        .vq-document tbody tr:hover,
+        .vq-document tbody tr:hover td { background: transparent !important; }
+
+        .vq-meta-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .vq-meta-col { width: 33.33%; vertical-align: top; font-size: 8.5px; line-height: 1.35; padding-right: 14px; }
+        .vq-meta-col:last-child { padding-right: 0; }
+        .vq-meta-col p { margin: 0; }
+
+        .vq-section-title { font-size: 10px; font-weight: bold; color: #1e3a8a; border-bottom: 1px solid #334155; padding-bottom: 2px; margin-bottom: 5px; margin-top: 10px; }
+
+        .vq-addr-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+        .vq-addr-table .address-box { width: 50%; vertical-align: top; padding-right: 14px; }
+        .vq-addr-table .address-box:last-child { padding-right: 0; }
+        .vq-addr-table .address-box h3 { font-size: 9px; font-weight: bold; color: #1e3a8a; margin: 0 0 3px 0; }
+        .vq-addr-table .address-box p { margin: 0; font-size: 8.5px; line-height: 1.35; }
+
+        .vq-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .vq-table th { text-align: left; background: #f8fafc; padding: 4px 6px; font-size: 8px; font-weight: bold; border-bottom: 2px solid #334155; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .vq-table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 8.5px; line-height: 1.3; }
+
+        .vq-footer-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .vq-footer-table .footer-note { vertical-align: top; font-size: 8.5px; color: #475569; padding-right: 20px; padding-top: 6px; line-height: 1.35; }
+        .vq-footer-table .footer-note-block { margin: 0 0 5px 0; }
+        .vq-footer-table .footer-totals { vertical-align: top; width: 230px; border-top: 1px solid #334155; padding-top: 6px; }
+        .vq-global-footer-note { width: 100%; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8.5px; color: #475569; line-height: 1.35; }
+        .vq-footer-table .totals-inner { width: 100%; border-collapse: collapse; }
+        .vq-footer-table .totals-inner td { font-size: 8.5px; padding: 1px 0; }
+        .vq-footer-table .grand-total-row { border-top: 2px solid #334155; }
+        .vq-footer-table .grand-total-row td { font-size: 11px; font-weight: bold; color: #1e3a8a; padding-top: 5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    </style>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Fulfillment Region | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>{{ mode }} Fulfillment Region</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_fulfillment_region') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            {# The two ids are what #627 asks for, and are the only reason they exist: a region name
+               is a short word ("Main") that also appears in the heading, the lead paragraph and the
+               list screen this form returns to, so see() on the page would pass on the wrong text.
+               The refusal span is addressable on its own because this form renders THREE of them —
+               name, warehouse country, warehouse province — and an unscoped `.field-error`
+               assertion would be satisfied by either of the other two. #}
+            <label for="fulfillment-region-name">
+                Name <span class="req">*</span>
+                <input type="text" id="fulfillment-region-name" name="name" value="{{ region.name }}" placeholder="e.g. Western Canada" required>
+                {% if fieldErrors.name is defined %}
+                    <span class="field-error" id="fulfillment-region-name-error">{{ fieldErrors.name }}</span>
+                {% endif %}
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    {% for status in ['Active', 'Inactive'] %}
+                        <option {{ region.status == status ? 'selected' : '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="check-row">
+                <input type="hidden" name="default_for_new_company" value="0">
+                <input type="checkbox" name="default_for_new_company" value="1" {{ region.defaultForNewCompany|default('No') == 'Yes' ? 'checked' : '' }}>
+                Default On For New Customer
+            </label>
+            {# Queue item 61. Creating a region creates the warehouse it draws stock from, and a
+               warehouse may not exist without a province — so the only person who can say where
+               that building is, is the one filling this in. These two boxes belong to the
+               WAREHOUSE; nothing about the region is stored from them, because a region is a
+               delivery area and may legitimately span several provinces. Create only: updating a
+               region creates no warehouse, so there is nothing to ask about. #}
+            {% if asksForWarehouseAddress|default(false) %}
+                <h2 class="span-2">Its warehouse</h2>
+                <p class="form-note span-2">
+                    Creating this region also creates the building its stock is counted in, named the same way. That
+                    building's province is what every purchase order and vendor bill raised against it computes tax
+                    from, so it is required here: without it those documents quote $0.00 tax that nothing on the page
+                    can tell apart from a genuine zero. The rest of the address is recorded later under Warehouses.
+                </p>
+                {# Picked, not typed — the same two controls the Warehouse screen uses, fed
+                   from the same list, because these two boxes ARE that screen's two boxes: they
+                   describe the building this region is about to create. #}
+                <label for="fulfillment-region-warehouse-country">
+                    Warehouse country <span class="req">*</span>
+                    {{ include('admin/_partials/region_select.html.twig', {
+                        kind: 'country',
+                        name: 'warehouse_country',
+                        id: 'fulfillment-region-warehouse-country',
+                        selected: region.warehouseCountry|default('') ?: 'CA',
+                        target: 'warehouse_province',
+                        required: true,
+                        label: 'Warehouse country',
+                    }, with_context = false) }}
+                    {% if fieldErrors.warehouse_country is defined %}
+                        <span class="field-error">{{ fieldErrors.warehouse_country }}</span>
+                    {% endif %}
+                </label>
+                <label for="fulfillment-region-warehouse-province">
+                    Warehouse province / state <span class="req">*</span>
+                    {{ include('admin/_partials/region_select.html.twig', {
+                        kind: 'province',
+                        name: 'warehouse_province',
+                        id: 'fulfillment-region-warehouse-province',
+                        selected: region.warehouseProvince|default(''),
+                        country: region.warehouseCountry|default('') ?: 'CA',
+                        required: true,
+                        label: 'Warehouse province or state',
+                    }, with_context = false) }}
+                    {% if fieldErrors.warehouse_province is defined %}
+                        <span class="field-error">{{ fieldErrors.warehouse_province }}</span>
+                    {% endif %}
+                </label>
+            {% endif %}
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

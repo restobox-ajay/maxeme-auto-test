@@ -1,0 +1,89 @@
+{#
+    VendorBill's own `actionBarTemplate` for `commercial_document_view.html.twig` — the buy-side
+    twin of `admin/order/_tab_nav.html.twig`, built the same way `_purchase_order_tab_nav.html.twig`
+    was (#full-parity, 2026-09-14): View/Edit/PDF on the left, the document's own workflow actions
+    in a right-aligned cluster on the same row, exactly where PurchaseOrder's own tab bar now puts
+    Receive/Enter a bill/Issue/Close short/Cancel.
+
+    Edit is withheld once the bill leaves Draft, asked directly off `VendorBill::canEditOnStatus()`
+    (`HasStatus`) — the same predicate `VendorBillController::save()` enforces, now stated once on
+    `VendorBillStatus::allowsEditing()` rather than read off two hand-kept copies of "a bill that is
+    not Draft cannot be edited". Approve/Dispute/Return to draft/Void read
+    VendorBill::canBeDisputed()/canReturnToDraft()/hasPaidAnything() directly, the same way this
+    file's PO twin asks `order.status.*` rather than re-deriving a duplicate guard.
+
+    Lock/Unlock joined this bar with #759, same markup as PO's own twin and the sell side's
+    `sales_document_action_bar.html.twig` — `document_is_locked()`/`document_lock()` now answer for
+    a VendorBill too, through `LockableDocumentCatalogue`.
+
+    Expects: `bill`.
+#}
+{% set billLocked = document_is_locked(bill) %}
+{% set billLockRow = billLocked ? document_lock(bill) : null %}
+<nav class="company-action-links order-tab-nav" aria-label="Vendor bill detail actions">
+    <a id="bill-action-view" class="button is-current" href="{{ path('admin_bundle_procurement_bill', {id: bill.id}) }}">View</a>
+    {% if bill.canEditOnStatus() and not billLocked %}
+        <a id="bill-action-edit" class="button" href="{{ path('admin_bundle_procurement_bill_edit', {id: bill.id}) }}">Edit</a>
+    {% endif %}
+    <a id="bill-action-pdf" class="button" href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id}) }}">Bill PDF</a>
+    <span class="row-action-menu" style="margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        {% if bill.purchaseOrder %}
+            <a class="button outline" href="{{ path('admin_bundle_procurement_purchase_order', {id: bill.purchaseOrder.id}) }}">View purchase order</a>
+        {% endif %}
+        {% if bill.statusEnum.acceptsPayment() %}
+            <a class="button outline" href="{{ path('admin_bundle_procurement_bill_payments', {id: bill.id}) }}">Record a payment</a>
+        {% endif %}
+        {% if bill.status in ['Draft', 'Disputed'] %}
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_approve', {id: bill.id}) }}" style="display:inline;">
+                {{ csrf_field() }}
+                <button class="button primary" type="submit">Approve for payment</button>
+            </form>
+        {% endif %}
+        {% if bill.canBeDisputed() %}
+            {# `id="dispute"`: the exceptions worklist's "Dispute this bill" link points here
+               (`.../bills/{id}#dispute`, built by ExceptionController::movesForBillLine()) —
+               `?dispute=` prefills `reason` below via `suggestedDisputeReason`. #}
+            <span id="dispute">
+                <form method="post" action="{{ path('admin_bundle_procurement_bill_dispute', {id: bill.id}) }}" style="display:inline-flex; gap:6px; align-items:center;">
+                    {{ csrf_field() }}
+                    <input type="text" name="reason" value="{{ suggestedDisputeReason|default('') }}" placeholder="What is wrong with it" required style="min-height:34px; padding:4px 8px; border-radius:6px; border:1px solid var(--line); font-size:0.8rem;">
+                    <button class="button outline" type="submit">Dispute</button>
+                </form>
+            </span>
+        {% endif %}
+        {% if bill.canReturnToDraft() %}
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_return_to_draft', {id: bill.id}) }}" style="display:inline;">
+                {{ csrf_field() }}
+                <input type="hidden" name="reason" value="Returned to draft from the detail screen.">
+                <button class="button outline" type="submit">Return to draft</button>
+            </form>
+        {% endif %}
+        {% if bill.status != 'Void' and not bill.hasPaidAnything() %}
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_void', {id: bill.id}) }}" style="display:inline;">
+                {{ csrf_field() }}
+                <input type="hidden" name="reason" value="Voided from the detail screen.">
+                <button class="button danger" type="submit">Void</button>
+            </form>
+        {% endif %}
+        {% if billLocked %}
+            <span id="bill-action-lock-state">Locked by {{ billLockRow.locked_by }}{% if billLockRow.reason %} — {{ billLockRow.reason }}{% endif %}</span>
+            {% if is_granted('ROLE_SUPER_ADMIN') %}
+                <form method="post" action="{{ path('admin_bundle_procurement_bill_unlock', {id: bill.id}) }}" style="display:inline;">
+                    {{ csrf_field() }}
+                    <button id="bill-action-unlock" class="button outline" type="submit">Unlock Bill</button>
+                </form>
+            {% else %}
+                <span id="bill-action-unlock-denied">Only a super admin can unlock this bill.</span>
+            {% endif %}
+        {% else %}
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_lock', {id: bill.id}) }}" style="display:inline;">
+                {{ csrf_field() }}
+                <input id="bill-action-lock-reason" type="text" name="reason" maxlength="255"
+                       placeholder="Reason (optional)" aria-label="Reason this bill is locked"
+                       style="min-height: 30px; padding: 0 8px; font-size: 0.82rem;">
+                <button id="bill-action-lock" class="button outline" type="submit">Lock Bill</button>
+            </form>
+        {% endif %}
+    </span>
+</nav>
+{% include '@Procurement/_purchase_flash_messages.html.twig' %}

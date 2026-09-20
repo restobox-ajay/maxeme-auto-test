@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingAmazonFBABundle\:
+        resource: '../src/'
+
+    ShippingAmazonFBABundle\Shipping\AmazonFBAShippingCalculator:
+        tags: ['app.shipping_option']
+
+    ShippingAmazonFBABundle\Menu\AmazonFBAShippingMenuItem:
+        tags: ['app.shipping_menu_item']
+
+    ShippingAmazonFBABundle\Bundle\ShippingAmazonFBABundleDescriptor:
+        tags: ['app.bundle_descriptor']

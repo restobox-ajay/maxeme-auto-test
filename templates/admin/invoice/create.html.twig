@@ -1,0 +1,162 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+{# THE invoice create/edit screen — order-linked, standalone or existing, one template.
+   `Invoice::$salesOrder` is a nullable FIELD, not a kind of document, so nothing here asks which of
+   the three this is; every block below reads a named parameter the caller hands it.
+
+   `contextTemplate`/`chargeTemplate` are the two differences too different to be plain parameters,
+   delegated as template PATHS instead: the document's own fields (dates/PO/terms/addresses, order
+   pre-filling what it shows) and the charge region (an order-linked charge DRAWS DOWN
+   `charges[N][slug|quantity|amount]`; a standalone one MINTS `charge_lines[N][...]`).
+
+   The line table is one shared partial (sales_line_row.html.twig/sales_line_head.html.twig) built
+   from `lineColumns`, fully editable regardless of `order` — a pre-filled row just carries a
+   `salesOrderLineId` tag for OverInvoicingGuard.
+
+   Nothing on this screen reformats a quantity or a price on its way into an input or a hidden
+   `*_rendered` twin — LineDenomination::boxUntouched() compares them byte for byte. #}
+
+{# ── The frame's parameters ──────────────────────────────────────────────────
+   A customer is the one thing this screen cannot be rendered without: it decides the price list
+   the picker quotes from, the addresses the save freezes and the party billed. The order-linked
+   path always has one — the order's — so it never sees step one. #}
+{% set workspaceReady = company ? true : false %}
+{% set formId = 'invoice-create-form' %}
+{# `.js-invoice-form` is what app.js's shared SellDoc* functions (#full-parity, 2026-09-13) select
+   this form by — the same role 'js-order-form'/'js-estimate-form' play on their own forms. #}
+{% set formClass = 'js-invoice-form' %}
+{% set heroEyebrow = eyebrow %}
+{% set heroLead = lead %}
+{# `formAction` and `linesHeading` and `footerNote` are the frame's own parameter names and are
+   already what the controller calls them, so they pass straight through. Step one posts to the
+   same place the workspace does. #}
+{% set pickerAction = formAction %}
+{% set pickerSelectClass = 'js-searchable-select' %}
+{% set pickerSelectPlaceholder = 'Select a customer...' %}
+
+{% block title %}{{ pageTitle }}{% endblock %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+{% block hero_heading %}<h1>{{ heading }}</h1>{% endblock %}
+
+{% block hero_actions %}
+                {% for action in pageActions %}
+                    <a class="{{ action.class }}" href="{{ action.href }}">{{ action.label }}</a>
+                {% endfor %}
+{% endblock %}
+
+{% block form_attributes %} data-next-line-index="{{ lineRows|length + 2 }}" data-invoice-charges="{{ chargeContext.chargeRows|default([])|json_encode|e('html_attr') }}" data-fee-lines-url="{{ path('admin_invoice_fee_lines') }}" data-tax-breakdown-url="{{ path('admin_invoice_tax_breakdown') }}"{% endblock %}
+
+{% block form_head %}
+                {% for field, value in hiddenFields %}
+                    <input type="hidden" name="{{ field }}" value="{{ value }}">
+                {% endfor %}
+
+                {% if invoiceError %}
+                    <div class="form-error-banner">{{ invoiceError }}</div>
+                {% endif %}
+{% endblock %}
+
+{% block top_actions %}
+                    <a class="button back-button" href="{{ workspaceBack.href }}">{{ workspaceBack.label }}</a>
+                    {% if canIssue|default(true) %}
+                        <button class="button outline" type="submit" name="save_mode" value="draft">Save as draft</button>
+                        <button class="button primary" type="submit" name="save_mode" value="issue">Raise invoice</button>
+                    {% else %}
+                        {# Already issued: there is nothing left to raise, only to save — the same
+                           save_mode=draft the button beside it already posts, so the controller
+                           reads one value regardless of which label the admin saw. #}
+                        <button class="button primary" type="submit" name="save_mode" value="draft">Save</button>
+                    {% endif %}
+{% endblock %}
+
+{% block context %}
+                {{ include(contextTemplate, contextContext, with_context = false) }}
+
+                {# The admin-defined fields, in the same place on the page the order form and the
+                   quote form put them (templates/admin/order/form.html.twig,
+                   templates/admin/estimate/form.html.twig): a workspace-grid card between the
+                   document's own fields and the line table.
+
+                   Here rather than in either `contextTemplate`, because the two context templates
+                   exist to hold what the sales order field being set CHANGES, and this changes with
+                   nothing: an invoice's custom fields are the same definitions, the same boxes and
+                   the same save on both entry points. The grid those two templates each open and
+                   close is theirs — one states an invoice's own fields and its addresses, the other
+                   states what is inherited from the order — so this card opens a grid of its own
+                   rather than reaching into a wrapper a delegated template owns. It is the same
+                   card, the same width and the same order on the page either way.
+
+                   Same guard shape as every other screen carrying these: absent entirely when no
+                   definition renders, rather than an empty "Custom Fields" heading on every invoice
+                   in an installation that defines none. And it asks whether one named parameter was
+                   passed, never which of the two entry points this is — the rule this file's header
+                   states.
+
+                   Form only, deliberately. Custom fields have never appeared on a detail/view screen
+                   in this application and do not start here. #}
+                {% if customFieldFragment is defined and customFieldFragment %}
+                    <div class="order-workspace-grid">
+                        <section class="order-form-panel">
+                            <h2>Custom Fields</h2>
+                            {{ customFieldFragment|raw }}
+                        </section>
+                    </div>
+                {% endif %}
+{% endblock %}
+
+{% block lines_note %}
+                    {% if linesNote %}<p class="lead" style="margin:0 0 12px;">{{ linesNote }}</p>{% endif %}
+{% endblock %}
+
+{% block lines_toolbar %}
+    {{ include('admin/_partials/sales_lines_toolbar.html.twig', {
+        hook: 'invoice',
+        shippingOptions: shippingOptions|default([]),
+        sentinel: true,
+        categoryFilter: true,
+    }, with_context = false) }}
+{% endblock %}
+
+{% block lines_table %}
+    {{ include('admin/_partials/sales_lines_table.html.twig', {
+        hook: 'invoice',
+        tableClass: 'order-lines-table invoice-line-table',
+        colPrefix: 'order',
+        lineColumns: lineColumns,
+        lineRows: lineRows,
+        lineRowOptions: lineRowOptions,
+        products: products,
+        locations: locations,
+        productSearchPath: path('admin_order_product_search'),
+        lineUnits: lineUnits|default({}),
+        baseUnitLabels: baseUnitLabels|default({}),
+        submitted: submitted|default({}),
+        emptyLinesMessage: emptyLinesMessage|default(''),
+        defaultLineQty: '1',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block lines_footer %}
+                        {{ include(chargeTemplate, chargeContext, with_context = false) }}
+{% endblock %}
+
+{% block bottom_actions %}
+                        {% if canIssue|default(true) %}
+                            <button class="button outline" type="submit" name="save_mode" value="draft">Save as draft</button>
+                            <button class="button primary" type="submit" name="save_mode" value="issue">Raise invoice</button>
+                        {% else %}
+                            <button class="button primary" type="submit" name="save_mode" value="draft">Save</button>
+                        {% endif %}
+{% endblock %}
+
+{% block page_end %}
+    {{ js_templates.line_templates('invoice', lineColumns, products, locations, lineRowOptions, productsRemote|default(false), path('admin_order_product_search'), true, '1') }}
+{% endblock %}
+
+{% block company_picker_options %}
+                            {% for row in companies %}
+                                <option value="{{ row.id }}">{{ row.name }}{% if row.primaryEmail %} - {{ row.primaryEmail }}{% endif %}</option>
+                            {% endfor %}
+{% endblock %}

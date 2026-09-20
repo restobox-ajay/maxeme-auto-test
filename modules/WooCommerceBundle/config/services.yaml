@@ -1,0 +1,17 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    WooCommerceBundle\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/WooCommerceBundle.php'
+
+    WooCommerceBundle\Bundle\WooCommerceBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    # #741: registers WooCommerce as a connector type on the core /admin/connectors directory.
+    WooCommerceBundle\Connector\WooCommerceConnectorTypeProvider:
+        tags: ['app.connector_type_provider']

@@ -1,0 +1,33 @@
+{# The charge region of the standalone invoice screen — mints shipping/tax/fee charges, same as
+   order and quote (its order-linked twin next door draws down an order's REMAINING charge instead,
+   a different contract, hence the separate template).
+
+   Rendered with {chargeRows, shippingOptions, existing, taxLines, taxLinesTotal}. #}
+{% set _existing = existing|default(null) %}
+{% set _knownTotal = _existing and _existing.total is not null and _existing.tax is not null %}
+{% set _beforeTax = _knownTotal ? (_existing.total - _existing.tax) : 0 %}
+{% set _feeLinesTotal = 0 %}
+{% set _beforeTaxFeeLines = [] %}
+{% set _afterTaxFeeLines = [] %}
+{% for feeLine in (_existing ? _existing.feeLines|default('[]')|json_decode : []) %}
+    {% if feeLine.type|default('fee') != 'shipping' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set _feeLinesTotal = _feeLinesTotal + feeLine.amount %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'before_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set _beforeTaxFeeLines = _beforeTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'after_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set _afterTaxFeeLines = _afterTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+{% endfor %}
+{{ include('admin/_partials/sales_lines_footer.html.twig', {
+    hook: 'invoice',
+    chargeLines: chargeRows|default([]),
+    beforeTaxFeeLines: _beforeTaxFeeLines,
+    afterTaxFeeLines: _afterTaxFeeLines,
+    taxLines: taxLines|default([]),
+    subtotalDisplay: _beforeTax|amount,
+    taxLinesTotalDisplay: taxLinesTotal|default(0)|amount,
+    grandTotalDisplay: _existing and _existing.total is not null ? _existing.total|amount : '0.00',
+    feeLinesTotalDisplay: _feeLinesTotal|amount,
+}, with_context = false) }}

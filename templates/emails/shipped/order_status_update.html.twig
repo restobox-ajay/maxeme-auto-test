@@ -1,0 +1,28 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Order Status Updated #{{ order.orderNumber }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Order Update</h2>
+    <p>Hello <strong>{{ order.company.name }}</strong>,</p>
+    <p>The status of your order <span class="highlight">#{{ order.orderNumber }}</span> has been updated.</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <span style="display: inline-block; padding: 12px 30px; background: #f0fdfa; color: #0f766e; border-radius: 9999px; font-weight: 800; font-size: 18px; border: 2px solid #ccfbf1;">
+            {{ status|default('Updated') }}
+        </span>
+    </div>
+
+    <p>You can view your order details and track its progress online.</p>
+
+    <div style="text-align: center;">
+        <a href="{{ order_url|default('#') }}" class="button">View My Order</a>
+    </div>
+
+    {% include 'emails/_order_summary.html.twig' %}
+
+    <div class="order-summary" style="background: transparent; border: none; border-top: 1px solid #e2e8f0; margin-top: 30px; padding: 20px 0 0 0;">
+        <p style="margin: 0; font-size: 14px;"><strong>Order Number:</strong> {{ order.orderNumber }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Updated At:</strong> {{ "now"|date('F j, Y g:i A') }}</p>
+    </div>
+{% endblock %}

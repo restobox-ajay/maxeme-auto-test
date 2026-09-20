@@ -1,0 +1,228 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Bill: {{ bill.billNumber }} | Admin{% endblock %}
+
+{#
+    The vendor bill, printed (queue items 15 and 45; the owner's ruling on item 44 that "every doc
+    has a pdf and print version, same button layouts").
+
+    Laid out from `purchase_order_document.html.twig`, which was itself laid out from the invoice's:
+    same pdf_layout, same slim header bar, same meta/address/lines/totals rhythm, same shared
+    `_purchase_document_styles.html.twig`, same dompdf constraints. A third document look would have
+    been a third thing to maintain.
+
+    ## What a bill prints that a purchase order does not, and why
+
+    A purchase order says what we ORDERED. A bill says what we OWE, so the two halves the PO
+    document deliberately refuses are exactly the two this one needs:
+
+      - **amount paid and balance due.** A payable exists the moment a vendor bills us, and the
+        balance is what the whole document is about. The PO's own comment says the payable "belongs
+        on the vendor bill" — this is that document;
+      - **remit-to.** "Send the money here" is nonsense on paperwork we send a supplier and is the
+        single most important line on a bill we are paying. It is the FROZEN snapshot taken when the
+        bill was entered (#606), not a live read of the vendor, because a factor or a lockbox
+        changing next year must not restate where last year's payment was sent.
+
+    ## And what it must NOT claim to be
+
+    This is OUR record of THEIR invoice. It is not sent to anybody: a bill has no counterparty-facing
+    existence the way an invoice does — the vendor already has their own copy, which is the document
+    this one was typed from. So there is no Send action and no email template, and the footer says
+    what the sheet is for, so nobody mistakes a printout of it for a demand we issued.
+#}
+
+{% block admin_body %}
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Vendor bill document</p>
+                <h1>{{ bill.billNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_bill', {id: bill.id}) }}">Back</a>
+                <a class="button" href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id, pdf: 1}) }}">Download PDF</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="po-page-container">
+        <div class="po-document">
+
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#0f172a;border-collapse:collapse;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                <tr>
+                    <td width="65%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                        <span style="font-size:13px;font-weight:bold;color:#ffffff;">{{ site_name() }}</span>
+                    </td>
+                    <td width="35%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;text-align:right;font-size:16px;font-weight:bold;color:#ffffff;letter-spacing:-0.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">VENDOR BILL</td>
+                </tr>
+            </table>
+
+            <div class="po-body">
+
+                <table class="po-meta-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="po-meta-col">
+                            <p><strong>Bill number:</strong> <span style="color:#408dfb;">{{ bill.billNumber }}</span></p>
+                            {# Their number, which is the only thing that can answer "have we seen
+                               this one before" — it is what the duplicate-payment guard reads. #}
+                            <p><strong>Their invoice number:</strong> {{ bill.vendorInvoiceNo|default('-') }}</p>
+                            <p><strong>Bill date:</strong> {{ bill.documentDate ?: '-' }}</p>
+                            <p><strong>Due:</strong> {{ bill.dueDate ?: 'not stated — due immediately' }}</p>
+                            <p><strong>Currency:</strong> {{ bill.currency }}</p>
+                            <p><strong>Against purchase order:</strong> {{ bill.purchaseOrder ? bill.purchaseOrder.poNumber : 'none' }}</p>
+                            {# Never hidden and never only in prose — the owner's standing ruling. #}
+                            <p><strong>Status:</strong> {{ bill.status }}</p>
+                        </td>
+                        <td class="po-meta-col">
+                            {% if app_setting('company_name', '') %}<p><strong>{{ app_setting('company_name', '') }}</strong></p>{% endif %}
+                            {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                            {% set _cityLine = [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', ''))]|filter(v => v)|join(', ') %}
+                            {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                            {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                        </td>
+                        <td class="po-meta-col" style="text-align:right;">
+                            <p><strong>Our account with you:</strong> {{ bill.vendor.accountNumber|default('-') }}</p>
+                            {# The province frozen onto this bill when it was entered (queue item 32),
+                               which is what the SHARED tax calculators matched on. Printed because a
+                               bill whose tax looks wrong is usually a bill entered against the wrong
+                               building. #}
+                            <p><strong>Tax province:</strong> {{ bill.taxProvince|default('none recorded') }}</p>
+                            <p><strong>GST Number:</strong> {{ app_setting('company_gst_number', '') ?: '-' }}</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="po-section-title">Billed By / Received At / Remit To</div>
+                <table class="po-addr-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="address-box">
+                            <h3>Billed By (Vendor):</h3>
+                            <p><strong>{{ bill.vendorName ?: bill.vendor.name }}</strong></p>
+                            {% set _vendorAddress = bill.vendor.defaultAddress ? bill.vendor.defaultAddress.toSnapshot() : '' %}
+                            {% for addressLine in _vendorAddress|split("\n") %}
+                                {% if addressLine|trim %}<p>{{ addressLine }}</p>{% endif %}
+                            {% endfor %}
+                            {% if bill.vendor.phone %}<p style="margin-top:10px;"><strong>Phone:</strong> {{ bill.vendor.phone }}</p>{% endif %}
+                            {% if bill.vendor.email %}<p><strong>Email:</strong> {{ bill.vendor.email }}</p>{% endif %}
+                        </td>
+                        <td class="address-box">
+                            <h3>Received At:</h3>
+                            {% if bill.warehouse %}
+                                <p><strong>{{ bill.warehouse.name }}</strong></p>
+                                {% if bill.warehouse.addressSummary %}<p>{{ bill.warehouse.addressSummary }}</p>{% endif %}
+                            {% else %}
+                                <p>No receiving warehouse recorded.</p>
+                            {% endif %}
+                        </td>
+                        <td class="address-box">
+                            <h3>Remit To:</h3>
+                            {% if bill.remitToAddress %}
+                                {% for addressLine in bill.remitToAddress|split("\n") %}
+                                    {% if addressLine|trim %}<p>{{ addressLine }}</p>{% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <p>No remit-to recorded — pay to the vendor's address above.</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="po-section-title">Items Billed</div>
+                <table class="po-table" style="width:100%;table-layout:fixed;">
+                    {# Column order: Description, Our SKU, Their part no., Quantity, Unit cost, Tax,
+                       Line total — quantity sits immediately left of Unit cost, matching the
+                       detail screen's own Description/SKU/Part No./Qty/Unit Cost shape, not
+                       bunched at the far left ahead of everything else (#full-parity follow-up). #}
+                    <colgroup>
+                        <col style="width:31%;">
+                        <col style="width:13%;">
+                        <col style="width:13%;">
+                        <col style="width:9%;">
+                        <col style="width:11%;">
+                        <col style="width:11%;">
+                        <col style="width:12%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Our SKU</th>
+                            <th>Their part no.</th>
+                            <th>Quantity</th>
+                            <th style="text-align:right;">Unit cost</th>
+                            <th style="text-align:right;">Tax</th>
+                            <th style="text-align:right;">Line total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in bill.lines %}
+                            <tr>
+                                <td><strong>{{ line.name }}</strong></td>
+                                <td>{{ line.sku|default('-') }}</td>
+                                <td>{{ line.vendorSku|default('-') }}</td>
+                                <td>{{ line.quantity|qty }}</td>
+                                <td style="text-align:right;">{{ line.unitCost|price }}</td>
+                                {# Off this bill's OWN frozen tax_lines snapshot, keyed by position —
+                                   the same two arrays the detail page and the entry form read, so
+                                   the three cannot print three figures for one line. #}
+                                <td style="text-align:right;">{{ perLineTax[loop.index0]|default(0)|amount }}</td>
+                                <td style="text-align:right;">{{ line.subtotal|amount }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="empty-table-cell"><strong>This bill has no lines.</strong></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <table class="po-footer-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="footer-note">
+                            {% if bill.notes %}
+                                <p class="footer-note-block"><strong>Notes:</strong> {{ bill.notes }}</p>
+                            {% endif %}
+                            {% if bill.purchaseOrder %}
+                                <p class="footer-note-block">
+                                    Entered against purchase order <strong>{{ bill.purchaseOrder.poNumber }}</strong>.
+                                    The three-way match on the bill's own screen is what says whether the two agree.
+                                </p>
+                            {% else %}
+                                <p class="footer-note-block">
+                                    <strong>No purchase order behind this bill.</strong> It matches against nothing, which
+                                    is an exception worth a human's eye rather than an error.
+                                </p>
+                            {% endif %}
+                        </td>
+                        <td class="footer-totals">
+                            {# Every row is stored: charges out of `charge_lines`, tax rows out of
+                               `tax_lines`, and BILL TOTAL is the sum recalculateTotals() wrote from
+                               exactly these. Amount paid and balance are the two rows the purchase
+                               order document refuses and this one exists for. #}
+                            <table class="totals-inner" cellpadding="0" cellspacing="0">
+                                <tr><td>Subtotal (goods):</td><td style="text-align:right;"><strong>{{ bill.subtotal|amount }}</strong></td></tr>
+                                {% for charge in chargeRows %}
+                                    <tr><td>{{ charge.label }}:</td><td style="text-align:right;"><strong>{{ charge.amount|amount }}</strong></td></tr>
+                                {% endfor %}
+                                {% for taxLine in taxRows %}
+                                    <tr><td>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|round(3) }}%{% endif %}:</td><td style="text-align:right;"><strong>{{ taxLine.amount|amount }}</strong></td></tr>
+                                {% endfor %}
+                                <tr><td>Total tax:</td><td style="text-align:right;"><strong>{{ bill.tax|amount }}</strong></td></tr>
+                                <tr class="grand-total-row"><td><strong>BILL TOTAL ({{ bill.currency }}):</strong></td><td style="text-align:right;"><strong>{{ bill.total|amount }}</strong></td></tr>
+                                <tr><td>Amount paid:</td><td style="text-align:right;"><strong>{{ bill.amountPaid|amount }}</strong></td></tr>
+                                <tr class="grand-total-row"><td><strong>BALANCE DUE ({{ bill.currency }}):</strong></td><td style="text-align:right;"><strong>{{ bill.balance|amount }}</strong></td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="po-global-footer-note">
+                    This is our record of the vendor's own invoice, printed for the file and for approval.
+                    It is not sent to the vendor — they issued the invoice this was typed from.
+                </p>
+
+            </div>{# /po-body #}
+        </div>{# /po-document #}
+    </div>
+
+    {% include '@Procurement/_purchase_document_styles.html.twig' %}
+{% endblock %}

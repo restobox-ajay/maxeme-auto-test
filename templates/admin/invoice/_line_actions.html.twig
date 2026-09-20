@@ -1,0 +1,25 @@
+{# The Actions cell of a standalone invoice line row — same shape as order's own
+   (admin/order/_line_actions.html.twig), now that this screen has the same line-row JavaScript.
+
+   Rendered with {index, kind, showRemove, line, column, labelled}. #}
+<td class="order-line-controls">
+    <button class="mini-action success js-invoice-add-after js-batch-toggle js-only" type="button" aria-label="Add line"{% if not (kind == 'product' and line.tracksBatch|default(false)) %} hidden{% endif %}>+</button>
+    {% if kind == 'product' %}
+    <a class="mini-action info js-invoice-search-product"
+        data-product-edit-url-template="{{ path('admin_product_inventory_update', {id: '__PRODUCT_ID__'}) }}"
+        {% if line.productId|default('') %}href="{{ path('admin_product_inventory_update', {id: line.productId}) }}"{% else %}hidden{% endif %}
+        target="_blank" rel="noopener" aria-label="Open product in a new tab">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="8.5" cy="8.5" r="5.2"></circle>
+            <path d="M12.3 12.3 17 17"></path>
+        </svg>
+    </a>
+    {% endif %}
+    {% if showRemove %}
+        <button class="mini-action danger js-invoice-remove-line js-only" type="button" aria-label="Delete line">x</button>
+        {# Without JS the button above can't do anything, so the row also carries a real submit that
+           posts the row's index. Nothing is saved on this press — an invoice is a document with a
+           number on it, and pressing this must not mint one — see InvoiceController's own gate. #}
+        <button class="mini-action danger no-js-inline" type="submit" name="remove_line" value="{{ index }}" aria-label="Delete line">x</button>
+    {% endif %}
+</td>

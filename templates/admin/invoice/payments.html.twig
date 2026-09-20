@@ -1,0 +1,82 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Invoice Payments: {{ invoice.documentNumber }} | Admin{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel" style="margin-bottom:0; border-bottom:0; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Invoice detail</p>
+                <h1>{{ invoice.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">Back to invoice</a>
+            </div>
+        </div>
+    </section>
+
+    {% include 'admin/invoice/_tab_nav.html.twig' with {invoice: invoice, current: 'payments'} only %}
+
+    {#
+        A draft takes no payments (#31), so this screen has nothing to offer one: no form, no rows,
+        and no total worth stating about money nobody could have sent.
+
+        It renders and says so rather than 404ing or showing an empty grid. Somebody arriving here
+        followed a bookmark or an old link, and "this invoice has not been issued yet" is the answer
+        they need — "not found" would read as the invoice being gone. The refusal itself is not this
+        page's: InvoiceStatus::acceptsPayment() is enforced in the controller and again in
+        Invoice::recordPayment(), because a hidden form is not a guard.
+
+        A CANCELLED invoice is not a special case here: it takes no payment either, but it CAN hold
+        history (none — a cancelled invoice always has zero payments, see
+        InvoicePaymentActionsTest::testAnInvoiceWithPaymentsAgainstItCannotBeCancelled), so it renders
+        through the shared partial below exactly like a live invoice, and
+        `document.paymentRefusal` is what hides its form row and states why.
+    #}
+    {% if invoice.draft %}
+        <div class="payments-content" style="background: #fff; padding: 25px; border-radius: 4px; box-shadow: var(--shadow-sm); border: 1px solid var(--line-light);">
+            <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: 500;">This invoice has not been issued yet.</p>
+            <p class="field-hint" style="margin: 0 0 16px 0;">
+                Invoice {{ invoice.documentNumber }} is still a draft. It has not been sent to anybody, so no payment
+                can be recorded against it. Issue the invoice first, and this screen will take payments.
+            </p>
+            <a class="button primary" href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">Back to invoice</a>
+        </div>
+    {% else %}
+        {# Queue item 51: `?payment=` naming a row that is not one of this invoice's is said out
+           loud, above the form it is about — the same notice the bill payments screen has carried
+           since item 51's second pass. #}
+        {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+        {#
+            The invoice's own extra: a second, INVOICE-SPECIFIC status the shared card knows nothing
+            about. `paymentStatus` is a stored, derived column — see InvoicePaymentStatusSubscriber —
+            and the bill side has no equivalent single "payment status" field to show beside it, so
+            this stays here rather than becoming a parameter the bill side would just pass null.
+        #}
+        <p class="field-hint" style="margin: 0 0 16px;">
+            Payment status is worked out from these rows too — currently
+            <strong id="payment-status-derived">{{ invoice.paymentStatus.value }}</strong>. It is not typed in.
+        </p>
+
+        {#
+            The shared payments card (#708, queue item 34) — the balance panel, the entry/edit form,
+            the payment table with its move and delete actions, and the explanatory footer. Built to
+            the bill payments screen's own shape; this screen used to carry its own inline-JS
+            edit-in-place form instead.
+        #}
+        {% include 'admin/_partials/document_payments.html.twig' with {
+            document: invoice,
+            editing: editing,
+            methods: methods,
+            moveTargets: moveTargets,
+            recordRoute: 'admin_invoice_payments',
+            deleteRoute: 'admin_invoice_payment_delete',
+            moveRoute: 'admin_invoice_payment_move',
+            dateFieldName: 'received_at',
+            noun: 'invoice',
+            counterpartyNoun: 'customer',
+            noRecorderLabel: 'Customer (online payment)',
+            backUrl: null,
+        } only %}
+    {% endif %}
+{% endblock %}

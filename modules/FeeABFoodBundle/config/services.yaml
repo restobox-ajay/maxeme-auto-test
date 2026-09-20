@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeABFoodBundle\:
+        resource: '../src/'
+
+    FeeABFoodBundle\Fee\ABFoodFeeCalculator:
+        tags: ['app.fee_calculator', 'app.fee_field_provider']
+
+    FeeABFoodBundle\Menu\ABFoodFeeMenuItem:
+        tags: ['app.fee_menu_item']
+
+    FeeABFoodBundle\Bundle\FeeABFoodBundleDescriptor:
+        tags: ['app.bundle_descriptor']

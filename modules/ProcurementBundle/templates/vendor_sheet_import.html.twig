@@ -1,0 +1,58 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Sheet Import | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_prices',
+        heading: 'Vendor Sheet Import',
+        lead: 'Import a vendor\'s price/backorder-quantity sheet against one vendor per file.'
+    } only %}
+
+    <section class="panel">
+        <form class="form-grid" method="post" enctype="multipart/form-data">
+            {{ csrf_field() }}
+
+            <label>Vendor <span class="req">*</span>
+                <select name="vendor_id" required>
+                    <option value="">&mdash; choose a vendor &mdash;</option>
+                    {% for v in vendors %}
+                        <option value="{{ v.id }}">{{ v.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="span-2">CSV file <span class="req">*</span>
+                <input type="file" name="csv_file" accept=".csv,text/csv" required>
+                <small>Vendor SKU, our SKU, price, available quantity, and item name — column names don't need to match; the next screen lets you say which column is which.</small>
+            </label>
+
+            <div class="span-2" style="display:flex; gap:24px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+                    <input type="checkbox" name="allow_add" value="1">
+                    Add — create a new product when our_sku doesn't match one
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+                    <input type="checkbox" name="allow_update" value="1" checked>
+                    Update — write vendor prices for products already matched
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+                    <input type="checkbox" name="allow_delete" value="1">
+                    Delete — zero out and deactivate this vendor's prices this sheet doesn't name
+                </label>
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Upload</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel compact-panel">
+        <p class="muted">
+            <a href="{{ path('admin_bundle_procurement_vendor_sheet_import_unmatched') }}">Unmatched vendor SKUs</a>
+            — vendor SKUs a sheet named that don't yet map to a product.
+        </p>
+        <p class="muted">
+            Submitting takes you to a column-matching screen, then queues the import as a background process and takes you to its status page.
+        </p>
+    </section>
+{% endblock %}

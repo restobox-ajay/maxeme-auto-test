@@ -1,0 +1,121 @@
+{#
+    One <td> per chosen column per warehouse, driven by `columns` — the resolved registry from
+    InventoryGridColumns, which the header row, the filter row's colspan and the empty state below
+    are all driven by as well (#36).
+
+    It used to be nine hand-written cells. That is why seven of the fourteen quantities on
+    product_inventory never appeared: adding a bucket to the entity changed nothing here, and
+    nothing anywhere said so. Now a bucket with no column fails
+    InventoryGridBucketCoverageCest by name, and a column with no cell fails it too.
+
+    `data-column` is on every warehouse cell and `data-avail-sign` on every BUCKET one, so the
+    reconciliation can be read off the rendered page rather than recomputed from the entity: the
+    test adds sign × value across the row and asserts the total is the Available cell. Two
+    independent computations of one number is the only kind of check that can catch either one
+    being wrong. The sign is the EFFECTIVE one for this row — 0 where a bundle is Inactive and the
+    term has left getAvailableQuantity() — which is what makes the same assertion hold under the
+    bundles-off run.
+#}
+{% for row in rows %}
+    <tr class="data-item-row">
+        <td data-label="ID" class="searchable">{{ row.id }}</td>
+        <td data-label="Product name" class="product-name-cell searchable">{{ row.name }}</td>
+        <td data-label="SKU" class="searchable">{{ row.sku }}</td>
+        <td data-label="Category" class="searchable">{{ row.category|default('-') }}</td>
+        {% for warehouse in warehouses %}
+            {% set bucket = row.qtyByWarehouse[warehouse.id] %}
+            {% set startingQuantity = bucket.cells.starting.value|qty %}
+            {% for col in columns %}
+                {% set cell = bucket.cells[col.key] %}
+                {% set label = warehouse.name ~ ' — ' ~ col.label %}
+                {#- The "not counted" class is per ROW, not per column: the three bundle-gated terms
+                    leave getAvailableQuantity() the moment their bundle goes Inactive, and nothing
+                    is zeroed when they do. A column reading 40 that availability is ignoring is the
+                    reconciliation defect in miniature, so the cell says so rather than looking like
+                    a term that simply did not add up. -#}
+                {% set stateClass = col.kind == 'bucket' and cell.sign == 0 ? ' is-not-counted' : '' %}
+
+                {% if col.key == 'starting' %}
+                    {# For a dimensional product (#550) the number is maintained by the depth layer, not
+                       typed — so the editable box is replaced by a link to the breakdown that maintains it.
+                       bucket.breakdownUrl is null for every product on simple inventory, which is every
+                       product until someone opts one in, and is null again the moment the depth bundle is
+                       removed. #}
+                    {% if bucket.breakdownUrl|default(null) is not empty %}
+                        <td data-label="{{ label }}" data-column="starting" data-avail-sign="{{ cell.sign }}" class="inventory-dimensional-cell">
+                            <a class="price-display" href="{{ bucket.breakdownUrl }}" title="Maintained by bin, lot and serial — open the breakdown to adjust it">{{ startingQuantity }}</a>
+                            {# Hidden, not absent, and carrying the id the quantity box would have had.
+                               postBackorderSetting() reads that id to echo the current quantity back with a
+                               settings change; with no element it falls back to data-current-quantity on the
+                               control itself, which is what makes the backorder columns safe to show while
+                               Starting is hidden. The backorder settings are orthogonal to HOW the quantity
+                               is maintained, so they stay editable here — this is what lets them be, safely. #}
+                            <input type="hidden" id="inv_{{ row.id }}_{{ warehouse.id }}" value="{{ startingQuantity }}">
+                        </td>
+                    {% else %}
+                        <td data-label="{{ label }}" data-column="starting" data-avail-sign="{{ cell.sign }}">
+                            <button type="button" class="price-display js-inventory-display" data-target-input="inv_{{ row.id }}_{{ warehouse.id }}">{{ startingQuantity }}</button>
+                            <input
+                                id="inv_{{ row.id }}_{{ warehouse.id }}"
+                                class="price-input js-inventory-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value="{{ startingQuantity }}"
+                                data-product-id="{{ row.id }}"
+                                data-warehouse-id="{{ warehouse.id }}">
+                        </td>
+                    {% endif %}
+                {% elseif col.kind == 'derived' %}
+                    {# Available. Not a stored figure and not recomputed in the template either — it is
+                       ProductInventory::getAvailableQuantity(), carried through. The title spells the
+                       row's own arithmetic out so the number can be checked without counting columns.
+
+                       The `off page` note is the chooser's one dangerous edge made visible: hide
+                       Quarantine on a row holding 12 quarantined units and Available is 12 short of
+                       everything on screen, which is precisely the defect this issue exists to end —
+                       reintroduced by the feature that makes the rest of it bearable. So the gap is
+                       stated, with the buckets that carry it named, rather than left to be found. #}
+                    <td data-label="{{ label }}" data-column="{{ col.key }}"
+                        class="inventory-readonly-cell inventory-available-cell{{ bucket.available < 0 ? ' is-oversold' : '' }}{{ bucket.offPage.amount != 0 ? ' has-off-page-terms' : '' }}"
+                        data-off-page="{{ bucket.offPage.amount }}"
+                        title="{{ bucket.working }}"><strong>{{ bucket.available|qty }}</strong>{% if bucket.offPage.amount != 0 %}<span class="inventory-off-page-note">{{ bucket.offPage.amount > 0 ? '+' : '−' }}{{ bucket.offPage.amount|abs }} off page: {{ bucket.offPage.labels|join(', ') }}</span>{% endif %}</td>
+                {% elseif col.kind == 'setting' %}
+                    {# One control, one column. All four used to be stacked in a single cell, which meant
+                       none of them could be hidden on its own and the four read as one setting with
+                       decoration. data-current-quantity is what lets a control be shown while the Starting
+                       column is not: the endpoint validates a quantity on every save, and reading it off a
+                       box that is no longer on the page would post 0 and zero the stock. #}
+                    <td data-label="{{ label }}" data-column="{{ col.key }}" class="inventory-backorder-cell">
+                        {% if col.key == 'max_backorder' %}
+                            <input type="number" class="js-backorder-setting" data-field="max_backorder_quantity"
+                                min="0" step="1" placeholder="No cap" value="{{ cell.value is null ? '' : cell.value|qty }}"
+                                aria-label="{{ label }}"
+                                data-product-id="{{ row.id }}" data-warehouse-id="{{ warehouse.id }}"
+                                data-current-quantity="{{ startingQuantity }}">
+                        {% else %}
+                            {% set field = col.key == 'allow_backorder' ? 'allow_backorder' : (col.key == 'backorder_cap_shrinks' ? 'backorder_cap_shrinks_on_restock' : 'auto_release_on_restock') %}
+                            <input type="checkbox" class="js-backorder-setting" data-field="{{ field }}"
+                                aria-label="{{ label }}"
+                                data-product-id="{{ row.id }}" data-warehouse-id="{{ warehouse.id }}"
+                                data-current-quantity="{{ startingQuantity }}"{{ cell.value ? ' checked' : '' }}>
+                        {% endif %}
+                    </td>
+                {% else %}
+                    {# Every other bucket. Readonly: what is held, promised, quarantined or written off is
+                       decided by the documents and the movements, never typed here. #}
+                    <td data-label="{{ label }}" data-column="{{ col.key }}" data-avail-sign="{{ cell.sign }}"
+                        class="inventory-readonly-cell{{ stateClass }}"
+                        {%- if col.kind == 'bucket' and cell.sign == 0 %} title="Not counted in Available. {{ col.note }}"{% endif %}>{{ cell.value|qty }}</td>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="{{ 4 + warehouses|length * columns|length }}" class="empty-table-cell">
+            <strong>No products found.</strong>
+            <span>Products will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

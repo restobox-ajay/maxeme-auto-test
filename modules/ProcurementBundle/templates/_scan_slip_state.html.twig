@@ -1,0 +1,35 @@
+{#
+  The slip, as hidden fields, so every form on the scan console carries the whole of it forward.
+
+  The console's state has always lived in the URL and nowhere else — that is what makes the back
+  button undo a mis-scan and the URL something a supervisor can be handed — and it now carries the
+  identity captured for each product beside the count, not only the count (item 67).
+
+  Five keys, short because a receiver sees them in the address bar:
+    q  units counted with no identity of their own
+    s  serials, one per unit
+    b  the batch code captured for this product on this slip
+    e  the expiry on that batch
+    u  the receiver having said these units carry no identity at all
+
+  In ONE partial because there are four forms on that screen and each of them has to carry all of
+  it. The screen used to repeat the `q` loop three times, which is three places to forget a key the
+  day a sixth one is added.
+#}
+{% for line in lines %}
+    {% if line.quantity > 0 %}
+        <input type="hidden" name="q[{{ line.product.id }}]" value="{{ line.quantity }}">
+    {% endif %}
+    {% for serial in line.serials %}
+        <input type="hidden" name="s[{{ line.product.id }}][]" value="{{ serial }}">
+    {% endfor %}
+    {% if line.lot %}
+        <input type="hidden" name="b[{{ line.product.id }}]" value="{{ line.lot }}">
+    {% endif %}
+    {% if line.expiry %}
+        <input type="hidden" name="e[{{ line.product.id }}]" value="{{ line.expiry }}">
+    {% endif %}
+    {% if line.unidentified %}
+        <input type="hidden" name="u[{{ line.product.id }}]" value="1">
+    {% endif %}
+{% endfor %}

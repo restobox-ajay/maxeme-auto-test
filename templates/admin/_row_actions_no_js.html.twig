@@ -1,0 +1,82 @@
+{# Row actions collected behind ONE control, that open with JavaScript off.
+
+   The app's own row-action dropdown (`.row-action-menu` / `.row-action-toggle` /
+   `.row-action-dropdown`, app.css:6409-6462) is driven entirely by app.js:4220: the panel is
+   `display: none` until a delegated click handler copies its HTML into a body-level clone and
+   shows that. With scripting off it never opens, so every action behind it is unreachable — which
+   is why a screen whose actions today are plain visible buttons cannot simply adopt it. The app
+   works without JavaScript (`public/assets/js/app.js`, opening comment); a menu that does not is
+   not a menu.
+
+   So the disclosure is `<details>`/`<summary>`, which the browser opens on its own, and the panel
+   keeps `.row-action-dropdown` so it inherits every bit of the core styling. The summary is
+   deliberately NOT given `.row-action-toggle`: that class is what app.js binds to, and a summary
+   carrying it would be opened twice — once natively and once as a body-level clone.
+
+   The panel opens IN FLOW rather than absolutely positioned. Core's version has to reparent itself
+   to `<body>` precisely because `.table-scroll-region` has `overflow: auto` and would clip an
+   absolutely-positioned panel on the last row; opening in flow makes the row taller instead, which
+   nothing can clip and which needs no script to place.
+
+   `display: contents` on a nested `<form>` lets a POST action (a delete) sit in the panel as a real
+   submit button and still be laid out as one of the menu's items.
+
+   In-flow is right where something COULD clip the panel — every direct caller of this partial
+   today (unit_of_measure, custom_field, tracking_policy) is a row inside one of those scrolling
+   tables. A caller with no such container (`admin/_partials/sales_document_action_bar.html.twig`'s
+   own two disclosures) instead adds `no-js-row-actions--overlay` alongside this class and gets the
+   panel back as an absolutely-positioned overlay, so opening it does not shove the rest of the bar
+   sideways or the page down (#650). #}
+<style>
+    /* `.row-action-menu` is `display: inline-flex`, which lays the summary and the panel out side
+       by side and widens the Actions column instead of dropping the panel under the control. In
+       flow, the panel belongs under the thing it belongs to. */
+    .no-js-row-actions {
+        display: inline-block;
+        line-height: normal;
+    }
+
+    .no-js-row-actions > summary {
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .no-js-row-actions > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .no-js-row-actions[open] > .row-action-dropdown {
+        display: grid;
+        position: static;
+        min-width: 0;
+        margin-top: 6px;
+    }
+
+    .no-js-row-actions > .row-action-dropdown form {
+        display: contents;
+    }
+
+    /* Opt-in modifier: FLOAT the panel over the page instead of pushing it down in flow. The
+       in-flow default above exists purely for the row grids' `.table-scroll-region` clipping
+       problem (see the docblock); a caller with no such scroll container to worry about — the
+       sales document action bar's own two disclosures, so far — adds this class as well and gets
+       an overlay instead, which is what stops opening one from shoving everything after it
+       sideways or down (#650). `.row-action-menu` already gives the wrapper `position: relative`
+       (app.css:6439), so the panel only has to go back to being `position: absolute` — the same
+       box core's own JS-driven `.row-action-dropdown` already is before either modifier touches
+       it. Both selectors tie on specificity with the in-flow rule above and this one wins by
+       coming second in the cascade, but ONLY for the properties it sets — `min-width: 0` above is
+       a property THIS rule leaves alone, so it still applies and starves the panel down toward its
+       narrowest word instead of its widest item's full text. `width: max-content` here is the
+       actual fix: it sizes the panel to its content regardless of that leftover `min-width: 0`,
+       the same way `.row-action-fixed-drop` (app.css:12841) already does for its own dropdown. */
+    .no-js-row-actions--overlay[open] > .row-action-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 20;
+        margin-top: 0;
+        width: max-content;
+        max-width: calc(100vw - 16px);
+    }
+</style>

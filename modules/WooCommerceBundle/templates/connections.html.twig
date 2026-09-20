@@ -1,0 +1,49 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}WooCommerce Connections | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WooCommerce/_nav.html.twig' with {
+        current: 'connections',
+        heading: 'WooCommerce',
+        lead: 'Every store gets its own row here — its own credentials, tier mapping, warehouse and buffer. Nothing here assumes there is only one.',
+        createPath: path('admin_bundle_woocommerce_connection_new'),
+        createLabel: 'Add connection'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Store URL</th>
+                    <th>Active</th>
+                    <th>Last order</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for connection in connections %}
+                    <tr>
+                        <td data-label="Name">{{ connection.name }}</td>
+                        <td data-label="Slug">{{ connection.slug }}</td>
+                        <td data-label="Store URL">{{ connection.storeUrl }}</td>
+                        <td data-label="Active">
+                            {% if connection.active %}
+                                <span class="badge success">On</span>
+                            {% else %}
+                                <span class="badge">Off</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Last order">{{ connection.lastOrderAt ? connection.lastOrderAt|date('Y-m-d H:i') : 'Never' }}</td>
+                        <td data-label="Actions"><a class="table-action" href="{{ path('admin_bundle_woocommerce_connection_edit', {id: connection.id}) }}">Edit</a></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell"><span>No WooCommerce connections yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div></div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with { count: connections|length, label: 'connections' } only %}
+        </div>
+    </section>
+{% endblock %}

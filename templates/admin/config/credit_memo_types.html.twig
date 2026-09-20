@@ -1,0 +1,75 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Credit Memo Types | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Configuration</p>
+                <h1>Credit Memo Types</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_credit_memo_type_create') }}">Create Type</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentSort = currentSort|default('') %}
+    {% set currentDir = currentDir|default('asc') %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(10) %}
+    {% set pageCount = max(1, (total|default(rows|length) / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set routeQuery = {q: search|default(''), sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters|default({})} %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    <section class="table-card credit-memo-type-admin-grid no-paginate" data-current-page="{{ currentPage }}" data-per-page="{{ currentLimit }}">
+        <form method="get" action="{{ path('admin_credit_memo_types') }}" class="js-auto-submit-form">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_credit_memo_types', {q: search|default(''), sort: 'name', dir: currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit|default(10), page: 1, filters: filters|default({})}) }}">Name</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_credit_memo_types', {q: search|default(''), sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit|default(10), page: 1, filters: filters|default({})}) }}">Status</a></th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" aria-label="Filter name"></th>
+                        <th><input type="text" name="filters[status]" value="{{ filters.status|default('') }}" aria-label="Filter status"></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/config/_credit_memo_type_rows.html.twig' with {rows: rows} %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            <label class="per-page-label">
+                Per page
+                <select name="limit" onchange="this.form.submit()">
+                    {% for size in pageSizes %}
+                        <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: rows|length,
+                total: total|default(rows|length),
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_credit_memo_types',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+        </form>
+    </section>
+{% endblock %}

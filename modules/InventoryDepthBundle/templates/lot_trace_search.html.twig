@@ -1,0 +1,57 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Recall / Lot Trace | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'lot_trace',
+        heading: 'Recall / Lot Trace',
+        lead: 'Search by batch/lot code to answer a recall\'s two questions: where the lot currently is, and who was sold units of it.'
+    } only %}
+
+    <section class="panel">
+        <form method="get" class="form-grid">
+            <label class="span-2">
+                Lot / batch code
+                <input type="text" name="q" value="{{ q }}" placeholder="Type all or part of the code vendors printed on the notice" autofocus>
+            </label>
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Search</button>
+            </div>
+        </form>
+    </section>
+
+    {% if q %}
+        <section class="table-card no-paginate">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Lot</th>
+                        <th>Product</th>
+                        <th>Expiry</th>
+                        <th>Status</th>
+                        <th>Row</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for lot in rows %}
+                    <tr class="data-item-row{{ lot.status != 'available' ? ' is-oversold' : '' }}">
+                        <td data-label="Lot">{{ lot.code }}</td>
+                        <td data-label="Product">{{ lot.product.sku ?: lot.product.name }}</td>
+                        <td data-label="Expiry">{{ lot.expiry ? lot.expiry|date('Y-m-d') : 'Does not expire' }}</td>
+                        <td data-label="Status">
+                            {% if lot.status == 'recalled' %}<span class="badge danger">Recalled</span>
+                            {% elseif lot.status == 'on_hold' %}<span class="badge warn">On Hold</span>
+                            {% else %}<span class="badge success">Available</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Row">
+                            <a class="table-action" href="{{ path('admin_bundle_inventory_depth_lot_trace_view', {id: lot.id}) }}">Trace this lot</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell"><strong>No lot code matches "{{ q }}".</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+        </section>
+    {% endif %}
+{% endblock %}

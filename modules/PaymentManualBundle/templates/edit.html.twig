@@ -1,0 +1,30 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Edit Payment Method | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Payments › Manual</p>
+                <h1>Edit Payment Method</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_payment_manual_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_payment_manual_edit', {id: paymentMethod.id}) }}" class="form-grid">
+            <label>
+                Name
+                <input type="text" name="name" value="{{ paymentMethod.name }}">
+                {% if errors.name is defined %}<span class="field-error">{{ errors.name }}</span>{% endif %}
+            </label>
+
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Update Payment Method</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

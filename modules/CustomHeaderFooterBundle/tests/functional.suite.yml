@@ -1,0 +1,9 @@
+actor: FunctionalTester
+modules:
+    enabled:
+        - Symfony:
+            kernel_class: 'App\Kernel'
+            environment: 'test'
+            debug: false
+            bootstrap: true
+        - Asserts

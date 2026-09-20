@@ -1,0 +1,76 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Void {{ memo.documentNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'debit_memos',
+        heading: 'Void ' ~ memo.documentNumber,
+        lead: 'Issuing this memo took stock out of the warehouse and wrote it off to the vendor. Voiding it has to say what became of those goods.'
+    } only %}
+
+    <section class="form-card">
+        <h2>What issuing this memo moved</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Product</th><th>Units</th><th>Out of</th><th>Bin</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td data-label="Product">{{ row.product.sku ?: row.product.name }}</td>
+                        <td data-label="Units">{{ row.quantity }}</td>
+                        <td data-label="Out of">{{ row.warehouse ? row.warehouse.name : 'an unnamed warehouse' }}</td>
+                        <td data-label="Bin">{{ row.location ?: '(no bin)' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="4" class="empty-table-cell"><span>This memo moved nothing.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_action', {id: memo.id, action: 'void'}) }}">
+            {{ csrf_field() }}
+
+            <h2>Where are the goods now?</h2>
+
+            {# Plain radios and a submit button. No JavaScript: the app's standing baseline, and a
+               confirmation that only works with scripting on is a confirmation some people never see. #}
+            <div class="form-grid">
+                <label class="checkbox-label full-width">
+                    <input type="radio" name="disposition" value="{{ dispositionBackInStock }}" required>
+                    <strong>Back in stock.</strong>
+                    They came back and are sellable.
+                    {% for row in rows %}
+                        This puts {{ row.quantity }} &times; {{ row.product.sku ?: row.product.name }} back into
+                        {{ row.warehouse ? row.warehouse.name : 'the warehouse it left' }}{{ row.location ? ', bin ' ~ row.location : '' }},
+                        as available stock.
+                    {% endfor %}
+                </label>
+
+                <label class="checkbox-label full-width">
+                    <input type="radio" name="disposition" value="{{ dispositionWrittenOff }}">
+                    <strong>Back, but written off.</strong>
+                    They came back damaged or unusable.
+                    {% for row in rows %}
+                        This records {{ row.quantity }} &times; {{ row.product.sku ?: row.product.name }} as damaged in
+                        {{ row.warehouse ? row.warehouse.name : 'the warehouse it left' }}.
+                    {% endfor %}
+                    Available stock does <strong>not</strong> go up: the units stay in the write-off bucket, they
+                    simply stop being described as sitting at the vendor.
+                </label>
+
+                <label class="checkbox-label full-width">
+                    <input type="radio" name="disposition" value="{{ dispositionGone }}">
+                    <strong>Gone.</strong>
+                    They are with the vendor and are not coming back. No stock moves and no quantity changes
+                    anywhere. An entry is still written against this memo saying exactly that, so the ledger
+                    explains why the stock left and no live document accounts for it.
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button class="button danger" type="submit">Void this memo</button>
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_debit_memo', {id: memo.id}) }}">Cancel &mdash; change nothing</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

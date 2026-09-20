@@ -1,0 +1,127 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}App Management | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Configuration</p>
+                <h1>App Management</h1>
+            </div>
+        </div>
+    </section>
+
+    {#
+       Report, never repair (#788): a box can already be in a state a newly declared requirement
+       would now refuse to create — this app Active while something it requires is Inactive. This
+       is read-only; nothing on this page fixes it for you.
+    #}
+    {% if existingBadStates is not empty %}
+        <section class="panel compact-panel">
+            <div class="alert warn">
+                <p><strong>Some active apps are missing something they require:</strong></p>
+                <ul>
+                    {% for badState in existingBadStates %}
+                        <li>"{{ badState.name }}" is Active, but {{ badState.missingNames|join(', ') }} is not.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="panel admin-flat-panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Requires</th>
+                    <th>Edit</th>
+                    <th>Docs</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr id="bundle-row-{{ row.source }}">
+                        <td>{{ row.name }}</td>
+                        <td>{{ row.type }}</td>
+                        <td>
+                            {% if row.requiresNames is not empty %}
+                                {{ row.requiresNames|join(', ') }}
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.editRoute %}
+                                <a href="{{ path(row.editRoute) }}">Edit</a>
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.docsUrl %}
+                                <a href="{{ row.docsUrl }}" target="_blank" rel="noopener">Docs</a>
+                            {% else %}
+                                <span class="muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        {#
+                           Three states, told apart by the STATUS ROW and nothing else:
+
+                             row says Active    -> Active          the app is running
+                             row says Inactive  -> Inactive        installed, switched off by a person
+                             no row at all      -> Not activated   installed, never switched on
+
+                           The third is not a variant of the second and must not read like one. An
+                           app that somebody turned off is a decision on the record; an app that has
+                           never been activated is the absence of one, which since the default
+                           flipped is the state every newly installed app starts in.
+
+                           `badge warn` rather than `badge danger` for it, for the same reason:
+                           danger is reserved for the state a person chose.
+                        #}
+                        <td>
+                            {% if row.status is null %}
+                                <span id="bundle-state-{{ row.source }}" class="badge warn">Not activated</span>
+                            {% elseif row.active %}
+                                <span id="bundle-state-{{ row.source }}" class="badge success">Active</span>
+                            {% else %}
+                                <span id="bundle-state-{{ row.source }}" class="badge danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                        {#
+                           One plain form POST per row, no JavaScript anywhere near it — the app
+                           works without JS and this screen is where somebody goes when things are
+                           already broken, which is the worst possible place for a control that
+                           needs a script to run.
+                        #}
+                        <td class="row-actions">
+                            {% if row.activationBlockedByNames is not empty %}
+                                {#
+                                   Refused server-side too (BundleStatusRepository::activate()) — this
+                                   disables the button so the explanation is visible before a click
+                                   rather than only after a refused POST, not so the check lives here.
+                                #}
+                                <button type="button" class="link-button" disabled title="Needs {{ row.activationBlockedByNames|join(', ') }} Active first.">Activate</button>
+                                <p class="muted">Needs {{ row.activationBlockedByNames|join(', ') }} Active first.</p>
+                            {% else %}
+                                <form method="post" action="{{ path('admin_bundle_management_toggle', {source: row.source}) }}">
+                                    {{ csrf_field() }}
+                                    <button type="submit" id="bundle-action-{{ row.source }}" class="link-button{{ row.active ? ' danger' : '' }}">
+                                        {{ row.active ? 'Deactivate' : 'Activate' }}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="empty-row">No apps are registered with a descriptor yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

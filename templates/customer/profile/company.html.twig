@@ -1,0 +1,307 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Company Profile | {{ site_name() }}{% endblock %}
+
+{% macro addressCardBody(addr, compact, canEdit) %}
+    {% if addr %}
+        <div class="address-card-body">
+            {% if addr.isDefaultShipping or addr.isDefaultBilling %}
+                <p class="customer-company-address-badges">
+                    {% if addr.isDefaultShipping %}<span class="customer-company-address-badge">Default Shipping</span>{% endif %}
+                    {% if addr.isDefaultBilling %}<span class="customer-company-address-badge customer-company-address-badge--billing">Default Billing</span>{% endif %}
+                </p>
+            {% endif %}
+            <dl class="address-detail-list">
+                <div>
+                    <dt>Address Name</dt>
+                    <dd>{{ addr.label ?: '-' }}</dd>
+                </div>
+                <div>
+                    <dt>Company Name</dt>
+                    <dd>{{ addr.companyName ?: '-' }}</dd>
+                </div>
+                <div>
+                    <dt>First Name</dt>
+                    <dd>{{ addr.firstName ?: '-' }}</dd>
+                </div>
+                <div>
+                    <dt>Last Name</dt>
+                    <dd>{{ addr.lastName ?: '-' }}</dd>
+                </div>
+                <div>
+                    <dt>Phone Number</dt>
+                    <dd>{{ addr.phone ?: '-' }}</dd>
+                </div>
+                <div class="address-lines">
+                    <dt>Address</dt>
+                    <dd>
+                        {{ addr.addressLine1 ?: '' }}{% if addr.addressLine2 %}<br>{{ addr.addressLine2 }}{% endif %}<br>
+                        {{ addr.city ?: '' }}{% if addr.province %}, {{ province_name(addr.country, addr.province) }}{% endif %}{% if addr.postalCode %}, {{ addr.postalCode }}{% endif %}<br>
+                        {{ addr.country ?: '' }}
+                    </dd>
+                </div>
+            </dl>
+            {# Address actions are owner-only (#522 §3); staff get a read-only address book. #}
+            {% if canEdit %}
+                <div class="address-card-actions">
+                    <a href="{{ path('customer_company_addresses_edit', {id: addr.id, 'return_to': 'profile'}) }}">Edit</a>
+                    {% if not compact %}
+                        <form class="inline-action-form" method="post" action="{{ path('customer_company_addresses_delete', {id: addr.id}) }}">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="return_to" value="profile">
+                            <button class="link-button" type="submit">Remove</button>
+                        </form>
+                        <form class="inline-action-form" method="post" action="{{ path('customer_company_addresses_default', {id: addr.id, type: 'billing'}) }}">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="return_to" value="profile">
+                            <button class="link-button" type="submit">Set Default Billing</button>
+                        </form>
+                        <form class="inline-action-form" method="post" action="{{ path('customer_company_addresses_default', {id: addr.id, type: 'shipping'}) }}">
+                            {{ csrf_field() }}
+                            <input type="hidden" name="return_to" value="profile">
+                            <button class="link-button" type="submit">Set Default Shipping</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="address-card-body address-card-empty">
+            <p>No address selected yet.</p>
+            {% if canEdit %}
+                <a class="button primary company-card-action" href="{{ path('customer_company_addresses_create', {return_to: 'profile'}) }}">Add Address</a>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% import _self as macros %}
+
+{% block customer_body %}
+
+    {% set billing = company.defaultBillingAddress %}
+
+    <section class="order-detail-header customer-company-profile-header">
+        <h1>Company Profile - {{ company.name }}</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">›</span>
+            <span>Company Profile - {{ company.name }}</span>
+        </nav>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert success" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert error" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+
+    {% if not canEdit %}
+        <div class="alert info" style="margin-bottom: 14px;">
+            You have view-only access to the company profile. Ask a company owner to make changes.
+        </div>
+    {% endif %}
+
+    <form method="post" action="{{ path('customer_company_profile') }}">
+        {{ csrf_field() }}
+
+        {# Staff read the profile but cannot change it (#522 §3). A disabled fieldset both greys the
+           controls and stops them submitting, and it covers the custom-field fragment too, which the
+           renderer only knows how to emit as editable inputs. The controller refuses the POST
+           regardless — this is presentation, not the gate. #}
+        <fieldset {{ canEdit ? '' : 'disabled' }} class="customer-company-profile-fieldset">
+        <section class="customer-company-profile-grid">
+            <section class="table-card customer-company-profile-card">
+                <div class="table-header">
+                    <h2>Company Profile</h2>
+                </div>
+                <div class="customer-company-profile-body">
+                    <div class="customer-company-profile-form">
+                        <label class="profile-field-row">
+                            <span>Company Name <span class="req">*</span></span>
+                            <input class="form-control" name="company_name" value="{{ company.name }}" required>
+                        </label>
+                        <label class="profile-field-row">
+                            <span>DBA/Tradename</span>
+                            <input class="form-control" name="trade_name" value="{{ company.tradeName ?: '' }}">
+                        </label>
+                        <label class="profile-field-row">
+                            <span>Business License</span>
+                            <input class="form-control" name="business_license" value="{{ company.businessLicense ?: '' }}">
+                        </label>
+                        <label class="profile-field-row">
+                            <span>Account Type</span>
+                            <input class="form-control" name="account_type" value="{{ company.accountType }}" readonly>
+                        </label>
+                        <label class="profile-field-row">
+                            <span>First Name</span>
+                            <input class="form-control" name="company_first_name" value="{{ company.firstName ?: '' }}">
+                        </label>
+                        <label class="profile-field-row">
+                            <span>Last Name</span>
+                            <input class="form-control" name="company_last_name" value="{{ company.lastName ?: '' }}">
+                        </label>
+                        <label class="profile-field-row">
+                            <span>Phone Number</span>
+                            <input class="form-control" name="company_phone" value="{{ company.phoneNumber ?: '' }}">
+                        </label>
+                        <label class="profile-field-row">
+                            <span>Email</span>
+                            <input class="form-control" type="email" name="company_email" value="{{ company.primaryEmail ?: '' }}">
+                        </label>
+                    </div>
+                    {# Custom fields render as their own bordered group rather than under a heading —
+                       the box is the grouping, so a "Custom Fields" label would just be noise. #}
+                    {% if customFieldFragment is defined and customFieldFragment %}
+                        <div class="custom-fields-section">
+                            {{ customFieldFragment|raw }}
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <div class="customer-company-profile-right">
+                <section class="table-card customer-company-profile-card">
+                    <div class="table-header">
+                        <h2>Billing Address</h2>
+                    </div>
+                    <div class="customer-company-profile-body">
+                        <div class="customer-company-profile-form">
+                            <label class="profile-field-row">
+                                <span>First Name</span>
+                                <input class="form-control" name="bill_first_name" value="{{ billing ? (billing.firstName ?: '') : '' }}">
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Last Name</span>
+                                <input class="form-control" name="bill_last_name" value="{{ billing ? (billing.lastName ?: '') : '' }}">
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Phone Number</span>
+                                <input class="form-control" name="bill_phone" value="{{ billing ? (billing.phone ?: '') : '' }}">
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Address Line 1</span>
+                                <input class="form-control" name="bill_address1" value="{{ billing ? (billing.addressLine1 ?: '') : '' }}">
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Address Line 2</span>
+                                <input class="form-control" name="bill_address2" value="{{ billing ? (billing.addressLine2 ?: '') : '' }}">
+                            </label>
+                            <label class="profile-field-row">
+                                <span>City</span>
+                                <input class="form-control" name="bill_city" value="{{ billing ? (billing.city ?: '') : '' }}">
+                            </label>
+                            {# Country before province: the province list depends on it, and both are
+                               driven from geo_country/geo_province. These were free-text inputs, the
+                               same hole the address book had — a typo'd province matches no tax
+                               calculator and the order silently invoices at $0. #}
+                            <label class="profile-field-row">
+                                <span>Country</span>
+                                <select class="form-control js-region-country" name="bill_country"
+                                        data-region-map="{{ region_map()|json_encode|e('html_attr') }}"
+                                        data-province-target="bill_province">
+                                    {% set billCountry = (billing and billing.country) ? billing.country : 'CA' %}
+                                    {% for code, label in region_countries() %}
+                                        <option value="{{ code }}" {{ billCountry == code ? 'selected' : '' }}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Province</span>
+                                <select class="form-control js-region-province" name="bill_province"
+                                        data-province-name="bill_province"
+                                        data-selected="{{ billing ? (billing.province ?: '') : '' }}">
+                                    <option value=""></option>
+                                    {% for code, label in region_provinces(billCountry) %}
+                                        <option value="{{ code }}" {{ (billing and billing.province == code) ? 'selected' : '' }}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="profile-field-row">
+                                <span>Postal Code</span>
+                                <input class="form-control" name="bill_postal_code" value="{{ billing ? (billing.postalCode ?: '') : '' }}">
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="table-card customer-company-profile-card">
+                    <div class="table-header">
+                        <h2>View Fulfillment Regions</h2>
+                    </div>
+                    <div class="customer-company-profile-body">
+                        <div class="customer-company-warehouses">
+                            <label class="check-row"><input type="checkbox" checked disabled> Metro Vancouver</label>
+                            <label class="check-row"><input type="checkbox" checked disabled> Calgary</label>
+                            <label class="check-row"><input type="checkbox" checked disabled> Toronto</label>
+                        </div>
+                    </div>
+                </section>
+
+                {% if canEdit %}
+                    <div class="customer-company-profile-actions">
+                        <button class="button primary" type="submit">Update Profile</button>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+        </fieldset>
+    </form>
+
+    {% set defaultBillingAddr = null %}
+    {% set defaultShippingAddr = null %}
+    {% for a in company.addresses %}
+        {% if a.isDefaultBilling and defaultBillingAddr is null %}{% set defaultBillingAddr = a %}{% endif %}
+        {% if a.isDefaultShipping and defaultShippingAddr is null %}{% set defaultShippingAddr = a %}{% endif %}
+    {% endfor %}
+
+    <section class="customer-company-shipping">
+        <div class="customer-company-shipping-head">
+            <h2>Address Book</h2>
+        </div>
+
+        <section class="address-book-grid">
+            <article class="address-book-card">
+                <div class="address-book-card-head">
+                    <h2>Default Billing Address</h2>
+                </div>
+                {{ macros.addressCardBody(defaultBillingAddr, true, canEdit) }}
+            </article>
+
+            <article class="address-book-card">
+                <div class="address-book-card-head">
+                    <h2>Default Shipping Address</h2>
+                </div>
+                {{ macros.addressCardBody(defaultShippingAddr, true, canEdit) }}
+            </article>
+
+            <article class="table-card address-book-list">
+                <div class="table-header">
+                    <div>
+                        <h2>All Addresses</h2>
+                        <p>{{ company.addresses|length }} saved {{ company.addresses|length == 1 ? 'address' : 'addresses' }}</p>
+                    </div>
+                    {% if canEdit %}
+                        <a class="button primary company-card-action" href="{{ path('customer_company_addresses_create', {return_to: 'profile'}) }}">Add Address</a>
+                    {% endif %}
+                </div>
+
+                {% if company.addresses|length > 0 %}
+                    <div class="address-card-list">
+                        {% for addr in company.addresses %}
+                            <article class="address-list-card">
+                                {{ macros.addressCardBody(addr, false, canEdit) }}
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <strong>No addresses found.</strong>
+                        <p>Addresses for this company will appear here once created.</p>
+                    </div>
+                {% endif %}
+            </article>
+        </section>
+    </section>
+
+{% endblock %}

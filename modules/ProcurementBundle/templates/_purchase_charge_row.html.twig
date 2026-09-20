@@ -1,0 +1,79 @@
+{# One server-rendered charge row inside a purchase document's totals box — the buy-side twin of
+   sales_charge_row.html.twig, and now the ONE file both PurchaseOrder and VendorBill render their
+   charge rows through (they used to be two: PurchaseOrder's own macro, and VendorBill's separate
+   hand-rolled `<tr>` with a different posted shape entirely — `charges[]` plus a bolted-on manual
+   tax box, rather than this document's unified `charge_lines[]`. That divergence is fixed at the
+   controller level too; see VendorBillController::save()).
+
+   `type` is 'freight', 'fee' or 'tax' — the buy-side vocabulary for the sell side's
+   'shipping'/'fee'/'tax' — and the row posts itself back as
+   charge_lines[index][label|amount|type|slug|taxClass|placement], which
+   PurchaseDocumentChargeLines turns into that line.
+
+   No `isBuiltIn`/editable-label split the sell side's row has: a sell-side shipping row can be
+   picked from a real carrier-rate lookup, so its label is protected from an accidental rename. A
+   buy-side freight/fee row has no such source — every one is either typed from scratch or chosen
+   off a short fixed list of common labels an admin can still correct (a vendor's invoice may not
+   say "Freight" the way ours does) — so the label stays a plain editable input always, which is
+   also exactly what PurchaseOrder's own charge row already did before this rewrite.
+
+   `hook`, when passed, is 'po' (VendorBill's own JS parity is a separate pass): the remove
+   control then becomes a JS-driven button (`.js-only`, hidden by CSS, removed live by app.js) with
+   this real submit kept as its `.no-js-inline` fallback, exactly the pair sales_charge_row.html.twig
+   renders — see that file's own note. Passed `hook: ''` (or omitted, VendorBill's current state),
+   the remove control is simply this one real submit, always visible, same as before this pass
+   (#full-parity, 2026-09-15).
+
+   Parameters
+   ----------
+   index      required  position in the whole charge list, so the two groups (main-line vs
+                        after-tax) cannot collide on the same charge_lines[i] key.
+   label      required  display text.
+   amount     required  the figure.
+   type       required  'freight', 'fee' or 'tax'.
+   slug       optional  stable reporting key that survives a relabel.
+   taxClass   optional  fee rows only.
+   placement  optional  fee rows only — 'main_line' | 'before_tax_line' | 'after_tax_line'.
+   taxClasses required  the same {code: label} map _purchase_line_row.html.twig takes, so a fee
+                        row's tax-class select shows the same labelled options a product line's
+                        does — the buy-side unification of what used to be a bare-code select on
+                        one document and a labelled one on the other.
+   hook       optional  'po' for live JS editing, '' (default) for the original always-visible
+                        real-submit-only row. #}
+{% macro charge_row(index, label, amount, type, slug, taxClass, placement, taxClasses, hook) %}
+    {% set placementLabels = {'main_line': 'With the goods (taxed)', 'before_tax_line': 'Before Tax', 'after_tax_line': 'After Tax'} %}
+    <div class="purchase-charge-row" data-charge-type="{{ type }}">
+        <span>
+            {% if hook|default('') %}
+                <button type="button" class="mini-action danger js-only js-{{ hook }}-remove-charge" aria-label="Remove charge">&#10005;</button>
+            {% endif %}
+            {# The real control: always visible when there is no JS twin (`hook` empty); the JS
+               twin's no-JS fallback otherwise. Drops this row, saves and recalculates in one POST,
+               the same shape as the Add Line submit on the bar below. #}
+            <button type="submit" class="mini-action danger{% if hook|default('') %} no-js-inline{% endif %}" name="remove_charge_line" value="{{ index }}" aria-label="Remove charge and save">&#10005;</button>
+            <input type="text" class="purchase-charge-label" name="charge_lines[{{ index }}][label]" value="{{ label }}" maxlength="120" placeholder="Enter label..." aria-label="Charge {{ index + 1 }} label">
+            {% if type != 'freight' %}
+                <input type="text" class="purchase-charge-slug" name="charge_lines[{{ index }}][slug]" value="{{ slug|default('') }}" maxlength="80" placeholder="slug (optional)" aria-label="Charge {{ index + 1 }} slug">
+            {% endif %}
+            {% if type == 'fee' %}
+                <select class="purchase-charge-select" name="charge_lines[{{ index }}][taxClass]" aria-label="Charge {{ index + 1 }} tax class">
+                    {% for code, taxLabel in (taxClasses|default({'E': 'Exempt', 'G': 'GST only', 'S': 'GST + PST'})) %}
+                        <option value="{{ code }}"{{ (taxClass|default('E')) == code ? ' selected' : '' }}>{{ taxLabel }}</option>
+                    {% endfor %}
+                </select>
+                {% if hook|default('') %}
+                    <span class="order-charge-placement-label">{{ placementLabels[placement|default('main_line')] }}</span>
+                    <input type="hidden" name="charge_lines[{{ index }}][placement]" value="{{ placement|default('main_line') }}">
+                {% else %}
+                    <select class="purchase-charge-select" name="charge_lines[{{ index }}][placement]" aria-label="Charge {{ index + 1 }} placement">
+                        {% for value, text in placementLabels %}
+                            <option value="{{ value }}"{{ (placement|default('main_line')) == value ? ' selected' : '' }}>{{ text }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            {% endif %}
+        </span>
+        <label>$ <input type="number" class="purchase-charge-amount{% if hook|default('') %} js-{{ hook }}-charge-amount{% endif %}" name="charge_lines[{{ index }}][amount]" min="0" step="0.01" value="{{ amount|number_format(2, '.', '') }}" aria-label="Charge {{ index + 1 }} amount"></label>
+        <input type="hidden" name="charge_lines[{{ index }}][type]" value="{{ type }}">
+    </div>
+{% endmacro %}

@@ -1,0 +1,41 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Document Prefixes | Admin{% endblock %}
+{% block admin_body %}
+
+    {# One field per registered prefix (#615). Nothing here names a document type: a bundle that
+       registers a provider gets a field, and a bundle switched Inactive loses one. #}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Document Prefixes</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+
+            {% for prefix in prefixes %}
+                {% set value = values[prefix.key] %}
+                <label>
+                    {{ prefix.label }} <span class="req">*</span>
+                    <input type="text" name="{{ prefix.key }}" value="{{ value }}" maxlength="10" placeholder="{{ prefix.defaultPrefix }}" required>
+                    <small>New {{ prefix.documentPlural }} are numbered {{ value }}1, {{ value }}2, &hellip;</small>
+                </label>
+            {% else %}
+                <p class="lead">No document types are registered on this instance.</p>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

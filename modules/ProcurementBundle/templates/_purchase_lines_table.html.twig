@@ -1,0 +1,155 @@
+{# The line-item grid: header, colgroup, the row loop, computed main-line freight/fee rows, and
+   the spare blank rows a no-JS admin types into to add a line — the buy-side twin of
+   sales_lines_table.html.twig.
+
+   Adding a LINE is JS-enhanced now, the same as the sell side (#full-parity, 2026-09-15 —
+   corrected: a prior version of this claimed the buy side has no line-adding JS at all and
+   rendered `spareRowCount` blank rows, always visible, as the only way to add one). The two spare
+   rows below are a FALLBACK behind the scripted Add Product/Add Blank Line buttons, hidden by the
+   same `no-js-row` CSS rule the sell side's spares are — visible only with scripting off, which
+   is what keeps them reachable by a PHPBrowser test. Always exactly two (one product-kind, one
+   blank-kind), matching sales_lines_table.html.twig's own shape exactly rather than a variable
+   count.
+
+   Adding a BATCH ROW to an existing line is not (#full-parity, 2026-09-13): a line can carry more
+   than one lot/serial + expiry pair, and there is no no-JS way to grow or shrink that list, so this
+   file now also renders the batch-row `<template>` app.js's generic, `colPrefix`-keyed batch
+   functions clone from — the same template sales_line_js_templates.html.twig renders for
+   order/invoice, at `#{colPrefix}-batch-row-template`. `colPrefix` doubles as the `prefix`
+   `_purchase_line_row.html.twig`/`_purchase_line_actions.html.twig` need for their own batch hook
+   classes and button, since it is already 'po' or 'bill' here.
+
+   Parameters
+   ----------
+   tableClass         required  the <table>'s class(es) — 'po-lines-table' or 'bill-lines-table'.
+   colPrefix          required  the colgroup class prefix passed to _purchase_line_head.html.twig's
+                                cols() — 'po' or 'bill'.
+   lineColumns        required  this document's columns, in order — see _purchase_line_row.html.twig.
+   lineRows           required  the row data, flat hashes.
+   lineRowOptions     required  the rest of _purchase_line_row's own parameter set.
+   products, productsRemote, productSearchPath
+                                passed straight to _purchase_line_row / product_field.
+   mainLineFeeRows    optional  list of {label, amount, taxClass, tax} rendered as extra rows —
+                                freight/fee charges taxed alongside the goods, the same concept
+                                Order's own main-line fees are.
+   spares             optional  true to render the two-row no-JS fallback pair below whatever is
+                                saved (one product-kind row, one blank-kind row, both hidden by the
+                                `no-js-row` CSS rule except with scripting off) — the same fixed
+                                shape sales_lines_table.html.twig renders under `hook`. Default
+                                false (no spares — the Bill-against-PO prefill rows already ARE the
+                                "spares" on that screen and it passes none of its own besides what
+                                it prefills).
+   emptyLinesMessage  optional  shown when `lineRows` is empty and there are no spare rows either.
+#}
+{%- import '@Procurement/_purchase_line_head.html.twig' as line_head -%}
+{%- import '@Procurement/_purchase_fee_line_row.html.twig' as fee_form -%}
+<table class="{{ tableClass }}">
+    {{ line_head.cols(lineColumns, colPrefix) }}
+    <thead>
+        {{ line_head.head(lineColumns) }}
+    </thead>
+    <tbody class="js-{{ colPrefix }}-lines-body">
+        {% if lineRows is empty and not spares|default(false) %}
+            <tr>
+                <td colspan="{{ lineColumns|length }}" class="empty-table-cell"><span>{{ emptyLinesMessage|default('No lines yet.') }}</span></td>
+            </tr>
+        {% endif %}
+        {% for index, row in lineRows %}
+            {{- include('@Procurement/_purchase_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: index,
+                line: row,
+                products: products,
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                kind: row.type|default(row.productId|default('') ? 'product' : 'blank'),
+                showRemove: lineRowOptions.showRemove|default(false),
+                prefix: colPrefix,
+            }), with_context = false) }}
+        {% endfor %}
+        {% for feeRow in mainLineFeeRows|default([]) %}
+            {{ fee_form.fee_line_row((lineRowOptions.lineClass|default('')) ~ ' fee-line-row', feeRow.label, feeRow.amount, lineColumns|map(c => c.label), 'Subtotal', false, 'Tax Code', feeRow.taxClass|default(''), 'Tax $', feeRow.tax|default(0)) }}
+        {% endfor %}
+        {% if spares|default(false) %}
+            {# The spare no-JS rows: fill one, save, and the page that comes back renders two fresh
+               ones — how this stays usable with scripting off, the same as the sell side's. #}
+            {% set nextIndex = lineRows|length %}
+            {{- include('@Procurement/_purchase_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: nextIndex,
+                line: {},
+                products: products,
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                kind: 'product',
+                showRemove: false,
+                rowClass: 'no-js-row',
+                prefix: colPrefix,
+            }), with_context = false) }}
+            {{- include('@Procurement/_purchase_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: nextIndex + 1,
+                line: {},
+                products: products,
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                kind: 'blank',
+                showRemove: false,
+                rowClass: 'no-js-row',
+                prefix: colPrefix,
+            }), with_context = false) }}
+        {% endif %}
+    </tbody>
+</table>
+{% if spares|default(false) %}
+    {# Where a Main Line fee's editable row actually lands (#690-follow-up, matching
+       sales_lines_table.html.twig's own marker verbatim, added there after the sell side had the
+       identical complaint: labeling the row "Main Line" said which placement was picked, but the
+       row still sat beside Subtotal, a whole toolbar+footer away from the table it's billed
+       against). sellDocChargeRowAnchor() in app.js inserts a Main Line fee row directly before
+       this element when it exists — same class name convention, `js-{prefix}-mainline-fee-anchor`
+       — so it now sits immediately under the table instead of down by the totals box. Gated the
+       same as the line-adding templates above: only a document with JS parity needs it. #}
+    <div class="js-{{ colPrefix }}-mainline-fee-anchor sell-doc-mainline-fee-anchor"></div>
+
+    {# The <template>s app.js's addSellDocLine('{{ colPrefix }}', ...) clones from when Add
+       Product / Add Blank Line is clicked — the buy-side twin of
+       sales_line_js_templates.html.twig's own product-line-template/blank-line-template, built
+       through this SAME _purchase_line_row.html.twig include the real rows use, so a JS-built row
+       is provably identical to a server-rendered one. Gated behind `spares` for the same reason
+       the fallback rows are: only a document with JS-driven line-adding at all needs it. #}
+    <template id="{{ colPrefix }}-product-line-template">
+        {{- include('@Procurement/_purchase_line_row.html.twig', lineRowOptions|merge({
+            columns: lineColumns,
+            index: '__INDEX__',
+            line: {},
+            products: products,
+            productSearchPath: productSearchPath|default(null),
+            productsRemote: productsRemote|default(false),
+            kind: 'product',
+            showRemove: true,
+            prefix: colPrefix,
+        }), with_context = false) }}
+    </template>
+    <template id="{{ colPrefix }}-blank-line-template">
+        {{- include('@Procurement/_purchase_line_row.html.twig', lineRowOptions|merge({
+            columns: lineColumns,
+            index: '__INDEX__',
+            line: {},
+            products: products,
+            productSearchPath: productSearchPath|default(null),
+            productsRemote: productsRemote|default(false),
+            kind: 'blank',
+            showRemove: true,
+            prefix: colPrefix,
+        }), with_context = false) }}
+    </template>
+{% endif %}
+<template id="{{ colPrefix }}-batch-row-template">
+    <div class="{{ colPrefix }}-batch-row">
+        <input type="text" class="js-batch-label">
+        <span class="batch-row-x">&times;</span>
+        <input type="date" class="js-batch-date">
+        <button type="button" class="mini-action danger js-batch-remove" aria-label="Remove batch row">&minus;</button>
+    </div>
+</template>

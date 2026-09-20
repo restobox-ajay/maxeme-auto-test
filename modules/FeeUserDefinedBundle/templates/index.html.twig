@@ -1,0 +1,56 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}User-Defined Fees | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Fees</p>
+                <h1>User-Defined Fees</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button" href="{{ path('admin_bundle_fee_user_defined_new') }}">+ Add Fee</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Default Value</th>
+                    <th>Tax Class</th>
+                    <th>Placement</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fee in fees %}
+                <tr>
+                    <td>{{ fee.name }}</td>
+                    <td>${{ fee.defaultValue|amount }}</td>
+                    <td>{{ fee.taxClass }}</td>
+                    <td>{{ fee.placement == 'after_tax_line' ? 'After Tax Fees' : (fee.placement == 'before_tax_line' ? 'Before Tax Fees' : 'Main Line Items') }}</td>
+                    <td class="row-actions">
+                        <a href="{{ path('admin_bundle_fee_user_defined_edit', {id: fee.id}) }}">Edit</a>
+                        <form method="post" action="{{ path('admin_bundle_fee_user_defined_delete', {id: fee.id}) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('Delete {{ fee.name|e('js') }}?')">
+                            {{ csrf_field() }}
+                            <button type="submit" class="link-button danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty-row">No user-defined fees yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    InjectionPointExampleBundle\:
+        resource: '../src/'
+
+    InjectionPointExampleBundle\Hook\CartCheckoutMessageProvider:
+        tags: ['app.injection_point']
+
+    InjectionPointExampleBundle\Bundle\InjectionPointExampleBundleDescriptor:
+        tags: ['app.bundle_descriptor']

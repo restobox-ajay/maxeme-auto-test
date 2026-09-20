@@ -1,0 +1,26 @@
+{% for log in logs %}
+    <tr>
+        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('Y-m-d H:i A') }}</td>
+        <td data-label="Actor">{{ log.actorName }}</td>
+        <td data-label="Type"><span class="badge">{{ log.actorType }}</span></td>
+        <td data-label="Area">{{ log.area }}</td>
+        <td data-label="Entity Type">{{ log.entityType }}</td>
+        <td data-label="Entity ID">{{ log.entityId ?? '' }}</td>
+        <td data-label="Action"><span class="badge">{{ log.action }}</span></td>
+        <td data-label="Summary">{{ log.summary }}</td>
+        <td data-label="Data">
+            {% if log.dataBefore or log.dataAfter %}
+                <a class="table-action info js-audit-view-detail" href="{{ path('admin_audit_detail', {id: log.id}) }}">View</a>
+            {% else %}
+                <span class="muted">-</span>
+            {% endif %}
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="9" class="empty-table-cell">
+            <strong>No audit log entries found.</strong>
+            <span>State changes will appear here once they're logged.</span>
+        </td>
+    </tr>
+{% endfor %}

@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    AdminMenuBundle\:
+        resource: '../src/'
+
+    AdminMenuBundle\Bundle\AdminMenuBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    AdminMenuBundle\Menu\AdminMenuOverrideProvider:
+        tags: ['app.admin_menu_override_provider']
+
+    AdminMenuBundle\Menu\AdminMenuMenuItem:
+        tags: ['app.injection_point_menu_item']

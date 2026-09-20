@@ -1,0 +1,105 @@
+parameters:
+    # How many documents each feed on the exceptions worklist reads before it stops. It has always
+    # stopped at 200 — the number was just written three times inside the controller and never said
+    # out loud on the screen. Both halves are fixed: the screen now states the cap when it bites,
+    # and the number is settable here for an installation with a bigger AP desk, or by a test that
+    # needs to prove what the screen says at the boundary without creating two hundred bills.
+    procurement.exception_scan_cap: !php/const ProcurementBundle\Controller\Admin\ExceptionController::DEFAULT_SCAN_CAP
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ProcurementBundle\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Enum/'
+            # Value objects and the contracts themselves, not services. Same reason the Match and
+            # Receiving DTOs below are excluded: they are constructed with arguments, so autowiring
+            # them produces a container error at build time rather than anything useful.
+            - '../src/Contract/'
+            - '../src/Receiving/ReceivingRequest.php'
+            - '../src/Receiving/ReceivingException.php'
+            - '../src/Receiving/CaptureRequirement.php'
+            - '../src/Receiving/ShelfLifeFinding.php'
+            - '../src/Receiving/SerialList.php'
+            - '../src/Match/MatchLine.php'
+            - '../src/Match/MatchReport.php'
+            - '../src/Contract/'
+            - '../src/ProcurementBundle.php'
+
+    ProcurementBundle\Bundle\ProcurementBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    # The buy side's status vocabularies (queue item 64). Declared here rather than in a core file
+    # so that switching this bundle off does not leave core holding a vocabulary for documents that
+    # no longer exist. Two lines, in the bundle's own file — core is not touched to add them.
+    ProcurementBundle\Status\ProcurementStatusVocabularyProvider:
+        tags: ['app.status_vocabulary_provider']
+
+    # Product Inventory Hub (docs/plans/2026-09-15-product-inventory-hub.md): this module's answer
+    # to core's ProductActivityFeedResolver and ProductVendorResolver, discovered purely by tag —
+    # the hub never imports this class or any other of this module's.
+    ProcurementBundle\Hook\ProductPurchaseActivityProvider:
+        tags: ['app.product_activity_provider', 'app.product_vendor_provider']
+
+    # Vendor sheet import (docs/plans/2026-09-15-vendor-sheet-and-po-csv-import.md), on the unified
+    # import framework — core finds this purely by tag, never by referencing this class.
+    ProcurementBundle\Import\VendorSheetImportRunnerFactory:
+        tags: ['app.import_runner_factory']
+
+    ProcurementBundle\Controller\Admin\ExceptionController:
+        arguments:
+            $scanCap: '%procurement.exception_scan_cap%'
+
+    # The purchase fee seam (#655, #658). Shaped exactly like FeeBundle's and TaxBundle's: a tagged
+    # iterator of calculators, each still gated by its own bundle's Active switch inside the
+    # resolver. NOTHING is tagged today and that is deliberate — the owner's ruling is that purchase
+    # fees are new, separate logic that bundles subscribe to later, so this ships as a seam with
+    # callers and no subscribers rather than as speculative freight rules nobody has stated. Both
+    # purchase documents call it: the purchase order save and the vendor bill save.
+    #
+    # Purchase TAX has no entry here on purpose: it is SHARED with the sell side, so
+    # ProcurementBundle\Purchase\PurchaseTaxBreakdown injects TaxBundle's own
+    # TaxCalculatorResolver and finds the same app.tax_calculator-tagged bundles an invoice does.
+    ProcurementBundle\Purchase\PurchaseFeeCalculatorResolver:
+        arguments:
+            $calculators: !tagged_iterator app.purchase_fee_calculator
+
+    # The sidebar. Every one of this bundle's fourteen screens used to be its own
+    # `app.injection_point_menu_item` service here, which could only append flat lines to the
+    # bottom of the Apps group. They now come from one provider on core's admin-menu seam
+    # (#439/#440), which gives them two REAL top-level groups — Vendors and Purchases — with the
+    # screens as children: see ProcurementBundle\Menu\ProcurementMenuOverrideProvider, where the
+    # labels, routes and order (the negated old tag priorities) all live.
+    #
+    # The Active/Inactive gate is unchanged in effect and stricter in mechanism: the injection
+    # point derived the owning bundle from each item's class namespace, where the provider states
+    # it outright in getSource(), and App\Menu\Admin\AdminMenuTreeBuilder skips the whole provider
+    # when that source is Inactive.
+    ProcurementBundle\Menu\ProcurementMenuOverrideProvider:
+        tags: ['app.admin_menu_override_provider']
+
+    # Puts purchase_order_vendor into Settings → Email Templates (#563). Untagged or with the bundle
+    ProcurementBundle\Email\ProcurementEmailTemplateProvider:
+        tags: ['app.shipped_email_template_provider']
+
+    # Puts the PO, receipt and bill prefixes onto Settings → Document Prefixes (#615), replacing the
+    # three fields this bundle used to render on its own settings screen. Untagged or with the
+    # bundle Inactive they disappear from that screen, exactly as the email template does.
+    ProcurementBundle\Document\ProcurementDocumentPrefixProvider:
+        tags: ['app.document_prefix_provider']
+
+    # Makes `vendor` a custom-field object type on Settings → Custom Fields (#745). Untagged or
+    # with the bundle Inactive it disappears from the dropdown, exactly as the document prefixes do.
+    ProcurementBundle\CustomField\VendorCustomFieldObjectTypeProvider:
+        tags: ['app.custom_field_object_type_provider']
+
+    # Makes PurchaseOrder and VendorBill lockable documents (#759). Untagged or with the bundle
+    # Inactive they drop out of DocumentLockService's catalogue — belt-and-braces, since every
+    # PurchaseOrderController/VendorBillController action already refuses with denyIfInactive()
+    # before it could reach a lock check either way.
+    ProcurementBundle\Document\ProcurementLockableDocumentProvider:
+        tags: ['app.lockable_document_provider']

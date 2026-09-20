@@ -1,0 +1,99 @@
+{# One READ-ONLY Billing Detail / Shipping Detail card on a sell-side document's VIEW screen.
+
+   Not to be confused with `sales_address_cards.html.twig`, which is the FORM side: a picker, a
+   set of posted inputs and the country/province controls that re-derive one from the other.
+   Nothing here posts and nothing here is editable — this card states what the document froze.
+
+   Six copies of it existed, two on each of admin/order/detail, admin/invoice/detail and
+   admin/estimate/detail, thirteen rows apiece. They had already drifted in three ways that are
+   each a different answer to "what does this document say about where the goods went", and all
+   three are parameters here rather than a `{% if document == ... %}`:
+
+     1. WHEN THERE IS NO ADDRESS AT ALL. The order and the quote print the thirteen rows anyway,
+        filling four of them from the company snapshot and the rest with dashes. The invoice
+        prints a SENTENCE instead, because an invoice raised on its own has nothing to show and
+        a grid of empty rows would read as data that failed to load. `emptyMessage` chooses:
+        null keeps the rows, a string replaces them.
+
+     2. THE COUNTRY THE ROWS FALL BACK TO. 'Canada' on the order and the quote, a dash on the
+        invoice. It reaches the row through `fallbacks.country` like every other fallback, so
+        no caller inherits another document's idea of where it ships.
+
+     3. WHAT A BLANK FIELD READS AS WHEN THE ADDRESS EXISTS. This one was invisible and is the
+        reason the panel could not simply be lifted: the order and the quote print an EMPTY
+        <strong> for a field the snapshot left null, while the invoice prints a dash. On a
+        shipping snapshot with no fax and no second e-mail that is four cells that differ
+        between two documents describing one shipment. `fieldFallback` states it: '' keeps the
+        empty cell, '-' fills it.
+
+   Parameters
+   ----------
+   address        required  the document's frozen snapshot for this panel, or null. Never an
+                            address-book row read live — a document says what it said.
+   title          required  the card's heading: 'Billing Detail' or 'Shipping Detail'.
+   fallbacks      optional  what each row reads when `address` is NULL, keyed by the same names
+                            the rows below use — companyName, firstName, phone, country,
+                            emailPrimary are the five any caller currently sets. Every key left
+                            out falls back to '-'. Ignored entirely when `emptyMessage` is given,
+                            since then no rows are rendered.
+   fieldFallback  optional  what a row reads when `address` EXISTS but that field is blank.
+                            Defaults to '', which is what the order and the quote print. The
+                            invoice passes '-'.
+   emptyMessage   optional  a whole-card sentence to print INSTEAD of the rows when `address` is
+                            null. Omit it (or pass null) to keep the rows. Plain text — the
+                            invoice builds its two-sentence version in the caller, because
+                            whether there was an order to inherit from is the INVOICE's question
+                            and not something this card could work out.
+   deliverable    optional  true on a card that is a delivery destination, which is the only kind
+                            that shows a Delivery instructions row, and only when the snapshot
+                            carries one. Defaults to false: a billing card never shows it, even
+                            for a snapshot that happens to hold one, which is what all three
+                            screens did before this partial existed.
+   trailingRows   optional  extra {label, value} rows appended after Secondary Email. The quote's
+                            shipping card carries one — its Method — which is a field of the
+                            DOCUMENT and not of the address, so it is passed in rather than
+                            reached for here. #}
+
+{% set fallbackValues = fallbacks|default({}) %}
+{% set blank = fieldFallback|default('') %}
+{% set message = emptyMessage|default(null) %}
+
+<section class="detail-panel order-detail-panel">
+    <h2>{{ title }}</h2>
+    {% if address is null and message is not null %}
+        <p style="margin:0; font-size:0.83rem; color:#64748b; line-height:1.6;">{{ message }}</p>
+    {% else %}
+        {# One list, one rule. The rows used to be thirteen hand-written lines per card and six
+           cards, which is how one of them quietly started dashing a blank cell and the others
+           did not. `suppressWhenBlank` is the Delivery instructions row's own behaviour: it is
+           not a cell that can be empty, it is a row that is absent. #}
+        {% set rows = [
+            {label: 'Company Name',          key: 'companyName'},
+            {label: 'First Name',            key: 'firstName'},
+            {label: 'Last Name',             key: 'lastName'},
+            {label: 'Phone number',          key: 'phone'},
+            {label: 'Street Address',        key: 'addressLine1'},
+            {label: 'Address 2',             key: 'addressLine2'},
+            {label: 'City',                  key: 'city'},
+            {label: 'Province',              key: 'province'},
+            {label: 'Delivery instructions', key: 'deliveryInstructions', suppressWhenBlank: true},
+            {label: 'Country',               key: 'country'},
+            {label: 'Postal Code',           key: 'postalCode'},
+            {label: 'Fax Number',            key: 'fax'},
+            {label: 'Primary Email',         key: 'emailPrimary'},
+            {label: 'Secondary Email',       key: 'emailSecondary'},
+        ] %}
+        {% for row in rows %}
+            {% if row.suppressWhenBlank|default(false) %}
+                {% if deliverable|default(false) and address is not null and attribute(address, row.key) %}
+                    <div class="detail-row"><label>{{ row.label }}:</label><strong>{{ attribute(address, row.key) }}</strong></div>
+                {% endif %}
+            {% else %}
+                <div class="detail-row"><label>{{ row.label }}:</label><strong>{{ address is not null ? attribute(address, row.key)|default(blank) : (fallbackValues[row.key] ?? '-') }}</strong></div>
+            {% endif %}
+        {% endfor %}
+        {% for row in trailingRows|default([]) %}
+            <div class="detail-row"><label>{{ row.label }}:</label><strong>{{ row.value }}</strong></div>
+        {% endfor %}
+    {% endif %}
+</section>

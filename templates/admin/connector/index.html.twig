@@ -1,0 +1,51 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Connectors | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Integrations</p>
+                <h1>Connectors</h1>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Connector type</th>
+                    <th>What it's for</th>
+                    <th>Connections</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><strong>{{ row.label }}</strong></td>
+                        <td>{{ row.description }}</td>
+                        <td>{{ row.connectionCount }} connection{{ row.connectionCount == 1 ? '' : 's' }}</td>
+                        <td>
+                            {% if row.connectionCount == 0 %}
+                                <span class="badge warn">No connections yet</span>
+                            {% elseif row.needingAttention == 0 %}
+                                <span class="badge success">Connected</span>
+                            {% else %}
+                                <span class="badge warn">{{ row.needingAttention }} need{{ row.needingAttention == 1 ? 's' : '' }} attention</span>
+                            {% endif %}
+                        </td>
+                        <td class="row-actions">
+                            <a href="{{ path(row.manageRouteName) }}">Manage</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-row">No connector types are registered and Active yet. A connector type appears here the moment its bundle exists and is switched on.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

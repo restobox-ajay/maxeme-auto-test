@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Run a heavy test suite, but only once a memory slot is free.
+#
+# Codeception loads the whole suite into ONE PHP process and peaks around 2.7 GB.
+# Several worktrees run their own suites concurrently (each has its own
+# var/data_test.db via %kernel.project_dir%, so that part is safe) — but nothing
+# stopped them all peaking at once and getting a suite killed mid-run by the OOM
+# killer. A killed suite does not fail cleanly: it surfaces as bogus "undefined
+# method" errors that read exactly like real defects.
+#
+# So: N slots, sized from the box's actual RAM, held for the life of the command.
+#
+#   bin/test-slot vendor/bin/codecept run
+#   bin/test-slot vendor/bin/phpunit
+#
+set -euo pipefail
+
+# Measured across seven full runs on 2026-08-23: 2.70 GB at 1224 tests rising to 2.80 GB at 1282.
+# Re-measured 2026-09-12 on the batch-6 integration tree: **3.46 GB at 1556 tests** (Codeception's
+# own "Time: 46:47.224, Memory: 3.46 GB" footer), with a second run of the same suite at 1540 tests
+# reporting 3.43 GB. So the 3400 this held was already BELOW the observed peak — the condition this
+# number exists to prevent — and had been since somewhere between 1282 and 1540 tests.
+#
+# It grows with the suite, so this carries headroom rather than tracking the last observation —
+# under-estimating costs an OOM-killed run, which does not fail cleanly: it surfaces as bogus
+# "undefined method" errors that read exactly like real defects. Re-measure when the suite grows
+# substantially: grep "Memory:" from a full run.
+#
+# 2026-09-14, full Codeception run at 1705 tests / 19723 assertions: "Time: 59:55, Memory: 3.74 GB".
+# That is 3830 MB, which left 4000 only ~4% over the observation instead of the ~15% headroom this
+# number exists to carry — the suite had grown into it again, the same way it grew past 3400. Hence
+# 4400. Slot counts are unchanged by the correction: (7936-2500)/4400 = 1 on this 7.9 GB box, and
+# (16075-2500)/4400 = 3 on the 16 GB one, so it costs no concurrency on either.
+SUITE_PEAK_MB=4400
+
+# OS + Caddy + PHP-FPM (~1 GB) plus the agent processes themselves, which hold roughly 300-400 MB
+# each while thinking and are NOT gated by this script — it only sees processes that call it. A
+# five-agent fleet is ~2 GB on its own, so reserving 1 GB would let the fleet eat the margin that
+# keeps suites alive.
+RESERVE_MB=2500
+LOCK_DIR="${TMPDIR:-/tmp}/wholesale-b2b-core-test-slots"
+
+total_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+slots=$(( (total_mb - RESERVE_MB) / SUITE_PEAK_MB ))
+(( slots < 1 )) && slots=1
+
+mkdir -p "$LOCK_DIR"
+
+for (( i = 1; i <= slots; i++ )); do
+    exec {fd}>"$LOCK_DIR/slot.$i"
+    if flock -n "$fd"; then
+        exec "$@"
+    fi
+    exec {fd}>&-
+done
+
+echo "test-slot: all $slots slots busy (${total_mb}MB box), waiting..." >&2
+
+# Re-scan every slot rather than blocking on one.
+#
+# This used to `flock "$LOCK_DIR/slot.1"` — a blocking wait on slot 1 SPECIFICALLY. With more
+# waiters than slots that serialises the whole fleet behind one slot: slots 2..n free up and
+# nobody takes them, because every waiter is asleep on slot 1. Observed with four slots, one
+# sitting FREE while two runs waited.
+#
+# Polling the non-blocking scan keeps the "first free slot wins" behaviour of the loop above.
+# A second of latency is nothing against a suite that runs for half an hour.
+while true; do
+    for (( i = 1; i <= slots; i++ )); do
+        exec {fd}>"$LOCK_DIR/slot.$i"
+        if flock -n "$fd"; then
+            exec "$@"
+        fi
+        exec {fd}>&-
+    done
+    sleep 1
+done

@@ -1,0 +1,51 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Custom Header & Footer HTML | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Injection Point</p>
+                <h1>Custom Header &amp; Footer HTML</h1>
+            </div>
+        </div>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <section class="panel admin-flat-panel"><div class="alert success">{{ message }}</div></section>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <section class="panel admin-flat-panel"><div class="alert error">{{ message }}</div></section>
+    {% endfor %}
+
+    <section class="panel admin-flat-panel">
+        <p class="eyebrow">Status</p>
+        <p><span class="badge {{ active ? '' : 'danger' }}">{{ active ? 'Active' : 'Inactive' }}</span>
+            &mdash; toggle from <a href="{{ path('admin_bundle_management_index') }}">Bundle Management</a>.
+            {% if not active %}When Inactive, neither field below is rendered on the customer side.{% endif %}
+        </p>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <form method="post" action="{{ path('admin_bundle_custom_header_footer_save') }}">
+            {{ csrf_field() }}
+
+            <label style="display: block;">
+                <span class="eyebrow">Custom Header HTML (Customer Side)</span>
+                <textarea name="header_html" rows="12" spellcheck="false"
+                    style="width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; margin-top: 8px;"
+                >{{ headerHtml }}</textarea>
+            </label>
+
+            <label style="display: block; margin-top: 20px;">
+                <span class="eyebrow">Custom Footer HTML (Customer Side)</span>
+                <textarea name="footer_html" rows="12" spellcheck="false"
+                    style="width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; margin-top: 8px;"
+                >{{ footerHtml }}</textarea>
+            </label>
+
+            <div class="auth-actions" style="margin-top: 14px;">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'customer/catalog/index.html.twig' %}
+{% block catalog_category_menu %}
+<!--
+<div class="catalog-category-menu">
+    <button class="catalog-filter-button" type="button" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+        Filter By Category
+    </button>
+    <div class="catalog-category-dropdown">
+        <a class="filter-link {{ activeCategoryId == '0' ? 'active' : '' }}"
+           data-category-id="0"
+           href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[view]': currentView, 'region': selectedRegion, 'q': searchQuery|default('')} : {'ProductSearch[view]': currentView, 'q': searchQuery|default('')}) }}">
+            <span>All categories</span>
+            <strong>{{ totalProductsCount }}</strong>
+        </a>
+        <a class="filter-link {{ activeCategoryId == '-1' ? 'active' : '' }}"
+           data-category-id="-1"
+           href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': -1, 'ProductSearch[view]': currentView, 'region': selectedRegion, 'q': searchQuery|default('')} : {'ProductSearch[category_id]': -1, 'ProductSearch[view]': currentView, 'q': searchQuery|default('')}) }}">
+            <span>Uncategorized</span>
+            <strong>{{ uncategorizedCount }}</strong>
+        </a>
+        {% if categories is not empty %}
+            {% include 'customer/_main/_category_tree.html.twig' with {categories: categories, activeCategoryId: activeCategoryId, selectedRegion: selectedRegion, searchQuery: searchQuery|default(''), currentView: currentView} only %}
+        {% endif %}
+    </div>
+</div>
+-->
+{% endblock %}
+{% block catalog_products %}
+<div class="product-grid product-grid-market catalog-products tire-size-first-list{{ isListView ? ' is-list-view' : '' }}" aria-label="Products">
+    {% include 'customer/catalog/_products.html.twig' with {products: products, selectedRegion: selectedRegion, isListView: isListView, hideUnitColumn: true} only %}
+</div>
+{% endblock %}
+{% block catalog_filters %}
+    <label class="sr-only" for="catalog-search">Search by tire size</label>
+    <div class="catalog-search-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="catalog-search" class="catalog-search" type="search" name="q" form="catalog-search-form" placeholder="Search by tire NUMBERS only (no space, slash or letters)" aria-label="Search by tire size" value="{{ searchQuery|default('') }}">
+    </div>
+    <button class="catalog-search-btn" type="submit" form="catalog-search-form">Search</button>
+    <a class="catalog-reset-btn" href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView, 'region': selectedRegion} : {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView}) }}">Reset</a>
+{% endblock %}

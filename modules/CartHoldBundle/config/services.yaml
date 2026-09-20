@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    CartHoldBundle\:
+        resource: '../src/'
+
+    CartHoldBundle\Bundle\CartHoldBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    CartHoldBundle\Menu\CartHoldMenuItem:
+        tags: ['app.injection_point_menu_item']
+
+    CartHoldBundle\Cart\CartHeldQuantityProvider:
+        tags: ['app.cart_held_quantity']

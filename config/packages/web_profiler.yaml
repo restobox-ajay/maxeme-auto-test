@@ -1,0 +1,23 @@
+when@dev:
+    web_profiler:
+        # Disabled for e2e suite runs. The profiler writes a profile file per request and
+        # injects the debug toolbar into every response; measured at ~2.9s per request on the
+        # admin login page, against ~2.4s with it off. Across a 242-file suite that is real time,
+        # and the profiler files also grow var/cache without bound — check_disk.sh exists
+        # largely to prune them.
+        #
+        # Turn it back on by setting both of these to true. Do that while debugging a request
+        # by hand; leave it off while a suite is running.
+        toolbar: false
+
+    framework:
+        profiler:
+            collect: false
+            collect_serializer_data: true
+            only_exceptions: true
+
+when@test:
+    framework:
+        profiler:
+            collect: false
+            collect_serializer_data: true

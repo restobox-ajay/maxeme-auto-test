@@ -1,0 +1,139 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ memo ? 'Edit ' ~ memo.documentNumber : 'New debit memo' }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'debit_memos',
+        heading: memo ? 'Edit ' ~ memo.documentNumber : 'New debit memo',
+        lead: vendorReturn
+            ? 'Raised against vendor return ' ~ vendorReturn.documentNumber ~ '.'
+            : (bill
+                ? 'Raised against bill ' ~ bill.billNumber ~ '. Its charges are transcribed below; debit what is actually disputed.'
+                : 'A standalone memo — a pricing correction or a debit not tied to a physical return.')
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the form it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_save') }}" id="debit-memo-form">
+            {{ csrf_field() }}
+            {# The posted id is what reaches the save's update branch. It used to be a hard-coded 0,
+               so every post was a create and the branch below it had no caller at all. #}
+            <input type="hidden" name="id" value="{{ memo ? memo.id : 0 }}">
+            <input type="hidden" name="vendor_return_id" value="{{ vendorReturn ? vendorReturn.id : '' }}">
+            {# Provenance: the bill this memo was raised from, so it can answer "what is this
+               against?" later. The mirror of credit_memo.invoice_id on the sell side. #}
+            <input type="hidden" name="vendor_bill_id" value="{{ bill ? bill.id : '' }}">
+
+            <div class="form-grid">
+                <label>Vendor
+                    <select name="vendor_id" required{{ vendorReturn or bill ? ' disabled' : '' }}>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}"{{ vendor and vendor.id == v.id ? ' selected' : '' }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if vendorReturn or bill %}<input type="hidden" name="vendor_id" value="{{ vendor.id }}">{% endif %}
+                </label>
+                <label class="full-width">Reason <input type="text" name="reason" maxlength="255" value="{{ memo ? memo.reason : '' }}" placeholder="Pricing correction, restocking fee, damaged on arrival…"></label>
+                {% if not vendorReturn %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="restock" value="1"{{ memo and memo.restock ? ' checked' : '' }}>
+                        The goods physically went back as part of issuing this memo
+                    </label>
+                    <p class="field-hint span-2">
+                        Only offered on a standalone memo — one linked to a vendor return may not also tick this,
+                        because that return's own shipping action already moved the stock. Ticked, issuing this memo
+                        takes the units out of a warehouse you name at that point and writes them off to the vendor,
+                        exactly as shipping a vendor return does. Name a product on every line that physically went
+                        back: a line with no product is money only and moves nothing.
+                    </p>
+                {% endif %}
+            </div>
+
+            <h2>Lines</h2>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Product</th><th>Description</th><th>SKU</th><th>Qty</th><th>Unit cost</th></tr></thead>
+                <tbody>
+                    {% if memo %}
+                        {% for line in memo.lines %}
+                            <tr>
+                                <td>{{ include('@Procurement/_product_field.html.twig', {
+                                    field: 'lines[' ~ loop.index0 ~ '][product_id]',
+                                    products: productOptions,
+                                    remote: productsRemote,
+                                    selected: line.product,
+                                    vendorId: vendor ? vendor.id : null,
+                                    form: 'debit-memo-form',
+                                    label: 'Product for line ' ~ loop.index0,
+                                }) }}
+                                    {% if line.vendorBillLine %}
+                                        <input type="hidden" name="lines[{{ loop.index0 }}][vendor_bill_line_id]" value="{{ line.vendorBillLine.id }}">
+                                    {% endif %}
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}" maxlength="255"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}" maxlength="80"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][quantity]" inputmode="decimal" value="{{ line.quantity }}"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][unit_cost]" inputmode="decimal" value="{{ line.unitCost }}"></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = memo.lines|length %}
+                    {% elseif bill %}
+                        {# Raised from a bill: its charges, at zero, so debiting part of an invoice is
+                           the default and debiting all of it is a deliberate act — the same default
+                           the sell side's credit-note editor takes when raised from an invoice. Each
+                           row carries the billed line it disputes. #}
+                        {% for line in bill.lines %}
+                            <tr>
+                                <td>{{ include('@Procurement/_product_field.html.twig', {
+                                    field: 'lines[' ~ loop.index0 ~ '][product_id]',
+                                    products: productOptions,
+                                    remote: productsRemote,
+                                    selected: line.product,
+                                    vendorId: vendor ? vendor.id : null,
+                                    form: 'debit-memo-form',
+                                    label: 'Product for line ' ~ loop.index0,
+                                }) }}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][vendor_bill_line_id]" value="{{ line.id }}">
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}" maxlength="255"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}" maxlength="80"></td>
+                                <td>
+                                    <input type="number" step="0.01" min="0" max="{{ line.quantity }}" name="lines[{{ loop.index0 }}][quantity]" value="0.00">
+                                    <small>{{ line.quantity }} billed</small>
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][unit_cost]" inputmode="decimal" value="{{ line.unitCost }}"></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = bill.lines|length %}
+                    {% else %}
+                        {% set spare = 0 %}
+                    {% endif %}
+                    {% for blank in 1..5 %}
+                        {% set index = spare + blank - 1 %}
+                        <tr>
+                            <td>{{ include('@Procurement/_product_field.html.twig', {
+                                field: 'lines[' ~ index ~ '][product_id]',
+                                products: productOptions,
+                                remote: productsRemote,
+                                selected: null,
+                                vendorId: vendor ? vendor.id : null,
+                                form: 'debit-memo-form',
+                                label: 'Product for new line ' ~ blank,
+                            }) }}</td>
+                            <td><input type="text" name="lines[{{ index }}][name]" maxlength="255"></td>
+                            <td><input type="text" name="lines[{{ index }}][sku]" maxlength="80"></td>
+                            <td><input type="text" name="lines[{{ index }}][quantity]" inputmode="decimal"></td>
+                            <td><input type="text" name="lines[{{ index }}][unit_cost]" inputmode="decimal"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ memo ? 'Save changes' : 'Save draft' }}</button>
+                <a class="button back-button" href="{{ memo ? path('admin_bundle_procurement_debit_memo', {id: memo.id}) : path('admin_bundle_procurement_debit_memos') }}">Back</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

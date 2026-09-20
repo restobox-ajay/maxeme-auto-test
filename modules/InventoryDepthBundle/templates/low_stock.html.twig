@@ -1,0 +1,231 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Low Stock | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'lowstock',
+        heading: 'Reorder Levels and Low Stock',
+        lead: 'A level per product per warehouse, and what has fallen to it. A pair with no level set is not managed and appears nowhere here — nothing invents one.'
+    } only %}
+
+    {% if not incomingMaintained %}
+        <div class="flash flash-info">
+            <strong>Nothing is maintaining <code>product_inventory.incoming_quantity</code>.</strong>
+            Procurement is switched off, so no purchase order can be raised or received and the incoming
+            figure is whatever it was on the day it stopped. It is read as <strong>0</strong> here rather than
+            trusted, so <strong>no row is shown as covered</strong> and everything at or below its level is short.
+            That errs towards asking too often, which is the only safe direction: treating a forecast nobody
+            is keeping as real would hide a shortage behind stock that cannot arrive.
+        </div>
+    {% endif %}
+
+    <section class="panel" id="reorder-form">
+        <h2>{{ editing ? 'Reorder level for ' ~ (editing.product.sku ?: editing.product.name) ~ ' at ' ~ editing.warehouse.name : 'Set a reorder level' }}</h2>
+        <p class="lead">
+            The level is set per product per warehouse. <code>0</code> is a real level and means &ldquo;tell me
+            when there is nothing sellable left&rdquo;; the box cannot be left empty.
+        </p>
+        <form method="post" action="{{ path('admin_bundle_inventory_depth_reorder_save') }}" class="form-grid">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ editing ? editing.id : 0 }}">
+            {% if editing %}
+                {# Neither is editable. The pair IS the row's identity — moving a level to another product or
+                   warehouse would be a level for something nobody set one on. Stop managing this pair and set
+                   one on the other instead. #}
+                <label>Product
+                    <input type="text" value="{{ editing.product.sku ?: editing.product.name }}" disabled>
+                    <small>A level&rsquo;s product and warehouse cannot be changed — the pair is the row. Set one on the other pair instead.</small>
+                </label>
+                <label>Warehouse
+                    <input type="text" value="{{ editing.warehouse.name }}" disabled>
+                </label>
+            {% else %}
+                {# The shared three-tier picker, not a database id (#8). Core's partial rather than
+                   ProcurementBundle's, because this screen is the one that still has to work — and
+                   says so in its own banner — with purchasing switched off or deleted entirely. #}
+                <label>Product
+                    {{ include('admin/_partials/product_field.html.twig', {
+                        field: 'product_id',
+                        products: productOptions,
+                        remote: productsRemote,
+                        selected: null,
+                        required: true,
+                        label: 'Product to set a level for',
+                    }, with_context = false) }}
+                </label>
+                <label>Warehouse
+                    <select name="warehouse_id" required>
+                        <option value="">Choose a warehouse</option>
+                        {% for w in warehouses %}
+                            <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+            <label>Reorder level
+                <input type="number" name="reorder_point" min="0" step="1" required value="{{ editing ? editing.reorderPoint : '' }}">
+                <small>Flagged at or below this many sellable units, once anything already on a purchase order is counted.</small>
+            </label>
+            <label>Suggest ordering
+                <input type="number" name="reorder_quantity" min="0" step="1" value="{{ editing and editing.reorderQuantity is not null ? editing.reorderQuantity : '' }}">
+                <small>Optional. Left empty, the screen suggests the shortfall — the smallest order that clears the flag. Nothing raises an order automatically.</small>
+            </label>
+            <label>Safety stock
+                <input type="number" name="safety_stock_quantity" min="0" step="1" value="{{ editing and editing.safetyStockQuantity is not null ? editing.safetyStockQuantity : '' }}">
+                <small>Optional second, more urgent line under the level. It changes no arithmetic — only how loudly the row is shown.</small>
+            </label>
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">{{ editing ? 'Save level for row ' ~ editing.id : 'Set level' }}</button>
+                {% if editing %}<a class="button" href="{{ path('admin_bundle_inventory_depth_low_stock') }}">Cancel</a>{% endif %}
+            </div>
+        </form>
+    </section>
+
+    <section class="table-card no-paginate">
+        <form method="get" id="low-stock-filters">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'product', dir: currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Product</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'warehouse' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'warehouse', dir: currentSort == 'warehouse' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Warehouse</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'available' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'available', dir: currentSort == 'available' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Available</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'incoming' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'incoming', dir: currentSort == 'incoming' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Incoming (PO)</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'transferIncoming' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'transferIncoming', dir: currentSort == 'transferIncoming' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Incoming (transfer)</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'projected' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'projected', dir: currentSort == 'projected' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Projected</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'point' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'point', dir: currentSort == 'point' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Reorder level</a>
+                        </th>
+                        <th>State</th>
+                        <th class="is-sortable{% if currentSort == 'shortfall' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: 1, sort: 'shortfall', dir: currentSort == 'shortfall' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Short by</a>
+                        </th>
+                        <th>Row</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[product]" form="low-stock-filters" value="{{ filters.product }}" placeholder="SKU or name" aria-label="Filter product"></th>
+                        <th>
+                            <select name="filters[warehouse]" form="low-stock-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for w in warehouses %}
+                                    <option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            {# Which rows the screen is answering about. Short is the default because it is the
+                               only set anybody has to act on — a covered row has already been acted on. #}
+                            <select name="filters[show]" form="low-stock-filters" aria-label="Filter state" onchange="this.form.submit()">
+                                <option value="short"{{ filters.show == 'short' ? ' selected' : '' }}>Short ({{ counts.short }})</option>
+                                <option value="covered"{{ filters.show == 'covered' ? ' selected' : '' }}>Already on order ({{ counts.covered }})</option>
+                                <option value="below"{{ filters.show == 'below' ? ' selected' : '' }}>At or below its level ({{ counts.below }})</option>
+                                <option value="all"{{ filters.show == 'all' ? ' selected' : '' }}>Every managed row ({{ counts.all }})</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_inventory_depth_low_stock') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr class="data-item-row{{ row.belowSafetyStock ? ' is-oversold' : '' }}">
+                        <td data-label="Product">
+                            <a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: row.rule.product.id}) }}">{{ row.rule.product.sku ?: row.rule.product.name }}</a>
+                        </td>
+                        <td data-label="Warehouse">{{ row.rule.warehouse.name }}</td>
+                        <td data-label="Available"><strong>{{ row.available }}</strong></td>
+                        <td data-label="Incoming (PO)">
+                            {% if row.incomingMaintained %}
+                                {{ row.incoming }}
+                            {% else %}
+                                <span title="Procurement is off, so nothing is maintaining this figure. Read as 0.">not counted</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Incoming (transfer)">{{ row.transferIncoming }}</td>
+                        <td data-label="Projected">{{ row.projected }}</td>
+                        <td data-label="Reorder level">
+                            {{ row.point }}
+                            {% if row.rule.safetyStockQuantity is not null %}
+                                <small>safety {{ row.rule.safetyStockQuantity }}</small>
+                            {% endif %}
+                        </td>
+                        <td data-label="State">
+                            {{ row.status }}
+                            {% if row.belowSafetyStock %}<strong>— into safety stock</strong>{% endif %}
+                        </td>
+                        <td data-label="Short by">
+                            {% if row.short %}
+                                <strong>{{ row.shortfall }}</strong>
+                                <small>suggest ordering {{ row.suggestedOrder }}</small>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td data-label="Row">
+                            <a class="table-action" href="{{ path('admin_bundle_inventory_depth_low_stock', {filters: filters, limit: limit, page: page, sort: currentSort, dir: currentDir, edit: row.rule.id}) }}#reorder-form">Edit level {{ row.rule.id }}</a>
+                            {% if purchaseOrderRoute %}
+                                <a class="table-action" href="{{ path(purchaseOrderRoute) }}">Raise a purchase order</a>
+                            {% endif %}
+                            {# POST, never a link, and its form lives outside this filter form — a <form> inside a
+                               <form> is invalid HTML and every parser drops the inner one, which would leave this
+                               button submitting the filters instead (#613). #}
+                            <button type="submit" class="table-action danger" form="stop-managing-{{ row.rule.id }}">Stop managing</button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="10" class="empty-table-cell">
+                        <strong>Nothing matches.</strong>
+                        <span>A pair only appears once somebody has set a reorder level for it — no level is ever inferred from sales history or from a stock figure.</span>
+                    </td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'rows'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="low-stock-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_inventory_depth_low_stock',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        {% for row in rows %}
+            {# One Stop-managing form per row, outside the filter form. The confirm is an onsubmit
+               courtesy: with JavaScript off it never runs and the button still posts. #}
+            <form method="post" id="stop-managing-{{ row.rule.id }}" hidden
+                  action="{{ path('admin_bundle_inventory_depth_reorder_delete', {id: row.rule.id}) }}"
+                  onsubmit="return confirm('Stop managing {{ row.rule.label|e('js') }}? The level is deleted; no stock figure changes.')">
+                {{ csrf_field() }}
+            </form>
+        {% endfor %}
+        <p class="lead">Projected is available + incoming (PO) + incoming (transfer).</p>
+    </section>
+{% endblock %}

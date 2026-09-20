@@ -1,0 +1,35 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Base Currency | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Base Currency</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Currency Code <span class="req">*</span>
+                <input type="text" name="setting_value" value="{{ setting.value }}" maxlength="3" placeholder="CAD" required>
+                <small>Enter a 3-letter ISO currency code (e.g. CAD, USD, EUR).</small>
+            </label>
+            <label>
+                Description
+                <input type="text" value="{{ setting.description }}" readonly>
+            </label>
+            <div class="form-actions">
+                <button class="button primary" type="submit">Update Base Currency</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ receipt.receiptNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {# A goods receipt carries no status enum: it is a statement about what was on the dock at a
+       moment, and the only thing that can happen to it afterwards is being voided (#613). Live or
+       voided IS its status, and it is what the badge says. #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'receipts',
+        heading: receipt.receiptNumber,
+        status: receipt.isVoided ? 'Voided' : 'Received',
+        lead: receipt.vendorName ~ ' → ' ~ receipt.warehouse.name ~ ' · ' ~ receipt.totalQuantity ~ ' unit(s)'
+    } only %}
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            <a class="button" href="{{ path('admin_bundle_procurement_vendor_return_new', {receipt: receipt.id}) }}">Return goods from this receipt</a>
+            {# #792: the booked-receipt screen's own way back into the receive flow, right beside
+               the flash-success bar `_nav.html.twig` renders above (`_purchase_flash_messages.html.twig`)
+               when this page is reached straight off a booking. #}
+            <a class="button primary" href="{{ path('admin_bundle_procurement_receive') }}">Receive another delivery</a>
+        </div>
+    </section>
+
+    {#
+      Receipt / Source cards (#792), replacing the old `stat-row` header — the same stacked
+      `detail-row` layout order and purchase-order detail use, so a booked goods receipt reads like
+      every other document detail screen in the app rather than its own one-off. Notes are
+      deliberately NOT shown here yet (mockup/receive-flow-7's own note) — they still print below,
+      where they always have.
+    #}
+    <div class="order-detail-grid">
+        <section class="detail-panel order-detail-panel">
+            <h2>Receipt</h2>
+            <div class="detail-row"><label>Goods Receipt:</label><strong>{{ receipt.receiptNumber }}</strong></div>
+            <div class="detail-row"><label>Received:</label><strong>{{ receipt.receivedAt|date('Y-m-d H:i') }}</strong></div>
+            <div class="detail-row"><label>Received by:</label><strong>{{ receipt.receivedBy ?? '—' }}</strong></div>
+            <div class="detail-row"><label>Packing slip:</label><strong>{{ receipt.packingSlip ?? '—' }}</strong></div>
+            {# Frozen at receipt from the vendor's ship-from address (#606). A receipt booked before
+               that column existed has none, and shows nothing rather than today's address. #}
+            <div class="detail-row"><label>Shipped from:</label><strong>{% if receipt.shipFromAddress %}{{ receipt.shipFromAddress|nl2br }}{% else %}not recorded{% endif %}</strong></div>
+            <div class="detail-row"><label>Movement group:</label>
+                <strong>
+                    {% if receipt.movementGroup %}
+                        #{{ receipt.movementGroup.id }} ({{ receipt.movementGroup.type }})
+                    {% else %}
+                        none — nothing on this receipt reached stock
+                    {% endif %}
+                </strong>
+            </div>
+            {% if receipt.isVoided %}
+                <div class="detail-row"><label>Voided:</label>
+                    <strong>{{ receipt.voidedAt|date('Y-m-d H:i') }}{% if receipt.voidedBy %} by {{ receipt.voidedBy }}{% endif %}
+                        {%- if receipt.voidMovementGroup %} · stock came back out on movement group #{{ receipt.voidMovementGroup.id }}{% endif %}</strong>
+                </div>
+            {% endif %}
+        </section>
+        <section class="detail-panel order-detail-panel">
+            <h2>Source</h2>
+            <div class="detail-row"><label>Purchase order:</label>
+                <strong{% if not receipt.purchaseOrder %} style="color:var(--orange)"{% endif %}>
+                    {% if receipt.purchaseOrder %}
+                        <a href="{{ path('admin_bundle_procurement_purchase_order', {id: receipt.purchaseOrder.id}) }}">{{ receipt.purchaseOrder.poNumber }}</a>
+                    {% else %}
+                        None (unmatched) — goods nobody raised one for
+                    {% endif %}
+                </strong>
+            </div>
+            <div class="detail-row"><label>Vendor:</label><strong>{{ receipt.vendorName }}</strong></div>
+            <div class="detail-row"><label>Warehouse:</label><strong>{{ receipt.warehouse.name }}</strong></div>
+        </section>
+    </div>
+
+    {% if receipt.notes or receipt.isVoided %}
+        <section class="panel">
+            {% if receipt.notes %}<p class="lead">{{ receipt.notes }}</p>{% endif %}
+            {% if receipt.isVoided %}
+                <p class="lead">
+                    <strong>This receipt was withdrawn: {{ receipt.voidReason }}</strong> Its lines below are untouched and
+                    still say what was on the dock — a void is a second fact, not an unwrite. The stock it booked in has been
+                    taken back out by its own movement group, and every <code>purchase_order_line.quantity_received</code>
+                    it had credited was reduced by what it booked.
+                </p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    <section class="table-card no-paginate">
+        <h2>Lines</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Description</th><th>SKU</th><th>Quantity</th><th>Batch</th><th>Serial</th><th>Bin</th><th>Unit cost</th><th>Named bin</th></tr></thead>
+            <tbody>
+                {% for line in receipt.lines %}
+                    <tr>
+                        <td>{{ line.name }}</td>
+                        <td>{{ line.sku ?? '—' }}</td>
+                        <td>{{ line.quantity }}</td>
+                        <td>{{ line.lot ? line.lot.label : '—' }}</td>
+                        <td>{{ line.serial ?? '—' }}</td>
+                        <td>{{ line.location ? line.location.code : '—' }}</td>
+                        <td>{{ line.unitCost ?? '—' }}</td>
+                        <td>{{ line.movementApplied ? 'Yes' : 'No — simple inventory, unspecified bin' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    {# The short-dated overrides on this receipt (item 68) — goods accepted with less shelf life
+       left than the minimum allows, and why. Absent from almost every receipt, which is the point:
+       the section appearing at all is the finding. It is a panel on this document rather than a row
+       on the Exceptions worklist because that screen is a MONEY worklist — every row there carries
+       what it puts at risk in the document's currency and the whole screen is sorted by it — and a
+       short date has no bill, no amount, and a shortfall measured in days. #}
+    {% if receipt.shortDated is not empty %}
+        <section class="panel" id="short-dated">
+            <h2>Accepted with a bad date</h2>
+            <p class="alert warn">
+                <strong>{{ receipt.shortDated|length }} line(s) on this receipt were accepted with an expiry date that
+                was already past, or closer than the minimum allows.</strong> The goods were on the dock when the date
+                was read, so refusing the record would not have refused the pallet &mdash; it would have made real
+                stock invisible. They were booked in, and the decision is here with the reason and the person who gave
+                it. The <em>Finding</em> column says which of the two it was; a line can be both.
+            </p>
+            <div class="wide-table-wrap"><table class="admin-grid-table" id="short-dated-table">
+                <thead><tr><th>Line</th><th>Expiry</th><th>Shelf life left</th><th>Minimum</th><th>Finding</th><th>Accepted by</th><th>Reason</th></tr></thead>
+                <tbody>
+                    {% for short in receipt.shortDated %}
+                        <tr id="short-dated-row-{{ short.id }}">
+                            <td data-label="Line">{{ short.receiptLine.sku ?: short.receiptLine.name }}</td>
+                            <td data-label="Expiry">{{ short.expiry|date('Y-m-d') }}</td>
+                            <td data-label="Shelf life left" id="short-dated-remaining-{{ short.id }}">
+                                {%- if short.isAlreadyExpired -%}
+                                    already expired
+                                {%- else -%}
+                                    {{ short.remainingDays }} day(s)
+                                {%- endif -%}
+                            </td>
+                            <td data-label="Minimum" id="short-dated-minimum-{{ short.id }}">
+                                {#- Zero is not "not asked": it says no minimum was in force when this was accepted,
+                                    so the row was raised by the expiry alone. Rendering it as "0 day(s)" invites the
+                                    reader to treat an absent threshold as a met one. -#}
+                                {%- if short.minimumDays == 0 -%}
+                                    none in force
+                                {%- else -%}
+                                    {{ short.minimumDays }} day(s){{ short.minimumSource == 'product' ? ' (this product)' : ' (global)' }}
+                                {%- endif -%}
+                            </td>
+                            <td data-label="Finding" id="short-dated-shortfall-{{ short.id }}">
+                                {#- Both can be true of one row, and then both are named: one decision, two reasons
+                                    it needed taking. Expired leads, being the worse of the two. -#}
+                                {%- if short.isAlreadyExpired -%}
+                                    expired {{ short.daysPastExpiry }} day(s) before it arrived
+                                {%- endif -%}
+                                {%- if short.isAlreadyExpired and short.isShortOfMinimum %}; {% endif -%}
+                                {%- if short.isShortOfMinimum -%}
+                                    {{ short.shortfallDays }} day(s) short of the minimum
+                                {%- endif -%}
+                            </td>
+                            <td data-label="Accepted by">{{ short.overriddenBy ?? 'not recorded' }} &middot; {{ short.overriddenAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Reason" id="short-dated-reason-{{ short.id }}">{{ short.reason }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+            <p class="lead">
+                The figures are a <strong>snapshot</strong>. The minimum in force will move; what this row has to go
+                on saying is what the delivery was measured against on the day somebody accepted it.
+            </p>
+        </section>
+    {% endif %}
+
+    {% if not receipt.isVoided %}
+        <section class="panel" id="void">
+            <h2>Void this receipt</h2>
+            <form method="post" action="{{ path('admin_bundle_procurement_receipt_void', {id: receipt.id}) }}" class="form-grid"
+                  onsubmit="return confirm('Void {{ receipt.receiptNumber|e('js') }} and take its stock back out?')">
+                {{ csrf_field() }}
+                <label class="span-2">Reason
+                    <input type="text" name="reason" maxlength="255" required placeholder="Booked against the wrong purchase order">
+                    <small>Required. Withdrawing a document that moved stock is a decision, and one with nothing on it is unauditable a fortnight later.</small>
+                </label>
+                <div class="form-actions span-2"><button class="button danger" type="submit">Void {{ receipt.receiptNumber }}</button></div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

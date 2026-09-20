@@ -1,0 +1,41 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Price List | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products price list</p>
+                <h1>{{ mode }}{% if priceList.name %}: {{ priceList.name }}{% endif %}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_price_list_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form class="form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Label <span class="req">*</span>
+                <input type="text" name="name" value="{{ priceList.name }}" placeholder="Price list label" required>
+            </label>
+            <label>
+                Currency <span class="req">*</span>
+                <input type="text" name="currency" value="{{ priceList.currency|default('USD') }}" maxlength="3" placeholder="USD" required>
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    <option {{ priceList.status == 'Active' ? 'selected' : '' }}>Active</option>
+                    <option {{ priceList.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

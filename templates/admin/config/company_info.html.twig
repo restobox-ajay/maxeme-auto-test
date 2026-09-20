@@ -1,0 +1,103 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Company Information | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Company Information</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                <span>Company Name</span>
+                <input type="text" name="company_name" value="{{ values.company_name }}">
+                <small>Printed as the seller name on invoices and quotes. Left blank, no seller name is printed.</small>
+            </label>
+
+            <label class="span-2">
+                <span>Street Address</span>
+                <input type="text" name="company_address" value="{{ values.company_address }}">
+            </label>
+
+            <label>
+                <span>City</span>
+                <input type="text" name="company_city" value="{{ values.company_city }}">
+            </label>
+
+            {# Dropdowns, not free text: the seller's province is printed on every invoice through
+               province_name(), which resolves a code. A typed "B.C." stored here would render as a
+               blank line on the document. Same list the address forms use, from geo_province. #}
+            <label>
+                <span>State / Province</span>
+                <select class="js-region-province" name="company_state"
+                        data-selected="{{ values.company_state }}">
+                    <option value=""></option>
+                    {# Deliberately not defaulted to 'CA': with no country chosen the list stays empty
+                       rather than offering provinces the controller would then discard. #}
+                    {% for code, label in region_provinces(values.company_country) %}
+                        <option value="{{ code }}" {{ values.company_state == code ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label>
+                <span>Postal / ZIP Code</span>
+                <input type="text" name="company_postal_code" value="{{ values.company_postal_code }}">
+            </label>
+
+            <label>
+                <span>Country</span>
+                <select class="js-region-country" name="company_country"
+                        data-region-map="{{ region_map()|json_encode|e('html_attr') }}">
+                    <option value=""></option>
+                    {% for code, label in region_countries() %}
+                        <option value="{{ code }}" {{ values.company_country == code ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label>
+                <span>Phone</span>
+                <input type="text" name="company_phone" value="{{ values.company_phone }}">
+            </label>
+
+            <label>
+                <span>Sales Email</span>
+                <input type="text" name="sales_email" value="{{ values.sales_email }}">
+            </label>
+
+            <label class="span-2">
+                <span>Website URL</span>
+                <input type="text" name="website_url" value="{{ values.website_url }}">
+                <small>Shown in the invoice/quote header block. Left blank, the current site address is used.</small>
+            </label>
+
+            <label class="span-2">
+                <span>GST / Tax Number</span>
+                <input type="text" name="company_gst_number" value="{{ values.company_gst_number }}">
+                <small>Your own tax registration number, printed on invoices and quotes.</small>
+            </label>
+
+            <label class="span-2">
+                <span>Invoice Payment Note</span>
+                <textarea name="invoice_payment_note" rows="3">{{ values.invoice_payment_note }}</textarea>
+                <small>Printed in the invoice footer, e.g. how to pay and where to send payment. Left blank, nothing is printed.</small>
+            </label>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ subject|default('New Notification') }}{% endblock %}</title>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #334155; margin: 0; padding: 0; background-color: #f8fafc; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+        table, td, th { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+        .wrapper { background-color: #f8fafc; padding: 40px 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .header { background: #0f172a; padding: 40px 30px; text-align: center; color: #ffffff; }
+        .logo-box { display: inline-flex; align-items: center; gap: 12px; }
+        .brand-name { font-size: 22px; font-weight: 800; letter-spacing: -0.025em; }
+        .content { padding: 40px 35px; }
+        .footer { padding: 30px; text-align: center; font-size: 13px; color: #64748b; background: #f1f5f9; border-top: 1px solid #e2e8f0; }
+        .button { display: inline-block; padding: 14px 30px; background: #1d4ed8; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 700; margin-top: 25px; transition: background 0.2s; }
+        .highlight { color: #1d4ed8; font-weight: 700; }
+        .order-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; margin: 25px 0; }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .summary-row:last-child { margin-bottom: 0; padding-top: 8px; border-top: 1px solid #e2e8f0; font-weight: 700; color: #0f172a; }
+        .quote-number-box { margin: 25px 0; text-align: left; }
+        .order-summary-box { margin: 25px 0; text-align: left; }
+        .message-quote-box { margin: 25px 0; padding: 12px 16px; text-align: left; }
+
+        .detail-heading { margin: 0 0 10px 0; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+        .detail-table { border-collapse: collapse; width: 100%; margin-bottom: 22px; }
+        .detail-table td { padding: 3px 0; font-size: 13px; vertical-align: top; }
+        .detail-table td.detail-label { color: #64748b; width: 42%; }
+        .detail-table td.detail-value { color: #0f172a; font-weight: 600; }
+        .addr-table { border-collapse: collapse; width: 100%; margin: 0 0 22px; }
+        .addr-box { width: 50%; vertical-align: top; text-align: left; }
+        .addr-box-left { padding-right: 12px; }
+        .addr-box h4 { margin: 0 0 6px 0; font-size: 11px; font-weight: 800; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .addr-box p { margin: 0; font-size: 13px; line-height: 1.55; color: #334155; }
+        .addr-box p.addr-name { font-weight: 700; color: #0f172a; }
+        .line-table { border-collapse: collapse; width: 100%; margin-bottom: 4px; }
+        .line-table th { text-align: left; padding: 8px 0; font-size: 10.5px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.02em; border-bottom: 2px solid #cbd5e1; }
+        .line-table td { padding: 9px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155; }
+        .line-table th:not(:first-child), .line-table td:not(:first-child) { text-align: right; }
+        .tbd-text { color: #94a3b8; font-style: italic; }
+        .totals-table { border-collapse: collapse; width: 100%; }
+        .totals-table td { padding: 9px 0; font-size: 13px; color: #475569; }
+        .totals-table td:last-child { text-align: right; font-weight: 700; color: #1e293b; }
+        .totals-table tr.grand-row td { border-top: 2px solid #1d4ed8; padding-top: 12px; margin-top: 4px; font-size: 16px; font-weight: 800; color: #1e3a8a; }
+
+        @media only screen and (max-width: 600px) {
+            .wrapper { padding: 20px 10px; }
+            .content { padding: 30px 20px; }
+            /* Two 50%-wide address columns get too cramped on a phone screen (#409) — stack them.
+               addr-box-left's desktop gap is a right margin on the (now full-width) left column,
+               so it has to drop here or it would shift that column off-center once stacked. */
+            .addr-table, .addr-table tbody, .addr-table tr, .addr-box {
+                display: block;
+                width: 100%;
+            }
+            .addr-box { margin-bottom: 16px; }
+            /* !important because the desktop gap is now also inlined directly on the billing <td>
+               (_quote_summary.html.twig) as a defense against Gmail's <style>-block caching; a
+               media query is one of the few places overriding an inline style is legitimate. */
+            .addr-box-left { padding-right: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <div class="header">
+                {# No brand mark here on purpose: the "WC" tile was a fixed initial for one store's
+                   name, and there is nothing to derive a per-store equivalent from. The configured
+                   store name stands alone (#351). #}
+                <div class="logo-box">
+                    <div class="brand-name">{{ site_name() }}</div>
+                </div>
+            </div>
+            <div class="content">
+                {% block body %}{% endblock %}
+            </div>
+            <div class="footer">
+                <p>{{ email_footer_copyright|default(app_setting('email_footer_copyright', '© ' ~ ("now"|date("Y")) ~ ' ' ~ site_name() ~ '. All rights reserved.')) }}</p>
+                {# No brand-specific fallback here — the address is admin config (Settings → Company Information). #}
+                <p>{{ email_footer_address|default(app_setting('email_footer_address', '')) }}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

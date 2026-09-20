@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeFuelSurchargesBundle\:
+        resource: '../src/'
+
+    FeeFuelSurchargesBundle\Fee\FuelSurchargeFeeCalculator:
+        tags: ['app.fee_calculator', 'app.fee_field_provider']
+
+    FeeFuelSurchargesBundle\Menu\FuelSurchargeFeeMenuItem:
+        tags: ['app.fee_menu_item']
+
+    FeeFuelSurchargesBundle\Bundle\FeeFuelSurchargesBundleDescriptor:
+        tags: ['app.bundle_descriptor']

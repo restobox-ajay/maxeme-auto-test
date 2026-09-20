@@ -1,0 +1,71 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Quote: {{ estimate.documentNumber }} | Admin{% endblock %}
+
+{% block admin_body %}
+    {% set billingAddress = estimate.effectiveBillingAddress %}
+    {% set shippingAddress = estimate.effectiveShippingAddress %}
+
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0; border-bottom:0; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Quote detail</p>
+                <h1>{{ estimate.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav no-print" aria-label="Quote detail actions">
+        <a class="button" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">View</a>
+        {% if estimate.status not in ['Accepted', 'Rejected'] %}
+            <a class="button" href="{{ path('admin_estimate_edit', {id: estimate.id}) }}">Edit / Price</a>
+        {% endif %}
+        <a class="button is-current" href="{{ path('admin_estimate_quote', {id: estimate.id}) }}">Quote PDF</a>
+        <span class="row-action-menu">
+            <button class="btn-pdf row-action-toggle order-pdf-toggle" type="button" aria-expanded="false" aria-haspopup="true">PDF / Download</button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="#" onclick="window.print(); return false;">Print Quote</a>
+                <a href="{{ path('admin_estimate_quote', {id: estimate.id, download: 1}) }}">Download Quote</a>
+            </span>
+        </span>
+    </nav>
+    {% endif %}
+
+    {# No html2pdf.js — a leftover client-side renderer that produced a DIFFERENT PDF from this
+       same markup and pulled a script off a CDN to do it, exactly the defect
+       admin/invoice/invoice.html.twig's own removal already fixed there. Download goes through
+       the ?download=1 route beside it, which renders this same template through dompdf
+       server-side, same as every other download link on the order and invoice screens. #}
+    {{ include('admin/_partials/sell_side_pdf_document.html.twig', {
+        docLabel: 'QUOTE',
+        sectionTitle: 'Products',
+        metaLeftTemplate: 'admin/estimate/_pdf_meta_left.html.twig',
+        metaLeftContext: {estimate: estimate},
+        billingAddress: billingAddress,
+        shippingAddress: shippingAddress,
+        billingFallbackName: estimate.billingName,
+        shippingFallbackName: estimate.shippingName,
+        companyIdentityName: estimate.companyIdentity.name,
+        companyIdentityPhone: estimate.companyIdentity.phone,
+        companyIdentityEmail: estimate.companyIdentity.email,
+        lineColumns: ['name', 'unit', 'sku', 'qty', 'price', 'subtotal'],
+        lines: estimate.lines,
+        document: estimate,
+        allowUnpriced: true,
+        feeLinesJson: estimate.feeLines,
+        footerNoteTemplate: 'admin/estimate/_pdf_footer_note.html.twig',
+        footerNoteContext: {},
+        subtotal: estimate.subtotal,
+        shippingTotal: estimate.shippingTotal,
+        shippingLines: estimate.shippingLines,
+        taxLines: taxLines|default([]),
+        tax: estimate.tax,
+        grandTotalLabel: 'TOTAL:',
+        total: estimate.total,
+        injectionPointName: 'quote_note',
+        injectionPointContext: {estimate: estimate, isPdf: is_pdf|default(false)},
+    }, with_context = false) }}
+{% endblock %}

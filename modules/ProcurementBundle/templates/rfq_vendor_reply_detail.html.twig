@@ -1,0 +1,196 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor quote {{ reply.documentNumber }} | Admin{% endblock %}
+
+{#
+    One vendor's priced reply to an RFQ, as a document.
+
+    This is the money document of the tender flow and it had no screen at all: it was priced through
+    a form nested in a cell of the RFQ's replies table, and read by looking at the boxes of that
+    form. Everything here is at the estimate's parity (templates/admin/estimate/detail.html.twig):
+    a hero, a tab nav, an info/counterparty/deliver-to grid, a priced line table with per-line tax,
+    a totals box, and the named actions that move it on.
+
+    What it does NOT copy from the estimate is the half about being owed money: nothing is payable
+    against a quote. The payable is the vendor's bill, much later, against the purchase order this
+    becomes — see VendorBill.
+#}
+
+{% block admin_body %}
+    {% set locked = not reply.status.allowsPricing %}
+
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'rfqs',
+        heading: reply.documentNumber ~ ' — ' ~ reply.vendorName,
+        status: reply.status.value,
+        lead: 'What ' ~ reply.vendorName ~ ' quoted against ' ~ rfq.documentNumber ~ '.'
+    } only %}
+
+    {# ── Tab nav — the estimate's set, for the same three states of one document ───────────── #}
+    <nav class="company-action-links order-tab-nav" aria-label="Vendor quote actions">
+        <a class="button is-current" href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">View</a>
+        {% if not locked %}
+            <a class="button" href="{{ path('admin_bundle_procurement_rfq_reply_edit', {id: reply.id}) }}">Record prices</a>
+        {% endif %}
+        <a class="button" href="{{ path('admin_bundle_procurement_rfq_reply_print', {id: reply.id}) }}">Quote PDF</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_rfq', {id: rfq.id}) }}">Back to {{ rfq.documentNumber }}</a>
+        {% if reply.purchaseOrder %}
+            <a class="button" href="{{ path('admin_bundle_procurement_purchase_order', {id: reply.purchaseOrder.id}) }}">View purchase order</a>
+        {% endif %}
+    </nav>
+
+    {# ── The two named actions that end a reply ────────────────────────────────────────────────
+       Both post to RfqController, which owns them: accepting is a conversion that also writes the
+       RFQ header and every other reply on it, and neither belongs to a screen. They are offered
+       HERE as well as on the tender because this is where the prices being accepted or turned down
+       are actually on screen. #}
+    {% if not locked %}
+        <section class="panel compact-panel">
+            <div class="panel-actions">
+                {% if reply.status.value == 'Replied' %}
+                    <form method="post" action="{{ path('admin_bundle_procurement_rfq_reply_convert', {id: rfq.id, replyId: reply.id}) }}" class="inline-form">
+                        {{ csrf_field() }}
+                        <button class="button primary" type="submit">Accept &amp; raise purchase order</button>
+                    </form>
+                {% endif %}
+                <form method="post" action="{{ path('admin_bundle_procurement_rfq_reply_decline', {id: rfq.id, replyId: reply.id}) }}" class="inline-form">
+                    {{ csrf_field() }}
+                    <input type="text" name="reason" placeholder="Why did they decline?" aria-label="Reason this vendor declined">
+                    <button class="button danger" type="submit">Mark declined</button>
+                </form>
+            </div>
+            {% if reply.status.value == 'Invited' %}
+                <p class="field-hint">
+                    {{ unpriced }} line(s) still have no price, so this quote cannot be accepted yet. Record what the
+                    vendor quoted first — a quote is accepted whole or not at all.
+                </p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    <div class="order-detail-grid">
+        {# ── Quote Info ───────────────────────────────────────────────────────────────────── #}
+        <section class="detail-panel order-detail-panel">
+            <h2>Quote Info</h2>
+            <div class="detail-row"><label>Reply #:</label><strong>{{ reply.documentNumber }}</strong></div>
+            <div class="detail-row"><label>Status:</label><strong>{% include 'admin/_partials/document_status.html.twig' with {status: reply.status.value, loud: false} only %}</strong></div>
+            <div class="detail-row"><label>Against RFQ:</label><strong><a href="{{ path('admin_bundle_procurement_rfq', {id: rfq.id}) }}">{{ rfq.documentNumber }}</a></strong></div>
+            <div class="detail-row"><label>Quote date:</label><strong>{{ reply.documentDate|default('-') }}</strong></div>
+            <div class="detail-row"><label>Prices recorded:</label><strong>{{ reply.repliedAt ? reply.repliedAt|date('Y-m-d H:i') : 'Not yet' }}</strong></div>
+            <div class="detail-row"><label>Currency:</label><strong>{{ reply.currency }}</strong></div>
+            <div class="detail-row"><label>Raised:</label><strong>{{ reply.createdAt|date('Y-m-d') }}</strong></div>
+            {% if reply.purchaseOrder %}
+                <div class="detail-row"><label>Purchase order:</label><strong><a href="{{ path('admin_bundle_procurement_purchase_order', {id: reply.purchaseOrder.id}) }}">{{ reply.purchaseOrder.poNumber }}</a></strong></div>
+            {% endif %}
+            <div class="detail-row"><label>Notes:</label><strong>{{ reply.notes|default('-')|nl2br }}</strong></div>
+        </section>
+
+        {# ── Quote From — the vendor ───────────────────────────────────────────────────────────
+           Read live off the vendor record and labelled as such. The purchase order FREEZES a vendor
+           address snapshot at issue, because that document is sent out and must not be rewritten by
+           a later rename; this one is written down in this building from a phone call, and the
+           address it carries is only ever "where this supplier is today". Saying so beats a
+           snapshot nobody would know to distrust. #}
+        <section class="detail-panel order-detail-panel">
+            <h2>Quote From</h2>
+            <div class="detail-row"><label>Vendor:</label><strong><a href="{{ path('admin_bundle_procurement_vendor', {id: reply.vendor.id}) }}">{{ reply.vendorName }}</a></strong></div>
+            {% set quoteFrom = reply.vendor.orderToAddress %}
+            {% if quoteFrom %}
+                <div class="detail-row"><label>Address:</label><strong>{{ quoteFrom.toSnapshot()|nl2br }}</strong></div>
+            {% else %}
+                <div class="detail-row"><label>Address:</label><strong>No address on file for this vendor.</strong></div>
+            {% endif %}
+            <div class="detail-row"><label>Phone:</label><strong>{{ reply.vendor.phone|default('-') }}</strong></div>
+            <div class="detail-row"><label>Email:</label><strong>{{ reply.vendor.orderEmail|default(reply.vendor.email)|default('-') }}</strong></div>
+            <div class="detail-row"><label>Our account:</label><strong>{{ reply.vendor.accountNumber|default('-') }}</strong></div>
+            <div class="detail-row"><label>Payment term:</label><strong>{{ reply.vendor.paymentTerm|default('-') }}</strong></div>
+            <p class="field-hint">Live from the vendor record, not a snapshot — the purchase order raised from an accepted quote is what freezes an address.</p>
+        </section>
+
+        {# ── Deliver To — the RFQ's, because that is what was quoted ─────────────────────────── #}
+        <section class="detail-panel order-detail-panel">
+            <h2>Deliver To</h2>
+            <div class="detail-row"><label>Warehouse:</label><strong>{{ rfq.warehouse ? rfq.warehouse.name : 'Not stated' }}</strong></div>
+            {% if rfq.deliveryAddress %}
+                <div class="detail-row"><label>Address:</label><strong>{{ rfq.deliveryAddress|nl2br }}</strong></div>
+            {% else %}
+                <div class="detail-row"><label>Address:</label><strong>{{ app_setting('company_name', '')|default('-') }}</strong></div>
+                <div class="detail-row"><label></label><strong>{{ app_setting('company_address', '')|default('-') }}</strong></div>
+                <div class="detail-row"><label></label><strong>{{ [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', '')), app_setting('company_postal_code', '')]|filter(v => v)|join(', ')|default('-') }}</strong></div>
+            {% endif %}
+            <p class="field-hint">
+                Stated by the tender, so every vendor quoted freight to the same place. Change it on the RFQ, not
+                here.
+            </p>
+        </section>
+    </div>
+
+    {# ── Priced lines ─────────────────────────────────────────────────────────────────────── #}
+    <section class="table-card no-search no-paginate detail-page-card">
+        <div class="table-header"><h2>Quoted lines</h2></div>
+        <div class="wide-table-wrap">
+            <table class="user-manager-table order-products-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>SKU</th>
+                        <th style="text-align:center;">Qty</th>
+                        <th style="text-align:right;">Unit cost</th>
+                        <th style="text-align:right;">Line total</th>
+                        <th>Tax code</th>
+                        <th style="text-align:right;">Tax $</th>
+                        <th>Line notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td data-label="Item">{{ row.requirement ? row.requirement.name : '(requirement removed — quote kept)' }}</td>
+                            <td data-label="SKU">{{ row.requirement and row.requirement.sku ? row.requirement.sku : '-' }}</td>
+                            <td data-label="Qty" style="text-align:center;">{{ row.requirement ? row.requirement.quantity : '-' }}</td>
+                            {# TBD and not $0.00 for a line nobody has quoted: null on
+                               rfq_vendor_reply_line.unit_cost means "not quoted yet", which is a
+                               different fact from a vendor quoting nothing, and the estimate's
+                               detail screen makes the same distinction for the same reason. #}
+                            <td data-label="Unit cost" style="text-align:right;">{{ row.line and row.line.unitCost is not null ? reply.currency ~ ' ' ~ row.line.unitCost|price : 'TBD' }}</td>
+                            <td data-label="Line total" style="text-align:right;"><strong>{{ row.line and row.line.subtotal is not null ? reply.currency ~ ' ' ~ row.line.subtotal|amount : 'TBD' }}</strong></td>
+                            <td data-label="Tax code">{{ row.taxLabel|default('-') }}</td>
+                            <td data-label="Tax $" style="text-align:right;">{{ row.tax is not null ? reply.currency ~ ' ' ~ row.tax|amount : 'TBD' }}</td>
+                            <td data-label="Line notes">{{ row.line and row.line.notes ? row.line.notes : '-' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell"><span>This RFQ has no requirement lines, so there is nothing to quote.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {# ── Totals ───────────────────────────────────────────────────────────────────────────── #}
+    <div class="order-total-box-wrap" style="display:flex; justify-content:flex-end; margin-right:20px;">
+        <div class="order-total-box" style="width:380px;">
+            <div class="detail-row"><label>Subtotal:</label><strong>{{ reply.currency }} {{ reply.subtotal|amount }}</strong></div>
+            {% for taxLine in taxLines %}
+                <div class="detail-row">
+                    <label>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</label>
+                    <strong>{{ reply.currency }} {{ taxLine.amount|amount }}</strong>
+                </div>
+            {% endfor %}
+            <div class="detail-row"><label>Total tax:</label><strong>{{ reply.currency }} {{ reply.tax|amount }}</strong></div>
+            <div class="detail-row"><label>Quote total:</label><strong>{{ reply.currency }} {{ reply.total|amount }}</strong></div>
+        </div>
+    </div>
+
+    {# Who changed what on the money, from the generic AuditLog — the panel the quote and order
+       detail screens both end with. Nothing here writes the trail; AuditLogSubscriber already
+       records every change to this entity. #}
+    {% include 'admin/_shared/_audit_history_panel.html.twig' with {logs: auditHistory|default([])} only %}
+
+    <section class="panel compact-panel">
+        <p class="field-hint">
+            Tax is computed by the same calculators the sell side uses — one tax model, not two — against this
+            company's own province{% if taxProvince %} ({{ taxProvince }}){% else %}, which Settings &rsaquo; Company
+            Information has not been told{% endif %}. Freight, brokerage and duty are not on this document: purchase
+            fees are separate logic and are not built.
+        </p>
+    </section>
+{% endblock %}

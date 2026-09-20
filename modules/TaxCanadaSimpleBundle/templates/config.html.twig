@@ -1,0 +1,74 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Canada Tax (non-BC) | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps &rsaquo; Tax</p>
+                <h1>Canada Tax (non-BC)</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_sales_tax') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <form method="post" class="form-grid">
+            {% set gstRow = rows|filter(r => r.slug == 'gst')|first %}
+            {% if gstRow %}
+                <p class="section-label span-2">GST (federal — applies to every province below that uses it)</p>
+                <label>
+                    Rate (%)
+                    <input type="number" step="0.001" min="0" name="rate_{{ gstRow.slug }}" value="{{ (gstRow.rate * 100)|number_format(3) }}">
+                </label>
+                <label>
+                    Status
+                    <select name="status_{{ gstRow.slug }}">
+                        <option value="Active" {{ gstRow.status == 'Active' ? 'selected' : '' }}>Active</option>
+                        <option value="Inactive" {{ gstRow.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                    </select>
+                </label>
+            {% endif %}
+
+            {#
+                One block per province, in PROVINCES order, built by the controller.
+
+                It used to be rebuilt here: PROVINCES read back through constant() and a flat `rows`
+                list indexed positionally against it. That worked only while `rows` was guaranteed to
+                hold exactly one entry per component in exactly that order — a guarantee that came
+                from the screen CREATING the rows as it rendered them, which it no longer does. One
+                missing row would have shifted every province after it onto the wrong heading.
+            #}
+            {% for province in provinceRows %}
+                <p class="section-label span-2">{{ province.name }} ({{ province.code }})</p>
+                {% for component in province.components %}
+                    {% if component.isGst %}
+                        <p class="span-2 muted">GST &mdash; refer above.</p>
+                    {% else %}
+                        {% set row = component.row %}
+                        <label>
+                            {{ row.taxType }} Rate (%)
+                            <input type="number" step="0.001" min="0" name="rate_{{ row.slug }}" value="{{ (row.rate * 100)|number_format(3) }}">
+                        </label>
+                        <label>
+                            Status
+                            <select name="status_{{ row.slug }}">
+                                <option value="Active" {{ row.status == 'Active' ? 'selected' : '' }}>Active</option>
+                                <option value="Inactive" {{ row.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </label>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

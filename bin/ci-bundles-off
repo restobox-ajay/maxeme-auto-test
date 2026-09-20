@@ -1,0 +1,158 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Runs the bundle-agnostic tests against an application with the optional inventory bundles OFF.
+ *
+ * `BundleStatusRepository::ensureBySource()` creates an unknown bundle as Active, so the ordinary
+ * suite exercises InventoryDepthBundle, WarehouseOpsBundle and ProcurementBundle switched ON and
+ * proves nothing about switched OFF. Each of those three plans promises that removing the bundle
+ * changes no number. Nothing checked it.
+ *
+ * ## Why this is a gate rather than a test
+ *
+ * "The application behaves identically without these bundles" is a property of the whole suite, not
+ * of any single scenario — a Cest can only check what its author thought to look at. The only thing
+ * that actually proves it is running the SAME assertions against a differently-configured
+ * application and requiring the same result. That is a second process, so it cannot live inside the
+ * first one. Same reason bin/ci-migration-replay exists.
+ *
+ * ## Why a group rather than the whole suite
+ *
+ * Running the WHOLE suite a second time is what is expensive. bin/test-slot's own re-measurement on
+ * 2026-09-12 puts one full Functional run at 46:47 and 3.46 GB peak at 1556 tests, so a double run
+ * is an hour and a half of wall clock and two of the box's three memory slots. The `bundle-agnostic`
+ * group is the core paths — cart, checkout, availability, invoicing, the inventory grid — which is
+ * where a leak would actually matter. `BundlesOffPairingTest` is what stops the group quietly
+ * emptying out.
+ *
+ * ## What this gate actually costs (measured 2026-09-12 at main f81334b6, Codeception's footers)
+ *
+ *   step 1, BundlesOffEnvironmentCest    3 tests,  0.5s,  63 MB
+ *   step 2, the bundle-agnostic group   74 tests, 33.0s, 395 MB
+ *
+ * Two separate PHP processes, the first exiting before the second starts, so the peaks never sum.
+ * Against `codeception.yml`'s memory_limit of 4608M and a 16 GB box, neither is near anything.
+ *
+ * Step 2 tracks the SIZE OF THE GROUP, not anything about this script: it was 63 tests and 470
+ * assertions at main c9d38668 and 74 and 658 a few hours later, because batches 5 and 7 brought
+ * eleven more tagged Cests with them. Growing is the healthy direction and needs no action here.
+ * Shrinking is the failure this gate cannot see for itself, which is why `BundlesOffPairingTest`
+ * asserts the tag on the core Cests by name.
+ *
+ * These numbers are stated because the ones they replace were not: this docblock used to read "a
+ * full double run is roughly 28 minutes at ~2.5 GB peak, against under 4 GB of RAM and a 3 GB
+ * Codeception limit", and every one of those figures had drifted — the limit is 4608M, the box is
+ * 16 GB, and the 28-minute figure was about the whole suite twice, not this group. It was quoted
+ * back as a live constraint on whether this gate could afford a second run, which it never was by
+ * two orders of magnitude. Re-measure rather than inherit: `grep 'Memory:'` on a run's footer.
+ *
+ * ## Why there are TWO runs, and why the small one goes first
+ *
+ * The group run above assumes the environment it runs in has actually switched the bundles off. If
+ * `Tests\Support\Helper\BundlesOff` silently did nothing, the group would run the ORDINARY
+ * application, pass, and this script would report the bundles-off behaviour as proven.
+ * `BundlesOffEnvironmentCest` is the test that rules that out — it asserts the rows say Inactive,
+ * that the application 404s a bundle screen, and that the sidebar drops every bundle-contributed
+ * entry.
+ *
+ * That Cest could not be reached by either gate until #52. It is `@env bundles-off`, so the
+ * ordinary suite skips it ("No tests executed!"), and its own docblock explains why it cannot carry
+ * the `bundle-agnostic` tag — it asserts things that are FALSE with the bundles on, so tagging it
+ * into a group that also runs bundles-on would be wrong. `-g bundle-agnostic` therefore filtered it
+ * out of the only run that selects its environment. The harness proof had never once executed.
+ *
+ * So it gets its own invocation of the same environment with no group filter. It runs FIRST because
+ * it is the precondition for the second run meaning anything: if the harness is inert, the 38
+ * seconds of green below it are noise, and failing in 0.7s says so before anyone reads them. See
+ * the cost table above for why "can we afford a second run" was never the question.
+ *
+ * Usage:
+ *   bin/ci-bundles-off
+ */
+
+$root = dirname(__DIR__);
+
+$codecept = static fn (string $args): string => sprintf(
+    '%s %s run Functional %s',
+    escapeshellarg(PHP_BINARY),
+    escapeshellarg($root . '/vendor/bin/codecept'),
+    $args,
+);
+
+$run = static function (string $description, string $command): int {
+    fwrite(STDOUT, $description . "\n");
+    fwrite(STDOUT, "  " . $command . "\n\n");
+
+    $exitCode = 0;
+    passthru($command, $exitCode);
+
+    return $exitCode;
+};
+
+$harnessCommand = $codecept('BundlesOffEnvironmentCest --env bundles-off');
+
+$exitCode = $run(
+    'Step 1/2 — proving the bundles-off environment really does switch the bundles off.',
+    $harnessCommand,
+);
+
+if ($exitCode !== 0) {
+    fwrite(STDERR, <<<'TEXT'
+
+FAILED — BundlesOffEnvironmentCest did not pass, so the bundles-off harness itself is not proven.
+
+Nothing below this point ran, deliberately. The group run in step 2 only means something if the
+environment it runs in has actually deactivated InventoryDepthBundle, WarehouseOpsBundle,
+ProcurementBundle and BarcodeBundle. If that is broken, step 2 would run the ORDINARY application,
+pass, and this script would report the bundles-off behaviour as proven. A false green is worse than
+no gate, because it stops anyone looking.
+
+So read this as "the gate is broken", not "the application is broken". The likely shapes:
+
+  - Tests\Support\Helper\BundlesOff is no longer enabled by the bundles-off environment in
+    tests/Functional.suite.yml, so nothing writes the Inactive rows
+  - its write moved out of _beforeSuite() into a per-test hook, where the Doctrine module's
+    transaction keeps it invisible to the kernel serving the request
+  - a bundle was added to BundlesOff::SOURCES without a BundleStatus row being reachable for it
+  - the sidebar or route gate stopped consulting BundleStatusRepository::isActiveForInstance(),
+    which would make the bundles visible even with the rows correct — that one IS an application
+    bug, and step 2 would likely have caught it too
+
+TEXT);
+
+    exit($exitCode);
+}
+
+$groupCommand = $codecept('--env bundles-off -g bundle-agnostic');
+
+$exitCode = $run(
+    "\nStep 2/2 — running the bundle-agnostic tests with the optional inventory bundles Inactive.",
+    $groupCommand,
+);
+
+if ($exitCode !== 0) {
+    fwrite(STDERR, <<<'TEXT'
+
+FAILED — the application does not behave the same with the optional inventory bundles off.
+
+That is the whole point of this gate. A failure here means something in InventoryDepthBundle,
+WarehouseOpsBundle or ProcurementBundle has leaked into a path that is supposed to work without it.
+
+Read the failure as a leak first, not as a broken test. The likely shapes:
+
+  - a bucket added to the availability formula unconditionally, so a column that should be out of
+    the sum is still in it
+  - a service resolved without checking BundleStatusRepository::isActiveForInstance()
+  - a screen or column that assumes a bundle's data exists
+  - a core path that now calls into a bundle rather than through a seam in src/Contract/
+
+TEXT);
+
+    exit($exitCode);
+}
+
+fwrite(STDOUT, "\nOK — the harness is proven, and the bundle-agnostic paths behave the same with the optional bundles off.\n");
+exit(0);

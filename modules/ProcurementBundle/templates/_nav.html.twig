@@ -1,0 +1,40 @@
+{# One sidebar entry, so the bundle's own screens navigate between themselves from here. #}
+<section class="panel compact-panel">
+    <div class="panel-title-row">
+        <div>
+            <p class="eyebrow">Apps › Inventory › Procurement</p>
+            {# `status` is optional and only the DOCUMENT screens pass it — a list or a settings
+               page has no status of its own. `is defined` rather than `default()` because
+               strict_variables is on and `only` means an unpassed name does not exist at all,
+               which is the same reason `createPath` below is tested that way. #}
+            {% if status is defined and status %}
+                <div class="title-with-status">
+                    <h1>{{ heading }}</h1>
+                    {% include 'admin/_partials/document_status.html.twig' with {status: status} only %}
+                </div>
+            {% else %}
+                <h1>{{ heading }}</h1>
+            {% endif %}
+            {# Optional, same "is defined and" guard as status/createPath above — a screen that has
+               nothing to add under its heading omits it rather than rendering an empty paragraph. #}
+            {% if lead is defined and lead %}<p class="lead">{{ lead }}</p>{% endif %}
+        </div>
+        <div class="panel-actions">
+            <a class="button back-button" href="{{ path('admin_bundle_procurement_index') }}">Back</a>
+            {# The create button belongs in the title row, where /admin/company puts Create Company,
+               rather than on a form sitting on the list. Optional, so every screen that includes
+               this partial without one is unchanged — `is defined` rather than `default()` because
+               strict_variables is on and `only` means an unpassed name does not exist at all. #}
+            {% if createPath is defined and createPath %}
+                <a class="button primary" href="{{ createPath }}">{{ createLabel is defined ? createLabel : 'Create' }}</a>
+            {% endif %}
+            {# A screen with a second way to do the same thing (Receiving: type it in, or scan it
+               in) gets one more slot here rather than a bare .panel of its own below the heading. #}
+            {% if secondaryPath is defined and secondaryPath %}
+                <a class="button" href="{{ secondaryPath }}">{{ secondaryLabel is defined ? secondaryLabel : 'More' }}</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% include '@Procurement/_purchase_flash_messages.html.twig' %}

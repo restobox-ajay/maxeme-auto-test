@@ -1,0 +1,9 @@
+{# The QUOTE's PDF / Download menu — the slot the shared action bar renders inside its disclosure.
+   Expects: `document`, the Estimate.
+
+   The quote detail screen had no such menu; `admin/estimate/quote.html.twig` — the quote PDF page —
+   has carried exactly these two items for as long as the order's has. Both routes already exist
+   (`admin_estimate_quote`, and the same route with `download=1`, which EstimateController::quotePdf
+   reads), so this is the quote adopting a menu its own PDF page already offered, not a new control. #}
+<a id="quote-action-print" href="{{ path('admin_estimate_quote', {id: document.id}) }}" target="_blank">Print Quote</a>
+<a id="quote-action-download" href="{{ path('admin_estimate_quote', {id: document.id, download: 1}) }}">Download Quote</a>

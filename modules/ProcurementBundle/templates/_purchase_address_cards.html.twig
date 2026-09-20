@@ -1,0 +1,126 @@
+{# The vendor address panel(s) a purchase document's edit screen carries — the buy-side twin of
+   admin/_partials/sales_address_cards.html.twig: full field-level editable override PLUS a
+   selectable address-book picker, not a read-only display with a link out. A vendor's own address
+   book (VendorAddress, one row per purpose: order-to/ship-from/remit-to/return-to) is what seeds
+   these fields; the document then freezes its own copy exactly the way SalesOrderAddress does.
+
+   PurchaseOrder renders two of these (Order To / Ship From); VendorBill renders one (Remit To) —
+   same "one macro, N calls, presence is the switch" shape sales_address_cards.html.twig uses for
+   Billing/Shipping, just a different type set per document.
+
+   NO JS, anywhere, ever — the one deliberate divergence from the sell side's panel, which is
+   otherwise fully JS-driven (a hidden picker toggled open, an in-browser field-fill from the
+   selected <option>'s data-* attributes, a live province list keyed to the chosen country). Here:
+     - the picker is a plain, always-visible <select> of the vendor's address book plus a real
+       submit button that round-trips through the server and comes back with the fields already
+       filled in — the same "Add Line"/"Add charge line" pattern the rest of this document already
+       uses for every other control that isn't a bare text box.
+     - the province <select> lists every province for whichever country is CURRENTLY on the
+       document; picking a different country and clicking any submit (Load address or Save) reloads
+       the page with the correct list, rather than re-filtering it live.
+
+   Parameters
+   ----------
+   vendor     required  the Vendor entity — only `id`/`name` read, for the address-book link.
+   addresses  required  ordered map of heading => address row (addressToRow()'s shape, plus the
+                        `id` key holding the LINKED BOOK ENTRY's id — see
+                        AbstractProcurementController::addressToRow()'s docblock on why that is not
+                        the snapshot's own primary key). e.g. {'Order To': orderToRow, 'Ship From':
+                        shipFromRow} for a PO, {'Remit To': remitToRow} for a Bill.
+   addressBook  required  the vendor's saved addresses, as rows (addressBookRows()), for the picker.
+
+   The posted field names carry no document prefix beyond the type key — `order_to_company_name`,
+   `remit_to_city` and so on — so PurchaseOrderController and VendorBillController both read the
+   panel through AbstractProcurementController's own shared helpers.
+#}
+{% macro address_cards(vendor, addresses, addressBook) %}
+    {% for heading, address in addresses %}
+        {% set typeKey = heading|lower|replace({' ': '_'}) %}
+        <section class="order-form-panel" data-address-panel="{{ typeKey }}">
+            <input type="hidden" name="{{ typeKey }}_address_id" value="{{ address.id|default('') }}">
+            <h2>{{ heading }}</h2>
+            <div class="address-form-grid">
+                <div>
+                    <label class="order-field-row">
+                        <span>Company name</span>
+                        <input type="text" name="{{ typeKey }}_company_name" value="{{ address.companyName }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>First name</span>
+                        <input type="text" name="{{ typeKey }}_first_name" value="{{ address.firstName }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Last name</span>
+                        <input type="text" name="{{ typeKey }}_last_name" value="{{ address.lastName }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Phone number</span>
+                        <input type="text" name="{{ typeKey }}_phone" value="{{ address.phone }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Address line 1</span>
+                        <input type="text" name="{{ typeKey }}_address_1" value="{{ address.addressLine1 }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Address line 2</span>
+                        <input type="text" name="{{ typeKey }}_address_2" value="{{ address.addressLine2 }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>City</span>
+                        <input type="text" name="{{ typeKey }}_city" value="{{ address.city }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Country</span>
+                        <select name="{{ typeKey }}_country">
+                            {% set selectedCountry = address.country|default('CA') ?: 'CA' %}
+                            {% for code, label in region_countries() %}
+                                <option value="{{ code }}" {{ selectedCountry == code ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="order-field-row">
+                        <span>Province</span>
+                        <select name="{{ typeKey }}_province">
+                            <option value=""></option>
+                            {% for code, label in region_provinces(address.country|default('CA') ?: 'CA') %}
+                                <option value="{{ code }}" {{ (address.province|default('')) == code ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="order-field-row">
+                        <span>Postal code</span>
+                        <input type="text" name="{{ typeKey }}_postal_code" value="{{ address.postalCode }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Fax</span>
+                        <input type="text" name="{{ typeKey }}_fax" value="{{ address.fax }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Primary email</span>
+                        <input type="email" name="{{ typeKey }}_primary_email" value="{{ address.primaryEmail }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Secondary email</span>
+                        <input type="email" name="{{ typeKey }}_secondary_email" value="{{ address.secondaryEmail }}">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Delivery instructions</span>
+                        <textarea name="{{ typeKey }}_delivery_instructions" rows="2"
+                                  placeholder="Operating days/hours, receiving entrance">{{ address.deliveryInstructions|default('') }}</textarea>
+                    </label>
+                </div>
+                <div class="purchase-address-book">
+                    <h3>Address Book</h3>
+                    <select name="{{ typeKey }}_address_book_id" aria-label="{{ heading }} address book">
+                        <option value=""></option>
+                        {% for bookAddress in addressBook %}
+                            <option value="{{ bookAddress.id }}" {{ (address.id|default('')) == bookAddress.id ? 'selected' : '' }}>{{ bookAddress.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="button primary" type="submit" name="apply_{{ typeKey }}_address" value="1">Load address</button>
+                    <a class="button outline" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">Manage vendor addresses</a>
+                </div>
+            </div>
+        </section>
+    {% endfor %}
+{% endmacro %}

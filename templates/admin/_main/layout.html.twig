@@ -1,0 +1,158 @@
+{% extends 'base.html.twig' %}
+{% block body_class %}site site-admin{% endblock %}
+{% block area_label %}Admin Console{% endblock %}
+{% block home_path %}/admin{% endblock %}
+{% block content_header %}
+    <div class="admin-content-header">
+        <div class="user-menu quick-create-menu">
+            <button class="user-menu-toggle quick-create-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Quick create">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <div class="user-menu-dropdown" role="menu">
+                <a href="{{ path('admin_estimate_create') }}" role="menuitem">New Quote</a>
+                <a href="{{ path('admin_order_create') }}" role="menuitem">New Order</a>
+                <a href="{{ path('admin_product_inventory_create') }}" role="menuitem">New Product</a>
+                <a href="{{ path('admin_company_create') }}" role="menuitem">New Customer</a>
+                <a href="{{ path('admin_user_customer_create') }}" role="menuitem">New Customer User</a>
+            </div>
+        </div>
+        <div class="user-menu" id="user-menu">
+            <button class="user-menu-toggle" type="button" aria-expanded="false" aria-haspopup="true">
+                <span class="user-menu-avatar" aria-hidden="true">{{ (app.user ? app.user.userIdentifier : 'A')|first|upper }}</span>
+                <span class="user-menu-email">{{ app.user ? app.user.userIdentifier : 'Admin' }}</span>
+                <span class="user-menu-caret" aria-hidden="true">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 8 12 16 20 8"></polyline></svg>
+                </span>
+            </button>
+            <div class="user-menu-dropdown" role="menu">
+                <a href="{{ path('admin_profile') }}" role="menuitem">
+                    <span class="user-menu-item-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </span>My Profile
+                </a>
+                <a href="{{ path('_logout_admin') }}" role="menuitem">
+                    <span class="user-menu-item-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    </span>Logout
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block navigation %}
+    {% set route = app.request.attributes.get('_route') %}
+    {% set isTechSupport = is_granted('ROLE_TECH_SUPPORT') %}
+    {# The whole nav below is built from admin_menu_tree(): App\Menu\Admin\AdminMenuCatalog's
+       default tree, merged with whichever AdminMenuOverrideProviderInterface is both registered
+       and active (see App\Menu\Admin\AdminMenuTreeBuilder). With no provider registered — i.e.
+       with modules/AdminMenuBundle removed — the tree is exactly the default one and this nav is
+       exactly what it looks like. A missing entry only decides whether a LINK is drawn: it is not
+       authorization, the route behind a hidden entry is still reachable by URL and still enforces
+       its own access rules (the is_granted() checks below are the real ones). #}
+    {% for entry in admin_menu_tree() %}
+        {% set node = entry.node %}
+        {# Queue item 35: a sidebar item can render as a small icon on the right of a row it NAMES
+           (`attachTo`) INSTEAD OF a row of its own, so "New Bill" is one click from "Bills" rather
+           than both a row of its own AND that same click on "Bills". AdminMenuTreeBuilder::assemble()
+           already decided which: a flagged node whose target didn't resolve (hidden, deleted, or
+           itself swallowed into another icon) never reaches this template at all as an affordance —
+           it comes through as a normal child in `entry.children`/`entry.node` instead, and renders
+           exactly like any row that was never flagged. entry.affordances is keyed by the named row's
+           key and is empty for every row nobody flagged, which is why the markup below is byte for
+           byte what it was for every row that has no icon on it. #}
+        {% set nodeAffordances = entry.affordances[node.key]|default([]) %}
+        {% if node.requiresRole is null or is_granted(node.requiresRole) %}
+            {% if node.key == 'technical_docs' %}
+                {% set technicalDocsItems = technical_docs_items() %}
+                {% if isTechSupport and technicalDocsItems is not empty %}
+                <div class="nav-group {{ node.matchesRoute(route) ? 'is-open' : '' }}">
+                    {% if nodeAffordances is not empty %}<div class="nav-group-row">{% endif %}<button class="nav-group-title" type="button" aria-expanded="{{ node.matchesRoute(route) ? 'true' : 'false' }}">
+                        <span class="nav-icon">{{ node.icon|raw }}</span><span class="nav-label">{{ node.label }}</span>
+                    </button>{% if nodeAffordances is not empty %}{{ include('admin/_main/_nav_affordances.html.twig', { affordances: nodeAffordances }, with_context = false) }}</div>{% endif %}
+                    <div class="nav-sub-list">
+                        {% for item in technicalDocsItems %}
+                            <a class="nav-sub {{ route == 'admin_technical_docs_view' and app.request.attributes.get('path') == item.path ? 'is-current' : '' }}" href="{{ item.url }}" target="_blank" rel="noopener"><span class="nav-label">{{ item.label }}</span></a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% elseif node.route is null and not node.custom %}
+                {# A group: today every group has at least one static child, but reparenting/hiding
+                   every child of a group is allowed to leave it with none — it still renders,
+                   just with an empty list, rather than needing special-cased disappearing logic. #}
+                <div class="nav-group {{ node.matchesRoute(route) ? 'is-open' : '' }}">
+                    {% if nodeAffordances is not empty %}<div class="nav-group-row">{% endif %}<button class="nav-group-title" type="button" aria-expanded="{{ node.matchesRoute(route) ? 'true' : 'false' }}">
+                        <span class="nav-icon">{{ node.icon|raw }}</span><span class="nav-label">{{ node.label }}</span>
+                    </button>{% if nodeAffordances is not empty %}{{ include('admin/_main/_nav_affordances.html.twig', { affordances: nodeAffordances }, with_context = false) }}</div>{% endif %}
+                    <div class="nav-sub-list">
+                        {% for child in entry.children %}
+                            {% if child.requiresRole is null or is_granted(child.requiresRole) %}
+                                {% set childAffordances = entry.affordances[child.key]|default([]) %}
+                                {% if childAffordances is not empty %}<div class="nav-sub-row">{% endif %}{% if child.custom %}<a class="nav-sub " href="{{ child.url }}"><span class="nav-label">{{ child.label }}</span></a>{% else %}<a class="nav-sub {{ child.matchesRoute(route) ? 'is-current' : '' }}" href="{{ path(child.route, child.routeParams) }}"><span class="nav-label">{{ child.label }}</span></a>{% endif %}{% if childAffordances is not empty %}{{ include('admin/_main/_nav_affordances.html.twig', { affordances: childAffordances }, with_context = false) }}</div>{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if node.key == 'apps' %}
+                            {# The Apps group's bundle-contributed entries (Shipping/Fees/Tax/Payments/injection
+                               points) are not tree-driven: they already have a per-bundle on/off on App
+                               Management, and they come and go with the bundles themselves. #}
+                            {% for section, items in injection_point_menu_items() %}
+                                <span class="nav-sub-section">{{ section }}</span>
+                                {% for item in items %}
+                                    <a class="nav-sub {{ route == item.route ? 'is-current' : '' }}" href="{{ path(item.route) }}"><span class="nav-label">{{ item.label }}</span></a>
+                                {% endfor %}
+                            {% endfor %}
+                            {% set shippingItems = shipping_menu_items() %}
+                            {% if shippingItems is not empty %}
+                                <span class="nav-sub-section">Shipping</span>
+                                {% for item in shippingItems %}
+                                    <a class="nav-sub {{ route == item.route ? 'is-current' : '' }}" href="{{ path(item.route) }}"><span class="nav-label">{{ item.label }}</span></a>
+                                {% endfor %}
+                            {% endif %}
+                            {% set feeItems = fee_menu_items() %}
+                            {% if feeItems is not empty %}
+                                <span class="nav-sub-section">Fees</span>
+                                {% for item in feeItems %}
+                                    <a class="nav-sub {{ route == item.route ? 'is-current' : '' }}" href="{{ path(item.route) }}"><span class="nav-label">{{ item.label }}</span></a>
+                                {% endfor %}
+                            {% endif %}
+                            {% set taxItems = tax_menu_items() %}
+                            {% if taxItems is not empty %}
+                                <span class="nav-sub-section">Tax</span>
+                                {% for item in taxItems %}
+                                    <a class="nav-sub {{ route == item.route ? 'is-current' : '' }}" href="{{ path(item.route) }}"><span class="nav-label">{{ item.label }}</span></a>
+                                {% endfor %}
+                            {% endif %}
+                            {% set paymentItems = payment_menu_items() %}
+                            {% if paymentItems is not empty %}
+                                <span class="nav-sub-section">Payments</span>
+                                {% for item in paymentItems %}
+                                    <a class="nav-sub {{ route == item.route ? 'is-current' : '' }}" href="{{ path(item.route) }}"><span class="nav-label">{{ item.label }}</span></a>
+                                {% endfor %}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                {# A single link: either one of the catalog's own top-level entries (Dashboard,
+                   Carts, Help), a core entry reparented to the top level, or a custom entry. #}
+                {% if nodeAffordances is not empty %}<div class="nav-row">{% endif %}{% if node.custom %}
+                <a href="{{ node.url }}" class="">
+                    <span class="nav-icon">{{ node.icon|raw }}</span><span class="nav-label">{{ node.label }}</span>
+                </a>
+                {% else %}
+                <a href="{{ path(node.route, node.routeParams) }}" class="{{ node.matchesRoute(route) ? 'is-current' : '' }}">
+                    <span class="nav-icon">{{ node.icon|raw }}</span><span class="nav-label">{{ node.label }}</span>
+                </a>
+                {% endif %}{% if nodeAffordances is not empty %}{{ include('admin/_main/_nav_affordances.html.twig', { affordances: nodeAffordances }, with_context = false) }}</div>{% endif %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+{% endblock %}
+{% block sidebar_footer %}
+    <button class="sidebar-footer sidebar-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true">
+        <span class="sidebar-collapse-icon" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </span>
+    </button>
+{% endblock %}
+{% block body %}{% block admin_body %}{% endblock %}{% endblock %}

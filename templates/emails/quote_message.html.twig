@@ -1,0 +1,24 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}New Message Regarding Quote {{ estimate.documentNumber }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">New Message</h2>
+    <p>Hey {{ estimate.companyIdentity.name|default('there') }},</p>
+    <p>There is a new message regarding your quote <span class="highlight">{{ estimate.documentNumber }}</span>:</p>
+
+    <div class="message-quote-box" style="font-style: italic; border-left: 4px solid #1d4ed8;">
+        {{ message|nl2br }}
+    </div>
+
+    <p>If you have any questions, feel free to reply to this email or view your quote online.</p>
+
+    <div style="text-align: center;">
+        <a href="{{ estimate_url|default('#') }}" class="button">View My Quote</a>
+    </div>
+
+    <div class="order-summary" style="background: transparent; border: none; border-top: 1px solid #e2e8f0; margin-top: 30px; padding: 20px 0 0 0;">
+        <p style="margin: 0; font-size: 14px;"><strong>Quote Number:</strong> {{ estimate.documentNumber }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Date:</strong> {{ "now"|date('F j, Y') }}</p>
+    </div>
+{% endblock %}

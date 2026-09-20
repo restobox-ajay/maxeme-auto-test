@@ -1,0 +1,12 @@
+{# The paragraph inside the invoice's "Billed beyond stock" alert. A template rather than a string
+   parameter of sales_detail_stock_override_panel.html.twig because it carries its own markup —
+   see that partial's `noticeTemplate` note.
+
+   Parameters
+   ----------
+   count  required  how many lines on this invoice bill past what the region had. #}
+<strong>{{ count }} line(s) on this invoice bill more than the region had
+available.</strong> That is a decision somebody took, not a mistake the system let through: the
+figures below are what they were shown at the time, and the reason is what they gave for going
+ahead. Backorder capacity is never cover on an invoice &mdash; an invoice line has no split to
+fall back on &mdash; so nothing but stock ever stood behind these units.

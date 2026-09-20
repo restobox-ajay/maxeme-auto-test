@@ -1,0 +1,30 @@
+{#
+    The purchase side's product field: core's shared partial, pointed at THIS bundle's search
+    endpoint so the results carry what the vendor charges us.
+
+    The field itself moved to `admin/_partials/product_field.html.twig` when Inventory Depth needed
+    the same three tiers (#8) — core being the only layer neither bundle can delete. This file
+    stays, and stays callable under `@Procurement/_product_field.html.twig` with exactly the
+    parameters it always took, because six screens include it and more are being written; a rename
+    would break whichever of them is on a branch right now.
+
+    Parameters: as core's, minus `searchUrl`, plus —
+
+    vendorId      optional  scopes the search results' cost to this vendor's rate card
+
+    Everything else — field, products, remote, selected, form, required, label — is passed straight
+    through. `only` is deliberate: this partial is included from templates that leak their whole
+    context, and forwarding that context would let a stray `searchUrl` in a caller quietly point a
+    purchase screen's field at a different endpoint.
+#}
+{{ include('admin/_partials/product_field.html.twig', {
+    field: field,
+    products: products,
+    remote: remote,
+    selected: selected is defined ? selected : null,
+    form: form is defined ? form : null,
+    required: required|default(false),
+    label: label|default('Product'),
+    placeholder: placeholder is defined ? placeholder : null,
+    searchUrl: path('admin_bundle_procurement_product_search') ~ (vendorId is defined and vendorId ? '?vendor_id=' ~ vendorId : ''),
+}, with_context = false) }}

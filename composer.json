@@ -1,0 +1,174 @@
+{
+    "name": "axcelmediacorp/wholesale-b2b-core",
+    "description": "Wholesale B2B catalog, ordering and fulfilment application.",
+    "type": "project",
+    "license": "proprietary",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.2",
+        "ext-bcmath": "*",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "doctrine/doctrine-bundle": "^2.19.0",
+        "doctrine/doctrine-migrations-bundle": "^3.7",
+        "doctrine/orm": "^3.6.7",
+        "dompdf/dompdf": "^3.1.6",
+        "stripe/stripe-php": "^20.3.1",
+        "symfony/clock": "7.4.*",
+        "symfony/console": "7.4.*",
+        "symfony/doctrine-messenger": "7.4.*",
+        "symfony/dotenv": "7.4.*",
+        "symfony/error-handler": "7.4.*",
+        "symfony/event-dispatcher": "7.4.*",
+        "symfony/filesystem": "7.4.*",
+        "symfony/finder": "7.4.*",
+        "symfony/flex": "^2.11",
+        "symfony/framework-bundle": "7.4.*",
+        "symfony/http-client": "7.4.*",
+        "symfony/http-foundation": "7.4.*",
+        "symfony/http-kernel": "7.4.*",
+        "symfony/mailer": "7.4.*",
+        "symfony/messenger": "7.4.*",
+        "symfony/mime": "7.4.*",
+        "symfony/options-resolver": "7.4.*",
+        "symfony/password-hasher": "7.4.*",
+        "symfony/process": "7.4.*",
+        "symfony/property-access": "7.4.*",
+        "symfony/property-info": "7.4.*",
+        "symfony/rate-limiter": "7.4.*",
+        "symfony/routing": "7.4.*",
+        "symfony/runtime": "7.4.*",
+        "symfony/security-bundle": "7.4.*",
+        "symfony/security-core": "7.4.*",
+        "symfony/security-csrf": "7.4.*",
+        "symfony/security-http": "7.4.*",
+        "symfony/stopwatch": "7.4.*",
+        "symfony/string": "7.4.*",
+        "symfony/twig-bridge": "7.4.*",
+        "symfony/twig-bundle": "7.4.*",
+        "symfony/type-info": "7.4.*",
+        "symfony/validator": "7.4.*",
+        "symfony/var-dumper": "7.4.*",
+        "symfony/var-exporter": "7.4.*",
+        "symfony/yaml": "7.4.*",
+        "twig/extra-bundle": "^2.12|^3.24",
+        "twig/twig": "^2.12|^3.28"
+    },
+    "require-dev": {
+        "codeception/codeception": "^5.3.5",
+        "codeception/module-asserts": "^3.3",
+        "codeception/module-doctrine": "^3.3",
+        "codeception/module-phpbrowser": "^3.0.2",
+        "codeception/module-symfony": "^3.10.1",
+        "phpunit/phpunit": "^11.5 || ^12.5.32 || ^13.0",
+        "symfony/browser-kit": "7.4.*",
+        "symfony/css-selector": "7.4.*",
+        "symfony/dom-crawler": "7.4.*",
+        "symfony/maker-bundle": "^1.67",
+        "symfony/web-profiler-bundle": "7.4.*"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "symfony/flex": true,
+            "symfony/runtime": true
+        },
+        "bump-after-update": true,
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/",
+            "ShippingBundle\\": "modules/ShippingBundle/src/",
+            "ShippingPickupBundle\\": "modules/ShippingPickupBundle/src/",
+            "ShippingFreeBundle\\": "modules/ShippingFreeBundle/src/",
+            "ShippingBulkBundle\\": "modules/ShippingBulkBundle/src/",
+            "ShippingCanadaPostBundle\\": "modules/ShippingCanadaPostBundle/src/",
+            "ShippingAmazonFBABundle\\": "modules/ShippingAmazonFBABundle/src/",
+            "ShippingNeedQuoteBundle\\": "modules/ShippingNeedQuoteBundle/src/",
+            "ShippingArrangementBundle\\": "modules/ShippingArrangementBundle/src/",
+            "FeeBundle\\": "modules/FeeBundle/src/",
+            "FeeCouponBundle\\": "modules/FeeCouponBundle/src/",
+            "FeeUserDefinedBundle\\": "modules/FeeUserDefinedBundle/src/",
+            "FeeBCFoodBundle\\": "modules/FeeBCFoodBundle/src/",
+            "FeeBCTireBundle\\": "modules/FeeBCTireBundle/src/",
+            "FeeABFoodBundle\\": "modules/FeeABFoodBundle/src/",
+            "FeeONFoodBundle\\": "modules/FeeONFoodBundle/src/",
+            "FeeFuelSurchargesBundle\\": "modules/FeeFuelSurchargesBundle/src/",
+            "TaxBundle\\": "modules/TaxBundle/src/",
+            "TaxBCBundle\\": "modules/TaxBCBundle/src/",
+            "TaxCanadaSimpleBundle\\": "modules/TaxCanadaSimpleBundle/src/",
+            "CustomFieldExampleBundle\\": "modules/CustomFieldExampleBundle/src/",
+            "InjectionPointExampleBundle\\": "modules/InjectionPointExampleBundle/src/",
+            "PaymentBundle\\": "modules/PaymentBundle/src/",
+            "PaymentPayUponDeliveryBundle\\": "modules/PaymentPayUponDeliveryBundle/src/",
+            "PaymentManualBundle\\": "modules/PaymentManualBundle/src/",
+            "PaymentStripeBundle\\": "modules/PaymentStripeBundle/src/",
+            "NewsBundle\\": "modules/NewsBundle/src/",
+            "Number1CustomerImportBundle\\": "modules/Number1CustomerImportBundle/src/",
+            "Number1ProductImportBundle\\": "modules/Number1ProductImportBundle/src/",
+            "Number1RimImportBundle\\": "modules/Number1RimImportBundle/src/",
+            "Number1GuestCoverPageBundle\\": "modules/Number1GuestCoverPageBundle/src/",
+            "Number1CategoryProductPageBundle\\": "modules/Number1CategoryProductPageBundle/src/",
+            "TechnicalDocsBundle\\": "modules/TechnicalDocsBundle/src/",
+            "Number1HideRealPriceBundle\\": "modules/Number1HideRealPriceBundle/src/",
+            "CartHoldBundle\\": "modules/CartHoldBundle/src/",
+            "CustomHeaderFooterBundle\\": "modules/CustomHeaderFooterBundle/src/",
+            "AdminMenuBundle\\": "modules/AdminMenuBundle/src/",
+            "InventoryDepthBundle\\": "modules/InventoryDepthBundle/src/",
+            "ProcurementBundle\\": "modules/ProcurementBundle/src/",
+            "WarehouseOpsBundle\\": "modules/WarehouseOpsBundle/src/",
+            "BarcodeBundle\\": "modules/BarcodeBundle/src/",
+            "WooCommerceBundle\\": "modules/WooCommerceBundle/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/",
+            "AdminMenuBundle\\Tests\\": "modules/AdminMenuBundle/tests/",
+            "CartHoldBundle\\Tests\\": "modules/CartHoldBundle/tests/",
+            "CustomHeaderFooterBundle\\Tests\\": "modules/CustomHeaderFooterBundle/tests/",
+            "Number1CategoryProductPageBundle\\Tests\\": "modules/Number1CategoryProductPageBundle/tests/",
+            "Number1RimImportBundle\\Tests\\": "modules/Number1RimImportBundle/tests/",
+            "InventoryDepthBundle\\Tests\\": "modules/InventoryDepthBundle/tests/",
+            "ProcurementBundle\\Tests\\": "modules/ProcurementBundle/tests/",
+            "WarehouseOpsBundle\\Tests\\": "modules/WarehouseOpsBundle/tests/",
+            "BarcodeBundle\\Tests\\": "modules/BarcodeBundle/tests/",
+            "WooCommerceBundle\\Tests\\": "modules/WooCommerceBundle/tests/"
+        }
+    },
+    "replace": {
+        "symfony/polyfill-ctype": "*",
+        "symfony/polyfill-iconv": "*",
+        "symfony/polyfill-php72": "*",
+        "symfony/polyfill-php73": "*",
+        "symfony/polyfill-php74": "*",
+        "symfony/polyfill-php80": "*",
+        "symfony/polyfill-php81": "*",
+        "symfony/polyfill-php82": "*"
+    },
+    "scripts": {
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "post-install-cmd": [
+            "@auto-scripts",
+            "git config core.hooksPath >/dev/null 2>&1 || git config core.hooksPath .githooks || true"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts",
+            "git config core.hooksPath >/dev/null 2>&1 || git config core.hooksPath .githooks || true"
+        ]
+    },
+    "conflict": {
+        "symfony/symfony": "*"
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false,
+            "require": "7.4.*"
+        }
+    }
+}

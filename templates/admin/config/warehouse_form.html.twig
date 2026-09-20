@@ -1,0 +1,138 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Warehouse | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>{{ mode }} Warehouse</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_warehouse') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Name <span class="req">*</span>
+                <input type="text" name="name" value="{{ warehouse.name }}" placeholder="e.g. Surrey DC" required>
+                {% if fieldErrors.name is defined %}
+                    <span class="field-error">{{ fieldErrors.name }}</span>
+                {% endif %}
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    {% for status in ['Active', 'Inactive'] %}
+                        <option {{ warehouse.status == status ? 'selected' : '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {# Where the building is (queue item 32). One address, not an address book: a warehouse
+               is one place, so there is no label, no default flag and none of the purpose flags a
+               vendor address carries — those exist because a supplier's orders desk, dock and
+               lockbox are genuinely different places. Field names and widths are the application's
+               settled address vocabulary (#635), not a fifth spelling of "postal code".
+
+               Every field is optional. What a blank province costs is stated here rather than left
+               to be discovered on a vendor bill that quietly computed no tax. #}
+            <h2 class="span-2">Address</h2>
+            {% if provinceMissingOnFile|default(false) %}
+                {# Queue item 61. This row was written before a province was required, so it loads
+                   and reads — but it cannot be saved again until the gap is answered, and the
+                   person is told that on arrival rather than by pressing the button. #}
+                <p class="form-warning-banner span-2">
+                    This warehouse has no province on file. Purchase orders and vendor bills raised against it compute
+                    no tax, and taxable ones cannot be issued or approved. Fill in the province and country below to
+                    save this warehouse.
+                </p>
+            {% endif %}
+            <p class="form-note span-2">
+                Where this building is. The province is what a purchase order's and a vendor bill's tax is calculated
+                from — it is taken from here rather than typed onto each document, so a bill received here computes the
+                right tax without anybody restating it. It is required for exactly that reason: a warehouse with no
+                province produces documents quoting $0.00 tax that nothing on the page can tell apart from a genuine
+                zero. The street, the second line, the city and the postal code are optional; nothing computes from them.
+            </p>
+            <label>
+                Street
+                <input type="text" name="address_line1" maxlength="255" value="{{ warehouse.addressLine1|default('') }}" placeholder="e.g. 12345 Bridgeview Dr">
+            </label>
+            <label>
+                Street 2
+                <input type="text" name="address_line2" maxlength="255" value="{{ warehouse.addressLine2|default('') }}">
+            </label>
+            <label>
+                City
+                <input type="text" name="city" maxlength="120" value="{{ warehouse.city|default('') }}" placeholder="e.g. Surrey">
+            </label>
+            {# Picked, not typed. "CA" typed into this box is CALIFORNIA — it resolves, so it
+               passed every "is the province known" guard and the tax then came out $0.00. The list
+               is scoped to the country box below and is built from the same geo_province rows the
+               document forms' selects use.
+
+               The country falls back to CA exactly as the document forms do. Without a fallback a
+               BRAND NEW warehouse — whose country is still blank — would render an EMPTY province
+               list, and a no-JS admin could not pick a province at all. #}
+            <label for="warehouse-province">
+                Province / state <span class="req">*</span>
+                {{ include('admin/_partials/region_select.html.twig', {
+                    kind: 'province',
+                    name: 'province',
+                    id: 'warehouse-province',
+                    selected: warehouse.province|default(''),
+                    country: warehouse.country|default('') ?: 'CA',
+                    required: true,
+                    label: 'Province or state',
+                }, with_context = false) }}
+                {% if fieldErrors.province is defined %}
+                    <span class="field-error">{{ fieldErrors.province }}</span>
+                {% endif %}
+            </label>
+            <label>
+                Postal code
+                <input type="text" name="postal_code" maxlength="20" value="{{ warehouse.postalCode|default('') }}">
+            </label>
+            <label for="warehouse-country">
+                Country <span class="req">*</span>
+                {{ include('admin/_partials/region_select.html.twig', {
+                    kind: 'country',
+                    name: 'country',
+                    id: 'warehouse-country',
+                    selected: warehouse.country|default('') ?: 'CA',
+                    target: 'province',
+                    required: true,
+                    label: 'Country',
+                }, with_context = false) }}
+                {% if fieldErrors.country is defined %}
+                    <span class="field-error">{{ fieldErrors.country }}</span>
+                {% endif %}
+            </label>
+            <p class="form-note span-2">
+                Both are chosen from a list rather than typed, and the province list is the one for the country above it.
+                That is deliberate: &ldquo;CA&rdquo; in the province box is California, which resolves, so it used to pass
+                every check and then quietly compute no Canadian tax. The columns still hold codes &mdash;
+                <code>warehouse.province</code> holds &ldquo;BC&rdquo; and <code>warehouse.country</code> holds &ldquo;CA&rdquo; &mdash;
+                the same way every other address in this application stores them, and the server refuses anything outside
+                the list whatever the page was rendered with.
+            </p>
+            {% if warehouse.province|default('') is not empty and warehouse.country|default('') is not empty %}
+                <p class="form-note span-2">
+                    Changing the country re-scopes the province list. With scripting off that happens when the page comes
+                    back: pick the country, save, and the province list on the next page is that country's.
+                </p>
+            {% endif %}
+            {% if warehouse.fulfillmentRegion is not empty %}
+                <p class="form-note span-2">Serves the <strong>{{ warehouse.fulfillmentRegion }}</strong> fulfillment region. Guest visibility, pricing and which customers may buy are set under Fulfillment Regions.</p>
+            {% endif %}
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

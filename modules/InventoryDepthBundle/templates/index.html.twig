@@ -1,0 +1,18 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Inventory Depth | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'index',
+        heading: 'Inventory Depth',
+        lead: 'Where the stock behind each product number physically is — which bin, which lot, which serial, what condition. Per product, opt-in: a client with one warehouse and no bins never sees any of it.'
+    } only %}
+
+    <section class="panel">
+        <h2>Right now</h2>
+        <div class="stat-row">
+            <p><strong>{{ dimensionalProducts }}</strong> product(s) tracked by bin, lot and serial</p>
+            <p><strong>{{ binCount }}</strong> bin(s) defined</p>
+            <p><strong>{{ lotCount }}</strong> lot(s) recorded</p>
+        </div>
+    </section>
+{% endblock %}

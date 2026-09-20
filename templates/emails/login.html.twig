@@ -1,0 +1,26 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Login Notification{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">New Login Detected</h2>
+    <p>Hello <strong>{{ user_email|default('User') }}</strong>,</p>
+    <p>This is a courtesy notification that a new login was recorded for your {{ site_name() }} account.</p>
+    
+    <div class="order-summary">
+        <div class="summary-row">
+            <span>Date & Time:</span>
+            <strong>{{ "now"|date('F j, Y g:i A') }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Account:</span>
+            <strong>{{ user_email|default('-') }}</strong>
+        </div>
+    </div>
+
+    <p>If this was you, you can safely ignore this email. If you did not log in, we recommend resetting your password immediately.</p>
+    
+    <div style="text-align: center;">
+        <a href="{{ account_url|default(login_url|default('#')) }}" class="button">Security Settings</a>
+    </div>
+{% endblock %}

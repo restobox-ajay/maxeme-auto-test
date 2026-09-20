@@ -1,0 +1,33 @@
+{# The invoices raised against this order — the printed half of the cross-link the detail page
+   carries. Number, date, fulfilment status and amount, and deliberately NOT payment status: this
+   document says what has been BILLED, a fact about the order; whether each invoice has been paid
+   is a fact about the invoice, printed on the invoice. Rendered with {order}. #}
+<div class="invoice-section-title">Invoices Raised</div>
+<table class="invoice-table" style="width:100%;table-layout:fixed;">
+    <colgroup>
+        <col style="width:30%;">
+        <col style="width:24%;">
+        <col style="width:24%;">
+        <col style="width:22%;">
+    </colgroup>
+    <thead>
+        <tr>
+            <th>Invoice</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th style="text-align:right;">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for invoice in order.invoices %}
+            <tr>
+                <td><strong>{{ invoice.documentNumber }}</strong></td>
+                <td>{{ invoice.invoiceDate ?: invoice.documentDate ?: '-' }}</td>
+                <td>{{ invoice.status }}</td>
+                <td style="text-align:right;">${{ invoice.total|amount }}</td>
+            </tr>
+        {% else %}
+            <tr><td colspan="4">No invoices have been raised against this order yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>

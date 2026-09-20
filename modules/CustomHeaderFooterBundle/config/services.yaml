@@ -1,0 +1,19 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    CustomHeaderFooterBundle\:
+        resource: '../src/'
+
+    CustomHeaderFooterBundle\Hook\CustomHeaderProvider:
+        tags: ['app.injection_point']
+
+    CustomHeaderFooterBundle\Hook\CustomFooterProvider:
+        tags: ['app.injection_point']
+
+    CustomHeaderFooterBundle\Bundle\CustomHeaderFooterBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    CustomHeaderFooterBundle\Menu\CustomHeaderFooterMenuItem:
+        tags: ['app.injection_point_menu_item']

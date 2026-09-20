@@ -1,0 +1,132 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Orders Manager | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-orders-header">
+        <h1>Orders Manager</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span>Orders Manager</span>
+        </nav>
+    </section>
+
+    <section class="table-card customer-order-card no-paginate"
+             data-link-controls="true">
+        <div class="order-detail-nav customer-order-nav">
+            <nav class="detail-tabs" aria-label="Order status">
+                <a class="{{ activeTab == 'ALL' ? 'is-active' : '' }}" href="{{ path('customer_orders', regionFilter ? {tab: 'ALL', region: regionFilter} : {tab: 'ALL'}) }}">All Orders</a>
+                <a class="{{ activeTab == 'PENDING' ? 'is-active' : '' }}" href="{{ path('customer_orders', regionFilter ? {tab: 'PENDING', region: regionFilter} : {tab: 'PENDING'}) }}">Pending</a>
+                <a class="{{ activeTab == 'APPROVED' ? 'is-active' : '' }}" href="{{ path('customer_orders', regionFilter ? {tab: 'APPROVED', region: regionFilter} : {tab: 'APPROVED'}) }}">Approved</a>
+                <a class="{{ activeTab == 'CANCELLED' ? 'is-active' : '' }}" href="{{ path('customer_orders', regionFilter ? {tab: 'CANCELLED', region: regionFilter} : {tab: 'CANCELLED'}) }}">Cancelled</a>
+            </nav>
+
+            <form class="customer-order-warehouse" method="get" action="{{ path('customer_orders') }}">
+                <input type="hidden" name="tab" value="{{ activeTab }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ limit|default(10) }}">
+                <input type="hidden" name="sort" value="{{ currentSort|default('created_at') }}">
+                <input type="hidden" name="dir" value="{{ currentDir|default('desc') }}">
+                <label class="warehouse-label" for="customer-order-warehouse">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 9.5 12 4l9 5.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z"></path>
+                        <path d="M12 4v17"></path>
+                        <path d="M7 20v-6a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v6"></path>
+                    </svg>
+                    Fulfillment Region:
+                </label>
+                <select id="customer-order-warehouse" class="form-control customer-order-warehouse-select" name="region" onchange="this.form.submit()" aria-label="Fulfillment Region">
+                    <option value="">All</option>
+                    {% for region in regionOptions|default([]) %}
+                        <option value="{{ region }}" {{ regionFilter == region ? 'selected' : '' }}>{{ region }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+
+        {% set sort = currentSort|default('created_at') %}
+        {% set dir = currentDir|default('desc') %}
+        {% set currentPage = page|default(1) %}
+        {% set perPage = limit|default(10) %}
+        {% set totalOrders = total|default(orders|length) %}
+        {% set pageCount = max(1, (totalOrders / (perPage ?: 1))|round(0, 'ceil')) %}
+        {% set startPage = max(1, currentPage - 2) %}
+        {% set endPage = min(pageCount, startPage + 4) %}
+        {% if endPage - startPage < 4 %}
+            {% set startPage = max(1, endPage - 4) %}
+        {% endif %}
+        {% set orderQuery = {tab: activeTab, limit: perPage, sort: sort, dir: dir}|merge(regionFilter ? {region: regionFilter} : {}) %}
+        <div class="wide-table-wrap customer-order-table-wrap">
+            <table class="order-list-table customer-order-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if sort == 'web_id' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="web_id"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'web_id', dir: sort == 'web_id' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'web_id', dir: sort == 'web_id' and dir == 'asc' ? 'desc' : 'asc'}) }}">WEB ID</a></th>
+                        <th class="is-sortable{% if sort == 'created_at' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="created_at"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'created_at', dir: sort == 'created_at' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'created_at', dir: sort == 'created_at' and dir == 'asc' ? 'desc' : 'asc'}) }}">Created At</a></th>
+                        <th class="is-sortable{% if sort == 'product' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="product"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'product', dir: sort == 'product' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'product', dir: sort == 'product' and dir == 'asc' ? 'desc' : 'asc'}) }}">Product</a></th>
+                        <th class="is-sortable{% if sort == 'total' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="total"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'total', dir: sort == 'total' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'total', dir: sort == 'total' and dir == 'asc' ? 'desc' : 'asc'}) }}">Total</a></th>
+                        <th class="is-sortable{% if sort == 'expected_delivery' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="expected_delivery"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'expected_delivery', dir: sort == 'expected_delivery' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'expected_delivery', dir: sort == 'expected_delivery' and dir == 'asc' ? 'desc' : 'asc'}) }}">Expected delivery time</a></th>
+                        <th class="is-sortable{% if sort == 'po' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="po"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'po', dir: sort == 'po' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'po', dir: sort == 'po' and dir == 'asc' ? 'desc' : 'asc'}) }}">PO</a></th>
+                        <th class="is-sortable{% if sort == 'special_instruction' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="special_instruction"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'special_instruction', dir: sort == 'special_instruction' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'special_instruction', dir: sort == 'special_instruction' and dir == 'asc' ? 'desc' : 'asc'}) }}">Special instruction</a></th>
+                        <th class="is-sortable{% if sort == 'delivery_address' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="delivery_address"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'delivery_address', dir: sort == 'delivery_address' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'delivery_address', dir: sort == 'delivery_address' and dir == 'asc' ? 'desc' : 'asc'}) }}">Delivery Address</a></th>
+                        <th class="is-sortable{% if sort == 'status' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="status"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'status', dir: sort == 'status' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'status', dir: sort == 'status' and dir == 'asc' ? 'desc' : 'asc'}) }}">Status</a></th>
+                        <th class="is-sortable{% if sort == 'payment_status' %} is-sorted-{{ dir }}{% endif %}" data-sort-field="payment_status"><a href="{{ path('customer_orders', regionFilter ? {tab: activeTab, region: regionFilter, page: 1, limit: limit|default(10), sort: 'payment_status', dir: sort == 'payment_status' and dir == 'asc' ? 'desc' : 'asc'} : {tab: activeTab, page: 1, limit: limit|default(10), sort: 'payment_status', dir: sort == 'payment_status' and dir == 'asc' ? 'desc' : 'asc'}) }}">Payment Status</a></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'customer/order/_list_rows.html.twig' with {orders: orders, expectedDeliveryByOrderId: expectedDeliveryByOrderId, paymentLabelByOrderId: paymentLabelByOrderId} %}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: orders|length,
+                total: totalOrders,
+                currentPage: currentPage,
+                perPage: limit|default(10)
+            } only %}
+            {% if pageCount > 1 %}
+                <div class="table-pagination" data-server-pagination="true">
+                    {% if currentPage <= 1 %}
+                        <span class="page-btn is-disabled" aria-disabled="true">First</span>
+                        <span class="page-btn is-disabled" aria-disabled="true">&lt;</span>
+                    {% else %}
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: 1})) }}">First</a>
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: currentPage - 1})) }}">&lt;</a>
+                    {% endif %}
+
+                    {% if startPage > 1 %}
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: 1})) }}">1</a>
+                        {% if startPage > 2 %}
+                            <span class="page-btn is-disabled" aria-disabled="true">...</span>
+                        {% endif %}
+                    {% endif %}
+
+                    {% for p in startPage..endPage %}
+                        <a class="page-btn{{ p == currentPage ? ' is-active' : '' }}"
+                           href="{{ path('customer_orders', orderQuery|merge({page: p})) }}"
+                           {% if p == currentPage %}aria-current="page"{% endif %}>
+                            {{ p }}
+                        </a>
+                    {% endfor %}
+
+                    {% if endPage < pageCount %}
+                        {% if endPage < pageCount - 1 %}
+                            <span class="page-btn is-disabled" aria-disabled="true">...</span>
+                        {% endif %}
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: pageCount})) }}">{{ pageCount }}</a>
+                    {% endif %}
+
+                    {% if currentPage >= pageCount %}
+                        <span class="page-btn is-disabled" aria-disabled="true">&gt;</span>
+                        <span class="page-btn is-disabled" aria-disabled="true">Last</span>
+                    {% else %}
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: currentPage + 1})) }}">&gt;</a>
+                        <a class="page-btn" href="{{ path('customer_orders', orderQuery|merge({page: pageCount})) }}">Last</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeONFoodBundle\:
+        resource: '../src/'
+
+    FeeONFoodBundle\Fee\ONFoodFeeCalculator:
+        tags: ['app.fee_calculator', 'app.fee_field_provider']
+
+    FeeONFoodBundle\Menu\ONFoodFeeMenuItem:
+        tags: ['app.fee_menu_item']
+
+    FeeONFoodBundle\Bundle\FeeONFoodBundleDescriptor:
+        tags: ['app.bundle_descriptor']

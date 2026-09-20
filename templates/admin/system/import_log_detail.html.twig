@@ -1,0 +1,92 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Import #{{ run.id }} | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System &gt; Imports</p>
+                <h1>Import #{{ run.id }}: {{ run.importType }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button info" href="{{ path('admin_import_log') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {# The real "docs top part" convention: templates/admin/_partials/sales_detail_address_panel
+       .html.twig's own .detail-panel/.order-detail-panel .detail-row (0.75rem text, 4px row
+       spacing — see that CSS's own comment: "tighter row spacing than the shared default"),
+       three cards across in .order-detail-grid, the same shape Order Info/Billing Detail/
+       Shipping Detail sit in on Order/Invoice/Estimate's own detail screens. #}
+    <div class="order-detail-grid">
+        <section class="detail-panel order-detail-panel">
+            <h2>Run Info</h2>
+            <div class="detail-row"><label>Status:</label><strong>{{ run.status.value }}</strong></div>
+            <div class="detail-row"><label>Mode:</label><strong>{{ run.validationOnly ? '⚪ Validation' : '✓ Executed' }}</strong></div>
+            {# run.action is a stored, comma-joined raw-value string (ImportRunner::setAction()) —
+               never the enum itself, so it's relabeled by substring replace rather than .label(). #}
+            <div class="detail-row"><label>Action:</label><strong>{{ run.action|default('')|replace({'append': 'Add', 'update': 'Update', 'delete': 'Delete'}) ?: 'N/A' }}</strong></div>
+            <div class="detail-row"><label>Entity Type:</label><strong>{{ run.entityType }}</strong></div>
+            <div class="detail-row"><label>Source:</label><strong>{{ run.source }}</strong></div>
+        </section>
+
+        <section class="detail-panel order-detail-panel">
+            <h2>Row Counts</h2>
+            <div class="detail-row"><label>Total Rows:</label><strong>{{ run.rowCount }}</strong></div>
+            <div class="detail-row"><label>Validated:</label><strong>{{ run.validatedCount }}</strong></div>
+            <div class="detail-row"><label>Executed:</label><strong>{{ run.executedCount }}</strong></div>
+            <div class="detail-row"><label>Errors:</label><strong>{{ run.errorCount }}</strong></div>
+        </section>
+
+        <section class="detail-panel order-detail-panel">
+            <h2>Timing</h2>
+            <div class="detail-row"><label>Queued At:</label><strong>{{ run.queuedAt ? run.queuedAt|date('Y-m-d H:i:s') : 'N/A' }}</strong></div>
+            <div class="detail-row"><label>Started At:</label><strong>{{ run.startedAt ? run.startedAt|date('Y-m-d H:i:s') : 'N/A' }}</strong></div>
+            <div class="detail-row"><label>Finished At:</label><strong>{{ run.finishedAt ? run.finishedAt|date('Y-m-d H:i:s') : 'N/A' }}</strong></div>
+        </section>
+    </div>
+
+    {% if run.error %}
+        <section class="panel compact-panel panel-error">
+            <p class="eyebrow">Error</p>
+            <pre class="error-meta-preview">{{ run.error }}</pre>
+        </section>
+    {% endif %}
+
+    <section class="table-card no-paginate">
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Row #</th>
+                        <th>Mapped Data</th>
+                        <th>Action</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in run.rows %}
+                        <tr>
+                            <td>{{ row.rowNumber }}</td>
+                            <td>
+                                {% for key, value in row.mappedData %}
+                                    <span class="badge">{{ key }}: {{ value }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ row.action ? row.action.label : '' }}</td>
+                            <td>{{ row.status.value }}</td>
+                            <td>{{ row.error|default('') }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-table-cell"><strong>No rows.</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,33 @@
+# Codeception Test Suite Configuration
+#
+# Emulates HTTP requests against the real kernel/container (routing, controllers, security,
+# Twig rendering) without a real browser — the level PHPUnit's DoctrineIntegrationTestCase
+# tests deliberately don't reach. _bootstrap.php (this directory) prepares a fresh schema
+# before the suite runs; the Symfony module wraps each test in a transaction that's rolled
+# back after, so tests don't need to reset the database themselves.
+
+actor: FunctionalTester
+modules:
+    enabled:
+        - Asserts
+        - Symfony:
+            environment: 'test'
+            em_service: 'doctrine.orm.entity_manager'
+        - Doctrine:
+            depends: Symfony
+            cleanup: true
+        - \Tests\Support\Helper\Functional
+step_decorators: ~
+
+# The bundles-off environment (#562). Runs the SAME tests against an application with the three
+# optional inventory bundles Inactive, which is the only way to prove the pre-#550 behaviour is
+# unchanged — that claim is a property of the whole suite, not something a single test can assert.
+#
+#   vendor/bin/codecept run Functional --env bundles-off -g bundle-agnostic
+#
+# or, preferably, bin/ci-bundles-off, which runs it as its own gate.
+env:
+    bundles-off:
+        modules:
+            enabled:
+                - \Tests\Support\Helper\BundlesOff

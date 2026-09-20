@@ -1,0 +1,299 @@
+{# ONE editable line row of a purchase document's line table — PurchaseOrder's edit form and
+   VendorBill's edit form. Deleted and rebuilt from the real sell-side source,
+   admin/_partials/sales_line_row.html.twig, copied then adapted (#full-parity, 2026-09-15) rather
+   than patched again — a prior version had drifted from that source's own cell structure (most
+   visibly, its Actions cell rendering had gone stale).
+
+   ## It takes parameters. It never asks which document it is
+
+   There is no `{% if document == 'bill' %}` here, for the same reason there is none in
+   sales_line_row.html.twig. Everything a document differs by is an argument, and the one thing
+   that could not be made into a sensible argument — the Actions cell — is delegated whole to
+   `actionsTemplate`, same as the sell side.
+
+   ## The column list
+
+   `columns` is the table's columns IN ORDER, one `<td>` per entry, keyed by `key` — the same list
+   the header (`_purchase_line_head.html.twig`) and the shared fee row
+   (`_purchase_fee_line_row.html.twig`) are built from. A column this row does not know the key of
+   renders an EMPTY cell rather than nothing, so a mistyped key is a hole in the table instead of a
+   row silently one cell short of its header.
+
+   Column keys — most are the sell side's own, same cell, same behavior:
+
+     product      the product picker, or — when `productLocked` — the line's name as plain text
+     description  the free-text description, its own column (same split the sell side's standalone
+                  invoice already has)
+     location     the warehouse select — buy-side's own version of the sell side's fulfillment-
+                  region location cell: same shape (a header default, an existing line's own value
+                  never displaced by it), different source list (`warehouses`, not `locations`).
+     sku          our SKU
+     vendor_sku   THEIR part number. A real buy-side-only column: a vendor's packing slip and
+                  confirmation are in their own numbering, and matching those to our SKUs by hand is
+                  where receiving errors come from. The sell side has no counterpart.
+     po_line      VendorBill-only: which purchase order line this charge is against, or "not on the
+                  purchase order". PurchaseOrder never includes this key — it has no parent document
+                  to draw down, the same way an Order's row never carries `ordered`/`remaining`.
+     qty          the quantity box, same shape as the sell side's (base-quantity hint,
+                  qty_rendered round-trip). Can carry a floor (PurchaseOrder's received quantity —
+                  `qtyMin` + `qtyFloorHint`) or a ceiling (VendorBill's left-to-bill — `qtyMax` +
+                  `qtyCeilingHint`) — the buy side's own equivalent of the sell side's stock ceiling.
+     weight
+     unit         U/M, same plain no-JS-required selector the sell side renders.
+     tax_code     the tax class select — 'E'/'G'/'S', the SAME vocabulary and the SAME shared
+                  calculators the sell side uses.
+     tax_amount   computed, display only.
+     cost         the unit cost box, same shape as the sell side's price box (cost_rendered
+                  round-trip). Can carry `costReadonly` + `costLockedHint` — PurchaseOrder's
+                  price-settled lock (a line a live bill already charges for keeps its price, which
+                  the sell side has no equivalent of: an invoice never re-prices an order line).
+     original_price  computed, display only — the vendor's own rate card, the buy-side twin of the
+                  sell side's reference-price column.
+     subtotal     computed, display only.
+     batch        real JS, verbatim from the sell side, keyed by `prefix` instead of hook.
+     actions      delegated to `actionsTemplate`, same as the sell side — never branched on here.
+
+   Parameters
+   ----------
+   columns            required  the table's columns in order — a list of {key, label}.
+   index              required  this row's key in the posted `lines[{index}][field]` group.
+                                LOAD-BEARING: two rows sharing an index overwrite each other,
+                                silently.
+   line               required  the row's values, as a FLAT hash — never an entity. Keys, all
+                                optional: id, productId, name, sku, vendorSku, location, qty,
+                                qtyRendered, qtyMin, qtyFloorHint, qtyMax, qtyCeilingHint,
+                                baseQuantity, baseUnitLabel, units, unitId, unit, weight, taxCode,
+                                cost, costRendered, costReadonly, costLockedHint, baseUnitCost,
+                                resolvedLineTotal, unitLabel, originalPrice, subtotal, taxAmount,
+                                tracksBatch, batch, poLineId, poLineOptions (a list of {id, label}
+                                for the `po_line` select). PRESENCE IS THE SWITCH: a row renders its
+                                hidden `id` only if `line.id` is defined, the floor hint only if
+                                `line.qtyFloorHint` is defined, and so on — a caller that does not
+                                want a block omits the key rather than passing a flag to suppress it.
+   products           required  the catalog for the picker, as rows.
+   kind               required  'product' or 'blank' — what this ROW is, mirroring the sell side.
+   lineClass          required  the document's own row class — 'po-line-row' or 'bill-line-row'.
+   actionsTemplate    required  the template rendering the `actions` cell, rendered with {index,
+                                kind, showRemove, line, column, prefix}.
+   taxClasses         required  a {code: label} map for the tax-code select — ONE shared map for
+                                both documents (E/Exempt, G/GST only, S/GST + PST).
+   taxCodeBlankLabel   optional  text on the tax select's empty option.
+   productLocked      optional  true where this row bills a purchase order line that already
+                                exists — VendorBill's rows against an order — mirroring the sell
+                                side's own `productLocked` cell exactly.
+   productSearchPath, productsRemote
+                                passed to product_field.html.twig, same meaning as the sell side.
+   documentWarehouseName, warehouses, locationAllowsNone
+                                the location cell's header default and option list.
+   showRemove         optional  handed to `actionsTemplate`.
+   rowClass           optional  an extra class on the <tr> — 'no-js-row' marks the spare rows that
+                                only exist without JavaScript, same convention as the sell side's.
+   prefix             required  'po' or 'bill' — which document this row belongs to. Builds every
+                                JS hook class (`js-{prefix}-qty`, `-price`, `-tax`, `-sku`,
+                                `-vendor-sku`, `-subtotal`, `-line-tax`, `-product-select`) the same
+                                way the sell side's `hook` builds `js-{hook}-*`, plus the batch
+                                cell's class (`{prefix}-batch-cell`) and template id
+                                (`#{prefix}-batch-row-template`), and is handed to `actionsTemplate`
+                                so its add-batch-row button binds `js-{prefix}-add-after`.
+#}
+{%- set taxClasses = taxClasses|default({'E': 'Exempt', 'G': 'GST only', 'S': 'GST + PST'}) -%}
+{%- set hookPrefix = 'js-' ~ prefix ~ '-' -%}
+<tr class="{{ lineClass }} {{ rowClass|default('') }}">
+{%- for column in columns %}
+
+    {%- if column.key == 'product' %}
+        <td>
+            {# The row's identity, so the next save updates THIS line rather than deleting it and
+               creating a replacement — same reason the sell side's product cell carries it. #}
+            {%- if line.id is defined %}<input type="hidden" name="lines[{{ index }}][id]" value="{{ line.id }}">{% endif %}
+            {%- if productLocked|default(false) %}
+                {# Billing a line that already exists: which product is settled by the purchase
+                   order line this row draws down, so this cell states it and offers nothing to
+                   change it — the buy-side mirror of the sell side's own `productLocked` cell. #}
+                {{ line.name|default('') }}
+            {%- else %}
+                {# `sku` and `sales-tax-code` are real, product-level facts — attribute(product,
+                   dataKey) reaches ProductCore::getSku()/getSalesTaxCode() directly. Cost and the
+                   vendor's own SKU are NOT: they are facts about the VENDOR-product pair, which a
+                   bare ProductCore knows nothing of. Those two travel separately, as the
+                   `data-po-vendor-rates` JSON app.js's product-select handler looks the picked id
+                   up in — see PurchaseOrderController::formContext()'s own `vendorRates`. #}
+                {{- include('admin/_partials/product_field.html.twig', {
+                    field: 'lines[' ~ index ~ '][product_id]',
+                    products: products,
+                    remote: productsRemote|default(false),
+                    selectedId: line.productId|default(null),
+                    searchUrl: productSearchPath|default(null),
+                    placeholder: 'Select a product...',
+                    label: false,
+                    selectClass: hookPrefix ~ 'product-select',
+                    optionData: {'sku': 'sku', 'sales-tax-code': 'salesTaxCode', 'tracks-batch': 'tracksBatchInbound'},
+                    optionText: ['name'],
+                }, with_context = false) -}}
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'description' %}
+        {# The line's own free-text description — present for BOTH a product row and a blank row,
+           since a description is a note on the line, not a replacement for naming a product. Same
+           split the sell side's standalone invoice already has. #}
+        <td>
+            <input type="text" name="lines[{{ index }}][name]" value="{{ line.name|default('') }}" maxlength="255" placeholder="Description">
+        </td>
+
+    {%- elseif column.key == 'location' %}
+        {# Which warehouse this LINE ships from — a real per-line override, not a document-header
+           concept. The header's own `warehouse_id` is only the DEFAULT a blank line falls back to,
+           exactly as `documentWarehouseName` fills a blank select here — the buy-side twin of the
+           sell side's location cell, sourced from warehouses rather than fulfillment regions. #}
+        <td>
+            <select name="lines[{{ index }}][location]" aria-label="Location">
+                <option value="">{{ documentWarehouseName|default('') ? 'Default (' ~ documentWarehouseName ~ ')' : 'Default' }}</option>
+                {%- for warehouse in warehouses|default([]) %}
+                    <option value="{{ warehouse }}"{{ (line.location|default('')) == warehouse ? ' selected' : '' }}>{{ warehouse }}</option>
+                {%- endfor %}
+            </select>
+        </td>
+
+    {%- elseif column.key == 'sku' %}
+        {# An em dash and not a blank on the locked branch — same convention the sell side's cell
+           uses, so a cell stating nothing is distinguishable from one that failed to render. #}
+        <td>{% if productLocked|default(false) %}{{ line.sku|default('') ?: '—' }}{% else %}<input type="text" class="{{ hookPrefix }}sku" name="lines[{{ index }}][sku]" value="{{ line.sku|default('') }}" maxlength="80" aria-label="Our SKU">{% endif %}</td>
+
+    {%- elseif column.key == 'vendor_sku' %}
+        <td>{% if productLocked|default(false) %}{{ line.vendorSku|default('') ?: '—' }}{% else %}<input type="text" class="{{ hookPrefix }}vendor-sku" name="lines[{{ index }}][vendor_sku]" value="{{ line.vendorSku|default('') }}" maxlength="80" aria-label="Their part number">{% endif %}</td>
+
+    {%- elseif column.key == 'po_line' %}
+        {# VendorBill-only: which purchase order line this charge is against. Rendered only when
+           the column is in the list at all — PurchaseOrder never includes it. #}
+        <td>
+            <select name="lines[{{ index }}][purchase_order_line_id]" aria-label="Purchase order line">
+                <option value="0">— not on the purchase order —</option>
+                {%- for option in line.poLineOptions|default([]) %}
+                    <option value="{{ option.id }}"{{ (line.poLineId|default(0)) == option.id ? ' selected' : '' }}>{{ option.label }}</option>
+                {%- endfor %}
+            </select>
+        </td>
+
+    {%- elseif column.key == 'qty' %}
+        {# No min, same reason the sell side's cell has none: a floor/ceiling is stated through
+           `qtyMin`/`qtyMax` where a real one applies, not through browser validation. The floor/lock
+           badge ids below are keyed by the LINE'S OWN id, not by its row index — a stable id that
+           survives the row being re-sorted or a neighbour being added/removed. #}
+        <td>
+            <input type="text" class="{{ hookPrefix }}qty" name="lines[{{ index }}][qty]" value="{{ line.qty|default('') }}" inputmode="decimal"{% if line.qtyMin is defined %} min="{{ line.qtyMin }}"{% endif %}{% if line.qtyMax is defined %} max="{{ line.qtyMax }}"{% endif %}{% if line.qtyFloorHint is defined %} aria-describedby="{{ lineClass }}-{{ line.id }}-qty-floor"{% endif %}>
+            {# Posted straight back so the save can tell an untouched box from a retyped one — see
+               LineDenomination::boxUntouched(), same as the sell side's qty_rendered. #}
+            {%- if line.qtyRendered is defined %}
+                <input type="hidden" name="lines[{{ index }}][qty_rendered]" value="{{ line.qtyRendered }}">
+            {%- endif %}
+            {# The floor, stated where the box is rather than after a refused save —
+               PurchaseOrder's received quantity, the one figure a correction cannot go under. #}
+            {%- if line.qtyFloorHint is defined %}
+                <span class="badge warn" id="{{ lineClass }}-{{ line.id }}-qty-floor">{{ line.qtyFloorHint }}</span>
+            {%- endif %}
+            {# The ceiling — VendorBill's "left to bill" against the purchase order line this row
+               draws down. #}
+            {%- if line.qtyCeilingHint is defined %}
+                <span class="field-hint">{{ line.qtyCeilingHint }}</span>
+            {%- endif %}
+            {%- if line.baseQuantity is defined %}
+                <small class="field-hint">= {{ line.baseQuantity }} {{ line.baseUnitLabel|default('') }}</small>
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'weight' %}
+        <td><input type="number" name="lines[{{ index }}][weight]" value="{{ line.weight|default('') }}" min="0" step="0.001" aria-label="Weight"></td>
+
+    {%- elseif column.key == 'unit' %}
+        {# U/M — the same plain, no-JS-required selector the sell side renders (#601, #659): it
+           decides what the Qty box counts and what denomination the Unit Cost box asks for. A
+           product row gets one <select> (base unit first, then this product's available units); a
+           blank row gets free text, since nothing declares a unit for it. #}
+        <td>
+            {%- if productLocked|default(false) %}
+                {{ line.unitLabel|default('') }}
+            {%- elseif kind == 'product' %}
+                {%- set baseUnitLabel = line.baseUnitLabel|default('') %}
+                <select name="lines[{{ index }}][unit_id]" aria-label="Unit of measure">
+                    <option value="">{{ baseUnitLabel in ['', '-'] ? "The product's base unit" : baseUnitLabel ~ ' (base)' }}</option>
+                    {%- for unit in line.units|default([]) %}
+                        <option value="{{ unit.id }}" {{ line.unitId|default('') == unit.id ? 'selected' : '' }}>{{ unit.code }}</option>
+                    {%- endfor %}
+                </select>
+                <input type="hidden" name="lines[{{ index }}][unit]" value="{{ line.unit|default('') }}">
+            {%- else %}
+                <input type="text" name="lines[{{ index }}][unit]" value="{{ line.unit|default('') }}" aria-label="Unit of measure">
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'tax_code' %}
+        <td>
+            <select class="{{ hookPrefix }}tax" name="lines[{{ index }}][tax_code]" aria-label="Tax code">
+                <option value=""{{ (line.taxCode|default('')) == '' ? ' selected' : '' }}>{{ taxCodeBlankLabel|default('') }}</option>
+                {%- for code, label in taxClasses %}
+                    <option value="{{ code }}"{{ (line.taxCode|default('')) == code ? ' selected' : '' }}>{{ label }}</option>
+                {%- endfor %}
+            </select>
+        </td>
+
+    {%- elseif column.key == 'tax_amount' %}
+        <td><span class="{{ hookPrefix }}line-tax">${{ line.taxAmount|default(0)|amount }}</span></td>
+
+    {%- elseif column.key == 'cost' %}
+        <td>
+            <input type="text" class="{{ hookPrefix }}price" name="lines[{{ index }}][unit_cost]" value="{{ line.cost|default('') }}" inputmode="decimal"{% if line.costReadonly|default(false) %} readonly aria-describedby="{{ lineClass }}-{{ line.id }}-cost-locked"{% endif %}>
+            {# Posted straight back for the same boxUntouched reason the qty box's hidden field is. #}
+            {%- if line.costRendered is defined %}
+                <input type="hidden" name="lines[{{ index }}][unit_cost_rendered]" value="{{ line.costRendered }}">
+            {%- endif %}
+            {# BILLED, not received — a line a LIVE bill charges for keeps its price; the sell side
+               has no equivalent because an invoice never re-prices an order line. #}
+            {%- if line.costLockedHint is defined %}
+                <span class="badge warn" id="{{ lineClass }}-{{ line.id }}-cost-locked">{{ line.costLockedHint }}</span>
+            {%- endif %}
+            {%- if line.baseUnitCost is defined %}
+                <small class="field-hint">per {{ line.unitLabel|default('') }} &middot; = ${{ line.baseUnitCost }} / {{ line.baseUnitLabel|default('') }} &middot; line total ${{ line.resolvedLineTotal }}</small>
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'original_price' %}
+        {# The vendor's own rate card, beside the box an admin typed a cost into — the buy-side
+           twin of the sell side's `original_price` reference column. Null (not zero) means this
+           vendor has no active rate on file for the product at all — see VendorPriceRepository's
+           own note on why an absent row is never coerced to a zero. #}
+        <td>{{ line.originalPrice is defined and line.originalPrice is not null ? '$' ~ line.originalPrice|amount : '—' }}</td>
+
+    {%- elseif column.key == 'subtotal' %}
+        <td class="{{ hookPrefix }}subtotal">{{ line.subtotal is defined and line.subtotal is not null ? line.subtotal|amount : '—' }}</td>
+
+    {%- elseif column.key == 'batch' %}
+        {# Real JS, verbatim from the sell side: the same js-batch-combined hidden field, the same
+           js-batch-rows container app.js's hydrateSellDocBatchRows()/serializeSellDocBatchCell()
+           drive, keyed by `prefix` ('po' or 'bill') instead of 'order'/'invoice'. Gated the same
+           way — a product row only shows the capture UI when its product's TrackingPolicy tracks
+           lots/serials INBOUND (the buy-side direction; the sell side's own gate is OUTBOUND), or
+           the line already carries a batch value from before that policy changed. #}
+        {%- set showBatchUi = kind == 'product' and (line.tracksBatch|default(false) or (line.batch|default('')) != '') %}
+        <td class="{{ prefix }}-batch-cell">
+            <input type="hidden" name="lines[{{ index }}][batch]" class="js-batch-combined" value="{{ line.batch|default('') }}">
+            <div class="js-batch-rows"{% if not showBatchUi %} hidden{% endif %}></div>
+        </td>
+
+    {%- elseif column.key == 'actions' %}
+        {{- include(actionsTemplate, {
+            index: index,
+            kind: kind,
+            showRemove: showRemove|default(false),
+            line: line,
+            column: column,
+            prefix: prefix,
+        }, with_context = false) }}
+
+    {%- else %}
+        {# A key this row does not know. An empty cell rather than nothing, so a mistyped key is a
+           hole in the table instead of a row one cell short of its own header. #}
+        <td></td>
+    {%- endif %}
+{%- endfor %}
+</tr>

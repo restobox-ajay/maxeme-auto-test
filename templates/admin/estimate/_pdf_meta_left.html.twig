@@ -1,0 +1,8 @@
+{# The quote's own facts, in sell_side_pdf_document.html.twig's left meta column. Shared by both
+   the admin screen and the customer's own quote PDF — they are the same document now.
+   Rendered with {estimate}. #}
+<p><strong>Quote number:</strong> <span style="color:#408dfb;">{{ estimate.documentNumber }}</span></p>
+<p><strong>Quote date:</strong> {{ estimate.createdAt|date('Y-m-d') }}</p>
+<p><strong>Customer number:</strong> {{ estimate.company.id }}</p>
+<p><strong>Purchase order:</strong> {{ estimate.poNumber|default('-') }}</p>
+<p><strong>Status:</strong> {{ estimate.status }}</p>

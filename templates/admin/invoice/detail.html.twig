@@ -1,0 +1,306 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+
+{% set statusKey = invoice.status|lower|replace({' ': '-'}) %}
+
+{# Shipping rows are charge rows too, but they are named in the totals rather than listed as
+   products, so every main_line total and loop below leaves them out — the same exclusion the
+   order's screen makes. #}
+{% set feeTotalsMainLine = 0 %}
+{% set mainLineFeeRows = [] %}
+{% set beforeTaxFeeRows = [] %}
+{% set afterTaxFeeRows = [] %}
+{% for feeLine in invoice.feeLineRows %}
+    {% if feeLine.placement == 'main_line' and feeLine.type != 'shipping' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + feeLine.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: feeLine.label, amount: feeLine.amount, quantity: feeLine.quantity}]) %}
+    {% elseif feeLine.placement == 'before_tax_line' %}
+        {% set beforeTaxFeeRows = beforeTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount, quantity: feeLine.quantity}]) %}
+    {% elseif feeLine.placement == 'after_tax_line' %}
+        {% set afterTaxFeeRows = afterTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount, quantity: feeLine.quantity}]) %}
+    {% endif %}
+{% endfor %}
+
+{# The frame's parameters. #}
+{% set document = invoice %}
+{% set slotPrefix = 'admin_invoice_detail' %}
+{% set actionBarTemplate = 'admin/invoice/_tab_nav.html.twig' %}
+{% set actionBarContext = {invoice: invoice, current: 'view', availableActions: availableActions} %}
+
+{% block title %}View Invoice: {{ invoice.documentNumber }} | Admin{% endblock %}
+
+{% block hero_eyebrow %}Invoice detail{% endblock %}
+{% block hero_title %}{{ invoice.documentNumber }}{% endblock %}
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: invoice.status} only %}{% endblock %}
+{% block hero_actions %}
+    {% if invoice.salesOrder %}
+        <a class="button back-button" href="{{ path('admin_order_detail', {id: invoice.salesOrder.id}) }}">Back to order</a>
+    {% else %}
+        <a class="button back-button" href="{{ path('admin_invoice_index') }}">Back</a>
+    {% endif %}
+{% endblock %}
+
+{#
+    The three cards below are the order's, which is the reference standard for a sales document
+    here. This page used to be a six-field strip with no address on it at all — on the one document
+    in the system that is a demand for payment, and therefore the one where a billing address
+    genuinely has to appear.
+
+    Both addresses are the INVOICE's own frozen snapshots — its rows in invoice_address, handed in
+    by the controller. They are not read from the company's address book and they are not read off
+    the order: OrderInvoicingService copies the order's snapshot onto the invoice at issue time
+    precisely so the two documents can never disagree about one shipment, and so that a customer who
+    moves does not rewrite what a historical invoice says. A document says what it said. This page
+    prints what the invoice recorded, which is what the invoice PDF has always printed.
+
+    Every row here survives an invoice with NO sales order behind it — a standalone invoice is a
+    direction this app is going, and nothing on this screen may assume an order exists.
+#}
+{% block summary_info_heading %}Invoice Info{% endblock %}
+{% block summary_info_status %}<span class="badge order-status order-status-{{ statusKey }}">{{ invoice.status }}</span>{% endblock %}
+
+{% block summary_info_rows %}
+    {# The accounting date the invoice is dated. Distinct from documentDate, which is when
+       the record was raised: an invoice can be raised today for a shipment dated last week,
+       and only one of those two is the date the money is owed from. #}
+    <div class="detail-row">
+        <label>Invoice Date:</label>
+        <strong>{{ invoice.invoiceDate ?: '-' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Document Date:</label>
+        <strong>{{ invoice.documentDate ?: '-' }}</strong>
+    </div>
+    {# Invoice-only. An order has no due date — nothing is owed until it is billed — so
+       there is no counterpart row on the order screen to match. #}
+    <div class="detail-row">
+        <label>Due Date:</label>
+        <strong>{{ invoice.dueDate ?: '-' }}</strong>
+    </div>
+
+    {# The order's screen has a "Quote" row naming the estimate it came from. This is the
+       invoice's equivalent: the document upstream of it. It is nullable on purpose — an
+       invoice may be raised on its own — so this row never assumes one is there. #}
+    <div class="detail-row">
+        <label>Sales Order:</label>
+        <strong>
+            {% if invoice.salesOrder %}
+                <a href="{{ path('admin_order_detail', {id: invoice.salesOrder.id}) }}" style="color:var(--admin-blue-hover);">{{ invoice.salesOrder.orderNumber }}</a>
+                <br><span style="font-size:0.8em; color:#64748b;">Order status: {{ invoice.salesOrder.status }}</span>
+            {% else %}
+                Not raised against an order.
+                <br><span style="font-size:0.8em;"><a href="{{ path('admin_invoice_link', {id: invoice.id}) }}">Link to a sales order</a></span>
+            {% endif %}
+        </strong>
+    </div>
+    {% if invoice.salesOrder %}
+        {# Unlinking is not cancelling: the invoice survives, keeps its number and its
+           money, and simply stops being this order's instalment (#539 stage 5). #}
+        <div class="detail-row">
+            <label></label>
+            <form method="post" action="{{ path('admin_invoice_unlink', {id: invoice.id}) }}" style="margin:0;">
+                {{ csrf_field() }}
+                <button type="submit" class="button-link" style="background:none; border:0; padding:0; font-size:0.78rem; color:#b45309; text-decoration:underline; cursor:pointer;">Unlink from this order</button>
+            </form>
+        </div>
+    {% endif %}
+
+    {# The buyer, as the invoice froze them. companyIdentity is the document's own snapshot of
+       who was billed — copied from the order's snapshot, not re-read from the company row —
+       so a company renamed or given a new billing email after the fact does not restate who
+       this invoice was issued to. The link is to the live company because that is a
+       navigation aid, not a claim about the document. #}
+    <div class="detail-row">
+        <label>Invoice Placed By:</label>
+        <strong>
+            {{ invoice.userName|default('-') }}
+            {% if invoice.companyIdentity.email %}
+                <br><span style="font-size:0.8em; color:#64748b;">{{ invoice.companyIdentity.email }}</span>
+            {% endif %}
+        </strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Name:</label>
+        <strong><a href="{{ path('admin_company_detail_by_id', {id: invoice.company.id}) }}" style="color:var(--admin-blue-hover);">{{ invoice.companyIdentity.name }}</a></strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Email:</label>
+        <strong style="color:var(--admin-blue-hover);">{{ invoice.companyIdentity.email|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Phone:</label>
+        <strong>{{ invoice.companyIdentity.phone|default('-') }}</strong>
+    </div>
+    {# The customer's own reference. It is on the invoice because it is what an accounts
+       payable department matches the invoice against before paying it — which is exactly
+       why it was the worst of the omissions after the addresses. #}
+    <div class="detail-row">
+        <label>PO #:</label>
+        <strong>{{ invoice.poNumber|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Fulfillment Region:</label>
+        <strong>{{ invoice.fulfillmentRegion|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Special Instructions:</label>
+        <strong>{{ invoice.specialInstructions|default('-') }}</strong>
+    </div>
+
+    {# Money. Unlike the order — whose payment status is rolled up from its invoices because
+       it holds none of its own — these are this invoice's answers, derived from this
+       invoice's payment rows. #}
+    {% include 'admin/_partials/sales_detail_payment_status_field.html.twig' with {
+        value: invoice.paymentStatus.value,
+    } only %}
+    <div class="detail-row">
+        <label>Payment Method:</label>
+        <strong>{{ invoice.paymentMethod|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Payment Terms:</label>
+        <strong>{{ invoice.paymentTerm|default('No payment terms') }}</strong>
+    </div>
+    {# What is still owed, which is the header figure this document exists to state. The
+       money is itemised once, in the totals at the foot of the line table; this row is the
+       summary and the way through to the payments screen. #}
+    <div class="detail-row">
+        <label>Balance Due:</label>
+        <strong>
+            ${{ invoice.balance|amount }}
+            {# No way through to payments on a draft — see the tab bar (#31). #}
+            {% if not invoice.draft %}
+                <br><span style="font-size:0.8em;"><a href="{{ path('admin_invoice_payments', {id: invoice.id}) }}">Record or review payments</a></span>
+            {% endif %}
+        </strong>
+    </div>
+    {# No "Shipping Tracking Info" row. The order screen used to carry one and nothing backed
+       it — no entity in the app stores a shipment tracking number, and the "Edit Tracking
+       Info" text there had no handler behind it — so this screen declined to copy a dead
+       control. The order's row has since been removed for the same reason; neither screen
+       has one now, and there is nothing here to bring to parity. #}
+    <div class="detail-row">
+        <label>Shipping Method:</label>
+        <strong>{{ invoice.shippingMethod|default('-') }}</strong>
+    </div>
+{% endblock %}
+
+{# No company-default fallback, for the same reason the order screen has none: the invoice
+   either recorded an address or it did not, and printing today's default would be the
+   document asserting a bill went somewhere it never went.
+
+   Two things this card does that the order's and the quote's do not, both stated as
+   parameters here so neither can spread by accident:
+
+     `emptyMessage` — a sentence instead of thirteen empty rows. An invoice raised on its
+     own has nothing to print, and a grid of dashes would read as data that failed to
+     load. Whether there was an order to inherit from is the INVOICE's question, so the
+     second clause is built here and not inside the card.
+
+     `fieldFallback: '-'` — a blank field on an address the invoice DID record reads as a
+     dash rather than as an empty cell. That is this screen's own convention and it is
+     what it printed before this partial existed. #}
+{% block summary_billing %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: billingAddress,
+        title: 'Billing Detail',
+        fieldFallback: '-',
+        emptyMessage: 'This invoice recorded no billing address.'
+            ~ (invoice.salesOrder is null ? ' It was not raised against a sales order, so there was none to inherit.' : ''),
+    } only %}
+{% endblock %}
+
+{% block summary_shipping %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: shippingAddress,
+        title: 'Shipping Detail',
+        deliverable: true,
+        fieldFallback: '-',
+        emptyMessage: 'This invoice recorded no shipping address.'
+            ~ (invoice.salesOrder is null ? ' It was not raised against a sales order, so there was none to inherit.' : ''),
+    } only %}
+{% endblock %}
+
+{# The invoice's own named actions (Issue, Start processing, Complete, Cancel, ...) moved into the
+   shared action bar's ⋯ overflow (`admin/invoice/_overflow_actions.html.twig`) per the owner: "we
+   have a bar for buttons, please keep everything there." This block is intentionally empty now —
+   the frame still calls it, so it stays defined rather than letting the base template's own
+   default (if any) surface unexpectedly. #}
+{% block document_actions %}{% endblock %}
+
+{#
+    The same ten columns the order's Products table carries. The five that were missing were not
+    cosmetic:
+
+      U/M as its own column — it was inlined into the quantity cell, which reads fine for one
+        line and stops being scannable down a table of twenty.
+      Weight — what the carrier bills against, and the packing slip's own figure.
+      Tax Code and Tax $ — the invoice printed a single Tax total with nothing showing how it
+        was reached. On the document that demands the money, a customer disputing the tax had
+        nothing on screen to dispute against.
+      Batch — the lot actually shipped, which is what a recall or a warranty claim is traced by.
+
+    perLineTax/perLineTaxLabel are positional, and both this loop and the service that builds
+    them read the lines in sortOrder — the collection is mapped OrderBy(sortOrder, id) — so
+    loop.index0 addresses the same row in both.
+
+    Money goes in the shared totals box, same as the order and the quote. It used to sit in this
+    table's own <tfoot> because the box could not print a fee's quantity and hid a $0.00 Total Tax;
+    the box does both now, so there is nothing left to diverge over.
+#}
+{% block line_items_table %}
+    {% include 'admin/_partials/sales_detail_line_table.html.twig' with {
+        lines: invoice.lines,
+        perLineTax: perLineTax|default([]),
+        perLineTaxLabel: perLineTaxLabel|default([]),
+        emptyMessage: 'This invoice has no lines.',
+        tableStyle: 'min-width:100%; border-collapse:collapse;',
+        feeRows: mainLineFeeRows,
+        showBatch: true,
+        showFeeQuantity: true,
+        nameCellClass: 'order-product-name-cell',
+    } only %}
+{% endblock %}
+
+{% block totals %}
+    {% include 'admin/_partials/sales_detail_totals_box.html.twig' with {
+        subtotal: invoice.subtotal + feeTotalsMainLine,
+        shippingLines: invoice.shippingLines,
+        beforeTaxRows: beforeTaxFeeRows,
+        afterTaxRows: afterTaxFeeRows,
+        taxLines: taxLines|default([]),
+        tax: invoice.tax,
+        total: invoice.total,
+        afterTotalRows: [
+            {label: 'Amount Paid', amount: invoice.amountPaid},
+            {label: 'Balance Due', amount: invoice.balance, strong: true},
+        ],
+        taxRowIds: true,
+    } only %}
+{% endblock %}
+
+{# Billed beyond stock (#326). An issued invoice HOLDS what it bills, so a line billed past the
+   shelf spends availability exactly as an approved order line does; this says who decided that
+   and on what grounds. #}
+{% block stock_overrides %}
+    {% include 'admin/_partials/sales_detail_stock_override_panel.html.twig' with {
+        lines: invoice.lines,
+        heading: 'Billed beyond stock',
+        quantityColumnLabel: 'Billed',
+        noticeTemplate: 'admin/invoice/_stock_override_notice.html.twig',
+    } only %}
+{% endblock %}
+
+{# No `add_message` block. There is no admin_invoice_log_add route for the form to post to — the
+   order and the quote both have one. An absence in the routing, not a decision taken here. #}
+
+{# No `deleteRoute`, so no Actions column: an invoice's timeline is written by the invoice's
+   own transitions and there is no admin_invoice_log_delete route for a button to point at. #}
+{% block activity_log %}
+    {% include 'admin/_partials/sales_detail_activity_log.html.twig' with {
+        logs: logs,
+        sectionStyle: 'margin-top:20px; margin-bottom:50px;',
+    } only %}
+{% endblock %}
+
+{# `change_history` is the frame's default. Invoice has never been in AuditLogSubscriber::EXCLUDED,
+   so these rows were already being written and had nowhere to be read. #}

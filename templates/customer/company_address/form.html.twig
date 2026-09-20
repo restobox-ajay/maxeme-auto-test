@@ -1,0 +1,104 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}{{ page_title }} | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-company-address-header">
+        <h1>{{ page_title }}</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <a href="{{ path('customer_company_profile') }}">Company Profile</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span>{{ page_title }}</span>
+        </nav>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert success" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert error" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+
+    <section class="table-card customer-company-address-form-card">
+        <div class="table-header">
+            <h2>Address</h2>
+        </div>
+        <div class="customer-company-address-body">
+            <form method="post" action="{{ form_action }}" class="form-grid customer-company-address-form">
+                {{ csrf_field() }}
+                <input type="hidden" name="return_to" value="{{ return_to|default('profile') }}">
+
+                <label class="span-2">Address Name <span class="req">*</span>
+                    <input class="form-control" name="label" value="{{ values.label|default('') }}" placeholder="e.g. Default / Main Office" required>
+                    {% if errors.label|default(null) %}<small class="field-error">{{ errors.label }}</small>{% endif %}
+                </label>
+
+                <label>First Name
+                    <input class="form-control" name="first_name" value="{{ values.first_name|default('') }}">
+                </label>
+                <label>Last Name
+                    <input class="form-control" name="last_name" value="{{ values.last_name|default('') }}">
+                </label>
+
+                <label class="span-2">Company Name
+                    <input class="form-control" name="company_name" value="{{ values.company_name|default('') }}">
+                </label>
+
+                <label class="span-2">Phone Number
+                    <input class="form-control" name="phone" value="{{ values.phone|default('') }}">
+                </label>
+
+                <label class="span-2">Address Line 1 <span class="req">*</span>
+                    <input class="form-control" name="address1" value="{{ values.address1|default('') }}" required>
+                    {% if errors.address1|default(null) %}<small class="field-error">{{ errors.address1 }}</small>{% endif %}
+                </label>
+
+                <label class="span-2">Address Line 2
+                    <input class="form-control" name="address2" value="{{ values.address2|default('') }}">
+                </label>
+
+                <label>City <span class="req">*</span>
+                    <input class="form-control" name="city" value="{{ values.city|default('') }}" required>
+                    {% if errors.city|default(null) %}<small class="field-error">{{ errors.city }}</small>{% endif %}
+                </label>
+                {# Country first: the province list depends on it, and the JS repopulates province
+                   on change. Both are driven by geo_country/geo_province via region_* so this form,
+                   the admin form and tax calculation cannot disagree about what exists. #}
+                <label>Country <span class="req">*</span>
+                    <select class="form-control js-region-country" name="country" aria-label="Country" required
+                            data-region-map="{{ region_map()|json_encode|e('html_attr') }}">
+                        {% set selectedCountry = values.country|default('CA') ?: 'CA' %}
+                        {% for code, label in region_countries() %}
+                            <option value="{{ code }}" {{ selectedCountry == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.country|default(null) %}<small class="field-error">{{ errors.country }}</small>{% endif %}
+                </label>
+                <label>Province <span class="req">*</span>
+                    <select class="form-control js-region-province" name="province"
+                            data-selected="{{ values.province|default('') }}" required>
+                        <option value=""></option>
+                        {% for code, label in region_provinces(selectedCountry) %}
+                            <option value="{{ code }}" {{ values.province|default('') == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if errors.province|default(null) %}<small class="field-error">{{ errors.province }}</small>{% endif %}
+                </label>
+                <label>Postal Code
+                    <input class="form-control" name="postal_code" value="{{ values.postal_code|default('') }}">
+                </label>
+
+                <label class="span-2">Delivery Instructions
+                    <textarea class="form-control" name="delivery_instructions" rows="3" placeholder="Operating days/hours, receiving entrance, navigation instructions">{{ values.delivery_instructions|default('') }}</textarea>
+                </label>
+
+                <div class="span-2 customer-company-address-form-actions">
+                    <a class="button outline" href="{{ return_path|default(path('customer_company_profile')) }}">Back</a>
+                    <button class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+{% endblock %}

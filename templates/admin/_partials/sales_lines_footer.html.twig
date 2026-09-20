@@ -1,0 +1,68 @@
+{# The charges + totals footer: the <noscript> shipping/tax/fee charge rows (sales_charge_row.
+   html.twig) an admin edits without scripting, the two hidden inputs recalcSellDocTotals() reads
+   as its starting fee/tax figures, and the totals box (sales_totals_footer.html.twig). Renders
+   nothing when `hook` isn't passed — the order-linked invoice draws down an order's own charges
+   instead and overrides `lines_footer` itself rather than reaching this file.
+
+   Parameters
+   ----------
+   hook                 required to render anything. 'order' | 'estimate' | 'invoice'.
+   chargeLines          required  this document's stored shipping/manual-tax/manual-fee lines, as
+                        one decoded list — what the <noscript> charge rows and
+                        data-<hook>-charges both render from.
+   beforeTaxFeeLines, afterTaxFeeLines, taxLines
+                        the read-only fee/tax breakdown rows sales_totals_footer shows.
+   subtotalDisplay, taxLinesTotalDisplay, grandTotalDisplay
+                        pre-formatted strings (no $), or the literal 'TBD' — see
+                        sales_totals_footer.html.twig.
+   feeLinesTotalDisplay pre-formatted string (no $) for the hidden .js-<hook>-fee-total input.
+   pendingSlot          optional raw HTML — Quote's "Lines not yet priced" row.
+   afterGrandTotalSlot  optional raw HTML — Invoice's Payment/Owed Balance rows.
+#}
+{% if hook|default('') %}
+    {%- import 'admin/_partials/sales_charge_row.html.twig' as charge_form %}
+    {%- import 'admin/_partials/sales_totals_footer.html.twig' as totals_footer %}
+    {% set _beforeSubtotalSlot %}
+        <noscript class="no-js-charge-rows">
+            {% for charge in chargeLines|default([]) %}
+                {% if charge.type|default('tax') != 'tax' and not (charge.type|default('tax') == 'fee' and charge.placement|default('main_line') == 'after_tax_line') %}
+                    {{ charge_form.charge_row(hook, loop.index0, charge.label, charge.amount, charge.type, charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line')) }}
+                {% endif %}
+            {% endfor %}
+        </noscript>
+    {% endset %}
+    {% set _afterTaxFeeSlot %}
+        <noscript class="no-js-charge-rows">
+            {% for charge in chargeLines|default([]) %}
+                {% if charge.type|default('tax') == 'fee' and charge.placement|default('main_line') == 'after_tax_line' %}
+                    {{ charge_form.charge_row(hook, loop.index0, charge.label, charge.amount, charge.type, charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line')) }}
+                {% endif %}
+            {% endfor %}
+        </noscript>
+    {% endset %}
+    {% set _taxSlot %}
+        <noscript class="no-js-charge-rows">
+            {% for charge in chargeLines|default([]) %}
+                {% if charge.type|default('tax') == 'tax' %}
+                    {{ charge_form.charge_row(hook, loop.index0, charge.label, charge.amount, 'tax', charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line')) }}
+                {% endif %}
+            {% endfor %}
+        </noscript>
+    {% endset %}
+    <input type="hidden" class="js-{{ hook }}-fee-total" value="{{ feeLinesTotalDisplay|default('0.00') }}">
+    <input type="hidden" class="js-{{ hook }}-tax-total" value="{{ taxLinesTotalDisplay|default('0') == 'TBD' ? '0.00' : taxLinesTotalDisplay|default('0.00') }}">
+    {{ totals_footer.totals_footer(
+        hook,
+        subtotalDisplay|default('0.00'),
+        beforeTaxFeeLines|default([]),
+        taxLines|default([]),
+        taxLinesTotalDisplay|default('0.00'),
+        afterTaxFeeLines|default([]),
+        grandTotalDisplay|default('0.00'),
+        _beforeSubtotalSlot,
+        _afterTaxFeeSlot,
+        _taxSlot,
+        pendingSlot|default(''),
+        afterGrandTotalSlot|default(''),
+    ) }}
+{% endif %}

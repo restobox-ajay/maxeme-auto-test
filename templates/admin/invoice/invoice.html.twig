@@ -1,0 +1,81 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Invoice: {{ invoice.documentNumber }} | Admin{% endblock %}
+
+{#
+    The invoice document, printed.
+
+    This template used to live at templates/admin/order/invoice.html.twig and render a SalesOrder,
+    because an order WAS its own invoice — printing one meant printing the other. #539 splits them,
+    and the client's instruction for this screen was to move it rather than rewrite it: "we assume
+    everything is 1:1 (which is true for ecom) but now we are making this a proper accounting
+    system, so essentially we will be re-using it, just moved to its own entity."
+
+    So the layout is the one that shipped. What is new is only what an invoice knows and an order
+    does not: the order it bills, and the money — payment status, received, and amount due. Those
+    are also exactly what admin/order/sales_order.html.twig must never show, which is what keeps
+    the two documents from being the same page printed twice.
+#}
+
+{% block admin_body %}
+    {% set order = invoice.salesOrder %}
+
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0; border-bottom:0; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Invoice detail</p>
+                <h1>{{ invoice.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% include 'admin/invoice/_tab_nav.html.twig' with {invoice: invoice, current: 'print', printable: true} only %}
+    {% endif %}
+
+    {# No html2pdf.js. Download goes through the ?download=1 route, which renders this same
+       template through dompdf server-side — the mechanism every other download link on the order
+       and quote screens already used. The client-side copy was a second renderer producing a
+       different PDF from the same markup, and it pulled a script off a CDN to do it.
+
+       injectionPointContext below passes `order`, not `invoice`, as its key: the order, not the
+       invoice, is what carries the BC PST/TSBC snapshots the two providers on this point read
+       (custom-field values on the ORDER object), so `order` stays the key they look for and the
+       invoice rides beside it. An invoice with no order passes null and the providers say
+       nothing, which is what they already do for a non-BC order. #}
+    {{ include('admin/_partials/sell_side_pdf_document.html.twig', {
+        docLabel: 'INVOICE',
+        sectionTitle: 'Products',
+        metaLeftTemplate: 'admin/invoice/_pdf_meta_left.html.twig',
+        metaLeftContext: {invoice: invoice, order: order},
+        billingAddress: billingAddress,
+        shippingAddress: shippingAddress,
+        billingFallbackName: invoice.billingName,
+        shippingFallbackName: invoice.shippingName,
+        companyIdentityName: invoice.companyIdentity.name,
+        companyIdentityPhone: invoice.companyIdentity.phone,
+        companyIdentityEmail: invoice.companyIdentity.email,
+        lineColumns: ['name', 'unit', 'sku', 'qty', 'price', 'subtotal', 'batch'],
+        lines: invoice.lines,
+        document: invoice,
+        feeLinesJson: invoice.feeLines,
+        footerNoteTemplate: 'admin/invoice/_pdf_footer_note.html.twig',
+        footerNoteContext: {invoice: invoice},
+        subtotal: invoice.subtotal,
+        shippingTotal: invoice.shippingTotal,
+        shippingLines: invoice.shippingLines,
+        taxLines: taxLines|default([]),
+        tax: invoice.tax,
+        grandTotalLabel: 'TOTAL:',
+        total: invoice.total,
+        showMoneyBlock: true,
+        amountPaid: invoice.amountPaid,
+        balance: invoice.balance,
+        paymentStatusLabel: invoice.paymentStatus.value,
+        globalFooterNoteText: app_setting('invoice_footer_note', ''),
+        injectionPointName: 'invoice_note',
+        injectionPointContext: {order: order, invoice: invoice, isPdf: is_pdf|default(false)},
+    }, with_context = false) }}
+{% endblock %}

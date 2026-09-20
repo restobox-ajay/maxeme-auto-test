@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    TechnicalDocsBundle\:
+        resource: '../src/'
+
+    TechnicalDocsBundle\Bundle\TechnicalDocsBundleDescriptor:
+        tags: ['app.bundle_descriptor']

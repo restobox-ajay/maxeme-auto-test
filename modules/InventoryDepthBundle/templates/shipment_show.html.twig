@@ -1,0 +1,52 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Shipment {{ shipment.shipmentNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'shipments',
+        heading: 'Shipment ' ~ shipment.shipmentNumber,
+        lead: shipment.voided ? ('Voided ' ~ shipment.voidedAt|date('Y-m-d H:i') ~ (shipment.voidedBy ? ' by ' ~ shipment.voidedBy : '') ~ '. ' ~ shipment.voidReason) : 'Recorded ' ~ shipment.shippedAt|date('Y-m-d H:i') ~ (shipment.shippedBy ? ' by ' ~ shipment.shippedBy : '') ~ '.'
+    } only %}
+
+    <section class="panel">
+        <div class="panel-title-row">
+            <div>
+                <p><strong>Company:</strong> {{ shipment.company.name }}</p>
+                {% if shipment.notes %}<p><strong>Notes:</strong> {{ shipment.notes }}</p>{% endif %}
+            </div>
+            {% if not shipment.voided %}
+                <div class="panel-actions">
+                    <form method="post" action="{{ path('admin_bundle_inventory_depth_shipment_void', {id: shipment.id}) }}" class="inline-form"
+                          onsubmit="return confirm('Void shipment {{ shipment.shipmentNumber|e('js') }}? A tracked line\'s stock moves back from sold to available; nothing is deleted.')">
+                        {{ csrf_field() }}
+                        <input type="text" name="reason" placeholder="Reason for voiding" required style="min-width: 20rem;">
+                        <button class="button danger" type="submit">Void shipment</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Product</th><th>SKU</th><th>Quantity</th><th>Invoice line</th><th>Lot / Serial</th><th>Stock moved</th></tr></thead>
+            <tbody>
+            {% for line in shipment.lines %}
+                <tr class="data-item-row">
+                    <td data-label="Product">{{ line.name }}</td>
+                    <td data-label="SKU">{{ line.sku ?: '—' }}</td>
+                    <td data-label="Quantity">{{ line.quantity }}</td>
+                    <td data-label="Invoice line">{{ line.invoiceLine ? line.invoiceLine.invoice.documentNumber : 'No longer attributed' }}</td>
+                    <td data-label="Lot / Serial">
+                        {% if line.lotId %}{{ lotLabels[line.lotId] ?? ('Lot #' ~ line.lotId) }}
+                        {% elseif line.serial %}S/N {{ line.serial }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td data-label="Stock moved">{{ line.movementApplied ? 'available → sold' : 'Paperwork only' }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="empty-table-cell"><strong>No lines.</strong></td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div></div>
+    </section>
+{% endblock %}

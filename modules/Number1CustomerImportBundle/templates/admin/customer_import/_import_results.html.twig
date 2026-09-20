@@ -1,0 +1,131 @@
+{% if result %}
+    <section class="panel compact-panel">
+        <p class="eyebrow">Import results</p>
+        <h2>Summary</h2>
+        <div class="kpi-strip">
+            <article class="kpi-tile">
+                <span>Total rows</span>
+                <strong>{{ result.totalRows }}</strong>
+                <small>CSV data rows</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Created</span>
+                <strong>{{ result.created }}</strong>
+                <small>New customers</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Updated</span>
+                <strong>{{ result.updated }}</strong>
+                <small>Existing customers</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Skipped</span>
+                <strong>{{ result.skipped }}</strong>
+                <small>Error rows</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Companies created</span>
+                <strong>{{ result.companiesCreated }}</strong>
+                <small>Auto-created</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Invites sent</span>
+                <strong>{{ result.invitesSent }}</strong>
+                <small>New accounts</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Warnings</span>
+                <strong>{{ result.warningRows }}</strong>
+                <small>Imported with notes</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Errors</span>
+                <strong>{{ result.errorRows }}</strong>
+                <small>Blocked rows</small>
+            </article>
+        </div>
+    </section>
+
+    {% if result.rowResults is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Detailed report</p>
+            <h2>Row by row import status</h2>
+            {% if result.errorRows == 0 %}
+                <div class="alert success">Import finished. You can review created, updated, and warned rows below.</div>
+            {% else %}
+                <div class="alert error">Import finished with {{ result.errorRows }} blocking row(s). Review the failed rows and reasons below, then fix and re-upload.</div>
+            {% endif %}
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>Result</th>
+                            <th>Email</th>
+                            <th>Company</th>
+                            <th>Action</th>
+                            <th>Reason / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in result.rowResults %}
+                            <tr>
+                                <td><strong>{{ item.row }}</strong></td>
+                                <td>
+                                    {% set status = item.status|lower %}
+                                    {% if status == 'success' %}
+                                        <span class="badge success">OK</span>
+                                    {% elseif status == 'warning' %}
+                                        <span class="badge warn">Warning</span>
+                                    {% else %}
+                                        <span class="badge danger">Error</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.email ?: '-' }}</td>
+                                <td>{{ item.company ?: '-' }}</td>
+                                <td>{{ item.action }}</td>
+                                <td>
+                                    {% if item.issues is not empty %}
+                                        <ul class="import-result-notes">
+                                            {% for issue in item.issues %}
+                                                <li>{{ issue }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% elseif item.notes is not empty %}
+                                        <ul class="import-result-notes">
+                                            {% for note in item.notes %}
+                                                <li>{{ note }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="muted">Imported successfully.</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if result.errors is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Errors</p>
+            <h2>Rows with issues</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr><th>Message</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for message in result.errors|slice(0, 50) %}
+                            <tr><td>{{ message }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if result.errors|length > 50 %}<small>Showing first 50 errors.</small>{% endif %}
+        </section>
+    {% endif %}
+{% endif %}

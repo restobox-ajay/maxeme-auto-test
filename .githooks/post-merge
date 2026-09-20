@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# Fires after `git pull` / `git merge`. Warns if the merge brought migrations this database
+# has not run. Read-only, never blocks — see check-migrations.sh.
+
+exec "$(dirname "$0")/check-migrations.sh"

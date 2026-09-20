@@ -1,0 +1,171 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Credit Notes | Admin{% endblock %}
+{% block admin_body %}
+    {# The customer this grid is scoped to, carried onto every link the screen generates — the
+       status tabs, the filter form, the pager and the Reset/Back buttons. A scope that
+       survived the first click and not the second would be worse than none: the grid would quietly
+       widen to every customer mid-session. An id that matched nothing is carried too, so the empty
+       list stays empty rather than reopening as the whole business on page two. #}
+    {% set scopeCompanyId = company ? company.id : (companyScopeMissingId is defined and companyScopeMissingId ? companyScopeMissingId : null) %}
+    {% set memoScope = scopeCompanyId ? {CreditMemoSearch: {company_id: scopeCompanyId}} : {} %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Credit note</p>
+                <h1>{{ company ? 'Credit notes for ' ~ company.name : 'Credit notes' }}</h1>
+                {# Raised against an INVOICE since #539 stage 4, and given a document of its own in
+                   #586. A credit note has its own number and its own BALANCE, which is applied to
+                   one or more invoices, refunded, or left as customer credit. It does not reverse
+                   the invoice it credits and it does not un-invoice anything — see
+                   CreditMemoController for the rule in full, including the one part of it #586
+                   changed (the invoice stops holding stock for goods that came back). #}
+                {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    <p class="lead">
+                        No credit notes are listed: this link asks for
+                        {{ companyScopeMissingId ? 'customer ' ~ companyScopeMissingId ~ ', and no such customer exists' : 'a customer, and the id it gives is not one' }}.
+                        Listing every customer's credit notes instead would answer a question nobody asked.
+                    </p>
+                {% else %}
+                    <p class="lead">
+                        {% if company %}
+                            Only the credit notes of {{ company.name }}. Every count and total below covers this customer alone.
+                        {% else %}
+                            Credit notes raised against customer invoices.
+                        {% endif %}
+                        A credit note carries a balance: apply it to an invoice, refund it, or leave it
+                        as customer credit. It does not reverse the invoice it credits.
+                    </p>
+                {% endif %}
+            </div>
+            <div class="panel-actions">
+                {# Unconditional. It used to be wrapped in `{% if company %}`, because the create
+                   page could only be opened for a customer it was handed — so on the bare grid,
+                   which is where the sidebar lands, the list screen offered no way to create the
+                   thing it lists. admin_credit_memo_new asks for the customer itself now, so the
+                   company is passed when the grid is scoped to one and simply left off when it is
+                   not, the same shape /admin/order/index has always used for Create Order. #}
+                <a class="button primary" href="{{ company ? path('admin_credit_memo_new', {company: company.id}) : path('admin_credit_memo_new') }}">New credit note</a>
+                {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    {# The way out of a scope that resolved to nobody has to be on the page: the
+                       grid under it has nothing to click. #}
+                    <a class="button outline" href="{{ path('admin_credit_memo_index') }}">All credit notes</a>
+                {% endif %}
+                <a class="button back-button" href="{{ company ? path('admin_company_detail_by_id', {id: company.id}) : path('admin_company_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default(1) %}
+    {# `memoScope` is NOT redefined here. It is set at the top of this file off `scopeCompanyId`,
+       which carries an id that resolved to NOBODY as well as one that resolved to a customer. The
+       version this screen's conformance work introduced — `company ? {...} : {}` — silently drops
+       the unresolved case, so the status tabs, the Reset link and the pager would all widen a
+       failed-closed grid back to every customer's credit notes on the first click. The whole point
+       of the scope is that it survives every link the screen generates. #}
+    {% set memoQueryBase = {q: search, status: status, type: type, limit: currentLimit, sort: currentSort, dir: currentDir}|merge(memoScope) %}
+
+    {# Status tabs, off CreditMemoStatus::cases(). The grid used to open on no filter at all: its
+       only control was a .table-search box in this card's header, wired to a `js-memo-search`
+       handler that #586 never shipped — so the grid could not be narrowed with JavaScript off, and
+       a person who typed in it and saw nothing change concluded the note was not there. Every
+       control on this screen is now a parameter in the URL that the CONTROLLER reads. #}
+    <section class="panel compact-panel">
+        <nav class="order-status-tabs">
+            <a class="{{ status == '' ? 'is-active' : '' }}"
+               href="{{ path('admin_credit_memo_index', memoQueryBase|merge({status: '', page: 1})) }}">All Credit Notes</a>
+            {% for memoStatus in statuses %}
+                <a class="{{ status == memoStatus ? 'is-active' : '' }}"
+                   href="{{ path('admin_credit_memo_index', memoQueryBase|merge({status: memoStatus, page: 1})) }}">{{ memoStatus }}</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="table-card credit-memo-grid no-paginate">
+        <div class="table-header">
+            <h2>Credit note history</h2>
+        </div>
+        {# A plain GET form. The controls live in the table's own filter row and point back here by
+           form="" id, so no <form> is nested inside another one. #}
+        <form method="get" id="credit-memo-filters" action="{{ path('admin_credit_memo_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            {% if company %}
+                <input type="hidden" name="CreditMemoSearch[company_id]" value="{{ company.id }}">
+            {% endif %}
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="memo">Memo</th>
+                        <th data-sort-field="company">Customer</th>
+                        <th>Invoice</th>
+                        <th data-sort-field="type">Type</th>
+                        <th data-sort-field="amount">Amount</th>
+                        <th>Balance</th>
+                        <th data-sort-field="status">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        {# One box over the three columns it actually searches — memo number,
+                           company and invoice number — rather than a box above the table claiming
+                           to search everything. The same shape the Vendor Bills grid uses. #}
+                        <th colspan="3"><input type="search" name="q" form="credit-memo-filters" value="{{ search }}" placeholder="Memo number, customer or invoice" aria-label="Search credit notes"></th>
+                        <th>
+                            <select name="type" form="credit-memo-filters" aria-label="Filter type" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for typeId, typeName in typeNames %}
+                                    <option value="{{ typeId }}"{{ type == typeId ~ '' ? ' selected' : '' }}>{{ typeName }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="status" form="credit-memo-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for memoStatus in statuses %}
+                                    <option value="{{ memoStatus }}"{{ status == memoStatus ? ' selected' : '' }}>{{ memoStatus }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_credit_memo_index', memoScope) }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/credit_memo/_list_rows.html.twig' %}
+                </tbody>
+            </table>
+            </div>
+            </div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {
+                    count: memos|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit,
+                    label: 'credit notes'
+                } only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="credit-memo-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ currentLimit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_credit_memo_index',
+                    routeQuery: memoQueryBase,
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

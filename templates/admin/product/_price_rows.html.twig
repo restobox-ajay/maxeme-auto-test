@@ -1,0 +1,134 @@
+{% for product in products %}
+    <tr class="data-item-row">
+        <td data-label="ID" class="searchable">{{ product.id }}</td>
+        <td data-label="Product name" class="product-name-cell searchable">{{ product.name }}</td>
+        <td data-label="SKU" class="searchable">{{ product.sku }}</td>
+        <td data-label="Category" class="searchable">{{ product.category|default('-') }}</td>
+        <td data-label="Product price">
+            {% set rawPrice = product.priceRaw|default('') %}
+            {% set originalDisplay = product.original|default('-') %}
+            <span class="price-effective">{{ originalDisplay == '-' ? '' : originalDisplay }}</span>
+            <input type="hidden" class="js-product-price-base" value="{{ rawPrice }}">
+        </td>
+        <td data-label="Default price">
+            {% set rawCore = product.defaultPriceRaw|default('') %}
+            <button class="price-display js-price-display"
+                    type="button"
+                    data-target-input="core-price-{{ product.id }}">
+                {{ rawCore == '' ? '' : rawCore }}
+            </button>
+            <input
+                id="core-price-{{ product.id }}"
+                class="js-core-price-input price-input"
+                type="number"
+                step="0.01"
+                min="0"
+                data-product-id="{{ product.id }}"
+                data-core-field="default_price"
+                value="{{ rawCore }}">
+        </td>
+        {% set suggestedType = product.suggestedType|default('') %}
+        {% set suggestedValue = product.suggestedValue|default('') %}
+        {% set suggestedEffective = product.suggestedEffective|default('') %}
+        <td data-label="Suggested Type">
+            <button class="price-display js-price-display"
+                    type="button"
+                    data-target-input="suggested-type-{{ product.id }}">
+                {{ suggestedType == '' ? '-' : suggestedType }}
+            </button>
+            <select
+                id="suggested-type-{{ product.id }}"
+                class="js-suggested-type price-input"
+                data-product-id="{{ product.id }}">
+                <option value="" {{ suggestedType == '' ? 'selected' : '' }}>-</option>
+                {% for opt in ['Number','Markup$','Markup%'] %}
+                    <option value="{{ opt }}" {{ opt == suggestedType ? 'selected' : '' }}>{{ opt }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td data-label="Suggested Value">
+            <button class="price-display js-price-display"
+                    type="button"
+                    data-target-input="suggested-value-{{ product.id }}">
+                {{ suggestedValue == '' ? '-' : suggestedValue }}
+            </button>
+            <input
+                id="suggested-value-{{ product.id }}"
+                class="js-suggested-value price-input"
+                type="number"
+                step="0.01"
+                data-product-id="{{ product.id }}"
+                value="{{ suggestedValue }}">
+            {# No min="0": this feeds Markup$/Markup%. A negative markup is a valid below-cost/
+               loss-leader price, so this field must accept negative input.
+
+               Number is fed by this field too, and since #445 it no longer discards what is typed
+               here: a 0 is kept as a price of 0.00, and since #458 a negative is kept as the negative
+               price it is rather than being floored to 0.00. So a browser-side min="0" would only
+               stop the admin from expressing a price they are entitled to, while adding nothing the
+               server does not already handle for Number. #}
+        </td>
+        <td data-label="Suggested Effective" class="price-group-end">
+            <span class="price-effective js-suggested-effective"
+                  data-product-id="{{ product.id }}">{{ suggestedEffective == '' ? '-' : suggestedEffective }}</span>
+        </td>
+        {% for priceList in priceLists %}
+            {% set meta = (product.pricingMetaByListId[priceList.id]|default({})) %}
+            {% set type = meta.type|default('Fixed') %}
+            {% set value = meta.value|default('') %}
+            {% set effective = meta.effective|default('') %}
+            {% set effectiveRaw = meta.effectiveRaw|default(effective) %}
+
+            <td data-label="{{ priceList.name }} Type">
+                <button class="price-display js-price-display"
+                        type="button"
+                        data-target-input="type-{{ product.id }}-{{ priceList.id }}">
+                    {{ type }}
+                </button>
+                <select
+                    id="type-{{ product.id }}-{{ priceList.id }}"
+                    class="js-price-type price-input"
+                    data-product-id="{{ product.id }}"
+                    data-price-list-id="{{ priceList.id }}">
+                    {% for opt in ['Discount%','Discount$','Number','No Price','Hide'] %}
+                        <option value="{{ opt }}" {{ opt == type ? 'selected' : '' }}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td data-label="{{ priceList.name }} Value">
+                <button class="price-display js-price-display"
+                        type="button"
+                        data-target-input="value-{{ product.id }}-{{ priceList.id }}">
+                    {{ value == '' ? '-' : value }}
+                </button>
+                <input
+                    id="value-{{ product.id }}-{{ priceList.id }}"
+                    class="js-price-value price-input"
+                    type="number"
+                    step="0.01"
+                    data-product-id="{{ product.id }}"
+                    data-price-list-id="{{ priceList.id }}"
+                    value="{{ value }}">
+                {# No min="0": this feeds Discount%/Discount$/Number. A negative discount is a valid
+                   premium (customer pays MORE than base), so this field must accept negative input. #}
+            </td>
+            <td data-label="{{ priceList.name }} Effective" class="price-group-end">
+                <span class="price-effective js-price-effective"
+                      data-price-list-id="{{ priceList.id }}">{{ effective == '' ? '-' : effective }}</span>
+                <input type="hidden"
+                       class="js-price-input price-input"
+                       id="price-{{ product.id }}-{{ priceList.id }}"
+                       data-product-id="{{ product.id }}"
+                       data-price-list-id="{{ priceList.id }}"
+                       value="{{ effectiveRaw }}">
+            </td>
+        {% endfor %}
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="{{ 9 + (priceLists|length * 3) }}" class="empty-table-cell">
+            <strong>No products found.</strong>
+            <span>Products will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

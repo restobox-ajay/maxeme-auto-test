@@ -1,0 +1,123 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Guest Cover Page | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Template Override</p>
+                <h1>Guest Cover Page</h1>
+            </div>
+        </div>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <section class="panel admin-flat-panel"><div class="alert success">{{ message }}</div></section>
+    {% endfor %}
+    {% for message in app.flashes('warn') %}
+        <section class="panel admin-flat-panel"><div class="alert warn">{{ message }}</div></section>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <section class="panel admin-flat-panel"><div class="alert error">{{ message }}</div></section>
+    {% endfor %}
+
+    <section class="panel admin-flat-panel">
+        <p class="eyebrow">Status</p>
+        <p><span class="badge {{ active ? '' : 'danger' }}">{{ active ? 'Active' : 'Inactive' }}</span>
+            &mdash; toggle from <a href="{{ path('admin_bundle_management_index') }}">Bundle Management</a>.
+            {% if not active %}When Inactive, the login page falls back to core's default template regardless of the source below.{% endif %}
+        </p>
+
+        <p><span class="badge {{ isCustomized ? '' : 'danger' }}">{{ isCustomized ? 'Customized' : 'Using bundle default' }}</span>
+            {% if isCustomized %}&mdash; editing below overrides the file at <code>modules/Number1GuestCoverPageBundle/templates/login.html.twig</code>.{% endif %}
+        </p>
+
+        <p class="eyebrow" style="margin-top: 24px;">Override point</p>
+        <p><code>{{ overridePoint }}</code> &rarr; <code>{{ overrideTemplate }}</code>
+            (default: <code>{{ defaultTemplate }}</code>)</p>
+
+        <p style="margin-top: 8px;">
+            <a class="button outline" href="{{ path('customer_login') }}" target="_blank" rel="noopener">View live login page</a>
+        </p>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <p class="eyebrow">Variables available in this template</p>
+        <table class="admin-grid-table data-table" style="margin-top: 8px;">
+            <thead>
+                <tr><th>Variable</th><th>Type</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>error</code></td><td>AuthenticationException|null</td><td>Raw Symfony auth error, set after a failed login attempt. Usually use <code>login_error_message</code> instead.</td></tr>
+                <tr><td><code>login_error_message</code></td><td>string|null</td><td>Human-readable failure reason (bad credentials, disabled account, pending approval, expired session), already translated. Wrap in <code>{% verbatim %}{% if error %}...{% endif %}{% endverbatim %}</code>.</td></tr>
+                <tr><td><code>last_username</code></td><td>string</td><td>Last submitted email, for repopulating the field after a failed attempt.</td></tr>
+            </tbody>
+        </table>
+
+        <p class="eyebrow" style="margin-top: 20px;">Injection points still available here</p>
+        <table class="admin-grid-table data-table" style="margin-top: 8px;">
+            <thead>
+                <tr><th>Call</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>{% verbatim %}{{ injection_point('customer_login_after_card', {}) }}{% endverbatim %}</code></td>
+                    <td>Renders anything other active bundles hook into this slot &mdash; e.g. NewsBundle's login scroller. Keep this call somewhere in the page or those bundles stop showing up here.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="eyebrow" style="margin-top: 20px;">Other helpers used by the default template</p>
+        <p class="lead">
+            <code>path('customer_login')</code> (form action) &middot;
+            <code>path('customer_password_reset')</code> &middot;
+            <code>path('customer_register')</code> &middot;
+            <code>csrf_token('authenticate')</code> (required &mdash; see <code>name="_csrf_token"</code>) &middot;
+            <code>app.flashes('success' / 'error')</code> &middot;
+            <code>site_name()</code>
+        </p>
+        <p class="lead">
+            The <code>&lt;form&gt;</code> itself must keep <code>name="_username"</code>,
+            <code>name="_password"</code>, and (optionally) <code>name="_remember_me"</code> &mdash;
+            those field names are wired to Symfony's login authenticator, not to this template.
+        </p>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        {% if errors is defined and errors|length %}
+            <div class="alert error">
+                <strong>Not saved &mdash; fix before saving:</strong>
+                <ul style="margin: 6px 0 0 18px;">
+                    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="post" action="{{ path('admin_bundle_guest_cover_page_save') }}" style="margin-top: 16px;">
+            {{ csrf_field() }}
+            <input type="hidden" name="action" value="save">
+
+            <label class="span-2" style="display: block;">
+                <span class="eyebrow">Page template (Twig)</span>
+                <textarea name="template_source" rows="28" spellcheck="false"
+                    style="width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; margin-top: 8px;"
+                >{{ templateSource }}</textarea>
+            </label>
+
+            <div class="span-2 auth-actions" style="margin-top: 14px;">
+                <button class="button primary" type="submit">Save</button>
+                <button class="button outline" type="submit"
+                        formaction="{{ path('admin_bundle_guest_cover_page_preview') }}" formtarget="_blank">
+                    Preview (opens in new tab, not saved)
+                </button>
+            </div>
+        </form>
+
+        {% if isCustomized %}
+            <form method="post" action="{{ path('admin_bundle_guest_cover_page_save') }}" style="margin-top: 8px;">
+                {{ csrf_field() }}
+                <input type="hidden" name="action" value="reset">
+                <button class="link-button danger" type="submit">Reset to bundle default</button>
+            </form>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingBundle\:
+        resource: '../src/'
+
+    ShippingBundle\Shipping\ShippingResolver:
+        arguments:
+            $calculators: !tagged_iterator app.shipping_option
+            $fallbackCalculators: !tagged_iterator app.shipping_option_fallback
+            $menuItems: !tagged_iterator app.shipping_menu_item

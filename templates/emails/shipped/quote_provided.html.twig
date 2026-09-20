@@ -1,0 +1,16 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Your Quote Is Ready{% endblock %}
+
+{% block body %}
+    <p>Hey {{ estimate.company.name|default('there') }},</p>
+    <h2 style="margin-top: 0; color: #0f172a;">Your quote is ready for your review &amp; approval</h2>
+    <p><a href="{{ estimate_url|default('#') }}" class="highlight" style="text-decoration: none;">View quote details</a></p>
+
+    {% include 'emails/_quote_summary.html.twig' %}
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{{ estimate_url|default('#') }}" class="button" style="background: #16a34a;">APPROVE</a>
+    </div>
+    <p style="text-align: center; font-size: 13px; color: #64748b; margin-top: 12px;">Please approve the quote to proceed with your order.</p>
+{% endblock %}

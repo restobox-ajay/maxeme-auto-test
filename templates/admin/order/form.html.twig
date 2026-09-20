@@ -1,0 +1,574 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+{% set mode = mode|default('Create') %}
+{% set orderData = orderData|default(null) %}
+{% set orderLines = orderLines|default([]) %}
+{# Whether the catalog is past OrderController::PRODUCT_SELECT_INLINE_LIMIT (#399) — passed to the
+   shared sales_lines_table.html.twig/sales_line_js_templates.html.twig below. #}
+{% set productsRemote = productsRemote|default(false) %}
+{# This order's line-table columns — the shared base (#full-parity, 2026-09-13) plus this
+   document's own tail: Batch, since SalesOrderLine has one (a lot is allocated at fulfilment; the
+   quote's line does not), then Actions. #}
+{% import 'admin/_partials/sales_line_columns.html.twig' as line_columns %}
+{% set orderLineColumns = line_columns.base()|json_decode|merge([
+    {key: 'batch', label: 'Batch'},
+    {key: 'actions', label: 'Actions'},
+]) %}
+{% set perLineTax = perLineTax|default([]) %}
+{% set perLineTaxLabel = perLineTaxLabel|default([]) %}
+{% set perFeeLineTax = perFeeLineTax|default([]) %}
+{# What the last save had to rewrite on a line, handed back by OrderController through the flash
+   bag (SalesDocumentLineWarnings): `lineWarnings` states it in words, `lineWarningQtyRows` and
+   `lineWarningPriceRows` list the zero-based rows whose quantity / price cell is painted red. All
+   are rendered server-side, not by script — the save succeeded, so this banner is the only thing
+   telling a no-JS admin that a figure they typed is not the one that was stored. #}
+{% set lineWarnings = lineWarnings|default([]) %}
+{% set lineWarningQtyRows = lineWarningQtyRows|default([]) %}
+{% set lineWarningPriceRows = lineWarningPriceRows|default([]) %}
+{# Whether the document this form is editing is still a Draft — true on create, where there is no
+   document yet and nothing has been finished. The draft save buttons are a statement that the
+   document is not finished, so they only belong here while that is true: on a live order they set
+   the status to Draft with no confirmation and no log entry, which took the order out of the
+   pending inventory statuses and released its stock reservations (#264). A non-draft order gets
+   "Save & Recalc" in their place — the same save and the same landing page, saying nothing about
+   status. OrderController::edit() refuses the demotion as well; this is the gate, not the
+   guarantee. #}
+{% set orderIsDraft = orderData is null or (orderData.status|default('Draft')|lower) == 'draft' %}
+{# Province and country options come from geo_country/geo_province via region_* — the two
+   63-entry literals that used to sit here could drift from what the server accepts. #}
+
+{# ── The frame's parameters ──────────────────────────────────────────────────
+   The page's own shell — the hero, the workspace card, the line-items section, the footer and the
+   customer chooser — is admin/_base/commercial_document_edit.html.twig, shared with the quote form and
+   the invoice create screen. This screen is the one the frame was taken FROM: where the three
+   disagreed about the shape of a region, the order's shape won. What is left in this file is the
+   order's own vocabulary.
+
+   Step one is the bare customer chooser and nothing else — no info card, no line table, no
+   totals, no save buttons. Posting just company_id (no save_mode) is answered with a redirect
+   carrying ?OrderSearch[company_id]=X, which is what fills in the workspace. #}
+{% set workspaceReady = company ? true : false %}
+{% set formId = 'order-form' %}
+{% set formClass = 'js-order-form' %}
+{# No `formAction`: this form posts to the URL it was served from, which is what both of its
+   routes expect and what it has always done. #}
+{% set heroEyebrow = 'Orders' %}
+{% set heroLead = company
+    ? ((mode == 'Edit' and orderData) ? '' : 'Review customer details, billing and shipping information, then add products to the order.')
+    : 'Choose a customer first so pricing, billing, shipping, and account context can be applied to the order.' %}
+{# No `linesHeading`: this table has never carried one, and the frame renders no empty heading
+   where a document does not ask for one. No `footerNote` either. #}
+
+{% block title %}{{ mode }} Order | Admin{% endblock %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+{% block hero_heading %}
+    {% if not company %}
+        <h1>Create New Order</h1>
+    {% elseif mode == 'Edit' and orderData %}
+        {# The one status-ish field this document owns, beside the heading rather than in the info
+           card: the order's own status, and the control that changes it. The card below carries
+           Payment Status as a read-only row, which is a different question with a different
+           answer. The flex wrapper is this document's — the frame does not impose one, because
+           the quote and the invoice have a bare <h1> here and would be restyled by it. #}
+        <div class="order-edit-titlebar">
+            <h1>Order {{ orderData.number }}</h1>
+            <div class="order-edit-status">
+                <span class="order-edit-status-label">Order Status:</span>
+                <span class="order-status order-status-{{ orderData.status|default('draft')|lower|replace({' ': '-', ',': ''}) }}">{{ orderData.status|default('Draft') }}</span>
+                <button type="button" class="button info js-trigger-status-modal">Edit</button>
+            </div>
+        </div>
+    {% else %}
+        <h1>Create Order: {{ company.name }}</h1>
+    {% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+    {% if not company %}
+        <a class="button back-button" href="{{ path('admin_order_index') }}">Back</a>
+    {% elseif mode == 'Edit' and orderData %}
+        <a class="button back-button" href="{{ path('admin_order_detail', {id: orderData.id}) }}">Back</a>
+        {# name/value, like its twin in the footer. This button says "Save Order" and has always
+           promoted a Draft to Pending — but it used to do it by posting NO save_mode and relying
+           on the controller defaulting an unstated post to 'order'. That default is gone (#236):
+           an absent mode now means "say nothing about the status", so a button whose whole label
+           is a statement about the status has to make it. Same behaviour as before, now stated. #}
+        <button class="button primary" type="submit" form="order-form" name="save_mode" value="order">Save Order</button>
+    {% else %}
+        <a class="button back-button" href="{{ path('admin_order_create') }}">Change customer</a>
+        <a class="button outline" href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">List Orders</a>
+    {% endif %}
+{% endblock %}
+
+{% block tab_nav %}
+        {% if mode == 'Edit' and orderData %}
+            <nav class="company-action-links order-tab-nav" aria-label="Order edit actions">
+                <a class="button" href="{{ path('admin_order_detail', {id: orderData.id}) }}">View</a>
+                <a class="button is-current" href="{{ path('admin_order_edit', {id: orderData.id}) }}">Edit</a>
+                <a class="button" href="{{ path('admin_order_document', {id: orderData.id}) }}">Sales Order PDF</a>
+                <a class="button" href="{{ path('admin_order_log', {id: orderData.id}) }}">Log</a>
+                <span class="company-action-more row-action-menu">
+                    <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More order actions"></button>
+                    <span class="row-action-dropdown company-action-dropdown">
+                        {% include 'admin/order/_clone_order_action.html.twig' with {order: orderData} %}
+                    </span>
+                </span>
+                <span class="row-action-menu">
+                    <button class="btn-pdf row-action-toggle order-pdf-toggle" type="button" aria-expanded="false" aria-haspopup="true">PDF/Download</button>
+                    <span class="row-action-dropdown company-action-dropdown">
+                        <a href="{{ path('admin_order_document', {id: orderData.id}) }}" target="_blank">Print Sales Order</a>
+                        <a href="{{ path('admin_order_document', {id: orderData.id, download: 1}) }}">Download Sales Order</a>
+                    </span>
+                </span>
+            </nav>
+        {% endif %}
+{% endblock %}
+
+{# No novalidate any more (#248). This was the only admin form carrying it, so every
+   native constraint below was switched off here and the IDENTICAL constraint on the
+   quote form fired — the same typed figure accepted on one form and refused in the
+   browser on the other, with the server never seeing the difference.
+
+   Removing the attribute is only safe because the constraints that contradicted the
+   server went with it: the qty min="0" above (the server stores a negative as 0 and
+   explains it, and that explanation has to be reachable from a normal browser). What
+   is left states nothing the server does not also enforce — fulfillment_region really
+   is required where the company has active regions, refused by
+   OrderController::resolveFulfillmentRegion() (#237/#251/#261), and the charge amount's
+   min="0" matches SalesDocumentChargeLines::normalize()'s floor.
+
+   Weight and cost keep their min="0". Nothing states a rule those contradict, and the
+   quote form carries exactly the same attribute on the same two fields — so the two
+   forms agree, which is what this issue is about. Price keeps no min on either form: a
+   negative price is a credit and is stored as typed.
+
+   Nothing hidden inside this form is required, which matters: a `required` control
+   inside a display:none .no-js-row or .js-only element cannot be focused, and a browser
+   refuses to submit a form it cannot point the admin at. #}
+{% block form_attributes %} data-next-line-index="{{ orderLines|length + 2 }}" data-order-charges="{{ (orderData.chargeLines|default('[]'))|e('html_attr') }}" data-fee-lines-url="{{ path('admin_order_fee_lines') }}" data-tax-breakdown-url="{{ path('admin_order_tax_breakdown') }}"{% endblock %}
+
+{% block form_head %}
+                <input type="hidden" name="company_id" value="{{ company.id }}">
+                <input type="hidden" name="scroll_y" class="js-order-scroll-y" value="0">
+                {% if mode == 'Edit' and orderData %}
+                    <input type="hidden" name="order_id" value="{{ orderData.id }}">
+                    {# #417: round-trips the version this page was rendered with back to
+                       OrderController::edit(), which rejects the submit outright if the order's
+                       current version no longer matches — see the version check at the top of
+                       edit()'s POST handling. data-version-check-url is app.js's polling hook
+                       (admin_order_version_check): a lightweight GET that returns just the
+                       current version, so the "someone else changed this" banner can appear
+                       before this admin ever gets to Save. #}
+                    <input type="hidden" name="version" class="js-order-version" value="{{ orderData.version }}" data-version-check-url="{{ path('admin_order_version_check', {id: orderData.id}) }}">
+                {% endif %}
+
+                {% if orderError|default('') %}
+                    <div class="form-error-banner">{{ orderError }}</div>
+                {% endif %}
+
+                {# Not an orderError: the order SAVED. This says what the save had to change on the
+                   way in, naming the line, and the matching quantity or price cell below is red. #}
+                {% if lineWarnings is not empty %}
+                    <div class="form-error-banner line-warning-banner">
+                        {% for warning in lineWarnings %}
+                            <div>{{ warning }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+{% endblock %}
+
+{# The saves live here only on create. On edit they are in the hero above and at the bottom of
+   the line-items section, and a third copy would be a third copy — the frame renders no wrapper
+   for a block that comes back empty. #}
+{% block top_actions %}
+    {% if mode != 'Edit' %}
+        <a class="button back-button" href="{{ path('admin_order_create') }}">Back</a>
+        <button class="button primary" type="submit" name="save_mode" value="draft_recalc">Save Draft &amp; Recalc</button>
+        <button class="button primary" type="submit" name="save_mode" value="draft_exit">Save Draft &amp; Exit</button>
+        <button class="button primary" type="submit" name="save_mode" value="order">Save Order</button>
+    {% endif %}
+{% endblock %}
+
+{% block context %}
+    {%- import 'admin/_partials/sales_address_cards.html.twig' as address_form %}
+                <div class="order-workspace-grid">
+                    <section class="order-form-panel">
+                        <h2>Order Info</h2>
+                        <div class="order-field-row static">
+                            <label>Customer Name:</label>
+                            <strong>{{ company.name }}</strong>
+                        </div>
+                        {# Snapshot first, live company only as a fallback.
+
+                           These boxes write to the ORDER's own frozen identity, never to the
+                           Company row, so on an existing order they must show what this order
+                           holds — otherwise an admin sees today's contact details, saves, and
+                           silently overwrites the ones the order was placed under.
+
+                           The fallback covers orders that predate the snapshot carrying these
+                           fields, and order create, where there is no document yet. An empty
+                           snapshot value means "never recorded", not "recorded as blank". #}
+                        {% set _identity = orderData ? orderData.companyIdentity|default(null) : null %}
+                        <label class="order-field-row">
+                            <span>Primary Email:</span>
+                            <input type="email" name="primary_email" value="{{ (_identity ? _identity.email|default('') : '') ?: company.email }}">
+                        </label>
+                        <label class="order-field-row">
+                            <span>Customer Phone:</span>
+                            <input type="text" name="company_phone" value="{{ (_identity ? _identity.phone|default('') : '') ?: company.phoneNumber|default('') }}">
+                        </label>
+                        <label class="order-field-row">
+                            <span>PO #:</span>
+                            <input type="text" name="po_number" maxlength="80" value="{{ orderData ? orderData.poNumber|default('') : '' }}">
+                        </label>
+                        {# Blank on create: left unset, the order is dated today in the shop's own
+                           timezone when it is saved. See SalesDocumentDateStamp. #}
+                        <label class="order-field-row">
+                            <span>Order Date:</span>
+                            <input type="date" name="document_date" value="{{ orderData ? orderData.documentDate|default('') : '' }}">
+                        </label>
+                        {# No Invoice Date box. sales_order.invoice_date is gone (#539 stage 6): an
+                           order billed across several invoices has several invoice dates, and each
+                           belongs to the invoice it is on. It is set when the invoice is raised. #}
+                        <label class="order-field-row">
+                            <span>Special Instructions #:</span>
+                            <input type="text" name="special_instructions" value="{{ orderData ? orderData.specialInstructions|default('') : '' }}">
+                        </label>
+                        {% set existingFulfillmentRegion = orderData ? orderData.fulfillmentRegion|default('') : '' %}
+                        {# Stale: the order holds a region the company no longer has active. Distinct
+                           from the company having none at all — a company can still have other live
+                           regions while this order sits on a retired one. #}
+                        {% set fulfillmentRegionIsStale = existingFulfillmentRegion and existingFulfillmentRegion not in fulfillmentRegions|default([]) %}
+                        <label class="order-field-row">
+                            <span>Fulfillment Region:{% if fulfillmentRegions|default([]) is not empty %} <span class="req">*</span>{% endif %}</span>
+                            {% if fulfillmentRegions|default([]) is not empty %}
+                                {# A company with exactly one active region has an unambiguous answer, so
+                                   pre-select it even for a legacy order that was saved without one. #}
+                                {% set selectedFulfillmentRegion = existingFulfillmentRegion ?: (fulfillmentRegions|length == 1 ? fulfillmentRegions[0] : '') %}
+                                <select name="fulfillment_region" required>
+                                    <option value=""></option>
+                                    {# The stale value is offered, and stays selected, so the order can be
+                                       saved unchanged. Without it the requirement would force an admin to
+                                       re-region an in-flight order before they could correct a PO number —
+                                       the freeze this issue exists to avoid. The warning below explains it;
+                                       changing it is allowed, never compelled. #}
+                                    {% if fulfillmentRegionIsStale %}
+                                        <option value="{{ existingFulfillmentRegion }}" selected>{{ existingFulfillmentRegion }} (no longer configured)</option>
+                                    {% endif %}
+                                    {% for region in fulfillmentRegions %}
+                                        <option value="{{ region }}" {{ selectedFulfillmentRegion == region ? 'selected' : '' }}>{{ region }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                {# Nameless and disabled, so nothing posts. That is safe only because
+                               OrderController::resolveFulfillmentRegion() reads an absent field as
+                                   UNCHANGED — it used to read it as "clear it" and wiped the region of
+                                   orders placed long before the company's regions were deactivated. #}
+                                <input type="text" value="No fulfillment regions configured for this customer" disabled>
+                            {% endif %}
+                        </label>
+                        {# Server-rendered, so it is there with JavaScript off. Advisory only: it does not
+                           block the save, disable a control, or mark the form invalid. #}
+                        {% if fulfillmentRegionIsStale %}
+                            <p class="field-hint order-region-stale-warning">
+                                Fulfillment Region <strong>{{ existingFulfillmentRegion }}</strong> is no longer configured for this customer.
+                                This order can be saved as usual — check whether it is still correct.
+                            </p>
+                        {% endif %}
+                        {# Read-only since #539 stage 4, and posts nothing. Payment status is derived
+                           from the payments recorded against this order's invoices — typing one here
+                           would be a second answer that the next payment silently overwrote. #}
+                        <div class="order-field-row">
+                            <span>Payment Status:</span>
+                            <strong data-field="payment-status">{{ orderData ? orderData.paymentStatus|default('Not Paid') : 'Not Paid' }}</strong>
+                        </div>
+                        <label class="order-field-row">
+                            <span>Payment Method:</span>
+                            <select name="payment_method">
+                                {% set selectedPaymentMethod = orderData ? orderData.paymentMethod|default('') : '' %}
+                                <option value=""></option>
+                                {% for method in paymentMethods|default([]) %}
+                                    <option value="{{ method.name }}" {{ selectedPaymentMethod == method.name ? 'selected' : '' }}>{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="order-field-row">
+                            <span>Payment Term:</span>
+                            {% set paymentTermName = '' %}
+                            {% for term in paymentTerms|default([]) %}
+                                {% if company and term.id == company.paymentTermId|default('') %}{% set paymentTermName = term.name %}{% endif %}
+                            {% endfor %}
+                            <input type="text" name="payment_term" value="{{ orderData ? (orderData.paymentTerm|default(paymentTermName)) : paymentTermName }}">
+                        </label>
+                    </section>
+
+                    {{ address_form.address_cards(company, billingAddress, shippingAddress, addressBook) }}
+
+                    {% if customFieldFragment is defined and customFieldFragment %}
+                        <section class="order-form-panel">
+                            <h2>Custom Fields</h2>
+                            {{ customFieldFragment|raw }}
+                        </section>
+                    {% endif %}
+                </div>
+{% endblock %}
+
+{# Order's own line-row data, normalized into the flat shape sales_line_row.html.twig (and the
+   shared sales_lines_table.html.twig it is rendered through) expects — the qty/price warnings and
+   the per-line tax embedded ON each row rather than in a parallel array indexed alongside it.
+   #full-parity, 2026-09-13: "line qty grid... shared template. Update the form twig to use these
+   and cede any code related to these." #}
+{% set orderLineRows = [] %}
+{% for line in orderLines %}
+    {% set flat = line|merge({
+        unitId: line.lineUnitId|default(''),
+        units: line.lineUnits|default([]),
+        qtyWarning: loop.index0 in lineWarningQtyRows,
+        priceWarning: loop.index0 in lineWarningPriceRows,
+        taxAmount: perLineTax[loop.index0]|default(0),
+    }) %}
+    {% set orderLineRows = orderLineRows|merge([flat]) %}
+{% endfor %}
+{% set orderMainLineFeeRows = [] %}
+{% for feeIndex, feeLine in (orderData ? orderData.feeLines|default('[]')|json_decode : []) %}
+    {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set orderMainLineFeeRows = orderMainLineFeeRows|merge([{
+            label: feeLine.label,
+            amount: feeLine.amount,
+            taxClass: feeLine.taxClass|default(''),
+            tax: perFeeLineTax[feeIndex]|default(0),
+        }]) %}
+    {% endif %}
+{% endfor %}
+
+{% block lines_toolbar %}
+    {{ include('admin/_partials/sales_lines_toolbar.html.twig', {
+        hook: 'order',
+        shippingOptions: shippingOptions|default([]),
+        shippingOptionsUrl: path('admin_order_shipping_options'),
+        sentinel: true,
+        categoryFilter: true,
+    }, with_context = false) }}
+{% endblock %}
+
+{% block lines_note %}
+                    {# Zero lines is a valid order, same as zero is a valid Qty on any one of them. #}
+{% endblock %}
+
+{% block lines_table %}
+    {# Twig blocks do not share `{% set %}` locals with their siblings, so this re-derives exactly
+       what the "Fulfillment Region" field above (block `context`) computes as its own selected
+       value, off the same two top-level vars, rather than reading that block's own local. #}
+    {% set _existingFulfillmentRegion = orderData ? orderData.fulfillmentRegion|default('') : '' %}
+    {% set _selectedFulfillmentRegion = _existingFulfillmentRegion ?: (fulfillmentRegions|default([])|length == 1 ? fulfillmentRegions[0] : '') %}
+    {{ include('admin/_partials/sales_lines_table.html.twig', {
+        hook: 'order',
+        tableClass: 'order-lines-table',
+        lineColumns: orderLineColumns,
+        lineRows: orderLineRows,
+        lineRowOptions: {
+            lineClass: 'order-line-row',
+            actionsTemplate: 'admin/order/_line_actions.html.twig',
+            hook: 'order',
+            nameInProductCell: true,
+            productSelectClass: 'order-line-product-select',
+            productsRemote: productsRemote|default(false),
+            showsWarnings: true,
+            hintHooks: true,
+            showsStockOverride: true,
+            locationAllowsNone: true,
+            documentFulfillmentRegion: _selectedFulfillmentRegion,
+        },
+        products: products,
+        locations: locations,
+        productsRemote: productsRemote|default(false),
+        productSearchPath: path('admin_order_product_search'),
+        mainLineFeeRows: orderMainLineFeeRows,
+        submitted: submitted|default({}),
+        emptyLinesMessage: 'No order lines yet. Use Add Product or Add Blank Line to start.',
+        defaultLineQty: '1',
+    }, with_context = false) }}
+{% endblock %}
+
+{# Shipping is excluded here and added back from the charge rows, which are what the admin is
+   actually editing. Manual fee lines are excluded for the same reason — recalcSellDocTotals() sums
+   those from their own rows, so counting them here as well would show them twice. #}
+{% set _feeLinesTotal = 0 %}
+{% set orderBeforeTaxFeeLines = [] %}
+{% set orderAfterTaxFeeLines = [] %}
+{% for feeLine in (orderData ? orderData.feeLines|default('[]')|json_decode : []) %}
+    {% if feeLine.type|default('fee') != 'shipping' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set _feeLinesTotal = _feeLinesTotal + feeLine.amount %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'before_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set orderBeforeTaxFeeLines = orderBeforeTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'after_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set orderAfterTaxFeeLines = orderAfterTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+{% endfor %}
+{% set orderBeforeTax = orderData ? (orderData.total|default(0) - orderData.tax|default(0)) : 0 %}
+
+{% block lines_footer %}
+    {{ include('admin/_partials/sales_lines_footer.html.twig', {
+        hook: 'order',
+        chargeLines: orderData ? orderData.chargeLines|default('[]')|json_decode : [],
+        beforeTaxFeeLines: orderBeforeTaxFeeLines,
+        afterTaxFeeLines: orderAfterTaxFeeLines,
+        taxLines: taxLines|default([]),
+        subtotalDisplay: orderBeforeTax|number_format(2),
+        taxLinesTotalDisplay: taxLinesTotal|default(0)|number_format(2),
+        grandTotalDisplay: orderData ? orderData.total|default(0)|number_format(2) : '0.00',
+        feeLinesTotalDisplay: _feeLinesTotal|number_format(2),
+    }, with_context = false) }}
+{% endblock %}
+
+                    {# See `orderIsDraft` at the top of this file for why the draft pair disappears
+                       on a live order. `recalc` is a mode the controller already understands — it
+                       is what the no-JS charge-line submit reports — so this button saves,
+                       recalculates and lands back here without touching the status. Quote calls its
+                       equivalent "Save & Recalculate"; the label here is the one #264 specifies. #}
+{% block bottom_actions %}
+                        {% if orderIsDraft %}
+                            <button class="button primary" type="submit" name="save_mode" value="draft_recalc">Save Draft &amp; Recalc</button>
+                            <button class="button primary" type="submit" name="save_mode" value="draft_exit">Save Draft &amp; Exit</button>
+                        {% else %}
+                            <button class="button primary" type="submit" name="save_mode" value="recalc">Save &amp; Recalc</button>
+                        {% endif %}
+                        <button class="button primary" type="submit" name="save_mode" value="order">Save Order</button>
+{% endblock %}
+
+{% block after_form %}
+            {% if mode == 'Edit' and orderData %}
+                {# ── Add Message (same functionality as order detail page) ── #}
+                <section class="table-card no-search no-paginate" style="margin-top:30px; padding:20px;">
+                    <div class="table-header" style="border-bottom:none; padding-bottom:10px; margin-bottom:20px;">
+                        <h2 style="font-size:0.95rem; font-weight:700; color:var(--ink);">Message</h2>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 220px auto; gap:16px; align-items:flex-end;">
+                        <textarea id="log-message" class="form-control" style="min-height:45px; border-radius:8px; border:1px solid var(--line); padding:10px 12px; font-size:0.875rem; background:#f8fafc;" placeholder="Type your message here..."></textarea>
+                        <div class="form-group" style="margin:0;">
+                            <select id="log-type" class="form-control" style="height:45px; border-radius:8px; border:1px solid var(--line); font-size:0.875rem; width:100%;">
+                                <option value="For Internal" selected>For Internal</option>
+                                <option value="For Client">For Client</option>
+                            </select>
+                            <label id="log-notify-container" style="display:none; align-items:center; gap:8px; font-size:0.75rem; margin-top:8px; cursor:pointer; color:var(--muted); font-weight:600;">
+                                <input type="checkbox" id="log-notify" style="width:15px; height:15px; margin:0;">
+                                Send e-mail notification to client
+                            </label>
+                        </div>
+                        <button class="button primary js-add-log" data-url="{{ path('admin_order_log_add', {id: orderData.id}) }}">Send Message</button>
+                    </div>
+                </section>
+
+                {# ── Activity Log ── #}
+                <section class="table-card no-search no-paginate" style="margin-top:20px; margin-bottom:50px;">
+                    <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid var(--line-light);">
+                        <h2 style="font-size:0.95rem; font-weight:700; color:var(--ink);">Activity Log</h2>
+                    </div>
+                    <div class="wide-table-wrap">
+                        <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="width:185px;">Date</th>
+                                    <th style="width:230px;">User</th>
+                                    <th>Comment</th>
+                                    <th style="width:140px;">Type</th>
+                                    <th style="width:140px; text-align:center;">Customer Notified</th>
+                                    <th style="width:90px; text-align:center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs|default([]) %}
+                                    <tr>
+                                        <td style="font-size:0.83rem; color:var(--muted);">{{ log.occurredAt|date('Y-m-d g:i:s A') }}</td>
+                                        <td>
+                                            <span style="font-weight:700; font-size:0.875rem; color:var(--ink-body);">{{ log.actorName ?: 'System' }}</span>
+                                        </td>
+                                        <td style="font-size:0.875rem; color:#475569; line-height:1.5;">{{ log.summary }}</td>
+                                        <td>
+                                            <span class="badge" style="background:#f1f5f9; color:#475569; font-weight:700; padding:4px 10px; border-radius:6px; font-size:0.75rem;">{{ log.action }}</span>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            {% if log.recipientNotified %}
+                                                <span class="badge success" style="padding:4px 10px; font-size:0.7rem;">Yes</span>
+                                            {% else %}
+                                                <span class="badge danger-soft" style="padding:4px 10px; font-size:0.7rem;">No</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="text-align:center;">
+                                            {% if log.action != 'System' %}
+                                                <button class="table-action danger js-delete-log"
+                                                        data-url="{{ path('admin_order_log_delete', {id: orderData.id, logId: log.id}) }}"
+                                                        style="font-size:0.75rem; padding:0 14px; min-height:28px;">Delete</button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="6" class="empty-table-cell"><span>No activity recorded yet.</span></td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer">
+                        {% include 'admin/_table_count.html.twig' with {
+                            count: logs|default([])|length,
+                            total: logs|default([])|length
+                        } only %}
+                    </div>
+                </section>
+            {% endif %}
+{% endblock %}
+
+{% block page_end %}
+            {% if mode == 'Edit' and orderData %}
+                {# ── Update Status Modal (same as order detail page) ── #}
+                <div class="admin-modal-overlay" id="status-modal" data-order-id="{{ orderData.id }}">
+                    <div class="admin-modal">
+                        <button type="button" class="admin-modal-x js-modal-close" aria-label="Close dialog">×</button>
+                        <div class="admin-modal-header">
+                            <h2>Update Order Status</h2>
+                        </div>
+                        <div class="admin-modal-body">
+                            <div class="form-group" style="margin-bottom:20px;">
+                                <label style="display:block; margin-bottom:8px; font-weight:700; font-size:0.9rem;">Status</label>
+                                <select class="form-control" style="width:100%; min-height:44px; border:1px solid var(--line); border-radius:8px; padding:0 12px; font-size:0.9rem;">
+                                    {# Approve and Void only: every other status is derived from the
+                                       order's invoices and the endpoint refuses it (#539 stage 2). #}
+                                    {% set currentStatus = orderData.status|default('Draft') %}
+                                    <option {{ currentStatus == 'Approved' ? 'selected' }}>Approved</option>
+                                    <option {{ currentStatus == 'Void' ? 'selected' }}>Void</option>
+                                </select>
+                            </div>
+                            <label style="display:flex; align-items:center; gap:10px; font-weight:600; font-size:0.88rem; cursor:pointer;">
+                                <input type="checkbox" style="width:18px; height:18px; border:1px solid var(--line); border-radius:4px;">
+                                Send e-mail notification to client on update
+                            </label>
+                        </div>
+                        <div class="admin-modal-footer admin-modal-footer-split">
+                            <button class="button primary js-status-update" type="button" style="min-width:100px;">Update</button>
+                            <button class="button outline js-modal-close" type="button" style="min-width:80px;">Close</button>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {{ js_templates.line_templates('order', orderLineColumns, products, locations, {
+                lineClass: 'order-line-row',
+                actionsTemplate: 'admin/order/_line_actions.html.twig',
+                hook: 'order',
+                nameInProductCell: true,
+                productSelectClass: 'order-line-product-select',
+                showsWarnings: true,
+                hintHooks: true,
+                showsStockOverride: true,
+                locationAllowsNone: true,
+            }, productsRemote|default(false), path('admin_order_product_search'), true, '1') }}
+{% endblock %}
+
+{% block company_picker_options %}
+                        {% for row in companies %}
+                            <option value="{{ row.id }}">{{ row.name }}{% if row.email %} - {{ row.email }}{% endif %}</option>
+                        {% endfor %}
+{% endblock %}

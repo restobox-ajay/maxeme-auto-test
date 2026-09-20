@@ -1,0 +1,52 @@
+{#
+    Static per-product "set quantity" modal, one instance per product card.
+    Hidden by default via the `hidden` attribute; JS only toggles visibility
+    (see .js-cart-modal-open / .js-cart-modal-close in app.js) — the form
+    itself is always real, static markup so it works (and can be found by
+    no-JS automated tests) without any JS running.
+#}
+<div class="cart-qty-modal" id="cart-modal-{{ product.sku }}" hidden>
+    <div class="cart-qty-modal-backdrop js-cart-modal-close"></div>
+    <div class="cart-qty-dialog" role="dialog" aria-modal="true" aria-labelledby="cart-qty-title-{{ product.sku }}">
+        <div class="cart-qty-dialog-head">
+            <h2 id="cart-qty-title-{{ product.sku }}">Set quantity for your order</h2>
+            <button class="cart-modal-x js-cart-modal-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="cart-qty-dialog-body{{ product.image or app_setting('product_image_placeholder_url') ? '' : ' no-image' }}">
+            <div class="cart-modal-info">
+                <p><strong>Name:</strong> <span>{{ product.name }}</span></p>
+                <p><strong></strong> <span class="cart-modal-price-value"><span class="hrp-real-value">{{ product.price }}</span>{{ injection_point('cart_modal_price_after', {product: product}) }}</span></p>
+                <p><strong>SKU:</strong> <span>{{ product.sku }}</span></p>
+                {% set suggestedPriceHtml = suggested_price_html(product) %}
+                {% if suggestedPriceHtml is not empty %}
+                    <p class="cart-modal-suggested-price">{{ suggestedPriceHtml|raw }}</p>
+                {% endif %}
+            </div>
+            {% if product.image %}
+                <div class="cart-modal-image-wrap">
+                    <img src="/uploads/products/{{ product.image }}" alt="{{ product.name }}">
+                </div>
+            {% elseif app_setting('product_image_placeholder_url') %}
+                <div class="cart-modal-image-wrap">
+                    <img src="{{ app_setting('product_image_placeholder_url') }}" alt="{{ product.name }}" class="product-media-placeholder">
+                </div>
+            {% endif %}
+        </div>
+        <form method="post" action="{{ path('customer_cart_add') }}" class="cart-qty-dialog-foot">
+            {{ csrf_field() }}
+            <input type="hidden" name="sku" value="{{ product.sku }}">
+            <input type="hidden" name="redirect_to" value="{{ app.request.requestUri }}">
+            <label for="cart-modal-qty-{{ product.sku }}">Quantity</label>
+            <div class="cart-qty-control cart-modal-qty-control">
+                <button class="cart-qty-btn js-modal-qty-dec" type="button" aria-label="Decrease quantity">-</button>
+                <input id="cart-modal-qty-{{ product.sku }}" class="cart-qty js-modal-qty" type="number" min="1" max="{{ product.availableQuantity|default(999) }}" name="qty" value="1" inputmode="numeric" aria-label="Quantity">
+                <button class="cart-qty-btn js-modal-qty-inc" type="button" aria-label="Increase quantity">+</button>
+            </div>
+            <p class="cart-modal-subtotal"><strong>Available:</strong> <span>{{ product.availableQuantity|default(0) }}</span></p>
+            <div class="cart-modal-actions">
+                <button class="button primary" type="submit">Add to Cart</button>
+                <button class="button outline js-cart-modal-close" type="button">Close</button>
+            </div>
+        </form>
+    </div>
+</div>

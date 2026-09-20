@@ -1,0 +1,324 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+
+{# Built from templates/admin/order/form.html.twig, copied then adapted (#full-parity,
+   2026-09-13) — replaces the independently-written purchase_order_edit.html.twig this session
+   deleted rather than patch again. Customer→Vendor, Company→Vendor, Order→Purchase Order
+   throughout; every block below states, where it differs from Order's own, whether that
+   difference is a real buy-side-only concept or simply not built yet.
+
+   PurchaseOrder has no customer-chooser step the way Order does: a vendor is chosen inline (or via
+   `?vendor=`, queue item 51), not by posting company_id alone and being redirected into a second
+   page load — see PurchaseOrderController::editFrameContext()'s own docblock. `workspaceReady` is
+   therefore unconditionally true; the "no vendor chosen yet" state is handled inside this file's
+   own `context` block instead of by the frame's chooser gate.
+
+   `order` is a single nullable variable (PurchaseOrderController's existing contract), not the
+   sell side's `mode`/`orderData` pair — a controller-contract difference predating this rewrite,
+   not something this template pass changes. #}
+
+{% set productsRemote = productsRemote|default(false) %}
+{% set _columns = constant('App\\Service\\PurchaseDocumentLineColumns::BASE')|json_encode|json_decode|merge([{key: 'actions', label: 'Actions'}]) %}
+{% set _isDraft = not order or order.status == 'Draft' %}
+{% set _deliverTo = order ? order.warehouse : null %}
+
+{% block title %}{{ order ? 'Edit ' ~ order.poNumber : 'New Purchase Order' }} | Admin{% endblock %}
+
+{# app.js keys the batch cell's submit-time serialize, the product-select tracksBatch re-sync, and
+   (#full-parity, 2026-09-15) the whole live charge/fee/tax editing subsystem — the same one
+   Order's own form uses — off this class. Line-ADDING still has no JS clone: spare rows are the
+   only way to add a PRODUCT line, always (see lines_table block below), so `no_js_noscript_style`
+   below only needs the rules a JS-enabled browser's noscript/`.js-only` hiding depends on, not the
+   full line-row template set Order's own `sales_line_js_templates.html.twig` also renders. #}
+{% set formId = 'po-form' %}
+{% set formClass = 'js-po-form' %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+{% set heroEyebrow = 'Purchase Orders' %}
+{# Order's own heroLead is '' whenever editing an EXISTING order (mode == 'Edit' and orderData) —
+   it only ever shows lead text on the customer-chooser step. A prior version of this always
+   showed explanatory prose for an existing order, draft or not; no SO equivalent, corrected
+   (#full-parity, 2026-09-15). #}
+{% set heroLead = order
+    ? ''
+    : 'Choose a vendor and a delivery warehouse, then add products to the order.' %}
+
+{% block hero_heading %}
+    {% if not order %}
+        <h1>Create New Purchase Order</h1>
+    {% else %}
+        <div class="order-edit-titlebar">
+            <h1>Purchase Order {{ order.poNumber }}</h1>
+            <div class="order-edit-status">
+                <span class="order-edit-status-label">Status:</span>
+                <span class="order-status order-status-{{ order.status|lower|replace({' ': '-'}) }}">{{ order.status }}</span>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{# Order's own hero_actions puts a Save button beside Back only in Edit mode — Create mode relies
+   on bottom_actions alone, same as Order's does when a customer has just been chosen. PO's
+   equivalent existing-order state is `order` being set. #}
+{% block hero_actions %}
+    <a class="button back-button" href="{{ order ? path('admin_bundle_procurement_purchase_order', {id: order.id}) : path('admin_bundle_procurement_purchase_orders') }}">Back</a>
+    {% if order %}
+        <button class="button primary" type="submit" form="{{ formId }}">{{ _isDraft ? 'Save draft' : 'Save changes' }}</button>
+    {% endif %}
+{% endblock %}
+
+{# Order's own tab_nav also links a Log page and a clone action — PurchaseOrder has neither route
+   today (only one GET detail route, no admin_bundle_procurement_purchase_order_log /
+   _clone equivalents), so this is genuinely narrower rather than trimmed by choice: nothing to
+   link to yet, not a difference this pass invents an opinion about. #}
+{% block tab_nav %}
+    {% if order %}
+        <nav class="company-action-links order-tab-nav" aria-label="Purchase order edit actions">
+            <a class="button" href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">View</a>
+            <a class="button is-current" href="{{ path('admin_bundle_procurement_purchase_order_edit', {id: order.id}) }}">Edit</a>
+            <a class="button" href="{{ path('admin_bundle_procurement_purchase_order_print', {id: order.id}) }}">Purchase Order PDF</a>
+        </nav>
+    {% endif %}
+{% endblock %}
+
+{# `data-po-charges`/`data-fee-lines-url`/`data-tax-breakdown-url` (#full-parity, 2026-09-15) —
+   copied from Order's own form_attributes: the JSON snapshot app.js's
+   hydrateSellDocChargeLinesFromData('po') rebuilds this document's editable charge rows from at
+   page load, and the two AJAX endpoints its live fee/tax refresh calls
+   (PurchaseOrderController::feeLinesAjax()/taxBreakdownAjax()). No `data-next-charge-index`, same
+   as Order's own form: sellDocNextChargeIndex() defaults to 0 and the hydrate call above always
+   runs first, consuming exactly as many indices as there are stored charges before anything else
+   asks for one. #}
+{# `+ 2`, not the old `+ 5`: the two spare no-JS rows below whatever is saved are the only rows
+   that already occupy an index past the saved lines (#full-parity, 2026-09-15 — stale since the
+   spare-row count changed from 5 to 2 fixed rows; a JS-added row starting at the same index as an
+   already-rendered spare row would silently overwrite it on save, per _purchase_line_row.html.twig's
+   own "two rows sharing an index" warning). #}
+{% block form_attributes %} data-next-line-index="{{ (order ? order.lines|length : 0) + 2 }}" data-po-charges="{{ chargeRows|json_encode|e('html_attr') }}" data-fee-lines-url="{{ path('admin_bundle_procurement_purchase_order_fee_lines') }}" data-tax-breakdown-url="{{ path('admin_bundle_procurement_purchase_order_tax_breakdown') }}" data-po-vendor-rates="{{ vendorRates|json_encode|e('html_attr') }}"{% endblock %}
+
+{% block form_head %}
+    <input type="hidden" name="id" value="{{ order ? order.id : 0 }}">
+    {# Tells the save this post came from a form that shows charges, so removing the last row
+       really does clear the order's charges instead of looking like a post that never carried
+       any. Omitted on a brand-new order, which has nothing stored to protect. #}
+    {% if order %}<input type="hidden" name="charge_lines_present" value="1">{% endif %}
+
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents|default([])} only %}
+    {% include '@Procurement/_purchase_flash_messages.html.twig' %}
+{% endblock %}
+
+{% block top_actions %}{% endblock %}
+
+{% block context %}
+    {%- import '@Procurement/_purchase_address_cards.html.twig' as address_form %}
+    <div class="order-workspace-grid">
+        <section class="order-form-panel">
+            <h2>Purchase Order Info</h2>
+            <div class="order-field-row static">
+                <label>PO Number:</label>
+                <strong>{{ order ? order.poNumber : nextNumber }}</strong>
+            </div>
+            <label class="order-field-row">
+                <span>Vendor:</span>
+                {% if _isDraft %}
+                    <select name="vendor_id" required>
+                        <option value=""></option>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}" {{ (addressVendor and addressVendor.id == v.id) ? 'selected' : '' }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    {# Frozen at issue() — the vendor's name is snapshotted onto the document, the
+                       same rule PurchaseOrder::freezeVendorSnapshot() applies to the addresses. #}
+                    <strong>{{ order.vendorName ?: order.vendor.name }}</strong>
+                    <input type="hidden" name="vendor_id" value="{{ order.vendor.id }}">
+                {% endif %}
+            </label>
+            <label class="order-field-row">
+                <span>Deliver to warehouse:</span>
+                {% if _isDraft %}
+                    <select name="warehouse_id" required>
+                        <option value=""></option>
+                        {% for w in warehouses %}
+                            {# The tax province is taken from whichever warehouse is picked here (see
+                               `#po-tax-province-note` below), so the choice itself has to say what
+                               each one would derive — otherwise picking one is a guess. #}
+                            <option value="{{ w.id }}" {{ (_deliverTo and _deliverTo.id == w.id) ? 'selected' : '' }}>{{ w.name }}{% if w.province %} ({{ w.province }}){% else %} — no province on file{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <strong>{{ _deliverTo.name }}</strong>
+                    <input type="hidden" name="warehouse_id" value="{{ _deliverTo.id }}">
+                {% endif %}
+            </label>
+            <label class="order-field-row">
+                <span>Dated:</span>
+                <input type="date" name="document_date" value="{{ order ? order.documentDate : 'now'|date('Y-m-d') }}">
+            </label>
+            <label class="order-field-row">
+                <span>Expected:</span>
+                <input type="date" name="expected_date" value="{{ order ? order.expectedDate : '' }}">
+            </label>
+            <label class="order-field-row">
+                <span>Payment Term:</span>
+                <input type="text" name="payment_term" maxlength="80" value="{{ order ? order.paymentTerm : '' }}">
+            </label>
+            <p class="form-note span-2" id="po-tax-province-note">
+                {% include '@Procurement/_purchase_tax_province_note_edit.html.twig' with {
+                    documentNoun: 'order',
+                    cannotFreezeSentence: 'An order with taxable goods and no province cannot be issued.',
+                    isDraft: _isDraft,
+                    hasProvince: order and order.taxProvince,
+                    provinceDisplay: (order and order.taxProvince) ? (provinces[order.taxProvince]|default(order.taxProvince) ~ ' (' ~ order.taxProvince ~ ')') : '',
+                    warehouse: _deliverTo,
+                    savingRetakesSentence: 'Saving this draft takes it again; issuing freezes it for good.',
+                    frozenPastDraftSentence: 'It was frozen when this order left Draft, and editing the order does not restate it — moving a warehouse does not re-tax an order the vendor already has.',
+                    noWarehouseSentence: 'The tax province is taken from the warehouse you deliver to — choose one above and save, and it is derived.',
+                    noWarehouseRemedySentence: 'An order with taxable goods and no province cannot be issued.',
+                } only %}
+            </p>
+            <label class="order-field-row span-2">
+                <span>Notes:</span>
+                <textarea name="notes" rows="2">{{ order ? order.notes : '' }}</textarea>
+            </label>
+        </section>
+
+        {# "Order To" is where WE tell the vendor to deliver — the delivery warehouse's own
+           address, not a vendor fact (#full-parity, 2026-09-15, corrected: this used to be sourced
+           from the vendor's own address book, which duplicated Ship From whenever a vendor's book
+           happened to carry the same row under both purposes). Read-only: the warehouse itself is
+           what's editable, via the select above — editing this address means editing the
+           warehouse record under Config > Warehouses. #}
+        <section class="order-form-panel">
+            <h2>Order To</h2>
+            {% if _deliverTo %}
+                <div class="order-field-row static"><label>Street Address:</label><strong>{{ _deliverTo.addressLine1 ?: '-' }}</strong></div>
+                {% if _deliverTo.addressLine2 %}
+                    <div class="order-field-row static"><label>Address 2:</label><strong>{{ _deliverTo.addressLine2 }}</strong></div>
+                {% endif %}
+                <div class="order-field-row static"><label>City:</label><strong>{{ _deliverTo.city ?: '-' }}</strong></div>
+                <div class="order-field-row static"><label>Province:</label><strong>{{ _deliverTo.province ?: '-' }}</strong></div>
+                <div class="order-field-row static"><label>Country:</label><strong>{{ _deliverTo.country ?: '-' }}</strong></div>
+                <div class="order-field-row static"><label>Postal Code:</label><strong>{{ _deliverTo.postalCode ?: '-' }}</strong></div>
+            {% else %}
+                <p class="lead">Choose a delivery warehouse and save the draft — its address appears here.</p>
+            {% endif %}
+        </section>
+
+        {% if addressVendor %}
+            {{ address_form.address_cards(addressVendor, addresses, addressBook) }}
+        {% else %}
+            <section class="order-form-panel">
+                <p class="lead">Choose a vendor and save the draft — their address book appears here, and is frozen onto the document when it is issued.</p>
+            </section>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block lines_toolbar %}
+    {{ include('@Procurement/_purchase_lines_toolbar.html.twig', {sentinel: order is not null, hook: 'po'}, with_context = false) }}
+{% endblock %}
+
+{# Order's own lines_note block is a bare Twig comment, no visible output (#full-parity,
+   2026-09-15, corrected: this used to print an explanatory paragraph with no SO equivalent). #}
+{% block lines_note %}{% endblock %}
+
+{% block lines_table %}
+    {{ include('@Procurement/_purchase_lines_table.html.twig', {
+        tableClass: 'po-lines-table',
+        colPrefix: 'po',
+        lineColumns: _columns,
+        lineRows: lineRows,
+        lineRowOptions: {
+            lineClass: 'po-line-row',
+            actionsTemplate: '@Procurement/_purchase_line_actions.html.twig',
+            taxClasses: {'E': 'E', 'G': 'G', 'S': 'S'},
+            taxCodeBlankLabel: '',
+            showRemove: true,
+            warehouses: warehouses|map(w => w.name),
+            documentWarehouseName: _deliverTo ? _deliverTo.name : '',
+        },
+        products: productOptions,
+        productsRemote: productsRemote,
+        spares: true,
+        emptyLinesMessage: 'No lines yet.',
+        mainLineFeeRows: _poMainLineFeeRows,
+    }, with_context = false) }}
+{% endblock %}
+
+{# Auto-calculated (non-manual) freight/fee rows, split the same way Order's own form splits
+   orderBeforeTaxFeeLines/orderAfterTaxFeeLines out of feeLines — see form.html.twig's own top-of-
+   file loop. A manually-typed charge (source == 'manual') is never in these three: it already has
+   its own editable row via chargeRows/_purchase_lines_footer's beforeSubtotalSlot/afterTaxFeeSlot,
+   and showing it a second time here as a read-only line would double it on the page.
+
+   `_poMainLineFeeRows` (#full-parity, 2026-09-15, GitHub #690 — a main-line fee/freight charge
+   was folded into the Subtotal figure but never actually rendered as its own row anywhere, unlike
+   this same document's own detail.html.twig, which already splits main_line into its own bucket
+   the same way order/detail.html.twig does) is passed into the line table below as
+   `mainLineFeeRows`, the same param _purchase_detail_line_table.html.twig already reads. #}
+{% set _feeLinesTotal = 0 %}
+{% set _poMainLineFeeRows = [] %}
+{% set _poBeforeTaxFeeLines = [] %}
+{% set _poAfterTaxFeeLines = [] %}
+{% for charge in chargeRows %}
+    {% if charge.type|default('tax') != 'tax' and charge.source|default('manual') != 'manual' %}
+        {% set _feeLinesTotal = _feeLinesTotal + charge.amount %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'main_line' and charge.source|default('manual') != 'manual' %}
+        {% set _poMainLineFeeRows = _poMainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass|default('E')}]) %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'before_tax_line' and charge.source|default('manual') != 'manual' %}
+        {% set _poBeforeTaxFeeLines = _poBeforeTaxFeeLines|merge([charge]) %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'after_tax_line' and charge.source|default('manual') != 'manual' %}
+        {% set _poAfterTaxFeeLines = _poAfterTaxFeeLines|merge([charge]) %}
+    {% endif %}
+{% endfor %}
+{# The displayed Subtotal is total-minus-tax, exactly like Order's own orderBeforeTax — see
+   form.html.twig's own top-of-file `{% set orderBeforeTax = ... %}` and its own note there:
+   PurchaseOrder::recalculateTotals() stores `subtotal` as the line items alone, folding every
+   charge in only at `total`, the same as SalesOrder's own subtotal column does, so the figure
+   labelled "Subtotal" here has to add them back the same way. #}
+{% set _poBeforeTax = order ? (order.total - order.tax) : 0 %}
+
+{% block lines_footer %}
+    {# "No tax province on this order" — re-evaluated LIVE off the delivery warehouse, same as
+       before this rewrite; PurchaseOrder's own tax-source, with no sell-side equivalent since
+       Order's own tax is never derived from a warehouse. #}
+    {% set _beforeTotalTaxSlot %}
+        {% if not (order and order.taxProvince) %}
+            <div class="purchase-total-row"><span>Tax:</span><strong id="po-total-tax-empty">
+                {%- if _deliverTo and _deliverTo.province %} no tax province on this order: {{ _deliverTo.name }} records {{ _deliverTo.province }}, but this order was entered before that
+                {%- elseif _deliverTo %} no tax province: the delivery warehouse has no address on file
+                {%- else %} no tax province: no delivery warehouse chosen yet
+                {%- endif %}</strong></div>
+        {% endif %}
+    {% endset %}
+    {# Order's own `lines_footer` block is a bare include — no wrapping section, heading or
+       explanatory paragraph (#full-parity, 2026-09-15, corrected: a prior version of this invented
+       a "Charges and totals" panel with prose that has no sell-side equivalent at all). #}
+    {{ include('@Procurement/_purchase_lines_footer.html.twig', {
+        chargeLines: chargeRows,
+        beforeTaxFeeLines: _poBeforeTaxFeeLines,
+        afterTaxFeeLines: _poAfterTaxFeeLines,
+        taxLines: taxLines,
+        subtotalDisplay: _poBeforeTax|amount,
+        taxLinesTotalDisplay: (order ? order.tax : '0.00')|amount,
+        grandTotalDisplay: (order ? order.total : '0.00')|amount,
+        feeLinesTotalDisplay: _feeLinesTotal|amount,
+        taxClasses: {'E': 'Exempt', 'G': 'GST only', 'S': 'GST + PST'},
+        currency: order ? order.currency : 'CAD',
+        beforeTotalTaxSlot: _beforeTotalTaxSlot,
+        hook: 'po',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block bottom_actions %}
+    <div class="form-actions"><button class="button primary" type="submit">{{ _isDraft ? 'Save draft' : 'Save changes' }}</button></div>
+{% endblock %}
+
+{% block after_form %}
+    {% include '@Procurement/_purchase_form_styles.html.twig' %}
+{% endblock %}

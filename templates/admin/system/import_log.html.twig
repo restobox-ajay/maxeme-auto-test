@@ -1,0 +1,149 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Imports | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Imports</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel compact-panel">
+        {% if lockHolder %}
+            <p><strong style="color: #b91c1c;">&#9679; LOCKED</strong> &mdash;
+                import running (PID {{ lockHolder.pid }}, started {{ lockHolder.startedAt|date('Y-m-d H:i:s') }}).</p>
+            <form method="post" action="{{ path('admin_import_log_kill') }}"
+                  onsubmit="return confirm('Killing will release the lock. Partial writes may remain in the database. Continue?');">
+                {{ csrf_field() }}
+                <button class="button danger" type="submit">Kill Process</button>
+            </form>
+        {% else %}
+            <p><strong style="color: #15803d;">&#9679; FREE</strong> &mdash;
+                {{ queuedCount }} import{{ queuedCount == 1 ? '' : 's' }} queued.</p>
+            {% if queuedCount > 0 %}
+                <form method="post" action="{{ path('admin_import_log_process_queue') }}">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Process Queue</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(50) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+
+    {# filter-row convention, matching Email Log/Audit Log (same System section): controls sit in
+       table cells and join the GET form via form="...", selects auto-submit onchange. #}
+    <section class="table-card no-paginate">
+        <div class="table-header">
+            <form id="import-log-filters-form" class="table-tools" method="get" action="{{ path('admin_import_log') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentLimit }}">
+            </form>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Import Name</th>
+                        <th>Description</th>
+                        <th>Action</th>
+                        <th>Mode</th>
+                        <th>Date/Time</th>
+                        <th>Total</th>
+                        <th>Validated</th>
+                        <th>Errors</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th>
+                        <th>
+                            <select name="filters[importType]" form="import-log-filters-form" data-filter-field="importType" aria-label="Filter import name" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="">&mdash; all &mdash;</option>
+                                {% for type in typeOptions %}
+                                    <option value="{{ type }}"{{ filters.importType|default('') == type ? ' selected' : '' }}>{{ type }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[mode]" form="import-log-filters-form" data-filter-field="mode" aria-label="Filter mode" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="">&mdash; all &mdash;</option>
+                                <option value="executed"{{ filters.mode|default('') == 'executed' ? ' selected' : '' }}>Executed</option>
+                                <option value="validation"{{ filters.mode|default('') == 'validation' ? ' selected' : '' }}>Validation Only</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <label>
+                                <input type="checkbox" name="filters[hasErrors]" value="1" form="import-log-filters-form" data-filter-field="hasErrors" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"{{ filters.hasErrors|default('') == '1' ? ' checked' : '' }}>
+                                Has errors
+                            </label>
+                        </th>
+                        <th>
+                            <select name="filters[status]" form="import-log-filters-form" data-filter-field="status" aria-label="Filter status" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value="">&mdash; all &mdash;</option>
+                                {% for status in statusOptions %}
+                                    <option value="{{ status.value }}"{{ filters.status|default('') == status.value ? ' selected' : '' }}>{{ status.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><a class="button outline" href="{{ path('admin_import_log') }}">Clear</a></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                        <tr>
+                            <td>{{ run.id }}</td>
+                            <td>{{ run.importType }}</td>
+                            <td>{{ run.description }}</td>
+                            {# run.action is a stored, comma-joined raw-value string (ImportRunner::setAction()) —
+                               never the enum itself, so it's relabeled by substring replace rather than .label(). #}
+                            <td>{{ run.action|default('')|replace({'append': 'Add', 'update': 'Update', 'delete': 'Delete'}) }}</td>
+                            <td>{{ run.validationOnly ? '⚪ Validation' : '✓ Executed' }}</td>
+                            <td>{{ run.finishedAt ? run.finishedAt|date('Y-m-d H:i') : (run.queuedAt ? run.queuedAt|date('Y-m-d H:i') : run.createdAt|date('Y-m-d H:i')) }}</td>
+                            <td>{{ run.rowCount }}</td>
+                            <td>{{ run.validatedCount }}</td>
+                            <td>{{ run.errorCount > 0 ? '⚠ ' ~ run.errorCount : 0 }}</td>
+                            <td>{{ run.status.value }}</td>
+                            <td class="actions-cell"><a class="table-action info" href="{{ path('admin_import_log_detail', {id: run.id}) }}">View</a></td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="11" class="empty-table-cell">
+                                <strong>No imports yet.</strong>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: runs|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_import_log',
+                routeQuery: {filters: filters, limit: currentLimit},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

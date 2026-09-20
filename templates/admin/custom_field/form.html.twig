@@ -1,0 +1,117 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Custom Field | Admin{% endblock %}
+{% block admin_body %}
+    {% set isCreate = mode == 'Create' %}
+    {% set hasFormData = formData|default([])|length > 0 %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Settings › Custom Fields</p>
+                <h1>{{ mode }} Custom Field</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_custom_field_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-create-form-panel">
+        <form method="post" class="form-grid">
+            {% if isCreate %}
+                <label>
+                    Object Type <span class="req">*</span>
+                    <select name="object_type" required>
+                        <option value="">-- Select --</option>
+                        {% for value, label in objectTypes %}
+                            <option value="{{ value }}" {{ (formData.object_type ?? '') == value ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <label>
+                    Slug <span class="req">*</span>
+                    <input type="text" name="slug" value="{{ formData.slug ?? '' }}" placeholder="e.g. warranty_months" required>
+                    <span class="field-hint">Lowercase letters, numbers, and underscores only. Cannot be changed later.</span>
+                </label>
+            {% else %}
+                <div>
+                    <span class="ss-field-label">Object Type</span>
+                    {# #745: objectTypes is Active-gated, so a definition whose bundle was switched
+                       Inactive after the field was created names a key no longer in the map — the
+                       row itself must still be viewable and editable (label, field type,
+                       visibility), so this falls back to the raw key rather than a 500. #}
+                    <p>{{ objectTypes[definition.objectType] ?? definition.objectType }}</p>
+                </div>
+
+                <div>
+                    <span class="ss-field-label">Slug</span>
+                    <p><code>{{ definition.slug }}</code></p>
+                </div>
+            {% endif %}
+
+            <label>
+                Label <span class="req">*</span>
+                <input type="text" name="label" value="{{ formData.label ?? (definition ? definition.label : '') }}" required>
+            </label>
+
+            <label>
+                Field Type
+                <select name="field_type">
+                    {% for value, label in fieldTypes %}
+                        {% set currentFieldType = formData.field_type ?? (definition ? definition.fieldType : 'text') %}
+                        <option value="{{ value }}" {{ currentFieldType == value ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="span-2">
+                Options (for Select fields only)
+                <textarea name="options" rows="4" placeholder="One option per line">{{ formData.options ?? (definition and definition.options ? definition.options|join("\n") : '') }}</textarea>
+            </label>
+
+            <fieldset class="span-2 company-email-fieldset">
+                <legend>Visibility</legend>
+                <label class="check-row">
+                    <input type="checkbox" name="visible_on_add" value="1" {{ hasFormData ? (formData.visible_on_add is defined ? 'checked' : '') : (definition is null or definition.visibleOnAdd ? 'checked' : '') }}>
+                    Visible on Add page
+                </label>
+                <label class="check-row">
+                    <input type="checkbox" name="visible_on_edit" value="1" {{ hasFormData ? (formData.visible_on_edit is defined ? 'checked' : '') : (definition is null or definition.visibleOnEdit ? 'checked' : '') }}>
+                    Visible on Edit page
+                </label>
+                <label class="check-row">
+                    <input type="checkbox" name="visible_on_listing" value="1" {{ hasFormData ? (formData.visible_on_listing is defined ? 'checked' : '') : (definition and definition.visibleOnListing ? 'checked' : '') }}>
+                    Visible on product listing <span class="field-hint">(Product only)</span>
+                </label>
+                <label class="check-row">
+                    <input type="checkbox" name="searchable" value="1" {{ hasFormData ? (formData.searchable is defined ? 'checked' : '') : (definition and definition.searchable ? 'checked' : '') }}>
+                    Searchable on catalog <span class="field-hint">(Product only, not yet wired into search)</span>
+                </label>
+            </fieldset>
+
+            <label>
+                Sort Order
+                <input type="number" name="sort_order" value="{{ formData.sort_order ?? (definition ? definition.sortOrder : 0) }}" step="1">
+            </label>
+
+            {% if not isCreate %}
+                <div>
+                    <span class="ss-field-label">Source</span>
+                    <p>
+                        {% if definition.source %}
+                            <span class="badge info">{{ definition.source }}</span>
+                        {% else %}
+                            <span class="badge success">Admin (created by hand)</span>
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">{{ isCreate ? 'Save Custom Field' : 'Update Custom Field' }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

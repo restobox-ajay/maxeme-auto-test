@@ -1,0 +1,70 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}New credit note | Admin{% endblock %}
+
+{#
+    The create page with NOBODY in scope — reached from the sidebar's Create Credit Note, and from
+    the grid's New credit note button when the grid is not scoped to one company.
+
+    Before this, admin_credit_memo_new answered that case by flashing "open one from an invoice, or
+    from a company" and redirecting to the grid, so the only ways to raise a note were from an
+    invoice, from an RMA, or from a company-scoped grid. #586 is explicit that a standalone credit —
+    goodwill, a pricing correction, credit raised before anyone decides which invoice it lands
+    against — is a first-class case, and a first-class case needs a door.
+
+    The shape is OrderController::create()'s, deliberately: a plain <select> of companies posted
+    back to the SAME route, which recognises a pick (no draft fields on it) and redirects to
+    `?company=`, re-entering the editor knowing who the note is for. Two requests rather than one
+    because the customer decides the addresses, the company snapshot and the region the draft is
+    built from — settled before the draft exists, not read off the POST that creates it.
+
+    It lives in its own template rather than as an `{% if not company %}` arm inside
+    edit.html.twig — which is how the order form does it — because edit.html.twig is the shared
+    new/edit draft editor and every line of it assumes a company. The pattern that matters is the
+    behaviour, and it is the same one; what differs is that the branch is not wrapped around 140
+    lines that can never render in this state.
+
+    No JavaScript anywhere in it: a real <form>, a real <select>, a real submit.
+#}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Credit note</p>
+                <h1>New credit note</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_credit_memo_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <form method="post" action="{{ path('admin_credit_memo_new') }}" id="credit-memo-company-form">
+        {{ csrf_field() }}
+
+        <section class="form-card">
+            {% if creditMemoError %}
+                {# Printed here as well as in the flash bag: the flash markup is hidden until
+                   JavaScript lifts it out, and this screen has to read correctly without any. #}
+                <p class="field-error">{{ creditMemoError }}</p>
+            {% endif %}
+            <div class="form-grid">
+                <label class="full-width" for="company_id">
+                    Customer <span class="req">*</span>
+                    <select id="company_id" name="company_id" required>
+                        <option value=""></option>
+                        {% for row in companies %}
+                            <option value="{{ row.id }}">{{ row.name }}{% if row.email %} - {{ row.email }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    {% if companies is empty %}
+                        <small>No customers exist yet. <a href="{{ path('admin_company_create') }}">Add one</a> before raising a credit note.</small>
+                    {% endif %}
+                </label>
+
+                <div class="form-actions">
+                    <button class="button primary" type="submit">Next</button>
+                </div>
+            </div>
+        </section>
+    </form>
+{% endblock %}

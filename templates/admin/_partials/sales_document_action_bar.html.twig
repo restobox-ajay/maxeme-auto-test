@@ -1,0 +1,175 @@
+{# THE action bar for a sell-side document — the order's, the quote's and the invoice's, once.
+
+   Three near-identical <nav>s stood here before this: `admin/order/_tab_nav.html.twig`,
+   `admin/estimate/_tab_nav.html.twig` and `admin/invoice/_tab_nav.html.twig`, each with its own
+   copy of the View tab, the PDF tab, the right-aligned PDF/Download disclosure and (on the order
+   alone) an overflow menu. The genuinely common set measured three items — View, the document's
+   own PDF, and one related-document link — and the shape around them was copied three times, which
+   is why Clone reached one document of three and Lock reached none at all.
+
+   ## The rule this partial is built on
+
+   PARAMETERS, NEVER `{% if document == 'invoice' %}`. Nothing below asks which document it is
+   rendering. Every difference between the three arrives as a value or as a TEMPLATE PATH, the same
+   way `sales_detail_line_table.html.twig` takes its Actions cell and its <tfoot>. A difference that
+   cannot be expressed that way belongs in the calling `_tab_nav`, not in a branch here.
+
+   ## The shape
+
+       Bar       View · Edit · <own PDF> · [barTemplate] · PDF / Download ▾ · ⋯
+       Overflow  [overflowTemplate] · Clone · Delete · Lock / Unlock
+
+   which is the owner's Zoho reference with the names this application actually has. Two of that
+   reference's items are deliberately absent: **Share**, which has no route anywhere, and
+   **Preferences**, which is out of scope. **Email** is not shared either — `admin_invoice_send` is
+   the only mail route on the sell side — so it stays in the invoice's own print-menu slot.
+
+   ## No JavaScript
+
+   Both disclosures are `<details>`/`<summary>`, not the `.row-action-toggle` button the row grids
+   use. That button is inert with scripting off — app.js:4254 is the only thing that opens the
+   panel, by copying its HTML into a body-level clone — so a menu built on it hides its contents
+   from a no-JS browser entirely, and this bar is where Clone, Lock and Send Invoice live. Core
+   already answers this: `admin/_row_actions_no_js.html.twig` is the same dropdown as a native
+   disclosure, keeping `.row-action-dropdown` so the styling is core's and not a second copy. It is
+   included once, here, because this bar is included once per page.
+
+   A second gain from `<details>`: app.js's clone duplicates every id inside a panel it opens. A
+   disclosure it never touches keeps this bar's ids unique, which is what lets a test anchor to one
+   (#627).
+
+   ## Delete
+
+   The control is rendered and is DEAD, by instruction. No `admin_order_delete`,
+   `admin_estimate_delete` or `admin_invoice_delete` route exists and none is in scope. It is a
+   `<button disabled>` — the only control in HTML that cannot be activated by mouse, keyboard or
+   form submit, and which carries no href to land on a 404 — dimmed with the three declarations
+   core's own `.button.is-disabled` uses (that class cannot be borrowed directly: `.button` inside
+   `.company-action-links` restyles it as a bar tab). `data-inert` says why, in the markup.
+
+   Parameters
+   ----------
+   document          required  the entity. Read for ONE thing: `document_is_locked()` /
+                               `document_lock()`. Not branched on.
+   idPrefix          required  'order' | 'quote' | 'invoice'. Every control's id is
+                               `{idPrefix}-action-{name}`, so a test names an element instead of
+                               see()ing a bare word like "Edit" or "Lock" (#627).
+   documentNoun      required  'order' | 'quote' | 'invoice' — the word the shared labels read
+                               with ("Clone Order", "Lock this invoice").
+   ariaLabel         required  the <nav>'s accessible name.
+   navClass          optional  extra classes on the <nav>. The invoice passes 'no-print'.
+   view              required  {href, current} — the View tab.
+   edit              optional  {href, label} or null. NULL RENDERS NO EDIT CONTROL, which is how
+                               a document whose own state machine withholds editing right now says
+                               so — an issued invoice or one that bills an order, a locked document,
+                               an accepted quote.
+   pdf               optional  {href, label, current} or null. NULL RENDERS NO PDF CONTROL, the
+                               same convention `edit` uses — for a document whose own PDF is
+                               already reachable another way in this same bar (the order's
+                               printMenuTemplate offers the identical route as "Print Sales
+                               Order"). Quote and Invoice always pass one today.
+   barTemplate       optional  template path rendered in the bar after the fixed set: this
+                               document's own bar actions.
+   barContext        optional  extra variables for barTemplate. `document` is always passed.
+   printMenuTemplate optional  template path rendered inside the shared PDF / Download disclosure.
+   printContext      optional  extra variables for printMenuTemplate.
+   overflowTemplate  optional  template path rendered at the TOP of the ⋯ overflow: this document's
+                               own secondary actions. No document supplies one today — see the
+                               report for the three Zoho puts there and why none of them moved.
+   overflowContext   optional  extra variables for overflowTemplate.
+   cloneUrl          required  POST target for Clone.
+   lockUrl           required  POST target for Lock.
+   unlockUrl         required  POST target for Unlock.
+#}
+{% include 'admin/_row_actions_no_js.html.twig' %}
+{% set barLocked = document_is_locked(document) %}
+{% set barLockRow = barLocked ? document_lock(document) : null %}
+<nav class="company-action-links order-tab-nav{{ navClass|default('') != '' ? ' ' ~ navClass : '' }}" aria-label="{{ ariaLabel }}">
+    <a id="{{ idPrefix }}-action-view" class="button{{ view.current|default(false) ? ' is-current' : '' }}" href="{{ view.href }}">View</a>
+    {# Absent, not disabled, when the caller passes null. The three documents withhold it for three
+       different reasons and each works that out for itself — see the calling _tab_nav. #}
+    {% if edit|default(null) is not null %}
+        <a id="{{ idPrefix }}-action-edit" class="button" href="{{ edit.href }}">{{ edit.label }}</a>
+    {% endif %}
+    {# Absent, not disabled, when the caller passes null — same convention as `edit` above. #}
+    {% if pdf|default(null) is not null %}
+        <a id="{{ idPrefix }}-action-pdf" class="button{{ pdf.current|default(false) ? ' is-current' : '' }}" href="{{ pdf.href }}">{{ pdf.label }}</a>
+    {% endif %}
+    {% if barTemplate|default(null) is not null %}
+        {% include barTemplate with {document: document}|merge(barContext|default({})) only %}
+    {% endif %}
+    {# `no-js-row-actions--overlay`: this bar sits in normal panel flow with nothing clipping it —
+       unlike the row grids `_row_actions_no_js.html.twig` also serves, there is no
+       `.table-scroll-region` here to reparent the panel out from under — so both of this bar's
+       disclosures opt into the FLOATING variant instead of the in-flow default. See that
+       partial's docblock for why the default is in-flow at all.
+
+       Kept in the same left-aligned cluster as every other tab now, not pushed to the far right —
+       a bar with two or three tabs used to leave a wide dead gap before it. #}
+    <details class="row-action-menu no-js-row-actions no-js-row-actions--overlay">
+        {# `.btn-pdf order-pdf-toggle` and NOT `.row-action-toggle`: the two former classes are the
+           whole of this control's look (app.css:5083, 12620), and the last is the hook app.js
+           binds to — a <summary> carrying it would open natively AND be cloned to the body. The
+           chevron came from `.row-action-toggle::after`, so it is written out here instead. #}
+        <summary id="{{ idPrefix }}-action-print-menu" class="btn-pdf order-pdf-toggle" aria-label="PDF and download options">PDF / Download ▾</summary>
+        <div class="row-action-dropdown company-action-dropdown">
+            {% if printMenuTemplate|default(null) is not null %}
+                {% include printMenuTemplate with {document: document}|merge(printContext|default({})) only %}
+            {% endif %}
+        </div>
+    </details>
+    <details class="row-action-menu no-js-row-actions no-js-row-actions--overlay">
+        <summary id="{{ idPrefix }}-action-more" class="mini-action" aria-label="More {{ documentNoun }} actions">&hellip;</summary>
+        <div class="row-action-dropdown company-action-dropdown">
+            {% if overflowTemplate|default(null) is not null %}
+                {% include overflowTemplate with {document: document}|merge(overflowContext|default({})) only %}
+            {% endif %}
+            {# Offered on a LOCKED document too, and that is deliberate and tested: a lock freezes
+               what the document IS, and the clone is a different document. DocumentLockService's
+               docblock and DocumentCloneAndLockCest both say so in those words. #}
+            <form id="{{ idPrefix }}-action-clone-form" method="post" action="{{ cloneUrl }}" style="display: contents;">
+                {{ csrf_field() }}
+                <button id="{{ idPrefix }}-action-clone" type="submit">Clone {{ documentNoun|capitalize }}</button>
+            </form>
+            <button id="{{ idPrefix }}-action-delete" class="danger" type="button" disabled
+                    data-inert="no-delete-route"
+                    style="opacity: 0.6; cursor: not-allowed; pointer-events: none;">Delete</button>
+            <span class="row-action-divider"></span>
+            {% if barLocked %}
+                <span id="{{ idPrefix }}-action-lock-state">Locked by {{ barLockRow.locked_by }}{% if barLockRow.reason %} — {{ barLockRow.reason }}{% endif %}</span>
+                {# Lock is any admin, unlock is ROLE_SUPER_ADMIN — asymmetric on purpose, see
+                   DocumentLockService. ROLE_TECH_SUPPORT inherits it. An admin who cannot unlock is
+                   told who to ask rather than shown a button that answers 403. #}
+                {% if is_granted('ROLE_SUPER_ADMIN') %}
+                    <form id="{{ idPrefix }}-action-unlock-form" method="post" action="{{ unlockUrl }}" style="display: contents;">
+                        {{ csrf_field() }}
+                        <button id="{{ idPrefix }}-action-unlock" type="submit">Unlock {{ documentNoun|capitalize }}</button>
+                    </form>
+                {% else %}
+                    <span id="{{ idPrefix }}-action-unlock-denied">Only a super admin can unlock this {{ documentNoun }}.</span>
+                {% endif %}
+            {% else %}
+                {# Opens the hidden lock modal below (app.js, `.js-lock-modal-open`). The reason field and
+                   submit live in a real <form method="post"> in that modal, so a browser without
+                   JavaScript — or a test — can still submit it directly. #}
+                <button id="{{ idPrefix }}-action-lock" type="button" class="js-lock-modal-open">Lock {{ documentNoun|capitalize }}</button>
+            {% endif %}
+        </div>
+    </details>
+</nav>
+{% if not barLocked %}
+    <div class="modal-backdrop lock-modal" hidden>
+        <form class="modal-card" method="post" id="{{ idPrefix }}-action-lock-form" action="{{ lockUrl }}" role="dialog" aria-modal="true" aria-labelledby="{{ idPrefix }}-lock-modal-title">
+            {{ csrf_field() }}
+            <h2 id="{{ idPrefix }}-lock-modal-title">Lock {{ documentNoun|capitalize }}</h2>
+            <label class="note-modal-field">
+                Reason (optional)
+                <input id="{{ idPrefix }}-action-lock-reason" type="text" name="reason" maxlength="255" aria-label="Reason this {{ documentNoun }} is locked">
+            </label>
+            <div class="modal-actions">
+                <button class="button outline js-lock-modal-close" type="button">Cancel</button>
+                <button class="button primary" type="submit">Lock {{ documentNoun|capitalize }}</button>
+            </div>
+        </form>
+    </div>
+{% endif %}

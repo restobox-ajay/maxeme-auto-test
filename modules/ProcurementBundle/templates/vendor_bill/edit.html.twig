@@ -1,0 +1,260 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+
+{# Built from purchase_order/edit.html.twig, copied then adapted (#full-parity, 2026-09-14) —
+   replaces the deleted bill_edit.html.twig, per direct instruction to reuse PO's own shared
+   partials (line row, toolbar, totals footer, tab bar) rather than build a fresh set. VendorBill→
+   PurchaseOrder throughout, except where a real domain difference exists — each stated below.
+
+   VendorBill has no customer-chooser step, same reason PurchaseOrder has none: a vendor is chosen
+   inline (or via `?vendor=`/`?po=`), not by posting company_id alone. `workspaceReady` is
+   therefore unconditionally true.
+
+   `bill` is this document (VendorBillController's existing contract) — nullable, same shape as
+   PO's `order`. `order` in THIS file's context is the DIFFERENT thing VendorBillController's own
+   formContext() already names it: the PurchaseOrder this bill may be raised against or linked to,
+   for context and pre-fill, not the document being edited. #}
+
+{% set productsRemote = remote|default(false) %}
+{% set _columns = constant('App\\Service\\PurchaseDocumentLineColumns::BASE')|json_encode|json_decode|merge([{key: 'po_line', label: 'PO Line'}, {key: 'actions', label: 'Actions'}]) %}
+{% set _deliverTo = order ? order.warehouse : (bill ? bill.warehouse : null) %}
+
+{% block title %}{{ bill ? 'Edit ' ~ bill.billNumber : 'New Vendor Bill' }} | Admin{% endblock %}
+
+{% set formId = 'bill-form' %}
+{% set formClass = 'js-bill-form' %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+{% set heroEyebrow = 'Vendor Bills' %}
+{# Matches Order's own heroLead rule, applied through PO's own correction: empty whenever editing
+   an existing document. #}
+{% set heroLead = bill
+    ? ''
+    : 'Choose a vendor (or a purchase order to raise this bill against), then add products or let the order fill the lines.' %}
+
+{% block hero_heading %}
+    {% if not bill %}
+        <h1>Create New Vendor Bill</h1>
+    {% else %}
+        <div class="order-edit-titlebar">
+            <h1>Bill {{ bill.billNumber }}</h1>
+            <div class="order-edit-status">
+                <span class="order-edit-status-label">Status:</span>
+                <span class="order-status order-status-{{ bill.status|lower|replace({' ': '-'}) }}">{{ bill.status }}</span>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block hero_actions %}
+    <a class="button back-button" href="{{ bill ? path('admin_bundle_procurement_bill', {id: bill.id}) : path('admin_bundle_procurement_bills') }}">Back</a>
+    {% if bill %}
+        <button class="button primary" type="submit" form="{{ formId }}">Save changes</button>
+    {% endif %}
+{% endblock %}
+
+{% block tab_nav %}
+    {% if bill %}
+        <nav class="company-action-links order-tab-nav" aria-label="Vendor bill edit actions">
+            <a class="button" href="{{ path('admin_bundle_procurement_bill', {id: bill.id}) }}">View</a>
+            <a class="button is-current" href="{{ path('admin_bundle_procurement_bill_edit', {id: bill.id}) }}">Edit</a>
+            <a class="button" href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id}) }}">Bill PDF</a>
+        </nav>
+    {% endif %}
+{% endblock %}
+
+{# Same shape as PO's own form_attributes — no `data-bill-vendor-rates`: VendorBillController has
+   no VendorPriceRepository injected and builds no such JSON (a real, documented gap from PO's own
+   vendor-rate autofill, not an oversight — see app.js's own note on the .js-bill-product-select
+   handler). #}
+{% block form_attributes %} data-next-line-index="{{ (bill ? bill.lines|length : 0) + 2 }}" data-bill-charges="{{ chargeRows|json_encode|e('html_attr') }}" data-fee-lines-url="{{ path('admin_bundle_procurement_bill_fee_lines') }}" data-tax-breakdown-url="{{ path('admin_bundle_procurement_bill_tax_breakdown') }}"{% endblock %}
+
+{% block form_head %}
+    <input type="hidden" name="id" value="{{ bill ? bill.id : 0 }}">
+    {% if bill %}<input type="hidden" name="charge_lines_present" value="1">{% endif %}
+
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents|default([])} only %}
+    {% include '@Procurement/_purchase_flash_messages.html.twig' %}
+{% endblock %}
+
+{% block top_actions %}{% endblock %}
+
+{% block context %}
+    {%- import '@Procurement/_purchase_address_cards.html.twig' as address_form %}
+    <div class="order-workspace-grid">
+        <section class="order-form-panel">
+            <h2>Bill Info</h2>
+            <div class="order-field-row static">
+                <label>Bill Number:</label>
+                <strong>{{ bill ? bill.billNumber : (nextNumber ?: '—') }}</strong>
+            </div>
+            <label class="order-field-row">
+                <span>Vendor:</span>
+                {% if not order %}
+                    <select name="vendor_id" required>
+                        <option value=""></option>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}" {{ (addressVendor and addressVendor.id == v.id) ? 'selected' : '' }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    {# A bill raised against a purchase order takes that order's own vendor — the
+                       same fact the order itself already settled, not a second choice here. #}
+                    <strong>{{ order.vendorName ?: order.vendor.name }}</strong>
+                    <input type="hidden" name="vendor_id" value="{{ order.vendor.id }}">
+                {% endif %}
+            </label>
+            <label class="order-field-row">
+                <span>Purchase Order:</span>
+                {% if order %}
+                    <strong><a href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">{{ order.poNumber }}</a></strong>
+                    <input type="hidden" name="purchase_order_id" value="{{ order.id }}">
+                {% else %}
+                    <select name="purchase_order_id">
+                        <option value="">— not on a purchase order —</option>
+                        {% for po in linkableOrders|default([]) %}
+                            <option value="{{ po.id }}"{{ (bill and bill.purchaseOrder and bill.purchaseOrder.id == po.id) ? ' selected' : '' }}>{{ po.poNumber }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </label>
+            <label class="order-field-row">
+                <span>Deliver to warehouse:</span>
+                {% if order %}
+                    {# The order's own warehouse decides where the goods landed — the same fact
+                       PurchaseOrderController::receivingWarehouse() reads, not a second choice
+                       here. #}
+                    <strong>{{ _deliverTo ? _deliverTo.name : '—' }}</strong>
+                {% else %}
+                    <select name="warehouse_id">
+                        <option value="">{{ _deliverTo ? '' : 'No warehouse on file' }}</option>
+                        {% for w in warehouses|default([]) %}
+                            <option value="{{ w.id }}" {{ (_deliverTo and _deliverTo.id == w.id) ? 'selected' : '' }}>{{ w.name }}{% if w.province %} ({{ w.province }}){% else %} — no province on file{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </label>
+            <label class="order-field-row">
+                <span>Their invoice number:</span>
+                <input type="text" name="vendor_invoice_no" maxlength="80" value="{{ bill ? bill.vendorInvoiceNo : '' }}">
+            </label>
+            <label class="order-field-row">
+                <span>Dated:</span>
+                <input type="date" name="document_date" value="{{ bill ? bill.documentDate : 'now'|date('Y-m-d') }}">
+            </label>
+            <label class="order-field-row">
+                <span>Due date:</span>
+                <input type="date" name="due_date" value="{{ bill ? bill.dueDate : '' }}">
+            </label>
+            <p class="form-note span-2" id="bill-tax-province-note">
+                {% include '@Procurement/_purchase_tax_province_note_edit.html.twig' with {
+                    documentNoun: 'bill',
+                    cannotFreezeSentence: 'A bill with taxable goods and no province cannot be approved.',
+                    isDraft: not bill or bill.status == 'Draft',
+                    hasProvince: bill and taxProvince,
+                    provinceDisplay: (bill and taxProvince) ? (provinces[taxProvince]|default(taxProvince) ~ ' (' ~ taxProvince ~ ')') : '',
+                    warehouse: _deliverTo,
+                    savingRetakesSentence: 'Saving this draft takes it again; approving freezes it for good.',
+                    frozenPastDraftSentence: 'It was frozen when this bill left Draft, and editing the bill does not restate it.',
+                    noWarehouseSentence: 'The tax province is taken from the warehouse the goods landed in — choose one above (or link a purchase order) and save, and it is derived.',
+                    noWarehouseRemedySentence: 'A bill with taxable goods and no province cannot be approved.',
+                } only %}
+            </p>
+            <label class="order-field-row span-2">
+                <span>Notes:</span>
+                <textarea name="notes" rows="2">{{ bill ? bill.notes : '' }}</textarea>
+            </label>
+        </section>
+
+        {% if addressVendor %}
+            {{ address_form.address_cards(addressVendor, addresses, addressBook) }}
+        {% else %}
+            <section class="order-form-panel">
+                <p class="lead">Choose a vendor and save the draft — their address book appears here, and is frozen onto the document once approved.</p>
+            </section>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block lines_toolbar %}
+    {{ include('@Procurement/_purchase_lines_toolbar.html.twig', {sentinel: bill is not null, hook: 'bill'}, with_context = false) }}
+{% endblock %}
+
+{% block lines_note %}{% endblock %}
+
+{% block lines_table %}
+    {{ include('@Procurement/_purchase_lines_table.html.twig', {
+        tableClass: 'bill-lines-table',
+        colPrefix: 'bill',
+        lineColumns: _columns,
+        lineRows: lineRows,
+        lineRowOptions: {
+            lineClass: 'bill-line-row',
+            actionsTemplate: '@Procurement/_purchase_line_actions.html.twig',
+            taxClasses: taxClasses|default({'E': 'E', 'G': 'G', 'S': 'S'}),
+            taxCodeBlankLabel: '',
+            showRemove: true,
+        },
+        products: products,
+        productsRemote: productsRemote,
+        spares: true,
+        emptyLinesMessage: 'No lines yet.',
+        mainLineFeeRows: _billMainLineFeeRows,
+    }, with_context = false) }}
+{% endblock %}
+
+{% set _feeLinesTotal = 0 %}
+{% set _billMainLineFeeRows = [] %}
+{% set _billBeforeTaxFeeLines = [] %}
+{% set _billAfterTaxFeeLines = [] %}
+{% for charge in chargeRows %}
+    {% if charge.type|default('tax') != 'tax' and charge.source|default('manual') != 'manual' %}
+        {% set _feeLinesTotal = _feeLinesTotal + charge.amount %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'main_line' and charge.source|default('manual') != 'manual' %}
+        {% set _billMainLineFeeRows = _billMainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass|default('E')}]) %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'before_tax_line' and charge.source|default('manual') != 'manual' %}
+        {% set _billBeforeTaxFeeLines = _billBeforeTaxFeeLines|merge([charge]) %}
+    {% endif %}
+    {% if charge.placement|default('main_line') == 'after_tax_line' and charge.source|default('manual') != 'manual' %}
+        {% set _billAfterTaxFeeLines = _billAfterTaxFeeLines|merge([charge]) %}
+    {% endif %}
+{% endfor %}
+{% set _billBeforeTax = bill ? (bill.total - bill.tax) : 0 %}
+
+{% block lines_footer %}
+    {% set _beforeTotalTaxSlot %}
+        {% if bill and not taxProvince %}
+            <div class="purchase-total-row"><span>Tax:</span><strong id="bill-total-tax-empty">
+                {%- if _deliverTo and _deliverTo.province %} no tax province on this bill: {{ _deliverTo.name }} records {{ _deliverTo.province }}, but this bill was entered before that
+                {%- elseif _deliverTo %} no tax province: the delivery warehouse has no address on file
+                {%- else %} no tax province: no delivery warehouse chosen yet
+                {%- endif %}</strong></div>
+        {% endif %}
+    {% endset %}
+    {{ include('@Procurement/_purchase_lines_footer.html.twig', {
+        chargeLines: chargeRows,
+        beforeTaxFeeLines: _billBeforeTaxFeeLines,
+        afterTaxFeeLines: _billAfterTaxFeeLines,
+        taxLines: taxLines,
+        subtotalDisplay: _billBeforeTax|amount,
+        taxLinesTotalDisplay: (bill ? bill.tax : '0.00')|amount,
+        grandTotalDisplay: (bill ? bill.total : '0.00')|amount,
+        feeLinesTotalDisplay: _feeLinesTotal|amount,
+        taxClasses: taxClasses|default({'E': 'Exempt', 'G': 'GST only', 'S': 'GST + PST'}),
+        currency: bill ? bill.currency : 'CAD',
+        beforeTotalTaxSlot: _beforeTotalTaxSlot,
+        hook: 'bill',
+        idPrefix: 'bill',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block bottom_actions %}
+    <div class="form-actions"><button class="button primary" type="submit">{{ bill ? 'Save changes' : 'Save draft' }}</button></div>
+{% endblock %}
+
+{% block after_form %}
+    {% include '@Procurement/_purchase_form_styles.html.twig' %}
+{% endblock %}

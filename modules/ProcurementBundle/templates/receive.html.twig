@@ -1,0 +1,172 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ order ? 'Receive against ' ~ order.poNumber : 'Receive without a purchase order' }} | Admin{% endblock %}
+{% block admin_body %}
+    {#
+      Receive against a PO / Receive without a PO (#792, mockup/receive-flow-7's `#po=` and `#nopo`
+      screens): a Purchase Order (or Source) panel beside a Receipt panel, then the lines table with
+      an Add Line button beside its heading. `order` being null IS the without-PO screen — the
+      Choose PO screen (receive_choose.html.twig) is what decides which of the two a receiver lands
+      on; this template never shows the PO picker itself any more.
+    #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'receipts',
+        heading: order ? 'Receive against ' ~ order.poNumber : 'Receive without a purchase order',
+        lead: order
+            ? 'This is the only moment lot, expiry and serial can be captured. A pallet booked in without its batch code cannot be given one later — nobody can tell afterwards which boxes on the shelf it was.'
+            : 'Say who it is from and where it landed.'
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the form it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    {% if not order %}
+        {# The deliberate no-PO path (#792): flagged here rather than silently, because a receipt
+           with no purchase order behind it is exactly what the three-way match calls unmatched. #}
+        <div class="flash flash-warning">No purchase order: this receipt will show as unmatched on the purchase match.</div>
+    {% endif %}
+
+    <form method="post" action="{{ path('admin_bundle_procurement_receive_submit') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="purchase_order_id" value="{{ order ? order.id : 0 }}">
+
+        <div class="order-detail-grid">
+            {% if order %}
+                <section class="detail-panel order-detail-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid var(--line-light);padding-bottom:12px">
+                        <h2 style="margin:0;border:0;padding:0">Purchase Order</h2>
+                        <a class="button outline" href="{{ path('admin_bundle_procurement_receive') }}">Change PO</a>
+                    </div>
+                    <div class="detail-row"><label>Purchase order:</label>
+                        <strong><a href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">{{ order.poNumber }}</a></strong>
+                    </div>
+                    <div class="detail-row"><label>Vendor:</label><strong>{{ order.vendorName }}</strong></div>
+                    <div class="detail-row"><label>Warehouse:</label><strong>{{ order.warehouse.name }}</strong></div>
+                    {# Not an omission: vendor and warehouse are not asked for on this path because
+                       the purchase order supplies them — they are not unrequired fields, they are
+                       fields that cannot be left blank or set wrong, which is a stronger guarantee
+                       than a `required` attribute. #}
+                    <p class="lead" style="margin-top:12px;margin-bottom:0;">
+                        Vendor and warehouse come from {{ order.poNumber }} and cannot be changed here — a delivery
+                        naming different ones would not be a delivery against that order.
+                    </p>
+                </section>
+            {% else %}
+                <section class="detail-panel order-detail-panel">
+                    <h2>Source</h2>
+                    <div class="detail-row">
+                        <label for="receive-vendor">Vendor:</label>
+                        <select id="receive-vendor" name="vendor_id" required>
+                            <option value="">— choose —</option>
+                            {% for vendor in vendors %}
+                                <option value="{{ vendor.id }}" {{ header.vendor_id|default('') == vendor.id ? 'selected' : '' }}>{{ vendor.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="detail-row">
+                        <label for="receive-warehouse">Warehouse:</label>
+                        <select id="receive-warehouse" name="warehouse_id" required>
+                            <option value="">— choose —</option>
+                            {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}" {{ header.warehouse_id|default('') == warehouse.id ? 'selected' : '' }}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </section>
+            {% endif %}
+
+            <section class="detail-panel order-detail-panel">
+                <h2>Receipt</h2>
+                <div class="detail-row">
+                    <label for="receive-packing-slip">Packing slip:</label>
+                    <input type="text" id="receive-packing-slip" name="packing_slip" maxlength="80" value="{{ header.packing_slip|default('') }}">
+                </div>
+                <div class="detail-row">
+                    {# Searchable and defaulting to the signed-in user (#792), and still a plain
+                       string field: the datalist SUGGESTS active staff, it never constrains the
+                       value, and it is a native <input list> — no JavaScript renders it and none is
+                       needed to use it. #}
+                    <label for="receive-received-by">Received by:</label>
+                    <input type="text" id="receive-received-by" name="received_by" maxlength="160"
+                           list="receive-staff-list" autocomplete="off" placeholder="Search staff…"
+                           value="{{ header.received_by|default('') }}">
+                    <datalist id="receive-staff-list">
+                        {% for identifier in staffIdentifiers %}<option value="{{ identifier }}"></option>{% endfor %}
+                    </datalist>
+                </div>
+                <div class="detail-row">
+                    <label for="receive-notes">Notes:</label>
+                    <textarea id="receive-notes" name="notes" rows="2">{{ header.notes|default('') }}</textarea>
+                </div>
+            </section>
+        </div>
+
+        <section class="table-card no-paginate">
+            <div class="table-header">
+                <h2>What arrived</h2>
+                <div class="order-line-actions">
+                    {# Submit-to-add-row, which is how this app's no-JS baseline grows a line table.
+                       The RFQ form and the vendor bill form both do this as `Save & add more lines`;
+                       a goods receipt has no draft to save — saving one books stock — so this is the
+                       same gesture with the save taken out: everything typed comes straight back,
+                       plus room for more, and nothing is written until *Book it in*. #}
+                    <button class="button primary" type="submit" name="action" value="add_lines">Add Line</button>
+                </div>
+            </div>
+            <div class="table-scroll-region"><div class="wide-table-wrap">
+                <table class="order-lines-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            {% if order %}
+                                <th style="text-align:right;" title="Quantity on the purchase order">PO</th>
+                                <th style="text-align:right;" title="Outstanding">O/S</th>
+                            {% endif %}
+                            <th>{{ order ? 'Arriving now' : 'Quantity arriving' }}</th>
+                            <th>Lot</th>
+                            <th>Expiry</th>
+                            <th>Serial</th>
+                            <th>Bin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if order %}
+                            {% for line in order.lines %}
+                                {{ include('@Procurement/_receive_row.html.twig', {
+                                    index: loop.index0,
+                                    orderLine: line,
+                                    needs: line.product and captures[line.product.id] is defined ? captures[line.product.id] : null,
+                                    defaultQuantity: line.quantityOutstanding > 0 ? line.quantityOutstanding|qty : '',
+                                    defaultUnitCost: line.unitCost,
+                                }) }}
+                            {% endfor %}
+                        {% endif %}
+
+                        {# The rows *Add more lines* produced, plus the blank-entry path's opening
+                           set. A spare row names its own product: that covers a second batch or a
+                           second bin for a line already on the order, one row per serial, and a
+                           substitution the vendor shipped instead. #}
+                        {% if spareRows > 0 %}
+                            {% for spare in 0..(spareRows - 1) %}
+                                {% set index = firstSpareIndex + spare %}
+                                {% set productId = draft[index].product_id is defined ? draft[index].product_id : null %}
+                                {{ include('@Procurement/_receive_row.html.twig', {
+                                    index: index,
+                                    orderLine: null,
+                                    needs: productId and captures[productId] is defined ? captures[productId] : null,
+                                }) }}
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div></div>
+        </section>
+
+        <section class="panel compact-panel">
+            <div class="form-actions">
+                <button class="button primary" type="submit" name="action" value="receive">Book it in</button>
+                <a class="button outline" href="{{ path('admin_bundle_procurement_receive') }}">Cancel</a>
+            </div>
+        </section>
+    </form>
+{% endblock %}

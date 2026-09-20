@@ -1,0 +1,31 @@
+# Dev-only services.
+#
+# This file is loaded ONLY when APP_ENV=dev (Kernel's configureContainer picks up
+# services_{env}.yaml). That is lock 1 of three on the per-agent test database: in prod this
+# file is never read, so the decorator below does not exist and the connection factory is
+# Doctrine's own.
+#
+# The other two locks live inside App\Doctrine\TestInstanceConnectionFactory itself — it
+# re-checks the kernel environment, and it refuses when TEST_INSTANCE_KEY is unset or under 16
+# characters. Three independent locks on one feature is deliberate: a feature that can repoint
+# the database at another file is worth more than one, because the cost of it working in
+# production is somebody's live data.
+
+services:
+    # Serves var/db_{name}.sqlite when a request carries a valid X-Test-Key + X-Test-DB pair,
+    # so several e2e agents can hit one dev instance without corrupting each other's fixtures.
+    App\Doctrine\TestInstanceConnectionFactory:
+        decorates: doctrine.dbal.connection_factory
+        arguments:
+            # The types the undecorated factory would have registered. Hardcoding [] here was
+            # invisible while every column used a built-in type; the moment one did not
+            # (App\Doctrine\Type\QuantityType, #645) dev threw "Unknown column type quantity" on
+            # every connection while test and prod were fine, because only this decorator drops
+            # them. Reading the parameter keeps the decorator honest about what it is replacing.
+            $typesConfig: '%doctrine.dbal.connection_factory.types%'
+            $requestStack: '@request_stack'
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            # Empty by default, which disables the whole mechanism. Set it in .env.local to
+            # switch it on; the class refuses anything under 16 characters.
+            $instanceKey: '%env(default::TEST_INSTANCE_KEY)%'

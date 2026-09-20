@@ -1,0 +1,68 @@
+{% for product in products %}
+    <tr>
+        <td data-label="ID" class="col-id searchable">{{ product.id }}</td>
+        {# Empty cell, not a placeholder graphic, when the product has no image: the column is 50px
+           wide and a "missing image" glyph at that size reads as noise rather than information. #}
+        <td data-label="Image" class="col-image">
+            {% if product.image|default('') %}
+                <img class="col-image-thumb" src="/uploads/products/{{ product.image }}" alt="" loading="lazy">
+            {% endif %}
+        </td>
+        <td data-label="Product name" class="col-name product-name-cell searchable">{{ product.name }}</td>
+        <td data-label="SKU" class="col-sku searchable">{{ product.sku }}</td>
+        <td data-label="Category" class="col-category">{{ product.category }}</td>
+        <td data-label="Type" class="col-type">{{ product.type }}</td>
+        <td data-label="U/M" class="col-unit">{{ product.unit }}</td>
+        <td data-label="Weight" class="col-weight">{{ product.weight }}</td>
+        <td data-label="Visible" class="col-visible">{{ product.visible }}</td>
+        {# A status the enum does not know is called out rather than printed as a plain badge: the
+           column used to render any string at all in the default grey, so a row saying 'active' or
+           '12/Case' looked exactly like a row saying Active. Classes are core's shared status
+           vocabulary (per the 2026-09-12 ruling on item 42), not colours invented here. #}
+        {% set statusValue = product.status|default('') %}
+        {% set statusKnown = statusValue in enum_cases('App\\Enum\\ProductStatus')|map(case => case.value) %}
+        {% set statusClass = statusValue == 'Draft' ? 'warn' : (statusValue == 'Inactive' ? 'danger-soft' : (statusKnown ? '' : 'danger')) %}
+        <td data-label="Status" class="col-status"><span class="badge product-status-badge {{ statusClass }}">{{ statusValue }}{{ statusKnown ? '' : ' (unrecognised)' }}</span></td>
+        <td data-label="Tax Class" class="col-sales_tax_code">{{ product.salesTaxCode }}</td>
+        <td data-label="Shipping Class" class="col-shipping_class">{{ product.shippingClass }}</td>
+        <td data-label="Source" class="col-sync_source">{{ product.syncSource }}</td>
+        <td data-label="Remarks" class="col-remarks"><div class="td-clamp">{{ product.remarks }}</div></td>
+        <td data-label="Short description" class="col-short"><div class="td-clamp">{{ product.short }}</div></td>
+        <td data-label="Long description" class="col-long"><div class="td-clamp">{{ product.long }}</div></td>
+        <td data-label="Private" class="col-privacy">
+            {% set privacyLabel = product.privacy ?: 'Public' %}
+            {% set privacyValue = (privacyLabel|lower)|trim %}
+            {% set privacyKey = privacyValue|replace({' ': '-'}) %}
+            {% set privacyBadgeClass = privacyValue == 'private' ? 'danger' : (privacyValue == 'public' ? 'success' : 'info') %}
+            <span class="badge privacy-badge privacy-{{ privacyKey }} {{ privacyBadgeClass }}">{{ privacyLabel }}</span>
+            {% if privacyValue == 'private' and product.privateCompanies %}
+                {% set companies = product.privateCompanies is iterable ? product.privateCompanies : product.privateCompanies|split(',') %}
+                <div class="privacy-companies" aria-label="Private customers">
+                    {% for company in companies %}
+                        {% set companyName = company|trim %}
+                        {% if companyName %}
+                            <span class="privacy-chip">{{ companyName }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </td>
+        <td data-label="Custom Fields" class="col-custom_fields">{{ product.customFields|default('')|raw }}</td>
+        <td data-label="Cost price" class="col-cost">{{ product.cost }}</td>
+        <td data-label="Original price" class="col-original">{{ product.original }}</td>
+        <td data-label="Sale price" class="col-price">{{ product.price }}</td>
+        <td data-label="Deposit" class="col-deposit">{{ product.deposit }}</td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_product_inventory_update', {id: product.id, redirect: 'admin_product_detail_index'}) }}">Edit</a>
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="23" class="empty-table-cell">
+            <strong>No products found.</strong>
+            <span>Products will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

@@ -1,0 +1,36 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Cart Hold | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Inventory</p>
+                <h1>Cart Hold</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <form method="post" class="form-grid">
+            <label>
+                Hold Duration (seconds)
+                <input type="number" min="1" step="1" name="duration_seconds" value="{{ durationSeconds }}">
+            </label>
+
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

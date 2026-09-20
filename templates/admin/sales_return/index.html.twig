@@ -1,0 +1,168 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Sales Returns | Admin{% endblock %}
+{% block admin_body %}
+    {# The customer this grid is scoped to, carried onto every link the screen generates — the
+       status tabs, the filter form, the pager and the New-return button. A scope that
+       survived the first click and not the second would be worse than none: the grid would quietly
+       widen to every customer mid-session. An id that matched nothing is carried too, so the empty
+       list stays empty rather than reopening as the whole business on page two. #}
+    {% set scopeCompanyId = company ? company.id : (companyScopeMissingId is defined and companyScopeMissingId ? companyScopeMissingId : null) %}
+    {% set returnScope = scopeCompanyId ? {SalesReturnSearch: {company_id: scopeCompanyId}} : {} %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Sales return</p>
+                <h1>{{ company ? 'Returns for ' ~ company.name : 'Sales returns' }}</h1>
+                {# The RMA (#596). It is the AUTHORISATION and the RECEIPT — the number the customer
+                   writes on the box, and the record that the box arrived. It is not the money: a
+                   credit note is raised separately, possibly in the next period, which is the whole
+                   reason these are two documents rather than one. #}
+                {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    <p class="lead">
+                        No returns are listed: this link asks for
+                        {{ companyScopeMissingId ? 'customer ' ~ companyScopeMissingId ~ ', and no such customer exists' : 'a customer, and the id it gives is not one' }}.
+                        Listing every customer's returns instead would answer a question nobody asked.
+                    </p>
+                {% else %}
+                    <p class="lead">
+                        {% if company %}
+                            Only the returns of {{ company.name }}. Every count below covers this customer alone.
+                        {% else %}
+                            Returns authorised against customer orders and invoices.
+                        {% endif %}
+                        A return carries the number the customer puts on the box. Receiving one puts the
+                        goods in <strong>returned</strong> &mdash; present, counted in quarantine, and not
+                        sellable until somebody rules on them. The money is a separate credit note.
+                    </p>
+                {% endif %}
+            </div>
+            <div class="panel-actions">
+                {# Only for a customer: /admin/sales-return/new opened with nothing in the query
+                   refuses and bounces back here, so a button on the bare grid would offer an act
+                   the application declines to perform. #}
+                {% if company %}
+                    <a class="button primary" href="{{ path('admin_sales_return_new', {company: company.id}) }}">New return</a>
+                {% endif %}
+                {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    {# The way out of a scope that resolved to nobody has to be on the page: the
+                       grid under it has nothing to click. #}
+                    <a class="button outline" href="{{ path('admin_sales_return_index') }}">All returns</a>
+                {% endif %}
+                <a class="button back-button" href="{{ company ? path('admin_company_detail_by_id', {id: company.id}) : path('admin_company_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default(1) %}
+    {# `returnScope` is NOT redefined here. It is set at the top of this file off `scopeCompanyId`,
+       which carries an id that resolved to NOBODY as well as one that resolved to a customer. The
+       version this screen's conformance work introduced — `company ? {...} : {}` — silently drops
+       the unresolved case, so the status tabs, the Reset link and the pager would all widen a
+       failed-closed grid back to every customer's returns on the first click. The whole point of
+       the scope is that it survives every link the screen generates. #}
+    {% set returnQueryBase = {q: search, status: status, received: received, limit: currentLimit, sort: currentSort, dir: currentDir}|merge(returnScope) %}
+
+    {# Status tabs, off SalesReturnStatus::cases(). The grid used to open on no filter at all: its
+       only control was a .table-search box in this card's header, which narrowed the rows already
+       on the page instead of the query behind them — so a return on page two was invisible to it,
+       and with scripting off it did nothing whatever. Every control here is now a URL parameter the
+       CONTROLLER reads. #}
+    <section class="panel compact-panel">
+        <nav class="order-status-tabs">
+            <a class="{{ status == '' ? 'is-active' : '' }}"
+               href="{{ path('admin_sales_return_index', returnQueryBase|merge({status: '', page: 1})) }}">All Returns</a>
+            {% for returnStatus in statuses %}
+                <a class="{{ status == returnStatus.value ? 'is-active' : '' }}"
+                   href="{{ path('admin_sales_return_index', returnQueryBase|merge({status: returnStatus.value, page: 1})) }}">{{ returnStatus.value }}</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="table-card sales-return-grid no-paginate">
+        <div class="table-header">
+            <h2>Return history</h2>
+        </div>
+        {# A plain GET form. The controls live in the table's own filter row and point back here by
+           form="" id, so no <form> is nested inside another one. #}
+        <form method="get" id="sales-return-filters" action="{{ path('admin_sales_return_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            {% if company %}
+                <input type="hidden" name="SalesReturnSearch[company_id]" value="{{ company.id }}">
+            {% endif %}
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="rma">RMA</th>
+                        <th data-sort-field="company">Customer</th>
+                        <th>Invoice</th>
+                        <th data-sort-field="requested">Requested</th>
+                        <th>Received</th>
+                        <th>Units</th>
+                        <th data-sort-field="status">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        {# One box over the three columns it actually searches — RMA number, company
+                           and invoice number — rather than a box above the table claiming to search
+                           everything. #}
+                        <th colspan="3"><input type="search" name="q" form="sales-return-filters" value="{{ search }}" placeholder="RMA number, customer or invoice" aria-label="Search sales returns"></th>
+                        <th></th>
+                        <th>
+                            <select name="received" form="sales-return-filters" aria-label="Filter received" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                <option value="yes"{{ received == 'yes' ? ' selected' : '' }}>Arrived</option>
+                                <option value="no"{{ received == 'no' ? ' selected' : '' }}>Not yet arrived</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <select name="status" form="sales-return-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for returnStatus in statuses %}
+                                    <option value="{{ returnStatus.value }}"{{ status == returnStatus.value ? ' selected' : '' }}>{{ returnStatus.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_sales_return_index', returnScope) }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/sales_return/_list_rows.html.twig' %}
+                </tbody>
+            </table>
+            </div>
+            </div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {
+                    count: returns|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit,
+                    label: 'returns'
+                } only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="sales-return-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ currentLimit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_sales_return_index',
+                    routeQuery: returnQueryBase,
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

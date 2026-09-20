@@ -1,0 +1,145 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ return ? 'Edit ' ~ return.documentNumber : 'New sales return' }} | Admin{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Sales return</p>
+                <h1>{{ return ? return.documentNumber : 'New sales return' }}</h1>
+                <p class="lead">
+                    {% if invoice %}
+                        Raised against invoice <strong>{{ invoice.documentNumber }}</strong> for {{ company.name }}.
+                        {# invoice_id is PROVENANCE — which delivery the goods came off. It is not a
+                           quantity link and nothing here credits anything: the money is a separate
+                           credit note, possibly raised in the next period. #}
+                        That records which delivery the goods came off. It credits nothing &mdash; the
+                        money is a credit note raised separately, and it need not be for the same amount.
+                    {% else %}
+                        A return for {{ company.name }} with no invoice named. That is an ordinary case,
+                        not a gap: a customer telephones about a broken item without knowing which of
+                        four invoices billed it, and refusing to open the document until somebody finds
+                        out is how parcels arrive with no reference on them.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ return ? path('admin_sales_return_detail', {id: return.id}) : path('admin_sales_return_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <form method="post" action="{{ return ? path('admin_sales_return_edit', {id: return.id}) : path('admin_sales_return_new', invoice ? {invoice: invoice.id} : {company: company.id}) }}" id="sales-return-form">
+        {{ csrf_field() }}
+
+        <section class="form-card">
+            <div class="form-grid">
+                <label class="full-width">
+                    Reason
+                    <input type="text" name="reason" maxlength="255" value="{{ return ? return.reason : '' }}" placeholder="Damaged in transit, wrong item shipped, no longer needed&hellip;">
+                    {# The header reason covers the parcel. Each LINE carries its own as well,
+                       because a customer returns three things for three reasons and a single
+                       sentence forces whoever raises the RMA to pick the most dramatic of them. #}
+                    <small>One sentence for the whole parcel. Each line below carries its own reason too &mdash; three items can come back for three different reasons.</small>
+                </label>
+
+                <label class="full-width">
+                    Internal notes
+                    <textarea name="notes" rows="3" placeholder="Who authorised it, what was agreed on the telephone&hellip;">{{ return ? return.notes : '' }}</textarea>
+                    <small>Not shown to the customer. Declining the return appends to this rather than replacing it, so the note explaining why it was authorised survives the refusal.</small>
+                </label>
+            </div>
+        </section>
+
+        <section class="table-card">
+            <div class="table-header">
+                <h2>What is coming back</h2>
+                <p class="field-hint">This list is what the receiving clerk checks the parcel against, which is why authorising a return with nothing on it is refused.</p>
+            </div>
+            <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>SKU</th>
+                        <th>Qty</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if return %}
+                        {# Editing a draft: the rows it already has, plus one spare. A row left at
+                           zero is dropped on save rather than rejected — an empty spare row is how
+                           every line editor here behaves. #}
+                        {% for line in return.lines %}
+                            <tr>
+                                <td data-label="Item">
+                                    {{ line.name }}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][product_id]" value="{{ line.product.id }}">
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}">
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][invoice_line_id]" value="{{ line.invoiceLine ? line.invoiceLine.id : '' }}">
+                                </td>
+                                <td data-label="SKU">
+                                    {{ line.sku }}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}">
+                                </td>
+                                <td data-label="Qty"><input type="number" step="0.01" min="0" name="lines[{{ loop.index0 }}][quantity]" value="{{ line.quantity }}"></td>
+                                <td data-label="Reason"><input type="text" name="lines[{{ loop.index0 }}][reason]" value="{{ line.reason }}"></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = return.lines|length %}
+                    {% elseif invoiceLines|length > 0 %}
+                        {# Raised from an invoice: every billed row, at ZERO. A return is usually for
+                           part of a delivery, so sending the whole thing back is a deliberate act
+                           rather than a missed keystroke — the same default the credit note editor
+                           takes, for the same reason. #}
+                        {% for line in invoiceLines %}
+                            <tr>
+                                <td data-label="Item">
+                                    {{ line.name }}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][product_id]" value="{{ line.product ? line.product.id : '' }}">
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}">
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][invoice_line_id]" value="{{ line.id }}">
+                                    {% if not line.product %}<small>No product on this billed row &mdash; freight or a fee. It cannot come back in a box, so a quantity here is ignored.</small>{% endif %}
+                                </td>
+                                <td data-label="SKU">
+                                    {{ line.sku|default('-') }}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}">
+                                </td>
+                                <td data-label="Qty">
+                                    <input type="number" step="0.01" min="0" max="{{ line.quantity }}" name="lines[{{ loop.index0 }}][quantity]" value="0.00">
+                                    <small>{{ line.quantity }} billed</small>
+                                </td>
+                                <td data-label="Reason"><input type="text" name="lines[{{ loop.index0 }}][reason]" value=""></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = invoiceLines|length %}
+                    {% else %}
+                        {% set spare = 0 %}
+                    {% endif %}
+
+                    {# One free row, always. Goods come back that were never on the invoice anybody
+                       found — a replacement part, an item shipped by mistake — and a screen that
+                       could only echo an invoice would send the operator away to build one. #}
+                    <tr>
+                        <td data-label="Item">
+                            <select name="lines[{{ spare }}][product_id]">
+                                <option value="">&mdash; add an item &mdash;</option>
+                                {% for product in products %}
+                                    <option value="{{ product.id }}">{{ product.sku }} &mdash; {{ product.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="SKU"><input type="text" name="lines[{{ spare }}][sku]" value=""></td>
+                        <td data-label="Qty"><input type="number" step="0.01" min="0" name="lines[{{ spare }}][quantity]" value="0.00"></td>
+                        <td data-label="Reason"><input type="text" name="lines[{{ spare }}][reason]" value=""></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+            <div class="table-footer">
+                <button class="button primary" type="submit">{{ return ? 'Save return' : 'Raise return' }}</button>
+            </div>
+        </section>
+    </form>
+{% endblock %}

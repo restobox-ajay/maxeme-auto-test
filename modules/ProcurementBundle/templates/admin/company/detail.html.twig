@@ -1,0 +1,235 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Detail | Admin{% endblock %}
+{#
+    The vendor record — a mechanical, data-slot-for-data-slot port of the customer record's own
+    `templates/admin/company/detail.html.twig` (titlebar, action-links nav, two-column
+    company-detail-layout, table-card panels, the JS notes card), replacing `company`/`Company*`
+    with `vendor`/`Vendor*` throughout. This replaces the old buy-side-only `vendor_detail.html.twig`
+    (no-JS inline-editable tables) entirely — nothing from that file is carried into this one.
+
+    Gaps: customer routes this page links to that have no vendor-side page yet are called out where
+    they appear below, each with what stands in for it for now.
+#}
+{% block admin_body %}
+
+    <section class="company-detail-titlebar">
+        <div>
+            <h1>{{ vendor.name }}</h1>
+        </div>
+        <div class="company-detail-actions">
+            <a class="button back-button" href="{{ path('admin_bundle_procurement_vendors') }}">Back</a>
+            <a class="button outline" href="{{ path('admin_bundle_procurement_vendor_edit', {id: vendor.id}) }}">Edit</a>
+            {% if vendor.status == 'Inactive' %}
+                <button class="button primary js-company-status" type="button"
+                        data-action="activate"
+                        data-url="{{ path('admin_bundle_procurement_vendor_activate', {id: vendor.id}) }}"
+                        data-noun="Vendor"
+                        data-confirm-note="It reappears in every vendor picker."
+                        data-item="{{ vendor.name }}">Activate</button>
+            {% else %}
+                <button class="button danger js-company-status" type="button"
+                        data-action="deactivate"
+                        data-url="{{ path('admin_bundle_procurement_vendor_deactivate', {id: vendor.id}) }}"
+                        data-noun="Vendor"
+                        data-confirm-note="It drops out of every vendor picker; documents already raised are unaffected."
+                        data-item="{{ vendor.name }}">Deactivate</button>
+            {% endif %}
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav" aria-label="Vendor detail actions">
+        <a class="button is-current" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_vendor_edit', {id: vendor.id}) }}">Edit Profile</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_vendor_address_book', {id: vendor.id}) }}">Address Book</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_vendor_address_form', {id: vendor.id}) }}">Add Address</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More vendor actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: {vendor: vendor.id}}) }}">View Purchase Orders</a>
+                <a href="{{ path('admin_bundle_procurement_purchase_order_new', {vendor: vendor.id}) }}">Create Purchase Order</a>
+            </span>
+        </span>
+    </nav>
+
+    <section class="company-detail-layout">
+        <div class="company-detail-main">
+            {# The vendor's documents, behind subtabs — the buy-side counterpart of the customer's
+               Estimates/Sales Orders/Invoices tabs (VendorController::DOCUMENT_TABS). Columns differ
+               per tab there (Purchase Orders/Bills/Returns/Payments do not share one column set the
+               way the customer's three CommercialDocument types do), so the loop below prints
+               whatever the active tab declares instead of a fixed header row. #}
+            <section class="table-card company-detail-card company-documents-card" id="vendor-documents">
+                <div class="table-header">
+                    <h2>Documents</h2>
+                    <nav class="company-action-links company-document-subtabs" aria-label="Vendor documents">
+                        {% for tab in documentTabs %}
+                            <a class="button{{ tab.current ? ' is-current' }}" href="{{ tab.url }}"
+                               {%- if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                <table class="admin-grid-table">
+                    <thead>
+                        <tr>{% for column in documentColumns %}<th>{{ column }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                        {% for row in documentRows %}
+                            <tr>
+                                {% for column in documentColumns %}
+                                    <td data-label="{{ column }}">
+                                        {%- if column == documentStatusColumn -%}
+                                            {% include 'admin/_partials/document_status.html.twig' with {status: row.cells[column], loud: false} only %}
+                                        {%- elseif column == documentLinkColumn and row.href -%}
+                                            <a href="{{ row.href }}">{{ row.cells[column] }}</a>
+                                        {%- else -%}
+                                            {{ row.cells[column] }}
+                                        {%- endif -%}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="{{ documentColumns|length }}" class="empty-table-cell"><span>{{ documentEmptyText }}</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="table-footer">
+                    <span class="table-count"></span>
+                    {% if documentListUrl is not null %}
+                        <div class="table-footer-actions">
+                            <a class="button outline" href="{{ documentListUrl }}">{{ documentListLabel }}</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+        </div>
+
+        <aside class="company-detail-side">
+            {# Customer's summary card is read-only text (editing lives on the separate Edit
+               Profile page); this one follows the same shape now. 'Account Number' stands in for
+               customer's 'External ID' — both are the outside-world identifier for the record —
+               and 'Currency' is genuinely vendor-only (a purchase document is raised in whatever
+               currency the vendor bills in; a customer record has none). #}
+            <article class="card company-summary-card">
+                <h2>Vendor Details</h2>
+                <div class="company-summary-body">
+                    <h3>{{ vendor.name }}</h3>
+                    <p><strong>Vendor Name:</strong> {{ vendor.name }}</p>
+                    <p><strong>Account Number:</strong> {{ vendor.accountNumber|default('') ?: '-' }}</p>
+                    <p><strong>Primary Email:</strong> {{ vendor.email|default('') ?: '-' }}</p>
+                    <p><strong>Phone Number:</strong> {{ vendor.phone|default('') ?: '-' }}</p>
+                    <p><strong>Currency:</strong> {{ vendor.currency }}</p>
+                    <p><strong>Payment Term:</strong> {{ vendor.paymentTerm|default('') ?: '-' }}</p>
+                    <p><strong>Status:</strong> {{ vendor.status }}</p>
+                </div>
+            </article>
+
+            {# No customer counterpart at all: an accounts-payable balance is a buy-side-only fact.
+               Kept, not ported from anything — see AP Aging (VendorController::openBalances()). #}
+            <article class="card company-summary-card" id="vendor-balance">
+                <h2>Owed to this vendor</h2>
+                <div class="company-summary-body">
+                    {% if openBalances is empty %}
+                        <p class="lead">Nothing outstanding. Draft and void bills are not owed, and a bill paid in full drops out.</p>
+                    {% else %}
+                        <p class="lead">
+                            {% for balance in openBalances %}
+                                <strong>{{ balance.currency }} {{ balance.total|amount }}</strong>{% if not loop.last %} · {% endif %}
+                            {% endfor %}
+                            — open bills only.
+                        </p>
+                    {% endif %}
+                    <p><a class="link-strong" href="{{ agingUrl }}">Aged breakdown</a></p>
+                </div>
+            </article>
+
+            {# The customer's "Users" card, mapped to Contacts — same read-only-list-plus-Add-page
+               shape, no equivalent of customer's Type column (a vendor contact is never a login,
+               #605), so Job Title takes that column instead. #}
+            <article class="table-card company-detail-card no-search" id="vendor-contacts">
+                <div class="table-header">
+                    <h2>Contacts <span class="badge">{{ contacts|length }}</span></h2>
+                    <a class="button primary company-card-action" href="{{ path('admin_bundle_procurement_vendor_contact_add', {id: vendor.id}) }}">Add Contact</a>
+                </div>
+                <table class="admin-grid-table">
+                    <tbody>
+                        {% for contact in contacts %}
+                            <tr>
+                                <td data-label="Name">{{ contact.name }}</td>
+                                <td data-label="Email">{{ contact.email }}</td>
+                                <td data-label="Status"><span class="badge {{ contact.status == 'Inactive' ? 'warn' : '' }}">{{ contact.status }}</span></td>
+                                <td data-label="Job Title">{{ contact.jobTitle }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td class="empty-table-cell">No contacts yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+
+            <article class="notes-card panel" id="vendor-notes">
+                <div class="notes-card-head">
+                    <div>
+                        <h2>Notes</h2>
+                        <p>Only admin can see these. The vendor cannot see these notes.</p>
+                    </div>
+                    <button class="button primary js-note-modal-open" type="button">Add Note</button>
+                </div>
+                <div class="notes-list" data-vendor-id="{{ vendor.id }}">
+                    {% if notes is not empty %}
+                        {% for entry in notes %}
+                            <div class="note-entry" data-id="{{ entry.id }}" data-note="{{ entry.text|e('html_attr') }}">
+                                <div class="note-entry-body">
+                                    <span class="note-entry-text">{{ entry.text|nl2br }}</span>
+                                    <span class="note-entry-date">{{ entry.createdAt|date('M j, Y g:i A') }}{% if entry.userName %} — {{ entry.userName }}{% endif %}</span>
+                                </div>
+                                <div class="note-entry-actions">
+                                    <button class="table-action js-note-edit" type="button">Edit</button>
+                                    <button class="table-action danger js-note-delete" type="button"
+                                        data-url="{{ path('admin_bundle_procurement_vendor_note_delete', {id: vendor.id}) }}"
+                                        data-id="{{ entry.id }}">Delete</button>
+                                </div>
+                                <button class="note-delete js-note-delete" type="button"
+                                    data-url="{{ path('admin_bundle_procurement_vendor_note_delete', {id: vendor.id}) }}"
+                                    data-id="{{ entry.id }}"
+                                    aria-label="Delete note">×</button>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="notes-empty">No notes yet.</p>
+                    {% endif %}
+                </div>
+                <div class="notes-add">
+                    <p class="notes-add-label">Add Note</p>
+                    <form class="notes-form" method="post" action="{{ path('admin_bundle_procurement_vendor_note_add', {id: vendor.id}) }}">
+                        {{ csrf_field() }}
+                        <input type="text" name="note" placeholder="Type a note…" maxlength="{{ noteMaxLength }}" autocomplete="off" required>
+                        <button class="button primary" type="submit">Save</button>
+                    </form>
+                </div>
+            </article>
+        </aside>
+    </section>
+
+    {# GAP: the vendor record has a hard-delete capability (admin_bundle_procurement_vendor_delete,
+       refused when any document points at the vendor) that customer has no equivalent of at all —
+       a customer is only ever deactivated from this screen. Not given a home on this page this
+       pass; see the delivery report for the question of whether/where it needs one. The route
+       itself is untouched and still works. #}
+
+    <div class="modal-backdrop note-modal" hidden>
+        <form class="modal-card note-modal-card" method="post" action="{{ path('admin_bundle_procurement_vendor_note_add', {id: vendor.id}) }}" data-create-action="{{ path('admin_bundle_procurement_vendor_note_add', {id: vendor.id}) }}" data-update-action="{{ path('admin_bundle_procurement_vendor_note_update', {id: vendor.id}) }}" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+            {{ csrf_field() }}
+            <h2 id="note-modal-title" data-create-title="{{ vendor.name }} - Create Note" data-edit-title="{{ vendor.name }} - Edit Note">{{ vendor.name }} - Create Note</h2>
+            <input class="note-modal-id" type="hidden" name="note_id" value="">
+            <label class="note-modal-field">
+                <span>Note</span>
+                <textarea class="note-modal-input" name="note" rows="5" maxlength="{{ noteMaxLength }}" required></textarea>
+            </label>
+            <div class="modal-actions">
+                <button class="button primary js-note-save" type="submit" data-create-label="Create" data-edit-label="Save">Create</button>
+                <button class="button outline js-note-modal-close" type="button">Close</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% for category in categories %}
+    {% set depth = depth|default(0) %}
+    {% set hasChildren = category.children is defined and category.children is not empty %}
+    <div class="category-tree-item {{ hasChildren ? 'has-children' : '' }} {{ depth > 0 ? 'is-child' : 'is-root' }}" style="--category-depth: {{ depth }};">
+        <a class="filter-link category-tree-link {{ activeCategoryId == category.id ? 'active' : '' }}"
+           data-category-id="{{ category.id }}"
+           href="{{ path('customer_catalog', selectedRegion ? { 'ProductSearch[category_id]': category.id, 'ProductSearch[view]': currentView|default('GRID_VIEW'), 'region': selectedRegion, 'q': searchQuery|default('') } : { 'ProductSearch[category_id]': category.id, 'ProductSearch[view]': currentView|default('GRID_VIEW'), 'q': searchQuery|default('') }) }}">
+            <span class="category-tree-link-label">{{ category.name }}</span>
+            <strong>{{ category.count }}</strong>
+        </a>
+
+        {% if hasChildren %}
+            <div class="category-tree-children" data-depth="{{ depth + 1 }}">
+                {% include 'customer/_main/_category_tree.html.twig' with {categories: category.children, activeCategoryId: activeCategoryId, selectedRegion: selectedRegion|default(''), searchQuery: searchQuery|default(''), currentView: currentView|default('GRID_VIEW'), depth: depth + 1} only %}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}

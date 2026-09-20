@@ -1,0 +1,89 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Warehouses | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default((total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Warehouses</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_warehouse_create') }}">Add Warehouse</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentSort = currentSort|default('') %}
+    {% set currentDir = currentDir|default('asc') %}
+    <section class="table-card warehouse-grid no-paginate">
+        <form id="warehouse-filters" method="get" action="{{ path('admin_warehouse') }}" class="js-auto-submit-form">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table warehouse-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_warehouse', {sort: 'name', dir: currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Name</a></th>
+                        <th class="is-sortable{% if currentSort == 'location' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="location"><a href="{{ path('admin_warehouse', {sort: 'location', dir: currentSort == 'location' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Location</a></th>
+                        <th class="is-sortable{% if currentSort == 'fulfillmentRegion' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="fulfillmentRegion"><a href="{{ path('admin_warehouse', {sort: 'fulfillmentRegion', dir: currentSort == 'fulfillmentRegion' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Serves Fulfillment Region</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_warehouse', {sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Status</a></th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" aria-label="Filter name"></th>
+                        <th><input type="text" name="filters[location]" value="{{ filters.location|default('') }}" aria-label="Filter location"></th>
+                        <th><input type="text" name="filters[fulfillmentRegion]" value="{{ filters.fulfillmentRegion|default('') }}" aria-label="Filter fulfillment region"></th>
+                        <th>
+                            <select name="filters[status]" aria-label="Filter status">
+                                <option value=""></option>
+                                <option value="Active" {{ filters.status|default('') == 'Active' ? 'selected' : '' }}>Active</option>
+                                <option value="Inactive" {{ filters.status|default('') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/config/_warehouse_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: warehouses|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_warehouse',
+                routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+        </form>
+    </section>
+
+{% endblock %}

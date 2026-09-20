@@ -1,0 +1,22 @@
+{# The INVOICE's own entries at the TOP of the shared bar's ⋯ overflow — the `overflowTemplate`
+   slot `admin/_partials/sales_document_action_bar.html.twig` documents, the same slot Order's Void
+   fills in `admin/order/_overflow_actions.html.twig`. Expects: `document`, the Invoice;
+   `availableActions`, the list `InvoiceController::availableActions()` already builds
+   (`{action, label}` per legal transition from the invoice's current status).
+
+   These used to live in their own mid-page card (`document_actions` block, detail.html.twig) — one
+   button per legal move, since an invoice moves along a state machine rather than offering a free
+   choice of status the way the order's Update Status modal does. Moved here per the owner: "we have
+   a bar for buttons, please keep everything there." The mechanism is unchanged — still one button
+   per transition, still posting to admin_invoice_action, still validating its own from-state and
+   writing its own timeline entry — only where it renders moved.
+
+   No lock guard: the route already refuses through DocumentLockedSubscriber the same way every
+   other locked write does (see this document's own edit()/clone() routes), so a redundant check
+   here would just be a second copy of a rule the endpoint already keeps. #}
+{% for action in availableActions %}
+    <form method="post" action="{{ path('admin_invoice_action', {id: document.id, action: action.action}) }}" style="display: contents;">
+        {{ csrf_field() }}
+        <button id="invoice-action-{{ action.action }}" class="{{ action.action == 'cancel' ? 'danger' : '' }}" type="submit">{{ action.label }}</button>
+    </form>
+{% endfor %}

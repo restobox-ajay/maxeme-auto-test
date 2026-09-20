@@ -1,0 +1,31 @@
+{# The icon affordances sitting on one sidebar row (queue item 35).
+
+   Each one is a REAL menu item that named this row in its `attachTo` — it renders ONLY here, not
+   also as a row of its own further down the same list (AdminMenuTreeBuilder::assemble() already
+   dropped that row once this icon resolved) — so it still has its own route, its own label and its
+   own permission, and the accessible name below is a true statement about where the link goes
+   rather than a caption invented for a decoration. "New Bill", never "+": a screen reader reading
+   out a column of plus signs tells nobody anything.
+
+   A plain <a> with a real href, rendered server-side. Nothing here is script-injected and nothing
+   needs JavaScript to work, which is the house rule (public/assets/js/app.js, tests/Functional/
+   AdminNoJs*Cest.php) and is also the only way the reveal can be pure CSS.
+
+   Reveal/hide is entirely in public/assets/css/app.css: opacity + visibility on
+   `:hover, :focus-within`, never `display: none` — that would take the link out of the tab order
+   and the accessibility tree altogether — and always visible below the sidebar's own touch
+   breakpoint, where there is no hover to reveal anything with.
+
+   The glyph is conditional and the link is not, which is the whole degrade rule in one line: an
+   item naming no icon, or an icon this app does not have, still gets its button — same href, same
+   accessible name, same hover and focus — just nothing drawn inside it. app.css gives the button a
+   fixed 22x22 box precisely so that an empty one is still a real hit target and a real focus stop,
+   rather than collapsing to zero width and being present in name only.
+
+   `only` is deliberate: this partial needs nothing from the sidebar's context, and inheriting it
+   would let a caller's `node`/`child` leak in and be rendered by mistake. #}
+{% for affordance in affordances %}
+    {% if affordance.requiresRole is null or is_granted(affordance.requiresRole) %}
+        <a class="nav-affordance" href="{{ affordance.route is not null ? path(affordance.route, affordance.routeParams) : affordance.url }}" aria-label="{{ affordance.affordanceName }}" title="{{ affordance.affordanceName }}">{% if affordance.affordanceIconSvg is not null %}{{ affordance.affordanceIconSvg|raw }}{% endif %}</a>
+    {% endif %}
+{% endfor %}

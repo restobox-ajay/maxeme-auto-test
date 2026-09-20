@@ -1,0 +1,155 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Goods Receipts | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'receipts',
+        heading: 'Receiving',
+        lead: 'Everything that has arrived. A receipt is never edited — correcting one is an adjustment that says so, which is a second fact rather than an overwrite of the first.',
+        createPath: path('admin_bundle_procurement_receive'),
+        createLabel: 'Receive goods',
+        secondaryPath: path('admin_bundle_procurement_receive_scan'),
+        secondaryLabel: 'Scan goods in'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="receipt-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_receipts', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Receipt</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'received' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_receipts', {filters: filters, limit: limit, page: 1, sort: 'received', dir: currentSort == 'received' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Received</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'vendor' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_receipts', {filters: filters, limit: limit, page: 1, sort: 'vendor', dir: currentSort == 'vendor' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Vendor</a>
+                        </th>
+                        <th>Purchase order</th>
+                        <th>Warehouse</th>
+                        <th>Units</th>
+                        <th>Movement group</th>
+                        {# Queue item 41: status is a column on every document list. A receipt has
+                           no status enum — it is a statement about a moment on the dock — so its
+                           whole life is Received, or Voided if it was backed out (#613). The
+                           Movement group cell said "voided" in passing; this says it as a status,
+                           in the same pill and the same colour as every other grid. #}
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="search" name="filters[q]" form="receipt-filters" value="{{ filters.q }}" placeholder="Receipt, vendor or packing slip" aria-label="Search receipts"></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[vendor]" form="receipt-filters" aria-label="Filter vendor" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ? ' selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <label class="checkbox-label"><input type="checkbox" name="filters[unordered]" form="receipt-filters" value="1"{{ filters.unordered == '1' ? ' checked' : '' }} onchange="this.form.submit()"> None only</label>
+                        </th>
+                        <th>
+                            <select name="filters[warehouse]" form="receipt-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}"{{ filters.warehouse == warehouse.id ? ' selected' : '' }}>{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_procurement_receipts') }}">Reset</a>
+                        </th>
+                        {# The Status column's filter cell, beside the marker it filters on. A
+                           receipt accepted short-dated is a worklist of its own — "what did we let
+                           through" — and it is answered here rather than on the Exceptions screen,
+                           which is a money worklist sorted by what each row puts at risk. #}
+                        <th>
+                            <label class="checkbox-label"><input type="checkbox" name="filters[short_dated]" form="receipt-filters" id="filter-short-dated" value="1"{{ filters.short_dated == '1' ? ' checked' : '' }} onchange="this.form.submit()"> Short-dated only</label>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for receipt in rows %}
+                        {# An id per row so a test can assert that THIS receipt is in the filtered
+                           list and THAT one is not — #627. A filter asserted on a marker that only
+                           appears on matching rows proves nothing: the non-matching row has no
+                           marker anywhere, filtered or not. #}
+                        <tr id="receipt-row-{{ receipt.id }}" class="data-item-row{{ receipt.isVoided ? ' is-oversold' : '' }}">
+                            <td data-label="Receipt"><a href="{{ path('admin_bundle_procurement_receipt', {id: receipt.id}) }}">{{ receipt.receiptNumber }}</a></td>
+                            <td data-label="Received">{{ receipt.receivedAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Vendor">{{ receipt.vendorName }}</td>
+                            <td data-label="Purchase order">
+                                {%- if receipt.purchaseOrder -%}
+                                    <a href="{{ path('admin_bundle_procurement_purchase_order', {id: receipt.purchaseOrder.id}) }}">{{ receipt.purchaseOrder.poNumber }}</a>
+                                {%- else -%}
+                                    <strong>none</strong>
+                                {%- endif -%}
+                            </td>
+                            <td data-label="Warehouse">{{ receipt.warehouse.name }}</td>
+                            <td data-label="Units">{{ receipt.totalQuantity }}</td>
+                            <td data-label="Movement group">
+                                {{ receipt.movementGroup ? '#' ~ receipt.movementGroup.id : '—' }}
+                                {%- if receipt.isVoided and receipt.voidMovementGroup %}, back out on #{{ receipt.voidMovementGroup.id }}{% endif -%}
+                            </td>
+                            <td data-label="Status">
+                                {% set receiptStatus = receipt.isVoided ? 'Voided' : 'Received' %}
+                                {% include 'admin/_partials/document_status.html.twig' with {status: receiptStatus, loud: false} only %}
+                                {#- The date the void happened, which the Actions cell used to carry alongside the word. `muted` is what the bill grid beside this one marks a secondary cell value with. -#}
+                                {%- if receipt.isVoided and receipt.voidedAt %} <span class="muted">{{ receipt.voidedAt|date('Y-m-d') }}</span>{% endif -%}
+                                {#- Not a second status: the receipt is Received either way. This is
+                                    the same `muted` secondary marker the void date uses, in the same
+                                    cell, so no column had to be added to a nine-column grid. -#}
+                                {#- Two findings, marked apart: a pallet that arrived DEAD is not the same news as
+                                    one that arrived early-dated, and a single label for both would hide the worse
+                                    of them behind the commoner one. A receipt carrying both gets both marks. -#}
+                                {%- if receipt.expiredOnArrival is not empty %} <span class="muted" id="receipt-expired-{{ receipt.id }}">expired on arrival &times;{{ receipt.expiredOnArrival|length }}</span>{% endif -%}
+                                {%- if receipt.shortDated|length > receipt.expiredOnArrival|length %} <span class="muted" id="receipt-short-dated-{{ receipt.id }}">short-dated &times;{{ receipt.shortDated|length - receipt.expiredOnArrival|length }}</span>{% endif -%}
+                            </td>
+                            <td data-label="Actions" class="row-actions">
+                                <a class="table-action" href="{{ path('admin_bundle_procurement_receipt', {id: receipt.id}) }}">View</a>
+                                {# There is no Edit and there deliberately never will be: a receipt states
+                                   what was on the dock at a moment, and the movements it caused are in a
+                                   ledger that only appends. Getting it wrong is a VOID — a second fact,
+                                   with the stock put back by a new movement group (#613). #}
+                                {# Nothing is offered on a voided receipt: Voided and the date it
+                                   happened are the Status column's, two cells to the left, and
+                                   there is no second thing to do to it. #}
+                                {% if not receipt.isVoided %}
+                                    <a class="table-action danger" href="{{ path('admin_bundle_procurement_receipt', {id: receipt.id}) }}#void">Void</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9" class="empty-table-cell">
+                            <strong>Nothing has been received yet.</strong>
+                            <span>Book the first delivery in with Receive goods.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'receipts'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="receipt-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_procurement_receipts',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        <p class="lead">A receipt with no purchase order is legitimate and is flagged on the three-way match rather than refused.</p>
+    </section>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Number1 Product CSV Import | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Bulk updates &middot; step 2 of 2</p>
+                <h1>Match warehouse locations to Fulfillment Regions</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_number1_product_import_index') }}">Start over</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" action="{{ path('admin_bundle_number1_product_import_confirm') }}" class="form-grid">
+            {{ csrf_field() }}
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="fallback_category_id" value="{{ fallbackCategorySelection }}">
+            <input type="hidden" name="missing_rows" value="{{ missingRows }}">
+            <input type="hidden" name="store_vendor_meta" value="{{ storeMeta }}">
+            {# Carried across step two the same way, or ticking one on the upload screen is silently
+               lost the moment a file needs its LOCATIONs mapped. Only offered buckets are rendered,
+               matching what step one showed — an omitted field reads as unchecked either way. #}
+            {% for row in clearBucketRows %}
+                {% if row.offered %}
+                    <input type="hidden" name="{{ row.field }}" value="{{ row.checked ? 'yes' : 'no' }}">
+                {% endif %}
+            {% endfor %}
+            <input type="hidden" name="enable_tire_tsbc" value="{{ enableTireTsbc }}">
+
+            <div class="span-2">
+                <div class="table-shell">
+                    <table class="admin-grid-table table">
+                        <thead>
+                            <tr>
+                                <th>LOCATION value found in file</th>
+                                <th>Fulfillment Region</th>
+                                <th>Where its warehouse is</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for location in locations %}
+                                {% set matchId = existingRegionIdByLocation[location] ?? null %}
+                                <tr>
+                                    <td>
+                                        <code>{{ location }}</code>
+                                        <input type="hidden" name="locations[]" value="{{ location }}">
+                                        {% if matchId %}
+                                            <br><small class="muted">Matches an existing Fulfillment Region &mdash; pre-selected below.</small>
+                                        {% endif %}
+                                    </td>
+                                    {# A re-render after a refusal keeps what was chosen, so nobody
+                                       has to re-pick every row to fix one. #}
+                                    {% set chosen = selectedRegionIdByLocation is defined ? (selectedRegionIdByLocation[location]|default(null)) : null %}
+                                    <td>
+                                        <select name="region_ids[]">
+                                            <option value="0" {{ chosen == '0' ? 'selected' : '' }}>Don't update inventory for this location</option>
+                                            <option value="{{ createRegionValue }}" {{ chosen is null ? (matchId is null ? 'selected' : '') : (chosen == createRegionValue ? 'selected' : '') }}>Create a Fulfillment Region "{{ location }}" and update inventory</option>
+                                            {% for region in regions %}
+                                                <option value="{{ region.id }}" {{ chosen is null ? (matchId == region.id ? 'selected' : '') : (chosen == region.id ~ '' ? 'selected' : '') }}>{{ region.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    {# Queue item 61: creating a region creates the building its stock is counted in, and a
+                                       warehouse may not exist without a province — that province is what every purchase
+                                       order and vendor bill raised against it computes tax from. A LOCATION column does
+                                       not carry it and nothing may invent it, so it is asked for here. Read only for the
+                                       rows set to create a region; ignored on the others. #}
+                                    {# Picked, not typed, the same as every other place these
+                                       two are asked for. This screen is the one shape the shared
+                                       partial had to be handed carefully: the rows repeat, so the
+                                       names are INDEXED rather than `[]`. With `[]` every row's
+                                       country would name the same province target and app.js —
+                                       which resolves the pair with .first() — would repopulate row
+                                       one's province when you changed row nine's country. The
+                                       controller zips these against locations[] by position and
+                                       reads them through request->all(), which is indifferent to
+                                       which of the two spellings arrives, so the POST it parses is
+                                       unchanged. #}
+                                    {% set rowCountry = (countryByLocation is defined ? (countryByLocation[location]|default('')) : '') ?: 'CA' %}
+                                    <td>
+                                        {{ include('admin/_partials/region_select.html.twig', {
+                                            kind: 'country',
+                                            name: 'region_countries[' ~ loop.index0 ~ ']',
+                                            id: 'region-country-' ~ loop.index0,
+                                            selected: rowCountry,
+                                            target: 'region_provinces[' ~ loop.index0 ~ ']',
+                                            label: 'Warehouse country for ' ~ location,
+                                        }, with_context = false) }}
+                                        {{ include('admin/_partials/region_select.html.twig', {
+                                            kind: 'province',
+                                            name: 'region_provinces[' ~ loop.index0 ~ ']',
+                                            id: 'region-province-' ~ loop.index0,
+                                            selected: provinceByLocation is defined ? (provinceByLocation[location]|default('')) : '',
+                                            country: rowCountry,
+                                            label: 'Warehouse province or state for ' ~ location,
+                                        }, with_context = false) }}
+                                        {% if addressErrors is defined and addressErrors[location] is defined %}
+                                            <span class="field-error">{{ addressErrors[location] }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <ul>
+                    <li>Products are created/updated regardless of this mapping &mdash; this only controls where QNTY is applied.</li>
+                    <li>Product name, category, pricing, tax code, and vendor metadata are unaffected by this step.</li>
+                    <li>"Create a Fulfillment Region" makes a new region named exactly like the LOCATION value and uses it &mdash; re-uploading later reuses that same region instead of creating another one.</li>
+                    <li>A region created here also creates the warehouse its stock is counted in, so those rows need a country and a province: that province is what purchase orders and vendor bills raised against that building compute tax from, and a file's LOCATION column does not say where the building is. Rows mapped to an existing region or to "Don't update inventory" need nothing.</li>
+                    <li>Rows with a blank LOCATION cell aren't shown here &mdash; they use the fallback region configured on the upload screen, if any.</li>
+                </ul>
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Continue import</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

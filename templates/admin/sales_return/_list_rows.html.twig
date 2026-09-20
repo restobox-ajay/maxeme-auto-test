@@ -1,0 +1,35 @@
+{#
+    One row per RMA. Status and unit count both come off the document — a template adding the units
+    up itself would be a second answer able to disagree with the receipt on the next screen.
+
+    Received is shown beside Requested rather than instead of it, because the gap between the two is
+    the thing #596 exists to make visible: goods can arrive in one period and be credited in the
+    next, and a grid showing only "when did this happen" cannot say that.
+#}
+{% for salesReturn in returns %}
+    <tr>
+        <td data-label="RMA"><a href="{{ path('admin_sales_return_detail', {id: salesReturn.id}) }}">{{ salesReturn.documentNumber }}</a></td>
+        <td data-label="Customer">{{ salesReturn.company.name }}</td>
+        <td data-label="Invoice">{{ salesReturn.invoice ? salesReturn.invoice.documentNumber : '-' }}</td>
+        <td data-label="Requested">{{ salesReturn.requestedAt|date('Y-m-d') }}</td>
+        <td data-label="Received">{{ salesReturn.receivedAt ? salesReturn.receivedAt|date('Y-m-d') : '-' }}</td>
+        <td data-label="Units">{{ salesReturn.totalUnits }}</td>
+        <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: salesReturn.status.value, loud: false} only %}</td>
+        <td data-label="Actions"><span class="action-group"><a class="table-action" href="{{ path('admin_sales_return_detail', {id: salesReturn.id}) }}">View</a></span></td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="8" class="empty-table-cell">
+            {% if company is defined and company %}
+                <strong>No sales returns found for {{ company.name }}.</strong>
+                <span>This customer has no return matching the search above.</span>
+            {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                <strong>This customer does not exist.</strong>
+                <span>Nothing is listed, because the customer this link names could not be found.</span>
+            {% else %}
+                <strong>No sales returns found.</strong>
+                <span>Raise one from an invoice, or against a customer when nobody has found the invoice yet.</span>
+            {% endif %}
+        </td>
+    </tr>
+{% endfor %}

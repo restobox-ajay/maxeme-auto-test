@@ -1,0 +1,55 @@
+{# A computed Main Line Items fee — a BC Environmental Fee, a BC Recycling Fee — rendered as a real
+   row in a sell-side document's line table, dash-filled in every column that does not apply to it,
+   so the fee shows up next to the products it came from and not only in the totals box below.
+
+   NOT an editable or removable line: it is recomputed from scratch on every save (the order form's
+   recalc, EstimateController::recomputeFeesAndTax()), so it carries no line_* inputs and nothing
+   here posts.
+
+   Shared by templates/admin/order/form.html.twig and templates/admin/estimate/form.html.twig,
+   which had the same row twice under two names (`fee_line_row`, `estimate_fee_line_row`) — same
+   signature, same shape, same fee-line-row class, same number_format(2), differing only in how
+   many columns their line tables have and whether the cells carry a data-label.
+
+   Parameters
+   ----------
+   rowClass        required  the document's own line-row class — 'order-line-row' or
+                             'estimate-line-row'. It pairs with `fee-line-row`, which is added
+                             here and is what both forms' CSS and both suites' assertions key on.
+   label           required  the fee's name, in the first cell
+   amount          required  the money, in the `subtotalColumn` cell, always number_format(2)
+   columns         required  the line table's columns in order. Its LENGTH is how many cells the
+                             row spans — an order's line table has 14, a quote's 13, because an
+                             order carries a Batch column a quote has no use for — and its entries
+                             are the data-label each cell gets when `labelled`.
+   subtotalColumn  required  which entry of `columns` carries the amount; every other cell that is
+                             not the first is a dash. A name and not an index, so the caller states
+                             the column rather than counting to it.
+   labelled        required  true to put `data-label` on every cell, for the responsive
+                             stacked-table CSS that reads it. The quote does; the order does not,
+                             anywhere in its line table, which is a drift worth closing on its own
+                             and not from inside this row.
+   taxCodeColumn   optional  which entry of `columns` carries `taxCode` — a fee has one (its
+                             FeeLine::$taxClass) same as a product line does, so it is stated
+                             rather than dashed (#667). Omitted columns keep dashing, same as
+                             before this parameter existed.
+   taxCode         optional  the fee's own tax class ('E'/'G'/'S'), plain text — never an editable
+                             select, unlike a product line's: a fee is recomputed from scratch on
+                             every save (see the note above) and has nothing to post one into.
+   taxAmountColumn optional  which entry of `columns` carries `taxAmount`.
+   taxAmount       optional  this fee's own tax, computed in isolation from the rest of the
+                             document (OrderTaxBreakdownService's perFeeLineTax, #667) — not a
+                             share of the merged GST/PST row the totals box shows, which is a sum
+                             across every taxable line and fee and would overstate what THIS row
+                             alone charged.
+
+   The dash is core's literal em dash rather than `&mdash;`: the quote's copy spelled it as the
+   entity and the order's as the character, the same character either way, and the literal is what
+   the rest of the templates use. #}
+{% macro fee_line_row(rowClass, label, amount, columns, subtotalColumn, labelled, taxCodeColumn, taxCode, taxAmountColumn, taxAmount) %}
+    <tr class="{{ rowClass }} fee-line-row">
+{% for column in columns %}
+        <td{% if labelled %} data-label="{{ column }}"{% endif %}>{% if loop.first %}{{ label }}{% elseif column == subtotalColumn %}${{ amount|amount }}{% elseif taxCodeColumn is defined and column == taxCodeColumn %}{{ taxCode|default('') ?: '—' }}{% elseif taxAmountColumn is defined and column == taxAmountColumn %}${{ taxAmount|default(0)|amount }}{% else %}—{% endif %}</td>
+{% endfor %}
+    </tr>
+{% endmacro %}

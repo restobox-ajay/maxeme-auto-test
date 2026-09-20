@@ -1,0 +1,44 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Add Contact | Admin{% endblock %}
+{#
+    The Add Contact page — the counterpart of `admin/user/form.html.twig` reached from
+    `admin_company_user_create`. A vendor contact has no login to create (#605: records, never
+    accounts), so this carries none of that template's account/role/API fields — only the fields
+    `VendorController::applyContact()` actually reads.
+#}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Inventory › Procurement</p>
+                <h1>Add Contact: {{ vendor.name }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card admin-record-form">
+        <form class="form-grid" method="post" action="{{ path('admin_bundle_procurement_vendor_contact_add', {id: vendor.id}) }}">
+            {{ csrf_field() }}
+            <label>First Name <input type="text" name="first_name" maxlength="120"></label>
+            <label>Last Name <input type="text" name="last_name" maxlength="120"></label>
+            <label>Job Title <input type="text" name="job_title" maxlength="120" placeholder="Orders desk"></label>
+            <label>Email <input type="email" name="email" maxlength="180"></label>
+            <label>Phone <input type="text" name="phone" maxlength="60"></label>
+            <label>Status
+                <select name="status">
+                    {% for status in contactStatuses %}
+                        <option value="{{ status }}">{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="checkbox-label"><input type="checkbox" name="is_primary" value="1"> Primary contact</label>
+            <div class="form-actions span-2">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">Back</a>
+                <button class="button primary" type="submit">Add Contact</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

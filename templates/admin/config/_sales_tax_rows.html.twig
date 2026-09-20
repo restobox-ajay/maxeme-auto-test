@@ -1,0 +1,42 @@
+{% for row in rows %}
+    <tr>
+        <td data-label="Province"><strong>{{ row.province_name }}</strong></td>
+        <td data-label="Abbreviation">{{ row.abbreviation }}</td>
+        <td data-label="Tax Type">{{ row.tax_type }}</td>
+        {# Legacy rows (source empty) store rate as a plain percentage number (e.g. 7 = 7%).
+           Bundle-owned rows store rate as a decimal fraction (e.g. 0.05 = 5%) since that's
+           what the tax calculators multiply the subtotal by directly. #}
+        <td data-label="Rate">{{ row.source ? (row.rate * 100)|number_format(3) : row.rate|number_format(3) }}%</td>
+        <td data-label="Status">
+            <span class="badge {{ row.status|lower in ['inactive', 'disabled'] ? 'danger-soft' : 'success' }}">{{ row.status|default('Active') }}</span>
+        </td>
+        <td data-label="Source">
+            {% if row.source %}
+                {% set ownerMenuItem = tax_menu_items()|filter(item => item.source == row.source)|first %}
+                {% if ownerMenuItem %}
+                    <a class="badge" href="{{ path(ownerMenuItem.route) }}" title="Manage on the {{ row.source }} config page">{{ row.source }}</a>
+                {% else %}
+                    <span class="badge">{{ row.source }}</span>
+                {% endif %}
+            {% else %}
+                <span class="muted">&mdash;</span>
+            {% endif %}
+        </td>
+        <td data-label="Actions">
+            <div class="row-actions">
+                <a class="table-action" href="{{ path('admin_sales_tax_create') }}">Add Rate</a>
+                <a class="table-action" href="{{ path('admin_sales_tax_update', {id: row.id}) }}">Update</a>
+                {% if not row.source %}
+                    <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_sales_tax_delete', {id: row.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ row.province_name }} {{ row.tax_type }} tax">Delete</button>
+                {% endif %}
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="7" class="empty-table-cell">
+            <strong>No sales tax rates found.</strong>
+            <span>Add tax rates for provinces and territories when you are ready.</span>
+        </td>
+    </tr>
+{% endfor %}

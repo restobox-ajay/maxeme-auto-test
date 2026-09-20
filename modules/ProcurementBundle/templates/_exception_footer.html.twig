@@ -1,0 +1,37 @@
+{# How many rows this section holds, what they add up to, and how much of the file was read to find
+   them.
+
+   The count is counted in PHP from rows already fetched, never with a COUNT query: this screen caps
+   its feeds and counts neither with SQL, and AdminListScreenConventionsCest reads "one request ran
+   both a counting and a limiting query rooted at table X" as "this screen is X's list screen".
+   A count(*) here would make this worklist claim to be the purchase order list AND the vendor bill
+   list. It is a worklist; it has no pager.
+
+   The total is shown only when every row in the section is in one currency. A purchase document
+   carries its own currency and this application never converts one — see
+   AbstractPurchaseDocument::$currency — so adding CAD to USD would produce the most confident wrong
+   number on the page.
+
+   ## The cap says so now
+
+   `scan` is what the feed READ: how many documents its query matched, and how many of them the cap
+   let it look at. They are documents, not rows — one bill can raise several exception lines — so
+   this is a second sentence rather than a bigger number inside the first. Without it, a file of 205
+   exception-carrying bills rendered 200 rows under "Showing 1 to 200 of 200 bill exceptions", which
+   reads as the whole of it and is how bill 201 went missing with nothing on screen to suggest it
+   had. Rendered only when the cap actually bit: a worklist that reports its own internals on every
+   page view is noise, and noise is what a person stops reading. #}
+<div class="table-footer">
+    {% include 'admin/_table_count.html.twig' with {count: count, total: count, label: label} only %}
+    {% if total is not null %}
+        <span class="table-count">{{ total.currency }} {{ total.amount }} at risk</span>
+    {% elseif count > 0 %}
+        <span class="table-count">Not totalled: these rows are in more than one currency, and purchase documents are never converted.</span>
+    {% endif %}
+    {% if scan is defined and scan.available > scan.scanned %}
+        <span class="table-count" id="{{ scanId }}">
+            Read from the most recent {{ scan.scanned }} of {{ scan.available }} {{ scanLabel }};
+            {{ scan.available - scan.scanned }} not examined. Narrow the filter to reach the rest.
+        </span>
+    {% endif %}
+</div>

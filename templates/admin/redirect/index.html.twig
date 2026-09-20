@@ -1,0 +1,59 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Redirection | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Settings › Redirection</p>
+                <h1>Redirection</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_redirect_create') }}">+ Add redirect</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel admin-flat-panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Redirect from</th>
+                    <th>Redirect to</th>
+                    <th>Type</th>
+                    <th>Query parameters</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in redirects %}
+                    <tr>
+                        <td><code>{{ item.sourcePath }}</code></td>
+                        <td>{{ item.destinationDisplay }}</td>
+                        <td><span class="badge">{{ item.redirectType }}</span></td>
+                        <td>{{ item.queryHandlingLabel }}</td>
+                        <td class="row-actions">
+                            <a class="table-action" href="{{ path('admin_redirect_update', {id: item.id}) }}">Edit</a>
+                            <form method="post" action="{{ path('admin_redirect_delete', {id: item.id}) }}"
+                                  style="display:inline"
+                                  onsubmit="return confirm('Delete redirect from {{ item.sourcePath|e('js') }}?')">
+                                {{ csrf_field() }}
+                                <button type="submit" class="table-action danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-row">No redirects configured yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

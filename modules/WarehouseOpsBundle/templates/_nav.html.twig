@@ -1,0 +1,25 @@
+{# One sidebar entry, so the bundle's screens navigate between themselves from here. #}
+<section class="panel compact-panel">
+    <div class="panel-title-row">
+        <div>
+            <p class="eyebrow">Apps › Inventory › Warehouse Operations</p>
+            <h1>{{ heading }}</h1>
+        </div>
+        <div class="panel-actions">
+            <a class="button back-button" href="{{ path('admin_bundle_warehouse_ops_index') }}">Back</a>
+            {% if createPath is defined and createPath %}
+                <a class="button primary" href="{{ createPath }}">{{ createLabel is defined ? createLabel : 'Create' }}</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% for msg in app.flashes('success') %}
+    <div class="flash flash-success">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('info') %}
+    <div class="flash flash-info">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('error') %}
+    <div class="flash flash-error">{{ msg }}</div>
+{% endfor %}

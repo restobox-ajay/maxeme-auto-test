@@ -1,0 +1,83 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Stripe — Payments Bundle | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Payments</p>
+                <h1>Stripe</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_payment_stripe') }}" class="form-grid">
+            {{ csrf_field() }}
+
+            <label>
+                Mode
+                <select name="mode">
+                    <option value="test" {{ mode == 'test' ? 'selected' : '' }}>Test</option>
+                    <option value="live" {{ mode == 'live' ? 'selected' : '' }}>Live</option>
+                </select>
+            </label>
+
+            <label>
+                Publishable Key (Test)
+                <input type="text" name="publishable_key_test" value="{{ publishableKeyTest }}" placeholder="pk_test_...">
+            </label>
+            <label>
+                Secret Key (Test)
+                {% if secretKeyTestMasked %}
+                    <p class="field-hint">Currently set: <code>{{ secretKeyTestMasked }}</code></p>
+                {% endif %}
+                <input type="text" name="secret_key_test" value="" placeholder="{{ secretKeyTestMasked ? 'Leave blank to keep current key' : 'sk_test_...' }}">
+            </label>
+
+            <label>
+                Publishable Key (Live)
+                <input type="text" name="publishable_key_live" value="{{ publishableKeyLive }}" placeholder="pk_live_...">
+            </label>
+            <label>
+                Secret Key (Live)
+                {% if secretKeyLiveMasked %}
+                    <p class="field-hint">Currently set: <code>{{ secretKeyLiveMasked }}</code></p>
+                {% endif %}
+                <input type="text" name="secret_key_live" value="" placeholder="{{ secretKeyLiveMasked ? 'Leave blank to keep current key' : 'sk_live_...' }}">
+            </label>
+
+            <h3>Webhook</h3>
+            <p class="field-hint">
+                Add this endpoint in the Stripe dashboard (Developers &rsaquo; Webhooks), subscribed to
+                <code>payment_intent.succeeded</code>, then paste its signing secret below:<br>
+                <code>{{ webhookUrl }}</code>
+            </p>
+            <p class="field-hint">
+                Until a signing secret is set, the endpoint rejects every event. Card payments still
+                work, but an order whose customer closes the browser after paying will stay unpaid
+                until someone reconciles it by hand.
+            </p>
+            <label>
+                Webhook Signing Secret (Test)
+                {% if webhookSecretTestMasked %}
+                    <p class="field-hint">Currently set: <code>{{ webhookSecretTestMasked }}</code></p>
+                {% endif %}
+                <input type="text" name="webhook_secret_test" value="" placeholder="{{ webhookSecretTestMasked ? 'Leave blank to keep current secret' : 'whsec_...' }}">
+            </label>
+            <label>
+                Webhook Signing Secret (Live)
+                {% if webhookSecretLiveMasked %}
+                    <p class="field-hint">Currently set: <code>{{ webhookSecretLiveMasked }}</code></p>
+                {% endif %}
+                <input type="text" name="webhook_secret_live" value="" placeholder="{{ webhookSecretLiveMasked ? 'Leave blank to keep current secret' : 'whsec_...' }}">
+            </label>
+
+            <div class="form-actions">
+                <button type="submit" class="button primary">Save Stripe Configuration</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

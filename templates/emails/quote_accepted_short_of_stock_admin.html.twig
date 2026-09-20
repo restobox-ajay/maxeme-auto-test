@@ -1,0 +1,56 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Quote accepted — not enough stock{% endblock %}
+
+{# The order this describes is already held as a Draft, so nothing is oversold while it waits. This
+   email is the only thing that says it is waiting — the customer has been told their order is
+   placed, and it will not ship until someone acts. #}
+{% block body %}
+    <p>Hi,</p>
+
+    <h2 style="margin-top: 0; color: #0f172a;">
+        Quote {{ estimate.documentNumber }} was accepted, but there is not enough stock to fulfil it.
+    </h2>
+
+    <p>
+        It has been accepted, and order <span class="highlight">#{{ order.orderNumber }}</span> has been created.
+        It is being held as a <strong>Draft</strong>, so it reserves no stock and will not ship until you promote it.
+    </p>
+
+    <h3 style="color: #0f172a; margin-bottom: 6px;">What is missing</h3>
+    <table role="presentation" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-bottom: 16px;">
+        <thead>
+            <tr>
+                <th align="left" style="border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 13px;">Product</th>
+                <th align="left" style="border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 13px;">Region</th>
+                <th align="right" style="border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 13px;">Ordered</th>
+                <th align="right" style="border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 13px;">Available</th>
+                <th align="right" style="border-bottom: 1px solid #cbd5e1; color: #475569; font-size: 13px;">Short by</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in shortfalls|default([]) %}
+                <tr>
+                    <td style="border-bottom: 1px solid #e2e8f0;">{{ row.product.name }}{% if row.product.sku %} <span style="color: #64748b;">({{ row.product.sku }})</span>{% endif %}</td>
+                    <td style="border-bottom: 1px solid #e2e8f0;">{{ row.regionName }}</td>
+                    <td align="right" style="border-bottom: 1px solid #e2e8f0;">{{ row.requested }}</td>
+                    <td align="right" style="border-bottom: 1px solid #e2e8f0;">{{ row.available }}</td>
+                    <td align="right" style="border-bottom: 1px solid #e2e8f0; color: #b45309; font-weight: 600;">{{ row.missing }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p style="color: #475569;">
+        Restock, or reduce the order to what you can ship, then set it to Pending. The order cannot be
+        promoted while a line still exceeds what is available.
+    </p>
+
+    <div style="text-align: center; margin-top: 10px;">
+        <a href="{{ order_admin_url|default('#') }}" class="button">View order</a>
+    </div>
+
+    <div style="text-align: center; margin-top: 10px;">
+        <a href="{{ admin_url|default('#') }}" style="color: #475569;">View quote</a>
+    </div>
+{% endblock %}

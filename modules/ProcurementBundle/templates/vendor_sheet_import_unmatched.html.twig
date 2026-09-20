@@ -1,0 +1,86 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Unmatched Vendor SKUs | Admin{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .inline-fields { display: flex; gap: 6px; align-items: center; }
+    </style>
+{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_prices',
+        heading: 'Unmatched Vendor SKUs',
+        lead: 'A vendor SKU a sheet named that has no product mapping yet. Link it to a product, or ignore it.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <form method="get">
+            <label>Vendor
+                <select name="vendor_id" onchange="this.form.submit()">
+                    <option value="">&mdash; all vendors &mdash;</option>
+                    {% for v in vendors %}
+                        <option value="{{ v.id }}"{{ vendor and vendor.id == v.id ? ' selected' : '' }}>{{ v.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </form>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Vendor SKU</th>
+                        <th>Last Seen Name</th>
+                        <th>Last Seen Price</th>
+                        <th>Last Seen Qty</th>
+                        <th>First Seen</th>
+                        <th>Last Seen</th>
+                        <th>Link to product</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td data-label="Vendor">{{ row.vendor.name }}</td>
+                            <td data-label="Vendor SKU">{{ row.vendorSku }}</td>
+                            <td data-label="Last Seen Name">{{ row.lastSeenName|default('') }}</td>
+                            <td data-label="Last Seen Price">{{ row.lastSeenPrice|default('') }}</td>
+                            <td data-label="Last Seen Qty">{{ row.lastSeenQuantity|default('') }}</td>
+                            <td data-label="First Seen">{{ row.firstSeenAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Last Seen">{{ row.lastSeenAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Link to product" class="row-actions">
+                                <form method="post" action="{{ path('admin_bundle_procurement_vendor_sheet_import_link', {id: row.id}) }}" class="inline-fields">
+                                    {{ csrf_field() }}
+                                    {{ include('@Procurement/_product_field.html.twig', {
+                                        field: 'product_id',
+                                        products: productOptions,
+                                        remote: productsRemote,
+                                        vendorId: row.vendor.id,
+                                    }) }}
+                                    <button class="table-action" type="submit">Link</button>
+                                </form>
+                            </td>
+                            <td data-label="Actions">
+                                <form method="post" action="{{ path('admin_bundle_procurement_vendor_sheet_import_ignore', {id: row.id}) }}">
+                                    {{ csrf_field() }}
+                                    <button class="table-action" type="submit">Ignore</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-table-cell">
+                                <strong>Nothing unmatched.</strong>
+                                <span>Every vendor SKU a sheet has named already maps to a product.</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

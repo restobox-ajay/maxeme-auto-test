@@ -1,0 +1,252 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Purchase Orders | Admin{% endblock %}
+{% block admin_body %}
+    {# The create button goes in the header panel's .panel-actions, which is where this application
+       puts one — /admin/order, /admin/company and the Vendor Bills grid beside this one all do.
+       It used to sit in a bare .panel of its own below the heading, which is the shape #621's
+       conformance test names. _nav.html.twig has taken createPath since #613; this screen simply
+       was not passing it. #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'orders',
+        heading: 'Purchase Orders',
+        lead: 'What we asked for, and where it is going. Partially Received and Received are derived from what actually arrived — nobody types them.',
+        createPath: path('admin_bundle_procurement_purchase_order_new'),
+        createLabel: 'Raise a purchase order'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="po-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region">
+            {# ── Filter bar ───────────────────────────────────────────────────────────────────
+               The date range and the status tabs sit HERE, inside the scroll region and above the
+               table, because that is where core puts both — `templates/admin/invoice/index.html.twig`
+               lines 60-114 and `templates/admin/order/index.html.twig` lines 86-122, the two grids
+               this one is meant to resemble. Copied for two measured reasons, not for tidiness:
+
+                 1. `.site-admin .panel.compact-panel` is `flex: 0 0 auto` (app.css:7774), so a
+                    second panel above the card is 66px the scroll region never gets back. In the
+                    filter bar the tabs scroll away with the bar and the table header sticks behind
+                    them, which is what the comment at app.css:7752 describes.
+                 2. Two `<input type="date">` in ONE filter cell forced the Dated column to 324px of
+                    a 1148px table — measured — and the seven other columns starved into wrapping
+                    their text onto a second line, which is what actually made a row 66px tall and
+                    the grid 7 rows deep. A date input has a fixed intrinsic width and a table cell
+                    cannot shrink below its content, so the fix is to take them out of the column,
+                    not to style them smaller. Core never puts one in a column filter cell either:
+                    the range lives in the bar on both grids above.
+
+               `.order-filter-fields` is a <div> rather than core's <form> because the whole grid is
+               already inside `form#po-filters` and a nested form is invalid HTML that every parser
+               silently reparents (#613, and `noFormIsNestedInsideAnotherForm`). The classes are
+               core's own and unscoped (app.css:9087-9233); nothing here is a new class or colour. #}
+            <div class="order-filter-section">
+                <div class="order-filter-fields">
+                    <span class="order-filter-label">Filter by:</span>
+                    <label class="order-filter-field">
+                        <span>Dated on or after</span>
+                        <input type="date" name="filters[from]" form="po-filters" value="{{ filters.from }}">
+                    </label>
+                    <label class="order-filter-field">
+                        <span>Dated on or before</span>
+                        <input type="date" name="filters[to]" form="po-filters" value="{{ filters.to }}">
+                    </label>
+                    <div class="order-filter-actions">
+                        <button class="button primary" type="submit">Filter</button>
+                        <a class="button outline" href="{{ path('admin_bundle_procurement_purchase_orders') }}">Reset</a>
+                    </div>
+                </div>
+
+                {# The statuses come from PurchaseOrderStatus::cases() rather than a list typed here,
+                   so a status added to the enum gets a tab without anybody remembering this file —
+                   and the bar cannot come to disagree with the <select> in the filter row below,
+                   which reads the same cases.
+
+                   The tabs are what the status <select> alone could not be: a click rather than two,
+                   and a statement of which statuses exist at all. The select stays, because it is
+                   the Status column's own filter and the filter row is read column by column. #}
+                <nav class="order-status-tabs">
+                    <a class="{{ filters.status == '' ? 'is-active' : '' }}"
+                       href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters|merge({status: ''}), limit: limit, page: 1, sort: currentSort, dir: currentDir}) }}">All Purchase Orders</a>
+                    {% for status in statuses %}
+                        <a class="{{ filters.status == status.value ? 'is-active' : '' }}"
+                           href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters|merge({status: status.value}), limit: limit, page: 1, sort: currentSort, dir: currentDir}) }}">{{ status.value }}</a>
+                    {% endfor %}
+                </nav>
+            </div>
+
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">PO</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'vendor' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'vendor', dir: currentSort == 'vendor' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Vendor</a>
+                        </th>
+                        <th>Warehouse</th>
+                        <th class="is-sortable{% if currentSort == 'date' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'date', dir: currentSort == 'date' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Dated</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'expected' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'expected', dir: currentSort == 'expected' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Expected</a>
+                        </th>
+                        {# "Outstanding 86.00" beside a money column reads as money and is not: it is
+                           a COUNT OF UNITS, summed off the lines. The column says so in its own
+                           header rather than relying on the reader to notice that one two-decimal
+                           figure in a row of them has no currency in front of it. #}
+                        <th>Units outstanding</th>
+                        <th class="is-sortable{% if currentSort == 'total' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'total', dir: currentSort == 'total' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Total</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: filters, limit: limit, page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Status</a>
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="search" name="filters[q]" form="po-filters" value="{{ filters.q }}" placeholder="PO number or vendor" aria-label="Search purchase orders"></th>
+                        <th>
+                            <select name="filters[vendor]" form="po-filters" aria-label="Filter vendor" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ~ '' ? ' selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[warehouse]" form="po-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}"{{ filters.warehouse == warehouse.id ~ '' ? ' selected' : '' }}>{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        {# Dated, Expected, Units outstanding and Total have no filter cell: the date
+                           range is in the bar above, where it does not set this column's width. #}
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[status]" form="po-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status.value }}"{{ filters.status == status.value ? ' selected' : '' }}>{{ status.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in rows %}
+                        {# `data-purchase-order` is the row anchor the vendor bill grid beside this
+                           one already carries as `data-bill`: it is what lets a test assert THIS
+                           document's row rather than searching the page for a word that is also in
+                           the status dropdown two rows up (#627). #}
+                        <tr class="data-item-row" data-purchase-order="{{ order.id }}">
+                            <td data-label="PO"><a href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">{{ order.poNumber }}</a></td>
+                            <td data-label="Vendor">{{ order.vendorName }}</td>
+                            <td data-label="Warehouse">{{ order.warehouse.name }}</td>
+                            <td data-label="Dated">{{ order.documentDate }}</td>
+                            <td data-label="Expected">{{ order.expectedDate ?? '—' }}</td>
+                            <td data-label="Units outstanding">{{ order.quantityOutstanding|qty }}</td>
+                            {# Two decimals with the currency, the same idiom the Vendor Bills grid
+                               beside this one uses. `total` is DECIMAL(12,2), but SQLite's NUMERIC
+                               affinity hands 4137.50 back as "4137.5" and 1520.00 as "1520", so the
+                               column printed eight different shapes of the same kind of number.
+                               Formatting is a template job; nothing about the stored value changes. #}
+                            <td data-label="Total">{{ order.currency }} {{ order.total|amount }}</td>
+                            {# Item 41's shared pill, kept exactly as it landed: one colour per
+                               status, decided in core's table rather than by this template. #}
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: order.status, loud: false} only %}</td>
+                            <td data-label="Actions" class="row-actions">
+                                {# One dropdown rather than three flat controls, matching the Vendor
+                                   Bills grid beside it and /admin/invoice above it. Three flat
+                                   .table-action controls is how an Actions column grows without
+                                   anybody deciding it should — each new action one more <a> and one
+                                   more inch of width.
+
+                                   No Delete, deliberately: a purchase order is a document and keeps
+                                   its number forever. Withdrawing one is Cancel — refused once
+                                   anything has arrived, because the receipts that recorded those
+                                   goods would be left pointing at a document claiming nothing was
+                                   ever ordered. The form is below the table: a <form> inside the
+                                   filter <form> is invalid HTML and every parser drops the inner
+                                   one (#613). With scripting off the dropdown does not open, and
+                                   Cancel is reached on the order's own page, which carries the same
+                                   plain form — the same arrangement the vendor and bill grids made
+                                   when they were conformed. #}
+                                <div class="row-action-menu">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open purchase order actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">View</a>
+                                        {# Offered only where it can succeed (#47). This row used to
+                                           carry Edit on all thirty-seven purchase orders and the
+                                           save accepted seven of them — the drafts — so the other
+                                           thirty rendered a complete, populated form and refused at
+                                           the end of it. A control is a promise.
+
+                                           Closed and Cancelled are the two that cannot: one had its
+                                           remainder written off with a reason on the timeline, the
+                                           other says nothing was ever ordered. Everything else stays
+                                           editable, including Issued and Partially Received, which is
+                                           the sell side's rule borrowed whole — see
+                                           PurchaseOrder::canEditOnStatus(). #}
+                                        {% if order.canEditOnStatus %}
+                                            <a href="{{ path('admin_bundle_procurement_purchase_order_edit', {id: order.id}) }}">Edit</a>
+                                        {% endif %}
+                                        {# And Cancel only where IT can succeed: the entity refuses
+                                           once anything has arrived (settled long before #47 and
+                                           reaffirmed by it), which the order's own page has always
+                                           checked and this dropdown did not. #}
+                                        {% if order.status in ['Draft', 'Issued'] and not order.hasAnyReceipts %}
+                                            <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                                            <button type="submit" class="table-action danger" form="cancel-po-{{ order.id }}">Cancel</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9" class="empty-table-cell">
+                            <strong>No purchase orders match.</strong>
+                            <span>Raise one, or widen the filters.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'purchase orders'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="po-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_procurement_purchase_orders',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        {% for order in rows %}
+            {% if order.status in ['Draft', 'Issued'] and not order.hasAnyReceipts %}
+                {# POST rather than a link, and no JavaScript in the path: the confirm is an onsubmit
+                   courtesy that does not run with scripting off, and the button still posts.
+
+                   Gated on the same condition as the button above, so the two cannot disagree — a
+                   form with no button is dead weight and a button with no form is a control that
+                   does nothing. #}
+                <form method="post" id="cancel-po-{{ order.id }}" hidden
+                      action="{{ path('admin_bundle_procurement_purchase_order_cancel', {id: order.id}) }}"
+                      onsubmit="return confirm('Cancel {{ order.poNumber|e('js') }}? It keeps its number and nothing further is expected from this vendor against it.')">
+                    {{ csrf_field() }}
+                </form>
+            {% endif %}
+        {% endfor %}
+    </section>
+{% endblock %}

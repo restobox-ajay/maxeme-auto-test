@@ -1,0 +1,87 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}WooCommerce Orders | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WooCommerce/_nav.html.twig' with {
+        current: 'orders',
+        heading: 'Orders',
+        lead: 'Every WooCommerce order this app has ever seen, across every store. Sorted so anything that needs attention shows up first — filter to narrow it down, not to find the problems.'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="woo-order-filters" action="{{ path('admin_bundle_woocommerce_orders') }}">
+            <div class="table-header">
+                <div class="table-tools">
+                    <select name="filters[connection_id]" onchange="this.form.submit()">
+                        <option value="0">All stores</option>
+                        {% for connection in connections %}
+                            <option value="{{ connection.id }}"{{ filters.connection_id == connection.id ? ' selected' : '' }}>{{ connection.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="filters[status]" onchange="this.form.submit()">
+                        <option value=""{{ filters.status == '' ? ' selected' : '' }}>All</option>
+                        <option value="Imported"{{ filters.status == 'Imported' ? ' selected' : '' }}>Imported</option>
+                        <option value="Skipped"{{ filters.status == 'Skipped' ? ' selected' : '' }}>Skipped (not paid yet)</option>
+                        <option value="Error"{{ filters.status == 'Error' ? ' selected' : '' }}>Needs attention</option>
+                    </select>
+                    <button class="button" type="submit">Filter</button>
+                    <a class="button" href="{{ path('admin_bundle_woocommerce_orders') }}">Clear</a>
+                </div>
+            </div>
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table>
+                <thead>
+                    <tr>
+                        <th>Woo order #</th>
+                        <th>Store</th>
+                        <th>Customer</th>
+                        <th>Our invoice</th>
+                        <th>Status</th>
+                        <th>Imported</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in orders %}
+                        <tr>
+                            <td data-label="Woo order #">{{ row.wooOrderNumber }}</td>
+                            <td data-label="Store">{{ row.connection.name }}</td>
+                            <td data-label="Customer">{{ row.company ? row.company.name : '—' }}</td>
+                            <td data-label="Our invoice">
+                                {% if row.invoice %}
+                                    <a href="{{ path('admin_invoice_detail', {id: row.invoice.id}) }}">{{ row.invoice.documentNumber }}</a>
+                                {% else %}
+                                    &mdash;
+                                {% endif %}
+                                {% if row.creditMemo %}
+                                    <br>
+                                    <a href="{{ path('admin_credit_memo_detail', {id: row.creditMemo.id}) }}">{{ row.creditMemo.documentNumber }}</a>
+                                {% endif %}
+                            </td>
+                            <td data-label="Status">
+                                {% if row.isError %}
+                                    <span class="badge danger" title="{{ row.errorMessage }}">Needs attention</span>
+                                {% elseif row.isSkipped %}
+                                    <span class="badge info" title="{{ row.errorMessage }}">Skipped</span>
+                                {% elseif row.creditMemo %}
+                                    <span class="badge warn" title="Refunded on WooCommerce; credited on {{ row.creditMemo.documentNumber }}">Refunded</span>
+                                {% else %}
+                                    <span class="badge success">Imported</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Imported">{{ row.importedAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Actions">
+                                {% if row.isError or row.isSkipped %}
+                                    <span class="muted" title="{{ row.errorMessage }}">Why?</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7" class="empty-table-cell"><span>No WooCommerce orders yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with { count: orders|length, label: 'orders' } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

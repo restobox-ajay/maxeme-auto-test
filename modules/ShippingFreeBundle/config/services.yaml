@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingFreeBundle\:
+        resource: '../src/'
+
+    ShippingFreeBundle\Shipping\FreeShippingCalculator:
+        tags: ['app.shipping_option']
+
+    ShippingFreeBundle\Bundle\ShippingFreeBundleDescriptor:
+        tags: ['app.bundle_descriptor']

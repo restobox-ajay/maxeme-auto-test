@@ -1,0 +1,50 @@
+{% extends 'admin/_main/pdf_layout.html.twig' %}
+{% block title %}Quote: {{ estimate.documentNumber }}{% endblock %}
+
+{#
+    The customer-facing quote PDF. Always a download, never an on-screen view (see
+    Customer/EstimateController::quotePdf() — it always returns a Dompdf binary, no HTML branch),
+    which is why this extends the bare pdf_layout directly instead of branching on is_pdf like the
+    three admin documents do.
+
+    Before this, it was a completely separate hand-rolled template — its own header band, its own
+    meta/address/products/totals markup, none of it shared with the admin quote screen even though
+    both print the exact same estimate. It also carried a Tax Code / Total Tax per-line breakdown
+    the other three sell-side documents have never shown (the admin quote just says "TBD" or a
+    dollar total, same as order and invoice). That column pair is dropped here, matching the other
+    three documents — a customer wants to know what they owe, not a tax-engine trace. admin's own
+    meta-left and footer-note partials are reused as-is (their docblocks already said they were
+    meant to be shared this way).
+#}
+
+{% block admin_body %}
+    {{ include('admin/_partials/sell_side_pdf_document.html.twig', {
+        docLabel: 'QUOTE',
+        sectionTitle: 'Products',
+        metaLeftTemplate: 'admin/estimate/_pdf_meta_left.html.twig',
+        metaLeftContext: {estimate: estimate},
+        billingAddress: billingAddress,
+        shippingAddress: shippingAddress,
+        billingFallbackName: estimate.billingName,
+        shippingFallbackName: estimate.shippingName,
+        companyIdentityName: estimate.companyIdentity.name,
+        companyIdentityPhone: estimate.companyIdentity.phone,
+        companyIdentityEmail: estimate.companyIdentity.email,
+        lineColumns: ['name', 'unit', 'sku', 'qty', 'price', 'subtotal'],
+        lines: estimate.lines,
+        document: estimate,
+        allowUnpriced: true,
+        feeLinesJson: estimate.feeLines,
+        footerNoteTemplate: 'admin/estimate/_pdf_footer_note.html.twig',
+        footerNoteContext: {},
+        subtotal: estimate.subtotal,
+        shippingTotal: estimate.shippingTotal,
+        shippingLines: estimate.shippingLines,
+        taxLines: taxLines|default([]),
+        tax: estimate.tax,
+        grandTotalLabel: 'TOTAL:',
+        total: estimate.total,
+        injectionPointName: 'quote_note',
+        injectionPointContext: {estimate: estimate, isPdf: true},
+    }, with_context = false) }}
+{% endblock %}

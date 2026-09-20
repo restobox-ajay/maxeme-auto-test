@@ -1,0 +1,36 @@
+{% set protectedKeys = [
+    'app_name', 'app_email', 'support_email', 'tech_support_email', 'billing_email', 'sales_email',
+    'company_name', 'company_phone', 'company_address', 'company_city', 'company_state',
+    'company_postal_code', 'company_country', 'website_url', 'logo_url',
+    'product_image_placeholder_url', 'timezone', 'base_currency', 'fulfillment_regions',
+    'invoice_payment_note', 'invoice_footer_note', 'email_footer_copyright', 'email_footer_address',
+    'terms_url', 'privacy_url', 'returns_url', 'guest_catalog_visible', 'guest_catalog_default_url',
+    'company_registration_mode', 'company_registration_default_price_list_id', 'company_registration_default_fulfillment_region_id',
+    'order_number_prefix', 'quote_number_prefix', 'header_logo_only', 'checkout_coupons_enabled',
+    'payment_stripe_mode', 'payment_stripe_publishable_key_test', 'payment_stripe_publishable_key_live',
+    'payment_stripe_secret_key_test', 'payment_stripe_secret_key_live',
+] %}
+{% for setting in settings %}
+    <tr>
+        <td data-label="#">{{ setting.id }}</td>
+        <td data-label="Name">{{ setting.name }}</td>
+        <td data-label="Key"><code class="setting-key">{{ setting.key }}</code></td>
+        <td data-label="Value">{{ setting.value }}</td>
+        <td data-label="Description">{{ setting.description|default('-') }}</td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_setting_update', {id: setting.id}) }}">Edit</a>
+                {% if setting.key not in protectedKeys %}
+                    <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_setting_delete', {id: setting.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ setting.name }} setting">Delete</button>
+                {% endif %}
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="6" class="empty-table-cell">
+            <strong>No settings found.</strong>
+            <span>Settings will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

@@ -1,0 +1,115 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Create Address | Admin{% endblock %}
+{% block admin_body %}
+    {% set address = address|default({firstName: '', lastName: '', companyName: company.name, email: '', secondaryEmail: '', faxNumber: '', phoneNumber: '', addressLine1: '', addressLine2: '', city: '', province: '', country: 'Canada', postalCode: ''}) %}
+
+    <section class="panel compact-panel">
+        <p class="eyebrow">Customer address</p>
+        <h1>Create Address - {{ company.name }}</h1>
+    </section>
+
+    <nav class="company-action-links" aria-label="Customer detail actions">
+        <a class="button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_company_update', {id: company.id}) }}">Edit Profile</a>
+        <a class="button" href="{{ path('admin_company_address_book', {id: company.id}) }}">Address Book</a>
+        <a class="button" href="{{ path('admin_company_payment_methods_by_id', {id: company.id}) }}">Payment Methods</a>
+        <a class="button primary is-current" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More customer actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">View Orders</a>
+                <a href="{{ path('admin_order_create', {OrderSearch: {company_id: company.id}}) }}">Create Order</a>
+            </span>
+        </span>
+    </nav>
+
+    <section class="form-card admin-record-form address-form-card">
+        <form class="form-grid address-form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                First Name
+                <input type="text" name="first_name" value="{{ address.firstName }}" autocomplete="given-name">
+            </label>
+            <label>
+                Last Name
+                <input type="text" name="last_name" value="{{ address.lastName }}" autocomplete="family-name">
+            </label>
+            <label class="span-2">
+                Address Line 1 <span class="req">*</span>
+                <input type="text" name="address_line_1" value="{{ address.addressLine1 }}" autocomplete="address-line1" required>
+            </label>
+            <label class="address-left-wide">
+                Company Name
+                <input type="text" name="company_name" value="{{ address.companyName }}">
+            </label>
+            <label class="span-2">
+                Address Line 2
+                <input type="text" name="address_line_2" value="{{ address.addressLine2 }}" autocomplete="address-line2">
+            </label>
+            <label class="address-left-wide">
+                Email
+                <input type="email" name="email" value="{{ address.email }}" autocomplete="email">
+            </label>
+            <label>
+                City <span class="req">*</span>
+                <input type="text" name="city" value="{{ address.city }}" autocomplete="address-level2" required>
+            </label>
+            <label>
+                Province <span class="req">*</span>
+                <select class="js-region-province" name="province" id="address-province"
+                        autocomplete="address-level1" required data-selected="{{ address.province|default('') }}">
+                    <option value=""></option>
+                    {% for code, label in region_provinces(address.country|default('CA')) %}
+                        <option value="{{ code }}" {{ address.province|default('') == code ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="address-left-wide">
+                Secondary Email
+                <input type="email" name="secondary_email" value="{{ address.secondaryEmail }}">
+            </label>
+            <label>
+                Country <span class="req">*</span>
+                <select class="js-region-country" name="country" autocomplete="country-name" required
+                        data-region-map="{{ region_map()|json_encode|e('html_attr') }}">
+                    {% set selectedCountry = address.country|default('CA') ?: 'CA' %}
+                    {% for code, label in region_countries() %}
+                        <option value="{{ code }}" {{ selectedCountry == code ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Postal Code <span class="req">*</span>
+                <input type="text" name="postal_code" value="{{ address.postalCode }}" autocomplete="postal-code" required>
+            </label>
+            <label>
+                Fax Number
+                <input type="tel" name="fax_number" value="{{ address.faxNumber }}">
+            </label>
+            <label>
+                Phone Number
+                <input type="tel" name="phone_number" value="{{ address.phoneNumber }}" autocomplete="tel">
+            </label>
+            {# Customers have been able to set this on their own address form all along, but it was
+               absent here, so no admin could see what a customer had written. Same label and
+               placeholder as the customer form so the two read identically. #}
+            <label class="address-left-wide">
+                Delivery Instructions
+                <textarea name="delivery_instructions" rows="3"
+                          placeholder="Operating days/hours, receiving entrance, navigation instructions">{{ address.deliveryInstructions|default('') }}</textarea>
+            </label>
+            <div class="form-actions">
+                <a class="button back-button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">Back</a>
+                <button class="button primary" type="submit">Submit</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{# The province list and its repopulate-on-country-change behaviour now come from
+   geo_country/geo_province via region_map() plus the shared .js-region-* handler in app.js.
+   The 63-entry literal that used to live here could drift from what the server accepts. #}
+{% endblock %}

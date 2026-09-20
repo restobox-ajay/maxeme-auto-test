@@ -1,0 +1,328 @@
+{% if result %}
+    {% set uploadedRows = [] %}
+    {% set warningRows = [] %}
+    {% set duplicateRows = [] %}
+    {% set errorRows = [] %}
+    {% for item in result.rowResults %}
+        {% set status = item.status|lower %}
+        {% if status == 'success' %}
+            {% set uploadedRows = uploadedRows|merge([item]) %}
+        {% elseif status == 'duplicate' %}
+            {% set duplicateRows = duplicateRows|merge([item]) %}
+        {% elseif status == 'warning' %}
+            {% set warningRows = warningRows|merge([item]) %}
+        {% else %}
+            {% set errorRows = errorRows|merge([item]) %}
+        {% endif %}
+    {% endfor %}
+
+    <section class="panel compact-panel">
+        <p class="eyebrow">Import results</p>
+        <h2>Summary</h2>
+        <div class="kpi-strip">
+            <article class="kpi-tile">
+                <span>Total rows</span>
+                <strong>{{ result.totalRows }}</strong>
+                <small>CSV data rows</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Valid</span>
+                <strong>{{ result.validRows }}</strong>
+                <small>Ready / imported</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Warnings</span>
+                <strong>{{ result.warningRows }}</strong>
+                <small>Duplicates / notes</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Errors</span>
+                <strong>{{ result.errorRows }}</strong>
+                <small>Blocked rows</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Created</span>
+                <strong>{{ result.created }}</strong>
+                <small>New products</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Updated</span>
+                <strong>{{ result.updated }}</strong>
+                <small>Existing products</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Skipped</span>
+                <strong>{{ result.skipped }}</strong>
+                <small>Invalid rows</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Duplicates</span>
+                <strong>{{ result.duplicates }}</strong>
+                <small>Rows skipped</small>
+            </article>
+            <article class="kpi-tile">
+                <span>Inactivated</span>
+                <strong>{{ result.inactivated }}</strong>
+                <small>Missing from CSV</small>
+            </article>
+            {# The unit a file named but the app could not recognise. A tile rather than a line in
+               the row-by-row report below, because forty of these inside five thousand rows is
+               exactly what a green result hides: the products are in the catalogue and none of them
+               can be sold in the unit the file meant until somebody says what it is.
+
+               `default(0)` because a run recorded before this count existed has no key for it, and
+               this partial renders those from the import log as well as a live result. #}
+            <article class="kpi-tile">
+                <span>Unit needs review</span>
+                <strong>{{ result.unitFlagged|default(0) }}</strong>
+                <small>Imported, unit unset</small>
+            </article>
+        </div>
+        {% if result.unitFlagged|default(0) > 0 %}
+            <div class="alert warn" style="margin-top:16px;">
+                {{ result.unitFlagged }} row(s) named a unit this system does not have &mdash; a pack size such as
+                <code>12/Case</code> is not a unit of measure. Those products imported in full, with their unit left
+                unset and flagged on the product form. Open each one and declare its
+                <strong>Unit of Measure</strong>; add the pack as its own term on
+                <a href="{{ path('admin_product_unit_of_measure_index') }}">Units of Measure</a> first if you need it.
+                The rows are listed below.
+            </div>
+        {% endif %}
+    </section>
+
+    {% if result.rowResults is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Detailed report</p>
+            <h2>Row by row import status</h2>
+            {% if result.errorRows == 0 %}
+                <div class="alert success">Import finished. You can review which rows were uploaded, updated, warned, or marked duplicate below.</div>
+            {% else %}
+                <div class="alert error">Import finished with {{ result.errorRows }} blocking row(s). Review the failed rows and reasons below, then fix and re-upload.</div>
+            {% endif %}
+            <div class="kpi-strip">
+                <article class="kpi-tile">
+                    <span>Uploaded rows</span>
+                    <strong>{{ uploadedRows|length }}</strong>
+                    <small>Created / updated successfully</small>
+                </article>
+                <article class="kpi-tile">
+                    <span>Warning rows</span>
+                    <strong>{{ warningRows|length }}</strong>
+                    <small>Imported with notes</small>
+                </article>
+                <article class="kpi-tile">
+                    <span>Duplicate rows</span>
+                    <strong>{{ duplicateRows|length }}</strong>
+                    <small>Skipped as duplicate</small>
+                </article>
+                <article class="kpi-tile">
+                    <span>Error rows</span>
+                    <strong>{{ errorRows|length }}</strong>
+                    <small>Blocked with reason</small>
+                </article>
+            </div>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>Result</th>
+                            <th>SKU</th>
+                            <th>Product name</th>
+                            <th>Key</th>
+                            <th>Action</th>
+                            <th>Reason / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in result.rowResults %}
+                            <tr>
+                                <td><strong>{{ item.row }}</strong></td>
+                                <td>
+                                    {% set status = item.status|lower %}
+                                    {% if status == 'success' %}
+                                        <span class="badge success">Uploaded</span>
+                                    {% elseif status == 'warning' %}
+                                        <span class="badge warn">Warning</span>
+                                    {% elseif status == 'duplicate' %}
+                                        <span class="badge warn">Duplicate</span>
+                                    {% else %}
+                                        <span class="badge danger">Error</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.sku ?: '-' }}</td>
+                                <td>{{ item.name ?: '-' }}</td>
+                                <td>{{ item.key ?: '-' }}</td>
+                                <td>{{ item.action }}</td>
+                                <td>
+                                    {% if item.issues is not empty %}
+                                        <ul class="import-result-notes">
+                                            {% for issue in item.issues %}
+                                                <li>{{ issue }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% elseif item.notes is not empty %}
+                                        <ul class="import-result-notes">
+                                            {% for note in item.notes %}
+                                                <li>{{ note }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="muted">Imported successfully.</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if uploadedRows is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Uploaded</p>
+            <h2>Rows imported successfully</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>SKU</th>
+                            <th>Product name</th>
+                            <th>Action</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in uploadedRows %}
+                            <tr>
+                                <td><strong>{{ item.row }}</strong></td>
+                                <td>{{ item.sku ?: '-' }}</td>
+                                <td>{{ item.name ?: '-' }}</td>
+                                <td><span class="badge success">{{ item.action }}</span></td>
+                                <td>
+                                    {% if item.notes is not empty %}
+                                        {{ item.notes|join(' | ') }}
+                                    {% elseif item.issues is not empty %}
+                                        {{ item.issues|join(' | ') }}
+                                    {% else %}
+                                        Uploaded successfully.
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if duplicateRows is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Duplicates</p>
+            <h2>Rows skipped as duplicate</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>SKU</th>
+                            <th>Product name</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in duplicateRows %}
+                            <tr>
+                                <td><strong>{{ item.row }}</strong></td>
+                                <td>{{ item.sku ?: '-' }}</td>
+                                <td>{{ item.name ?: '-' }}</td>
+                                <td>{{ item.issues|join(' | ') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if errorRows is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Errors</p>
+            <h2>Rows blocked with error</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Row</th>
+                            <th>SKU</th>
+                            <th>Product name</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in errorRows %}
+                            <tr>
+                                <td><strong>{{ item.row }}</strong></td>
+                                <td>{{ item.sku ?: '-' }}</td>
+                                <td>{{ item.name ?: '-' }}</td>
+                                <td>
+                                    <ul class="import-result-notes">
+                                        {% for issue in item.issues %}
+                                            <li>{{ issue }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if result.errors is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Errors</p>
+            <h2>Rows with issues</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for message in result.errors|slice(0, 50) %}
+                            <tr><td>{{ message }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if result.errors|length > 50 %}<small>Showing first 50 errors.</small>{% endif %}
+        </section>
+    {% endif %}
+
+    {% if result.warnings is not empty %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Warnings</p>
+            <h2>Non-blocking notes</h2>
+            <div class="table-shell">
+                <table class="admin-grid-table table">
+                    <thead>
+                        <tr>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for message in result.warnings|slice(0, 50) %}
+                            <tr><td>{{ message }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if result.warnings|length > 50 %}<small>Showing first 50 warnings.</small>{% endif %}
+        </section>
+    {% endif %}
+{% endif %}

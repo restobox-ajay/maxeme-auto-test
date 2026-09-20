@@ -1,0 +1,85 @@
+{# The invoice's own fields, on the create screen — the `contextTemplate` admin/invoice/create.html.twig
+   delegates to. Serves both entry points: `order` pre-fills what these boxes show, nothing more —
+   every field here is still typed/editable and the save reads whatever is posted, not the order.
+
+   Billing/Shipping Detail is the same editable address_cards() macro Order and Quote create use.
+   The invoice freezes whatever was submitted at save; only what a box SHOWS on first paint differs.
+
+   Rendered with {company, order, billingAddress, shippingAddress, addressBook, paymentMethods,
+   paymentTerms, fulfillmentRegions, invoiceDate, poNumber, paymentMethod, paymentTerm,
+   fulfillmentRegion, specialInstructions}. #}
+{%- import 'admin/_partials/sales_address_cards.html.twig' as address_form %}
+<div class="order-workspace-grid">
+    <section class="order-form-panel">
+        <h2>Invoice Info</h2>
+        <div class="order-field-row static">
+            <label>Customer:</label>
+            <strong>{{ company.name }}</strong>
+        </div>
+        <div class="order-field-row static">
+            <label>Sales Order:</label>
+            {% if order %}
+                <strong><a href="{{ path('admin_order_detail', {id: order.id}) }}">{{ order.orderNumber }}</a></strong>
+            {% else %}
+                <strong>None — this invoice stands alone</strong>
+            {% endif %}
+        </div>
+        <label class="order-field-row">
+            <span>Invoice Date:</span>
+            <input type="date" name="invoice_date" value="{{ invoiceDate|default('now'|date('Y-m-d')) }}">
+        </label>
+        <label class="order-field-row">
+            <span>Due Date:</span>
+            <input type="date" name="due_date" value="">
+        </label>
+        <label class="order-field-row">
+            <span>PO #:</span>
+            <input type="text" name="po_number" maxlength="80" value="{{ poNumber|default('') }}">
+        </label>
+        <label class="order-field-row">
+            <span>Payment Method:</span>
+            <select name="payment_method">
+                <option value=""></option>
+                {% for method in paymentMethods %}
+                    <option value="{{ method.name }}"{{ method.name == paymentMethod|default('') ? ' selected' : '' }}>{{ method.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="order-field-row">
+            <span>Payment Term:</span>
+            <select name="payment_term">
+                <option value=""></option>
+                {% for term in paymentTerms %}
+                    <option value="{{ term.name }}"{{ term.name == paymentTerm|default('') ? ' selected' : '' }}>{{ term.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {# The region decides which price list seeds the picker's prices and which warehouse an
+           issued invoice holds its stock in. Offered, not required: unlike a new order — whose every
+           price comes off that list — an invoice's prices are typed by the person raising it, and
+           refusing to record a sale because a region is not configured helps nobody. #}
+        <label class="order-field-row">
+            <span>Fulfillment Region:</span>
+            {% if fulfillmentRegions is not empty %}
+                <select name="fulfillment_region">
+                    {% if fulfillmentRegions|length != 1 %}<option value=""></option>{% endif %}
+                    {% for region in fulfillmentRegions %}
+                        <option value="{{ region }}"{{ region == fulfillmentRegion|default('') ? ' selected' : '' }}>{{ region }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <input type="text" name="fulfillment_region" value="{{ fulfillmentRegion|default('') }}" placeholder="No regions configured for this customer">
+            {% endif %}
+        </label>
+        <label class="order-field-row">
+            <span>Special Instructions:</span>
+            <input type="text" name="special_instructions" value="{{ specialInstructions|default('') }}">
+        </label>
+    </section>
+
+    {# The addresses this invoice will FREEZE, editable before it is raised — same address_cards()
+       card Order and Quote create use. `billingAddress`/`shippingAddress` pre-fill from the order's
+       own frozen snapshot when there is one, else the company's address-book default; either way
+       the save copies whatever this card holds at submit time. #}
+    {{ address_form.address_cards(company, billingAddress, shippingAddress, addressBook) }}
+</div>

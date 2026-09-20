@@ -1,0 +1,27 @@
+{# The colgroup and header row of a purchase document's line table, both built from the SAME
+   ordered column list _purchase_line_row.html.twig renders its cells from — the buy-side twin of
+   sales_line_head.html.twig.
+
+   Column entries are {key, label, col, header} — see sales_line_head.html.twig's own docblock for
+   what each does; the shape is identical, only the column vocabulary differs.
+
+   Parameters
+   ----------
+   columns  required  the column list, in order
+   prefix   required for cols() only — 'po' or 'bill', the colgroup class prefix. #}
+
+{% macro cols(columns, prefix) %}
+    <colgroup>
+        {%- for column in columns %}
+        <col class="{{ prefix }}-col-{{ column.col|default(column.key) }}">
+        {%- endfor %}
+    </colgroup>
+{% endmacro %}
+
+{% macro head(columns) %}
+    <tr>
+        {%- for column in columns %}
+        <th>{{ column.header is defined ? column.header : column.label|default('') }}</th>
+        {%- endfor %}
+    </tr>
+{% endmacro %}

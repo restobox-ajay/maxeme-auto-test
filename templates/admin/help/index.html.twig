@@ -1,0 +1,472 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Help Guide | Admin{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .help-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .help-shell { grid-template-columns: 1fr; }
+        }
+
+        .help-topic-nav {
+            position: sticky;
+            top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .help-topic-nav .nav-group-label {
+            margin: 14px 0 4px;
+            padding: 0 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .help-topic-nav .nav-group-label:first-child {
+            margin-top: 0;
+        }
+        .help-topic-link {
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--ink);
+            text-decoration: none;
+        }
+        .help-topic-link:hover {
+            background: var(--line-light);
+        }
+        .help-topic-link.active {
+            background: var(--admin-blue, #206bc4);
+            color: #fff;
+        }
+
+        .help-section { display: none; }
+        .help-section.active { display: block; }
+
+        .help-section h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .help-section .lead {
+            margin-bottom: 18px;
+        }
+        .help-section article.panel {
+            margin-bottom: 16px;
+        }
+        .help-section article.panel:last-child {
+            margin-bottom: 0;
+        }
+        .help-section a {
+            color: var(--blue, #1d4ed8);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .help-section a:hover {
+            text-decoration: none;
+        }
+        .help-formula {
+            margin: 14px 0;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--line);
+            background: var(--line-light);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Sub-anchor jumps (e.g. faq--3) land past the sticky topbar. */
+        [id*="--"] {
+            scroll-margin-top: 90px;
+        }
+    </style>
+{% endblock %}
+
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Reference</p>
+                <h1>Help Guide</h1>
+            </div>
+        </div>
+    </section>
+
+    <div class="help-shell">
+
+        {# ── Topic nav ── #}
+        <nav class="help-topic-nav" aria-label="Help topics">
+            <p class="nav-group-label">Inventory</p>
+            <a class="help-topic-link" href="#inventory-calculation" data-target="inventory-calculation">Inventory Calculation</a>
+            <p class="nav-group-label">Settings</p>
+            <a class="help-topic-link" href="#redirection" data-target="redirection">Redirection</a>
+            <p class="nav-group-label">Integrations</p>
+            <a class="help-topic-link" href="#customer-api" data-target="customer-api">Customer API</a>
+        </nav>
+
+        {# ── Topic content ── #}
+        <div class="help-content">
+
+            <section id="inventory-calculation" class="help-section">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.9 7.55A9 9 0 1 0 21 16.4"/><path d="M12 7v5l3 3"/></svg>
+                    Inventory Calculation
+                </h2>
+                <p class="lead">
+                    How stock is tracked per product, per fulfillment location — the four running
+                    balances that make up what's actually available to sell.
+                    {% if is_granted('ROLE_TECH_SUPPORT') %}
+                        <a href="{{ path('admin_technical_docs_view', {path: 'inventory-calculation.md'}) }}" target="_blank" rel="noopener">View full spec (raw) &rarr;</a>
+                    {% endif %}
+                </p>
+
+                <article class="panel">
+                    <h2>The four inventory columns</h2>
+                    <p>Every product/location pair tracks four numbers. Admins see all four on the
+                        <a href="{{ path('admin_inventory_index') }}">Product Inventory</a> page; customers
+                        only ever see <strong>Available</strong>.</p>
+                    <table class="admin-grid-table data-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Starting Inventory</td><td>The base stock count for that product/location.</td></tr>
+                            <tr><td>Cart Hold</td><td>Quantity currently held by shoppers who have it in their cart.</td></tr>
+                            <tr><td>Pending Orders</td><td>Quantity committed to orders that exist but aren't yet approved.</td></tr>
+                            <tr><td>Approved Orders</td><td>Quantity committed to approved orders.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="help-formula">Available = Starting Inventory − Cart Hold − Pending Orders − Approved Orders</div>
+                </article>
+
+                <article class="panel">
+                    <h2>What moves inventory between buckets</h2>
+                    <ul>
+                        <li><strong>Order created</strong> (not yet approved) — its quantities are added to <strong>Pending Orders</strong>.</li>
+                        <li><strong>Order approved</strong> — its quantities move to <strong>Approved Orders</strong>; if it was previously pending, the same quantities are deducted from <strong>Pending Orders</strong> so nothing is double-counted.</li>
+                        <li><strong>Order cancelled</strong> — its quantities are removed from whichever bucket currently holds them (Pending or Approved).</li>
+                        <li><strong>Quote converted to an order</strong> — its quantities are added to <strong>Pending Orders</strong>, same as any newly created order.</li>
+                        <li><strong>Order edited</strong> — the bucket matching the order's current state (Pending or Approved) is adjusted by the <em>difference</em> between the old and new quantity, not the full new amount.</li>
+                    </ul>
+                </article>
+
+                <article class="panel">
+                    <h2>Cart hold</h2>
+                    <p>Adding an item to a cart holds that quantity for a configurable amount of time so
+                        two shoppers can't both check out the same last unit. While a hold is active, a
+                        live countdown is shown on the product and cart pages so it's obvious to the
+                        shopper.</p>
+                    <ul>
+                        <li>The hold timer resets on any of: adding another item to the cart, removing an item, visiting the cart page, or visiting the checkout page.</li>
+                        <li>When the timer runs out, the held item is dropped from the cart (the shopper sees a notice next time the page loads) and the quantity is released from <strong>Cart Hold</strong>.</li>
+                        <li>Cart hold can be turned on or off entirely in <a href="{{ path('admin_settings') }}">Settings</a>.</li>
+                    </ul>
+                </article>
+
+                <article class="panel">
+                    <h2>Keeping the numbers in sync</h2>
+                    <p>With this many trigger points, running totals can drift. Two mechanisms keep them honest:</p>
+                    <ul>
+                        <li>An hourly job recomputes <strong>Cart Hold</strong> (sum of all non-expired holds) and <strong>Pending Orders</strong> (sum of quantities across every order still in a pending state) directly from source data, rather than trusting the incremental counters.</li>
+                        <li>Because there's no long-running background worker, expired cart holds are swept lazily instead: on every admin product-page load, and every customer product/cart/checkout page load, expired hold rows are reversed early in that request — before the page renders — so the inventory numbers shown are always current.</li>
+                    </ul>
+                    <p class="muted" style="margin-bottom:0;">Every change to any of the four sub-balances, from either a trigger or the hourly reconciliation, is recorded in the <a href="{{ path('admin_audit_log') }}">Audit Log</a>.</p>
+                </article>
+
+                <article class="panel">
+                    <h2>CSV import</h2>
+                    <p class="lead" style="margin-bottom:0;">The <a href="{{ path('admin_product_import_index') }}">Product Import</a> wizard includes a
+                        <strong>"Clear all Approved Order column balance"</strong> checkbox, checked by
+                        default — importing a fresh inventory count normally means starting the Approved
+                        Orders bucket over.</p>
+                </article>
+
+            </section>
+
+            <section id="redirection" class="help-section">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    Redirection
+                </h2>
+                <p class="lead">
+                    Redirect an old or removed URL to a new destination — useful when a page moves,
+                    a product category is renamed, or you just want customers landing somewhere other
+                    than the default catalog page after they sign in. Manage redirects in
+                    <a href="{{ path('admin_redirect_index') }}">Settings › Redirection</a>.
+                </p>
+
+                <article class="panel">
+                    <h2>How matching works</h2>
+                    <ul>
+                        <li>Redirects only apply on the <strong>customer side</strong> of the app. Admin URLs (anything under <code>/admin</code>) are never matched or redirected.</li>
+                        <li>The <strong>Source URL</strong> is matched exactly against the requested path (no domain, no wildcards) — e.g. <code>/tires/no1-tire</code>. It must start with <code>/</code>.</li>
+                        <li>The <strong>Destination</strong> can be a relative path (<code>/new-page</code>), an absolute URL (<code>https://example.com/page</code>), or a product category page. Category destinations aren't stored as a fixed URL — the link is generated at request time, so it always points at that category's current page even if the URL scheme changes later.</li>
+                        <li><strong>Type</strong> is the HTTP status code sent with the redirect: <strong>301 (Permanent)</strong>, the default, or <strong>302 (Temporary)</strong> for a redirect you expect to remove later.</li>
+                    </ul>
+                </article>
+
+                <article class="panel">
+                    <h2>Query parameters</h2>
+                    <p>Every redirect picks one of three ways to handle a query string on the incoming request (e.g. <code>?utm_source=...</code>):</p>
+                    <table class="admin-grid-table data-table">
+                        <thead>
+                            <tr>
+                                <th>Option</th>
+                                <th>Behavior</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Ignore, redirect and pass to destination URL <span class="badge">Default</span></td><td>The redirect always fires; any query string on the request is appended to the destination URL.</td></tr>
+                            <tr><td>Must match source URL query parameters</td><td>Since the Source URL is path-only, this means the redirect only fires when the request has <strong>no</strong> query string at all.</td></tr>
+                            <tr><td>Ignore, redirect and strip out, do not pass to destination URL</td><td>The redirect always fires; any query string on the request is dropped.</td></tr>
+                        </tbody>
+                    </table>
+                </article>
+
+                <article class="panel">
+                    <h2>Editing and deleting</h2>
+                    <p class="lead" style="margin-bottom:0;">Every redirect can be edited or deleted from the Redirection list at any time — changes take effect immediately for the next matching request.</p>
+                </article>
+
+            </section>
+
+            <section id="customer-api" class="help-section">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
+                    Customer API
+                </h2>
+                <p class="lead">
+                    How a customer's own system reads their catalog directly — what you switch on,
+                    what you hand their developer, and what to check when they say it isn't working.
+                </p>
+
+                <article class="panel">
+                    <h2>The one thing to understand</h2>
+                    <p><strong>An API key is a person, not an application.</strong> A request carrying a key is
+                        treated as that customer user signing in — it then runs through exactly the same
+                        code the website runs.</p>
+                    <ul>
+                        <li>They see their customer account's prices, their customer account's products, their fulfillment
+                            region, and nothing they couldn't already see by logging in.</li>
+                        <li>Two people at the same customer can legitimately get <em>different</em> prices and a
+                            <em>different</em> product list from the identical request — the same way they see
+                            different pages on the site.</li>
+                        <li>There is no separate list of API permissions to maintain. Anything you change
+                            about that user — status, customer, price list, region — applies to their API
+                            calls on the very next request.</li>
+                    </ul>
+                    <p class="muted" style="margin-bottom:0;">This is why there's nothing here about "what the API is allowed
+                        to see". That question is already answered by the customer's own account.</p>
+                </article>
+
+                <article class="panel">
+                    <h2>Switching it on — two gates, then the customer</h2>
+                    <p>Access is off by default and is granted in two places. Both must be on:</p>
+                    <table class="admin-grid-table data-table">
+                        <thead>
+                            <tr>
+                                <th>Step</th>
+                                <th>Where</th>
+                                <th>What it does</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1. Enable the customer</td>
+                                <td><a href="{{ path('admin_company_index') }}">Customers</a> › edit the customer</td>
+                                <td>Permits anyone at that customer to hold a key. Grants nobody one.</td>
+                            </tr>
+                            <tr>
+                                <td>2. Enable the person</td>
+                                <td><a href="{{ path('admin_user_customer_index') }}">Customer Users</a> › edit the user › <strong>Allow API access for this user</strong><br>
+                                    <span class="muted">— or the customer's own owner does it, from <strong>My Company User › Manage API Access</strong></span></td>
+                                <td>Permits that one person. Deliberately not tied to their role — an owner isn't automatically an API user, and staff aren't automatically barred.</td>
+                            </tr>
+                            <tr>
+                                <td>3. The customer creates their own key</td>
+                                <td>They sign in and go to <strong>My Profile › My API Key</strong></td>
+                                <td>They generate, copy, regenerate and revoke it themselves.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p><strong>You cannot see or issue anyone's key, and neither can the customer's owner.</strong> That is
+                        not an oversight — a key acts as that person, so anyone able to read it could act as
+                        them. If a customer has lost theirs, the answer is always "regenerate it from your
+                        profile", never "let me look it up".</p>
+                    <p><strong>Step 2 is the owner's to run, not yours.</strong> Once you've enabled the customer, its
+                        owner manages the per-person switches themselves and doesn't need to raise a ticket for
+                        each new hire — including for their own account. Practically, that means the
+                        <strong>Allow API access for this user</strong> checkbox on your side is advisory for any
+                        customer that has an active owner: they can turn back on whoever you turn off.</p>
+                    <p>That's the intended split, and it's why step 1 matters. <strong>The customer switch is yours
+                        alone</strong> — no customer can reach it. If you need a customer's API access stopped,
+                        stop it at the customer; don't play tug-of-war over individual people.</p>
+                    <p class="muted" style="margin-bottom:0;">The <a href="{{ path('admin_user_customer_index') }}">Customer Users</a> list, and the
+                        customer's own <strong>My Company User</strong> page, show <em>whether</em> each person has a live
+                        key — Active, "Allowed, no key", or nothing. That's visibility into who has access,
+                        not into the key itself.</p>
+                </article>
+
+                <article class="panel">
+                    <h2>Turning it off</h2>
+                    <p>Un-tick either gate and that key stops working on the next request — you do not have to
+                        find the key, revoke it, or ask anyone to regenerate anything. Tick it back on and the
+                        same key resumes working. Suspending a customer or setting a user Inactive has the same
+                        effect for the same reason: the key can't do anything the person can't.</p>
+                    <p class="muted" style="margin-bottom:0;">Because it's checked per request rather than at key creation, "we
+                        switched them off but is the old key still floating around?" is not a question anyone
+                        needs to ask.</p>
+                </article>
+
+                <article class="panel">
+                    <h2>What to send their developer</h2>
+                    <p>Two files. Both describe the same endpoint; send whichever their tooling prefers, or both.</p>
+                    <ul>
+                        <li><a href="{{ path('admin_help_api_doc', {key: 'postman'}) }}"><strong>Postman collection</strong> &darr;</a>
+                            — the fast one. They import it, fill in two fields (the store address and their key),
+                            and press Send. It includes working examples of every filter, a runnable
+                            "walk every page" loop, and a sample of each error response.</li>
+                        <li><a href="{{ path('admin_help_api_doc', {key: 'openapi'}) }}"><strong>OpenAPI description</strong> &darr;</a>
+                            — the formal one, for generating a client or importing into their own API tooling.</li>
+                    </ul>
+                    <p class="muted" style="margin-bottom:0;">Neither file contains anything secret, so they're safe to email.
+                        The key never travels with them — the customer supplies their own.</p>
+                </article>
+
+                <article class="panel">
+                    <h2>What the API currently does</h2>
+                    <p>One endpoint: <code>GET /api/v1/products</code> — a paged product list, 24 per page, filterable by
+                        search term, category and the same facet filters the category pages use, and sortable by
+                        the same columns.</p>
+                    <p>Each product carries id, SKU, name, category, unit, size, description, remarks, image URL,
+                        stock availability, the customer's price and the retail price. Prices come through as
+                        numbers, and "no price for you" arrives as <code>null</code> rather than as zero — so an
+                        integration can't accidentally import free products.</p>
+                    <p class="muted" style="margin-bottom:0;">Custom fields are not published yet. They're admin-created and
+                        vary per installation, so whether a given one may leave the site is your decision to make
+                        rather than ours to assume — that's tracked as a per-field setting (issue #527).</p>
+                </article>
+
+                <article class="panel">
+                    <h2>When a customer says it isn't working</h2>
+                    <p>Ask them for the status code and the <code>error</code> message from the response. They map
+                        straight onto a cause:</p>
+                    <table class="admin-grid-table data-table">
+                        <thead>
+                            <tr>
+                                <th>They report</th>
+                                <th>What it means</th>
+                                <th>What to do</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>401</strong> "Missing X-Api-Key header"</td>
+                                <td>Their code isn't sending the key.</td>
+                                <td>Developer-side. The key goes in an <code>X-Api-Key</code> header — the API never accepts it in the URL, so it can't leak into logs or browser history.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>401</strong> "Invalid API key"</td>
+                                <td>Not a key we recognise — usually a copy/paste truncation.</td>
+                                <td>Have them re-copy it from My Profile › My API Key, or regenerate.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>401</strong> "This API key has been revoked"</td>
+                                <td>They revoked it themselves, or regenerated and are still using the old one.</td>
+                                <td>Regenerate from their profile and update their integration.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>401</strong> about the account or customer status</td>
+                                <td>They can't sign in to the website either — inactive user, or a customer that's inactive/pending review.</td>
+                                <td>Fix the account, not the key. The key works again as soon as they can log in.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>403</strong> "Your company's API access has been disabled"</td>
+                                <td>Gate 1 is off.</td>
+                                <td>Enable API access on the <a href="{{ path('admin_company_index') }}">customer</a>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>403</strong> "Your API access has been disabled by an administrator"</td>
+                                <td>Gate 2 is off for that one person — set either by you or by the customer's own owner.</td>
+                                <td>Their owner can fix this without you, from Manage API Access. Otherwise tick <strong>Allow API access for this user</strong> on the <a href="{{ path('admin_user_customer_index') }}">user</a>.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>400</strong> naming <code>region</code></td>
+                                <td>The customer has more than one fulfillment region, so the API can't guess which one to price against.</td>
+                                <td>Nothing to change here — the response already lists the values that work. Their developer picks one.</td>
+                            </tr>
+                            <tr>
+                                <td><strong>429</strong></td>
+                                <td>Over 60 requests a minute on that key.</td>
+                                <td>Developer-side. The response carries a <code>Retry-After</code> header saying how many seconds to wait.</td>
+                            </tr>
+                            <tr>
+                                <td>"It returns fewer products than I see"</td>
+                                <td>Working as intended.</td>
+                                <td>The API shows that user their own catalog. Check the same account in a browser — the two always agree, and if they don't, that's a bug worth reporting.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="muted" style="margin-bottom:0;">The two <strong>403</strong> messages are worded differently on purpose:
+                        one is a customer-wide decision and one is about a single person, and they're usually
+                        fixed by different people.</p>
+                </article>
+
+            </section>
+
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+    (function () {
+        var links = document.querySelectorAll('.help-topic-link');
+        var sections = document.querySelectorAll('.help-section');
+        var defaultSection = sections.length ? sections[0].id : '';
+
+        // A hash may be a whole section ("inventory-calculation") or a sub-anchor within
+        // one ("faq--3"). "--" is the section/sub-anchor delimiter, so the owning section
+        // is everything before it.
+        function sectionOf(hash) {
+            var i = hash.indexOf('--');
+            return i === -1 ? hash : hash.slice(0, i);
+        }
+
+        function show(hash) {
+            var sectionId = sectionOf(hash) || defaultSection;
+            if (!document.getElementById(sectionId)) { sectionId = defaultSection; }
+            sections.forEach(function (s) { s.classList.toggle('active', s.id === sectionId); });
+            links.forEach(function (l) { l.classList.toggle('active', l.dataset.target === sectionId); });
+
+            // Once the owning section is visible, jump to the sub-anchor element.
+            if (hash && hash !== sectionId) {
+                var target = document.getElementById(hash);
+                if (target) { target.scrollIntoView(); }
+            }
+        }
+
+        window.addEventListener('hashchange', function () {
+            show(location.hash.replace('#', ''));
+        });
+
+        show(location.hash.replace('#', ''));
+    }());
+    </script>
+{% endblock %}

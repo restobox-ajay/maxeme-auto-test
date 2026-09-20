@@ -1,0 +1,71 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Address Book | Admin{% endblock %}
+{#
+    The counterpart of `admin/company/address_book.html.twig`. Company shows two default-purpose
+    cards (Billing/Shipping); a vendor has four (Order To/Ship From/Remit To/Return To), each
+    falling back to the vendor's own default address — see Vendor::addressFor().
+#}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <h1>Address Book - {{ vendor.name }}</h1>
+    </section>
+
+    <nav class="company-action-links" aria-label="Vendor detail actions">
+        <a class="button" href="{{ path('admin_bundle_procurement_vendor', {id: vendor.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_vendor_edit', {id: vendor.id}) }}">Edit Profile</a>
+        <a class="button is-current" href="{{ path('admin_bundle_procurement_vendor_address_book', {id: vendor.id}) }}">Address Book</a>
+        <a class="button primary" href="{{ path('admin_bundle_procurement_vendor_address_form', {id: vendor.id}) }}">Add Address</a>
+    </nav>
+
+    <section class="address-book-grid vendor-address-book-grid">
+        {% for label, address in {'Order To': orderTo, 'Ship From': shipFrom, 'Remit To': remitTo, 'Return To': returnTo} %}
+            <article class="address-book-card">
+                <div class="address-book-card-head">
+                    <h2>Default {{ label }}</h2>
+                </div>
+                {% include '@Procurement/_vendor_address_card_body.html.twig' with { address: address, vendor: vendor, compact: true } only %}
+            </article>
+        {% endfor %}
+
+        <article class="table-card address-book-list">
+            <div class="table-header">
+                <div>
+                    <h2>All Addresses</h2>
+                    <p>{{ addresses|length }} saved {{ addresses|length == 1 ? 'address' : 'addresses' }}</p>
+                </div>
+                <a class="button primary company-card-action" href="{{ path('admin_bundle_procurement_vendor_address_form', {id: vendor.id}) }}">Add Address</a>
+            </div>
+
+            {# `is not empty`, not a bare truthiness check: `addresses` is the vendor's own Doctrine
+               Collection (see the docblock above on why this partial reads entities rather than
+               row arrays), and a PHP object is truthy regardless of its count — company's own
+               `{% if addresses %}` only works because addressRowsForCompany() hands it a plain
+               array, where empty really is falsy. Bare `{% if %}` here would always take this
+               branch, even on an empty collection, and never render the empty state below. #}
+            {% if addresses is not empty %}
+                <div class="address-card-list">
+                    {% for address in addresses %}
+                        <article class="address-list-card">
+                            {% include '@Procurement/_vendor_address_card_body.html.twig' with { address: address, vendor: vendor, compact: false } only %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <strong>No addresses found.</strong>
+                    <p>Addresses for this vendor will appear here once created.</p>
+                </div>
+            {% endif %}
+        </article>
+    </section>
+
+    {% for address in addresses %}
+        <form method="post" id="delete-address-{{ address.id }}" hidden
+              action="{{ path('admin_bundle_procurement_vendor_address_delete', {id: vendor.id}) }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="address_id" value="{{ address.id }}">
+        </form>
+    {% endfor %}
+
+{% endblock %}

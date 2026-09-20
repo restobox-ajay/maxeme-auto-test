@@ -1,0 +1,86 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Registration Settings | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Registration Settings</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+
+            <fieldset class="span-2 company-email-fieldset">
+                <legend>New customer registrations</legend>
+                <div class="radio-choice-group">
+                    <label class="radio-choice">
+                        <input type="radio" name="mode" value="review" {{ mode != 'auto' ? 'checked' : '' }} class="js-registration-mode">
+                        <span class="radio-control" aria-hidden="true"></span>
+                        <span>Hold for review (default) &mdash; admin approves each customer manually</span>
+                    </label>
+                    <label class="radio-choice">
+                        <input type="radio" name="mode" value="auto" {{ mode == 'auto' ? 'checked' : '' }} class="js-registration-mode">
+                        <span class="radio-control" aria-hidden="true"></span>
+                        <span>Auto-approve &mdash; customer and owner account are active immediately</span>
+                    </label>
+                </div>
+            </fieldset>
+
+            <div class="span-2 js-registration-defaults" style="{{ mode == 'auto' ? '' : 'display:none;' }}">
+                <p class="field-hint">Required when auto-approve is on: assigned to every auto-approved customer's fulfillment region so they can price and check out right away.</p>
+            </div>
+
+            <label>
+                Default Price List <span class="req">*</span>
+                <select name="default_price_list_id">
+                    <option value="">-- Select --</option>
+                    {% for priceList in priceLists %}
+                        <option value="{{ priceList.id }}" {{ defaultPriceListId == priceList.id ? 'selected' : '' }}>{{ priceList.name }} ({{ priceList.currency }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label>
+                Default Fulfillment Region <span class="req">*</span>
+                <select name="default_fulfillment_region_id">
+                    <option value="">-- Select --</option>
+                    {% for region in regions %}
+                        <option value="{{ region.id }}" {{ defaultRegionId == region.id ? 'selected' : '' }}>{{ region.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function () {
+    var radios = document.querySelectorAll('.js-registration-mode');
+    var defaultsBlock = document.querySelector('.js-registration-defaults');
+    if (!radios.length || !defaultsBlock) return;
+
+    function sync() {
+        var auto = document.querySelector('.js-registration-mode[value="auto"]');
+        defaultsBlock.style.display = (auto && auto.checked) ? '' : 'none';
+    }
+
+    radios.forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+}());
+</script>
+{% endblock %}

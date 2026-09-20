@@ -1,0 +1,211 @@
+{#
+    The payments card shared by the invoice and bill payments screens (#708, queue item 34 and its
+    multi-invoice/multi-bill follow-up).
+
+    Standardized on the bill screen's own shape, by the owner's direction: house CSS classes
+    (`table-card`, `data-item-row`, `wide-table-wrap`), edit via `?payment=` and a full reload rather
+    than the invoice screen's old inline-JS row edit, and the move-to-another-document feature the
+    bill screen already had and the invoice screen did not.
+
+    ## Why this can be ONE file rather than two similar ones
+
+    Every method the table body and the entry form read is on {@see \App\Contract\Payment\PaymentApplication}
+    or {@see \App\Contract\Payment\PayableDocument} — `appliedAt`, `amount`, `method`, `reference`,
+    `recordedBy`, `documentLabel`, `balance`, `amountPaid`, `paymentRefusal`, `counterpartyName` — and
+    nothing here reads a column those interfaces do not promise. That is queue item 34's whole point:
+    the two sides store payments in different tables with different column names (`received_at` vs
+    `paid_at`, `comment` on both but naming different things), and the interface is what makes one
+    template able to read both without knowing which side it is on.
+
+    Every ROW here is an application — a slice of a payment claimed against THIS document — not the
+    underlying payment itself, since one payment can now settle several documents. `document.balance`,
+    `document.amountPaid` and the running balance are all sums of these slices, never of whole
+    payments; see `InvoicePayment`/`VendorBillPayment`'s own docblocks for the pool/claim split.
+
+    `document.paymentRefusal is null` gates the entry form and drives the notice paragraph, and it
+    replaces BOTH sides' own bespoke gate: the invoice screen's `not invoice.cancelled` and the bill
+    screen's `bill.status.value != 'Void'` were two spellings of the same question — "can this
+    document take a payment right now" — and the document itself already answers it.
+
+    ## What is NOT here, on purpose
+
+    The page title, the tab nav / status header, the DRAFT-invoice early return (a draft invoice can
+    never hold a payment at all, so that screen renders no card here and nothing else), and the
+    multi-document "Add Payment(s)" picker (a company/vendor-scoped screen of its own, not a
+    single-document one) all stay outside this file. Those are page chrome or a different screen
+    entirely, and unifying them here would mean inventing a lowest common denominator neither side
+    actually has.
+
+    @param PayableDocument           document          the invoice or bill this screen is about
+    @param PaymentApplication|null   editing            the row `?payment=` names, or null for a fresh entry
+    @param list<string>              methods            the payment method dropdown's options
+    @param list<PayableDocument>     moveTargets        where this document's claims could legally move to
+    @param string                    recordRoute        route name for the entry/edit form's POST (and this
+                                                          screen's own GET), taking {id: document.id}
+    @param string                    deleteRoute        route name for a row's delete POST, taking
+                                                          {id: document.id, paymentId: application.id}
+    @param string                    moveRoute          route name for a row's move POST, same params
+    @param string                    dateFieldName      the posted field name for the date — 'received_at'
+                                                          on the sell side, 'paid_at' on the buy side, because
+                                                          that is what each controller's own request parsing
+                                                          already reads and this card does not change that
+    @param string                    noun               'invoice' or 'bill', for the sentences that name it
+    @param string                    counterpartyNoun   'customer' or 'vendor'
+    @param string                    noRecorderLabel    who a null `recordedBy` means, in this side's words
+    @param string|null               backUrl            a "back to the document" link for this card's own
+                                                          header, or null when the page already has one
+#}
+{% set currencyPrefix = document.currency is not empty ? document.currency ~ ' ' : '$' %}
+{% set refusal = document.paymentRefusal %}
+
+<section class="panel compact-panel">
+    <div class="panel-title-row">
+        <div>
+            <h2>Balance {{ currencyPrefix }}{{ document.balance|amount }}</h2>
+            <p class="lead">
+                {{ currencyPrefix }}{{ document.amountPaid|amount }} paid of {{ currencyPrefix }}{{ document.total|amount }}.
+                The balance is derived from these rows rather than typed in.
+            </p>
+        </div>
+        {% if backUrl %}
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ backUrl }}">Back to {{ noun }}</a>
+            </div>
+        {% endif %}
+    </div>
+    {% if refusal %}
+        <p class="field-hint">{{ refusal }}</p>
+    {% endif %}
+</section>
+
+{#
+    The form lives OUTSIDE the table and its controls sit in the row below, wired by the HTML5
+    `form` attribute. A <form> placed directly inside a <tr> is not valid HTML — the only children a
+    <tr> may have are <td> and <th> — so a parser foster-parents the form out of the table and leaves
+    the inputs behind in no form at all. Browsers put it back together by their own recovery rules;
+    DomCrawler does not, which is what made this untestable without scraping the token by hand before
+    the fix both sides now share.
+#}
+{% if refusal is null %}
+    <form id="document-payment-form" method="post" action="{{ path(recordRoute, {id: document.id}) }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="payment_id" value="{{ editing ? editing.id : 0 }}">
+    </form>
+{% endif %}
+
+<section class="table-card no-paginate">
+    <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+        <thead>
+            <tr>
+                <th>Paid</th>
+                <th>Recorded by</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Balance after</th>
+                <th>Comment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if refusal is null %}
+                {# The entry row sits IN the table, the way the transfer line editor's does
+                   (`transfer-line-entry`, #590 P2): what you are adding lines up under the columns
+                   it will appear in. Not `filter-row` — that class is a thead concept and this row
+                   filters nothing. #}
+                <tr class="document-payment-entry" id="new-payment">
+                    <td data-label="Paid"><input type="date" form="document-payment-form" name="{{ dateFieldName }}" aria-label="Date paid" value="{{ editing ? editing.appliedAt|date('Y-m-d') : 'now'|date('Y-m-d') }}"></td>
+                    <td data-label="Recorded by">{{ app.user ? app.user.userIdentifier : 'Admin' }}</td>
+                    <td data-label="Method">
+                        <select form="document-payment-form" name="method" aria-label="Payment method">
+                            {% for method in methods %}
+                                <option value="{{ method }}"{{ editing and editing.method == method ? ' selected' : '' }}>{{ method }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    {# number_format with an explicit '.' and NO thousands separator: this value is
+                       posted straight back, so '1,234.50' would arrive as a different number. The
+                       display cell below can group. #}
+                    <td data-label="Amount"><input type="text" form="document-payment-form" name="amount" inputmode="decimal" aria-label="Amount paid" value="{{ editing ? editing.amount|number_format(2, '.', '') : '' }}" required></td>
+                    <td data-label="Balance after">&mdash;</td>
+                    <td data-label="Comment"><input type="text" form="document-payment-form" name="comment" maxlength="255" aria-label="Comment" value="{{ editing ? editing.reference : '' }}"></td>
+                    <td data-label="Actions" class="row-actions">
+                        <button class="button primary" type="submit" form="document-payment-form">{{ editing ? 'Update payment' : 'Record payment' }}</button>
+                        {% if editing %}
+                            <a class="table-action" href="{{ path(recordRoute, {id: document.id}) }}">Cancel</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+            {# The running balance after each claim: "what was still owed when that cheque cleared"
+               is the question a part-paid document is read for, and a list of amounts does not
+               answer it. Computed down the rows in the order they are stored. #}
+            {% set runningBalance = document.total %}
+            {% for application in document.applications %}
+                {% set runningBalance = runningBalance - application.amount %}
+                <tr class="data-item-row" data-payment="{{ application.id }}">
+                    <td data-label="Paid">{{ application.appliedAt|date('Y-m-d') }}</td>
+                    <td data-label="Recorded by">{{ application.recordedBy ? application.recordedBy.userIdentifier : noRecorderLabel }}</td>
+                    <td data-label="Method">{{ application.method }}</td>
+                    <td data-label="Amount">{{ currencyPrefix }}{{ application.amount|amount }}</td>
+                    <td data-label="Balance after">{{ currencyPrefix }}{{ runningBalance|amount }}</td>
+                    <td data-label="Comment">{{ application.reference ?? '—' }}</td>
+                    <td data-label="Actions" class="row-actions">
+                        {# A link and not a script: correcting a payment has to work with JavaScript off. #}
+                        <a class="table-action" href="{{ path(recordRoute, {id: document.id, payment: application.id}) }}">Edit</a>
+                        {#
+                            Queue item 34, and from here it really is just a dropdown. The select and
+                            the button are bound to a form OUTSIDE the table by the HTML5 `form`
+                            attribute, for the reason stated above the entry form.
+
+                            Only documents this claim could legally move to are listed — same
+                            counterparty, not this document, able to accept a payment. The list is a
+                            convenience and never the guard: the POST is checked again server side,
+                            because this application accepts hand-made POSTs and works with scripting
+                            off.
+                        #}
+                        {% if moveTargets is not empty %}
+                            <select form="move-document-payment-{{ application.id }}" name="target_id" aria-label="Move this payment to another {{ noun }}">
+                                <option value="0">Move to…</option>
+                                {% for target in moveTargets %}
+                                    <option value="{{ target.id }}">{{ target.documentLabel }} — balance {{ currencyPrefix }}{{ target.balance }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="table-action" form="move-document-payment-{{ application.id }}">Move</button>
+                        {% else %}
+                            {# No class: the admin CSS has no secondary-text vocabulary for a table
+                               cell, and inventing one here would be exactly the local class the house
+                               rule forbids. #}
+                            <span>No other {{ noun }} for {{ document.counterpartyName }} to move it to</span>
+                        {% endif %}
+                        <button type="submit" class="table-action danger" form="delete-document-payment-{{ application.id }}">Delete</button>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="empty-table-cell">
+                    <strong>No payments have been recorded against this {{ noun }}.</strong>
+                    {% if refusal is null %}<span>Record one above; the balance follows from it.</span>{% endif %}
+                </td></tr>
+            {% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+
+{# One real POST form per row, outside the table (#613). The confirm is an onsubmit courtesy that
+   does not run with scripting off, and the button still posts. #}
+{% for application in document.applications %}
+    <form method="post" id="delete-document-payment-{{ application.id }}" hidden
+          action="{{ path(deleteRoute, {id: document.id, paymentId: application.id}) }}"
+          onsubmit="return confirm('Delete this payment of {{ application.amount|number_format(2)|e('js') }}? The {{ noun }}\'s balance goes back up by it.')">
+        {{ csrf_field() }}
+    </form>
+    {% if moveTargets is not empty %}
+        <form method="post" id="move-document-payment-{{ application.id }}" hidden
+              action="{{ path(moveRoute, {id: document.id, paymentId: application.id}) }}">
+            {{ csrf_field() }}
+        </form>
+    {% endif %}
+{% endfor %}
+
+<section class="panel">
+    <p class="lead">A payment can only move to another {{ noun }} from the same {{ counterpartyNoun }}.</p>
+</section>

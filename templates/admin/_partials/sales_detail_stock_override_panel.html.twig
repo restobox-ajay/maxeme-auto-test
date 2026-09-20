@@ -1,0 +1,99 @@
+{# "Sold beyond stock" / "Billed beyond stock" (#326) — the lines somebody deliberately sold or
+   billed past what the shelf could cover, with the figures they were looking at and what they
+   said about it.
+
+   Absent from almost every document, which is the point: the section appearing at all IS the
+   finding. On the DOCUMENT rather than on a worklist, for the reason ShortDatedReceipt gives
+   about the Exceptions screen — that screen is a MONEY worklist sorted by what each row puts at
+   risk, and an oversell has no amount at risk. The goods are sold, at the price on the line; what
+   it is worth is measured in units. It belongs where the person asking about it is standing.
+
+   A notice, not an alarm: `alert warn`, the class the receipt screen uses for pallets it accepted
+   with a bad date. Nobody did anything wrong; somebody made a call and put their name on it.
+
+   The order's copy and the invoice's were the same section, the same seven columns and the same
+   seven cells, under two headings.
+
+   Parameters
+   ----------
+   lines               required  ALL the document's lines. The panel picks out the ones carrying a
+                                 stockOverride itself, into a plain array rather than with
+                                 |filter: |filter hands back an iterator, this is both counted and
+                                 looped over, and an iterator that has been counted has already
+                                 been walked. Both callers had that loop; now neither does.
+   heading             required  'Sold beyond stock' on an order, 'Billed beyond stock' on an
+                                 invoice. An order promises; an invoice demands payment.
+   quantityColumnLabel required  what the third column counts — 'Asked for' on an order, 'Billed'
+                                 on an invoice. It is also the cell's data-label, so the two
+                                 cannot drift apart.
+   noticeTemplate      required  the paragraph inside the alert, as a TEMPLATE PATH rather than as
+                                 a string parameter. The two differ by more than wording: the
+                                 order's closes on the figures being a snapshot, with an <em> in
+                                 it, and the invoice's closes on backorder capacity never being
+                                 cover. Prose carrying its own markup is not a parameter, and
+                                 eight parameters to rebuild two sentences would be drift with
+                                 extra steps. Rendered with {count: <how many lines>}.
+   showBackorderCapacity optional  true to append "(after N backorder capacity)" to the Short by
+                                 cell when the override recorded any. The order passes true. The
+                                 invoice does not, and its notice says why: an invoice line has no
+                                 split to fall back on, so capacity never stood behind those units
+                                 and printing it would suggest something covered them.
+   sectionStyle        optional  the inline style on the wrapping <section>. Defaults to
+                                 'margin-top:20px;'.
+
+   The four figures go through |qty because they are quantities and this application has one rule
+   for printing one (App\Service\DisplayNumber): 2.5 reads "2.5", 50 reads "50", and neither reads
+   "2.5000". They were bare when the columns were INTEGER and a bare decimal(14, 4) would now print
+   its trailing zeros. Nothing here posts, so none of these is a `*_rendered` twin and
+   LineDenomination::boxUntouched() is not involved — these are <td> cells on a detail screen. #}
+
+{% set overrideLines = [] %}
+{% for line in lines %}
+    {% if line.stockOverride %}{% set overrideLines = overrideLines|merge([line]) %}{% endif %}
+{% endfor %}
+
+{% if overrideLines is not empty %}
+    <section class="table-card no-search no-paginate detail-page-card" id="stock-overrides" style="{{ sectionStyle|default('margin-top:20px;') }}">
+        <div class="table-header"><h2>{{ heading }}</h2></div>
+        <div style="padding:0 20px 8px;">
+            <p class="alert warn">
+                {% include noticeTemplate with {count: overrideLines|length} only %}
+            </p>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="user-manager-table" id="stock-override-table" style="min-width:100%;">
+                <thead>
+                    <tr>
+                        <th>Line</th>
+                        <th>Region</th>
+                        <th style="text-align:center;">{{ quantityColumnLabel }}</th>
+                        <th style="text-align:center;">Available then</th>
+                        <th style="text-align:center;">Short by</th>
+                        <th>Decided by</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in overrideLines %}
+                        {% set override = line.stockOverride %}
+                        <tr id="stock-override-row-{{ override.id }}">
+                            <td data-label="Line">{{ line.sku ?: line.name }}</td>
+                            <td data-label="Region" id="stock-override-region-{{ override.id }}">{{ override.regionName }}</td>
+                            <td data-label="{{ quantityColumnLabel }}" style="text-align:center;" id="stock-override-requested-{{ override.id }}">{{ override.requestedQuantity|qty }}</td>
+                            {# Negative is shown as it was measured. A SKU that was already 40 units in the
+                               hole when this call was made is a different fact from an empty shelf, and
+                               clamping it here would hide which of the two happened. #}
+                            <td data-label="Available then" style="text-align:center;" id="stock-override-available-{{ override.id }}">{{ override.availableQuantity|qty }}</td>
+                            <td data-label="Short by" style="text-align:center;" id="stock-override-shortfall-{{ override.id }}">
+                                {{- override.shortfallQuantity|qty -}}
+                                {%- if showBackorderCapacity|default(false) and override.backorderCapacity > 0 %} <small>(after {{ override.backorderCapacity|qty }} backorder capacity)</small>{% endif -%}
+                            </td>
+                            <td data-label="Decided by" id="stock-override-by-{{ override.id }}">{{ override.overriddenBy ?? 'not recorded' }} &middot; {{ override.overriddenAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Reason" id="stock-override-reason-{{ override.id }}">{{ override.reason }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}

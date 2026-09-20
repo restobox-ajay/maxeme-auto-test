@@ -1,0 +1,93 @@
+{# The Activity Log table on a sell-side document's VIEW screen — the document's own narrative
+   timeline, distinct from the generic AuditLog panel (`_shared/_audit_history_panel.html.twig`)
+   that sits below it on all three screens: `logs` here is filtered to the narrative subset of the
+   SAME table (`AuditLogRepository::findNarrativeForEntity()`, actorType = 'document') while that
+   panel shows the unfiltered field-diff rows. Formerly three separate tables/entities
+   (SalesOrderLog, InvoiceLog, EstimateLog — the order's and the quote's were byte-identical, forty
+   lines each; the invoice's was the same table minus a Delete column, since there is no
+   admin_invoice_log_delete route), absorbed into AuditLog so there is one place to query a
+   document's history instead of five.
+
+   All three DO show Customer Notified — `Invoice::recordSent()` writes it true for the copy that
+   went to the buyer, same as an order's or a quote's own notified entries — so it is not a
+   parameter: a document whose log rows cannot answer "has the buyer been told" does not exist
+   here.
+
+   Parameters
+   ----------
+   logs          required  the timeline rows, already sorted newest-first by the controller.
+   deleteRoute   optional  the route name a row's Delete button posts to, called with
+                           {id: documentId, logId: log.id}. Omit it (or pass null) and the
+                           Actions column is not rendered at all — header, cells and the empty
+                           row's colspan all count the same list, so they cannot disagree.
+                           A System row never offers Delete on any document.
+   documentId    required  when `deleteRoute` is given — the document the delete route addresses.
+   sectionStyle  optional  the inline style on the wrapping <section>. The three screens carry
+                           different bottom margins here and that disagreement is a layout
+                           question this partial has no standing to settle, so each states what
+                           it already had. Defaults to the invoice's 'margin-top:20px;'. #}
+
+{% set deleteTo = deleteRoute|default(null) %}
+{% set columns = [
+    {label: 'Date', width: '185px'},
+    {label: 'User', width: '230px'},
+    {label: 'Comment', width: null},
+    {label: 'Type', width: '140px'},
+    {label: 'Customer Notified', width: '140px', centred: true},
+]|merge(deleteTo is null ? [] : [{label: 'Actions', width: '90px', centred: true}]) %}
+
+<section class="table-card no-search no-paginate detail-page-card" style="{{ sectionStyle|default('margin-top:20px;') }}">
+    <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9;">
+        <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Activity Log</h2>
+    </div>
+    <div class="wide-table-wrap">
+        <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                        {%- set columnStyle = (column.width ? 'width:' ~ column.width ~ ';' : '') ~ (column.centred|default(false) ? (column.width ? ' ' : '') ~ 'text-align:center;' : '') %}
+                        <th{% if columnStyle %} style="{{ columnStyle }}"{% endif %}>{{ column.label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td style="font-size:0.83rem; color:#64748b;">{{ log.occurredAt|date('Y-m-d g:i:s A') }}</td>
+                        <td>
+                            <span style="font-weight:600; font-size:0.875rem; color:#334155;">{{ log.actorName ?: 'System' }}</span>
+                        </td>
+                        <td style="font-size:0.875rem; color:#475569; line-height:1.5;">{{ log.summary }}</td>
+                        <td>
+                            <span class="badge" style="background:#f1f5f9; color:#475569; font-weight:600; padding:4px 10px; border-radius:6px; font-size:0.75rem;">{{ log.action }}</span>
+                        </td>
+                        <td style="text-align:center;">
+                            {% if log.recipientNotified %}
+                                <span class="badge success" style="padding:4px 10px; font-size:0.7rem;">Yes</span>
+                            {% else %}
+                                <span class="badge" style="background:#fff1f2; color:#e11d48; border:1px solid #ffe4e6; padding:4px 10px; font-size:0.7rem;">No</span>
+                            {% endif %}
+                        </td>
+                        {% if deleteTo is not null %}
+                            <td style="text-align:center;">
+                                {% if log.action != 'System' %}
+                                    <button class="table-action danger js-delete-log"
+                                            data-url="{{ path(deleteTo, {id: documentId, logId: log.id}) }}"
+                                            style="font-size:0.75rem; padding:0 14px; min-height:28px;">Delete</button>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="{{ columns|length }}" class="empty-table-cell"><span>No activity recorded yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        {% include 'admin/_table_count.html.twig' with {
+            count: logs|length,
+            total: logs|length
+        } only %}
+    </div>
+</section>

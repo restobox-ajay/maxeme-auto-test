@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    PaymentBundle\:
+        resource: '../src/'
+
+    PaymentBundle\Payment\PaymentMethodResolver:
+        arguments:
+            $paymentMethods: !tagged_iterator app.payment_method
+            $paymentMethodProviders: !tagged_iterator app.payment_method_provider
+            $menuItems: !tagged_iterator app.payment_menu_item

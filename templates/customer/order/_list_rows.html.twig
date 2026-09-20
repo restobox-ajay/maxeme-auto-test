@@ -1,0 +1,119 @@
+{% for order in orders %}
+    {# Rolled up from the order's invoices by the controller, in the same query that paged this list
+       (#539 stage 4). Adding payments up here would be a query per row and a second answer beside
+       the one the tabs and the sort already use. #}
+    {% set paymentLabel = paymentLabelByOrderId[order.id]|default('Not Paid') %}
+    {% set isPaid = paymentLabel == 'Paid' %}
+    {% set normalizedOrderStatus = (order.status ?: '')|lower %}
+    {# Void and Closed are #539 stage 2's successors to Cancelled and Completed — kept in step with
+       Customer\OrderController::canMakePayment() and canCustomerCancelOrder(), which are the gates
+       this only renders. #}
+    {% set canMakePayment = not isPaid and normalizedOrderStatus not in ['draft', 'void'] %}
+    {% set canCancelOrder = not isPaid and normalizedOrderStatus not in ['draft', 'void', 'closed'] %}
+    {% set orderStatusLabel = order.status ?: '-' %}
+
+    {% set ship = order.effectiveShippingAddress %}
+    {% set addressParts = [] %}
+    {% if ship and ship.addressLine1 %}{% set addressParts = addressParts|merge([ship.addressLine1]) %}{% endif %}
+    {% if ship and ship.addressLine2 %}{% set addressParts = addressParts|merge([ship.addressLine2]) %}{% endif %}
+    {% if ship and (ship.city or ship.province or ship.postalCode) %}
+        {% set cityLine = '' %}
+        {% if ship.city %}{% set cityLine = ship.city %}{% endif %}
+        {% if ship.province %}{% set provinceLabel = province_name(ship.country, ship.province) %}{% set cityLine = cityLine ? (cityLine ~ ', ' ~ provinceLabel) : provinceLabel %}{% endif %}
+        {% if ship.postalCode %}{% set cityLine = cityLine ? (cityLine ~ ', ' ~ ship.postalCode) : ship.postalCode %}{% endif %}
+        {% if cityLine %}{% set addressParts = addressParts|merge([cityLine]) %}{% endif %}
+    {% endif %}
+    {% if ship and ship.country %}{% set addressParts = addressParts|merge([ship.country]) %}{% endif %}
+    {% set expectedDelivery = expectedDeliveryByOrderId[order.id]|default('') %}
+
+    <tr>
+        <td data-label="WEB ID"><strong>{{ order.orderNumber ?: ('#' ~ order.id) }}</strong></td>
+        <td data-label="Created At">
+            {{ order.createdAt|date('Y-m-d') }}<br>
+            <span class="muted">{{ order.createdAt|date('h:i:s A') }}</span>
+        </td>
+        <td data-label="Product">
+            <div class="customer-order-products">
+                {% for line in order.lines %}
+                    <div class="customer-order-product-row">
+                        <span class="customer-order-product-name">{{ line.name }}</span>
+                        <span class="customer-order-product-qty">X {{ line.quantity|qty }}</span>
+                    </div>
+                {% else %}
+                    <span class="muted">-</span>
+                {% endfor %}
+            </div>
+        </td>
+        <td data-label="Total"><strong>${{ order.total|amount }}</strong></td>
+        <td data-label="Expected delivery time">
+            {% if expectedDelivery %}
+                <span class="customer-order-delivery-date">{{ expectedDelivery }}</span>
+            {% endif %}
+        </td>
+        <td data-label="PO">{{ order.poNumber ?: '-' }}</td>
+        <td data-label="Special instruction"><span class="muted">-</span></td>
+        <td data-label="Delivery Address">
+            {% if addressParts|length %}
+                {# Was join('<br>')|raw, which disabled escaping over customer-supplied address
+                   fields — a stored-XSS hole. Looping escapes each part and emits the <br> itself. #}
+                {% for part in addressParts %}{{ part }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+            {% else %}
+                <span class="muted">-</span>
+            {% endif %}
+        </td>
+        <td data-label="Status">
+            {% set s = orderStatusLabel|lower %}
+            {% if s == 'void' %}
+                {# "Cancelled" is what a customer calls it, and the tab they arrive from is still
+                   CANCELLED; Void is the accounting word and stays out of the portal. #}
+                <span class="badge danger">Cancelled</span>
+            {% elseif s in ['draft', 'approved', 'partially invoiced'] %}
+                <span class="badge warn">{{ orderStatusLabel }}</span>
+            {% else %}
+                <span class="badge info">{{ orderStatusLabel }}</span>
+            {% endif %}
+        </td>
+        <td data-label="Payment Status">
+            {% if isPaid %}
+                <span class="badge success">Paid</span>
+            {% else %}
+                <span class="badge warn">{{ paymentLabel }}</span>
+            {% endif %}
+        </td>
+        <td data-label="Actions" class="row-actions">
+            {# <details>, opened by the browser rather than by app.js — #143 requires the Reorder
+               control to work with JavaScript off, which a JS-driven .row-action-toggle cannot
+               offer (see admin/_row_actions_no_js.html.twig). No form here nests inside another:
+               the filter form above closes before this table starts. #}
+            <details class="row-action-menu no-js-row-actions">
+                <summary class="table-action" aria-label="Actions for order {{ order.orderNumber ?: order.id }}">Actions</summary>
+                <div class="row-action-dropdown">
+                    <a href="{{ path('customer_order_detail', {id: order.id}) }}">Detail</a>
+                    {% if canMakePayment %}
+                        <a href="{{ path('customer_order_detail', {id: order.id, payment: 1}) }}">Make Payment</a>
+                    {% endif %}
+                    {% if canCancelOrder %}
+                        <form method="post" action="{{ path('customer_order_cancel', {id: order.id}) }}">
+                            {{ csrf_field() }}
+                            <button class="danger" type="submit">Cancel</button>
+                        </form>
+                    {% endif %}
+                    {# Order id only — see customer/order/detail.html.twig. #}
+                    <form class="reorder-form" method="post" action="{{ path('customer_cart_reorder') }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="order" value="{{ order.id }}">
+                        <button type="submit">Reorder</button>
+                    </form>
+                </div>
+            </details>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="11">
+            <div class="empty-table-cell">
+                <strong>No orders found.</strong>
+            </div>
+        </td>
+    </tr>
+{% endfor %}

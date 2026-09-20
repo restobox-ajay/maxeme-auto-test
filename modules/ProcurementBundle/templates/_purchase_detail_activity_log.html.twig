@@ -1,0 +1,108 @@
+{# The Activity Log table on a purchase document's VIEW screen — copied from
+   admin/_partials/sales_detail_activity_log.html.twig and adapted (#full-parity, 2026-09-13),
+   then converged onto that same file's field names when PurchaseOrderLog was folded into
+   App\Entity\AuditLog (2026-09-14, mirroring the sell-side consolidation): `logs` is the narrative
+   subset of the shared audit_log table (AuditLogRepository::findNarrativeForEntity(), actorType =
+   'document'), not a document-specific *Log entity any more. "Vendor Notified" still reads that
+   way rather than "Customer Notified" — the buyer on this side is us, so log.recipientNotified
+   answers whether the VENDOR was told, same meaning as before, same shared column. The Delete
+   button is a real `<form>` submit rather than the sell side's `.js-delete-log` AJAX button: this
+   document's whole convention is that every control besides the batch cell is a plain
+   post-and-redirect, not a reason to bring JS onto a screen that otherwise has none.
+
+   VendorBillLog has not been converged onto AuditLog (its own write paths still construct
+   VendorBillLog directly) — vendor_bill/detail.html.twig's own caller adapts `bill.logs` into this
+   same AuditLog shape (occurredAt/actorName/summary/action) before calling this partial, rather
+   than this file learning a second field-name set. `showVendorNotified` exists because that
+   adapter has no `recipientNotified` to synthesize honestly: VendorBillController has no
+   Message-box/notify-vendor route to set one from, so the column is left off entirely rather than
+   printing a fabricated "No" on every row.
+
+   Parameters
+   ----------
+   logs                required  the timeline rows, already sorted newest-first by the controller —
+                                 AuditLog rows, or VendorBill's own adapted equivalent (see above).
+   deleteRoute         optional  the route name a row's Delete button posts to, called with
+                                 {id: documentId, logId: log.id}. Omit it (or pass null) and the
+                                 Actions column is not rendered at all — header, cells and the empty
+                                 row's colspan all count the same list, so they cannot disagree.
+                                 A System row never offers Delete on any document.
+   documentId          required  when `deleteRoute` is given — the document the delete route
+                                 addresses.
+   sectionStyle        optional  the inline style on the wrapping <section>. Defaults to
+                                 'margin-top:20px;'.
+   showVendorNotified  optional  whether `log.recipientNotified` exists to read at all. Defaults to
+                                 true (AuditLog's own shape, what PurchaseOrder feeds); VendorBill's
+                                 caller passes false. #}
+
+{% set deleteTo = deleteRoute|default(null) %}
+{# `??`, not `|default()`: the `default` filter treats an explicit `false` as "empty" and replaces
+   it too, which would silently force `notified` back to true for VendorBill's own caller — `??`
+   only substitutes when the variable is genuinely undefined. #}
+{% set notified = showVendorNotified ?? true %}
+{% set columns = [
+    {label: 'Date', width: '185px'},
+    {label: 'User', width: '230px'},
+    {label: 'Comment', width: null},
+    {label: 'Type', width: '140px'},
+]|merge(notified ? [{label: 'Vendor Notified', width: '140px', centred: true}] : [])
+    |merge(deleteTo is null ? [] : [{label: 'Actions', width: '90px', centred: true}]) %}
+
+<section class="table-card no-search no-paginate detail-page-card" style="{{ sectionStyle|default('margin-top:20px;') }}">
+    <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9;">
+        <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Activity Log</h2>
+    </div>
+    <div class="wide-table-wrap">
+        <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    {% for column in columns %}
+                        {%- set columnStyle = (column.width ? 'width:' ~ column.width ~ ';' : '') ~ (column.centred|default(false) ? (column.width ? ' ' : '') ~ 'text-align:center;' : '') %}
+                        <th{% if columnStyle %} style="{{ columnStyle }}"{% endif %}>{{ column.label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td style="font-size:0.83rem; color:#64748b;">{{ log.occurredAt|date('Y-m-d g:i:s A') }}</td>
+                        <td>
+                            <span style="font-weight:600; font-size:0.875rem; color:#334155;">{{ log.actorName ?: 'System' }}</span>
+                        </td>
+                        <td style="font-size:0.875rem; color:#475569; line-height:1.5;">{{ log.summary }}</td>
+                        <td>
+                            <span class="badge" style="background:#f1f5f9; color:#475569; font-weight:600; padding:4px 10px; border-radius:6px; font-size:0.75rem;">{{ log.action }}</span>
+                        </td>
+                        {% if notified %}
+                            <td style="text-align:center;">
+                                {% if log.recipientNotified %}
+                                    <span class="badge success" style="padding:4px 10px; font-size:0.7rem;">Yes</span>
+                                {% else %}
+                                    <span class="badge" style="background:#fff1f2; color:#e11d48; border:1px solid #ffe4e6; padding:4px 10px; font-size:0.7rem;">No</span>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                        {% if deleteTo is not null %}
+                            <td style="text-align:center;">
+                                {% if log.action != 'System' %}
+                                    <form method="post" action="{{ path(deleteTo, {id: documentId, logId: log.id}) }}" style="display:inline;">
+                                        {{ csrf_field() }}
+                                        <button class="table-action danger" type="submit" style="font-size:0.75rem; padding:0 14px; min-height:28px;">Delete</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="{{ columns|length }}" class="empty-table-cell"><span>No activity recorded yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        {% include 'admin/_table_count.html.twig' with {
+            count: logs|length,
+            total: logs|length
+        } only %}
+    </div>
+</section>

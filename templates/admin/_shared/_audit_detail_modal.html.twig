@@ -1,0 +1,23 @@
+{# Shared detail modal for audit log "View" links (.js-audit-view-detail). Include once per page.
+
+   The body is a sandboxed iframe rather than markup built from the trigger's data attributes: the
+   before/after values it displays are JSON an admin's own edits produced, not something this page
+   controls the shape of, and a modal that reconstructed HTML from them client-side would need every
+   call site to remember to escape it correctly. sandbox="" (no allow-* tokens at all) means the
+   framed page cannot run script, submit a form, or navigate the parent, whatever it contains - the
+   content is server-rendered and already safe (Twig autoescapes), the sandbox is defense in depth on
+   top of that. Its src is admin_audit_detail's URL, the same one the "View" link points to, so a
+   no-JavaScript visitor and a sandboxed-iframe visitor see the same page. #}
+<div class="admin-modal-overlay" id="audit-detail-modal">
+    <div class="admin-modal audit-detail-modal">
+        <div class="admin-modal-header">
+            <h2>Change Detail</h2>
+        </div>
+        <div class="admin-modal-body">
+            <iframe id="audit-detail-iframe" class="audit-detail-iframe" src="about:blank" sandbox="" title="Audit log change detail" referrerpolicy="no-referrer"></iframe>
+        </div>
+        <div class="admin-modal-footer" style="display:flex; justify-content:flex-end; margin-top:20px;">
+            <button class="button outline js-modal-close" style="min-width:80px;">Close</button>
+        </div>
+    </div>
+</div>

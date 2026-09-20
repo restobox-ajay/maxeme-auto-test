@@ -1,0 +1,12 @@
+{# Common line-table columns, shared by PurchaseOrder and VendorBill — typed ONCE, in PHP, as
+   App\Service\PurchaseDocumentLineColumns::BASE (the buy-side twin of sales_line_columns.html.twig,
+   which does the same thing for App\Service\SalesDocumentLineColumns::BASE).
+   Output is JSON (Twig macros can't return a list directly) — decode it, then |merge() to append
+   or override:
+       {% set columns = line_columns.base()|json_decode|merge([{key: 'actions', label: 'Actions'}]) %}
+   No Actions/po_line/ordered/received/remaining column here, for the same reason the sell side's
+   list has no Actions: each is a real, named exception — see _purchase_line_row.html.twig's own
+   docblock for what each key means and which document/mode uses it. #}
+{% macro base() %}
+    {{- constant('App\\Service\\PurchaseDocumentLineColumns::BASE')|json_encode|raw -}}
+{% endmacro %}

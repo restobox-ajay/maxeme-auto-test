@@ -1,0 +1,114 @@
+{# The line-qty grid: header, colgroup, the row loop, computed main-line fee rows, and (when `hook`
+   is set) the two spare no-JS rows for adding a line without scripting. Leave `hook` empty for a
+   read-only/locked row set (a ceiling is just `qtyMin`/`qtyMax` on the row, not a different table).
+
+   Parameters
+   ----------
+   hook               optional. 'order' | 'estimate' | 'invoice'. Enables JS hook classes + spares.
+   tableClass         required  the <table>'s class(es) — stated by the caller, not derived from
+                      `hook`: order's and quote's tables have never shared a class, and quote's own
+                      carries a real CSS-specificity dependency (app.css:9081).
+   colPrefix          optional  the colgroup class prefix (see sales_line_head.html.twig's cols()).
+                      Defaults to `hook`: the standalone invoice's column set is order's own,
+                      verbatim, so it passes 'order' here to size its columns off order's own
+                      .order-col-* rules rather than a duplicate copy of them.
+   tableId, tbodyId   optional  ids a caller's own CSS/tests key on.
+   lineColumns        required  this document's columns, in order — see sales_line_row.html.twig.
+   lineRows           required  the row data, flat hashes — see sales_line_row.html.twig.
+   lineRowOptions     required  the rest of sales_line_row's own parameter set.
+   products, locations, productsRemote, productSearchPath
+                      passed straight to sales_line_row / product_field.
+   lineUnits, baseUnitLabels
+                      optional top-level {productId: ...} maps (#659) for a row that hasn't already
+                      embedded its own `units`/`baseUnitLabel`.
+   mainLineFeeRows    optional list of {label, amount, taxClass, tax} rendered as extra rows.
+   submitted          optional  raw posted `lines`, for repainting a refused save.
+   emptyLinesMessage  optional  shown when `lineRows` is empty.
+   defaultLineQty     optional  Qty box's starting value on a fresh row — '1' on the order (its
+                      JS-template already hardcodes this), unset elsewhere.
+
+   Per-row values sales_line_row.html.twig takes as its own arguments, not part of `line` — read
+   here off the row when present: row.qtyWarning, row.priceWarning, row.taxAmount, row.available,
+   and row.type ('product'|'blank', overriding the productId-based inference below — a row with no
+   product picked yet can still need the picker shown, not the free-text box).
+#}
+{%- import 'admin/_partials/sales_line_head.html.twig' as line_head %}
+{%- import 'admin/_partials/sales_fee_line_row.html.twig' as fee_form %}
+<table class="{{ tableClass }}"{% if tableId|default('') %} id="{{ tableId }}"{% endif %}>
+    {{ line_head.cols(lineColumns, colPrefix|default(hook|default('lines'))) }}
+    <thead>
+        {{ line_head.head(lineColumns) }}
+    </thead>
+    <tbody class="{{ hook|default('') ? 'js-' ~ hook ~ '-lines-body' : '' }}"{% if tbodyId|default('') %} id="{{ tbodyId }}"{% endif %}>
+        {% if lineRows is empty %}
+            <tr class="{{ hook|default('') ? hook ~ '-lines-empty js-only' : 'empty-table-cell' }}">
+                <td colspan="{{ lineColumns|length }}"{% if not hook|default('') %} class="empty-table-cell"{% endif %}><span>{{ emptyLinesMessage|default('No lines yet. Use Add Product or Add Blank Line to start.') }}</span></td>
+            </tr>
+        {% endif %}
+        {% for index, row in lineRows %}
+            {{- include('admin/_partials/sales_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: index,
+                submitted: submitted|default({}),
+                line: row|merge({
+                    units: row.units|default((lineUnits|default({}))[row.productId|default('')]|default([])),
+                    baseUnitLabel: row.baseUnitLabel|default((baseUnitLabels|default({}))[row.productId|default('')]|default('')),
+                }),
+                products: products,
+                locations: locations,
+                kind: row.type|default(row.productId|default('') ? 'product' : 'blank'),
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                showRemove: hook|default('') ? true : lineRowOptions.showRemove|default(false),
+                qtyWarning: row.qtyWarning|default(false),
+                priceWarning: row.priceWarning|default(false),
+                taxAmount: row.taxAmount|default(0),
+                available: row.available|default(null),
+            }), with_context = false) }}
+        {% endfor %}
+        {% for feeRow in mainLineFeeRows|default([]) %}
+            {{ fee_form.fee_line_row((hook|default('lines')) ~ '-line-row', feeRow.label, feeRow.amount, lineColumns|map(c => c.label), 'Subtotal', lineRowOptions.labelled|default(false), 'Tax Code', feeRow.taxClass|default(''), 'Tax $', feeRow.tax|default(0)) }}
+        {% endfor %}
+        {% if hook|default('') %}
+            {# The spare no-JS rows: fill one, save, and the page that comes back renders two fresh
+               ones — how this stays usable with scripting off. #}
+            {% set nextIndex = lineRows|length %}
+            {% set _freshLine = defaultLineQty|default('') ? {qty: defaultLineQty} : {} %}
+            {{- include('admin/_partials/sales_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: nextIndex,
+                submitted: submitted|default({}),
+                line: _freshLine,
+                products: products,
+                locations: locations,
+                kind: 'product',
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                rowClass: 'no-js-row',
+            }), with_context = false) }}
+            {{- include('admin/_partials/sales_line_row.html.twig', lineRowOptions|merge({
+                columns: lineColumns,
+                index: nextIndex + 1,
+                submitted: submitted|default({}),
+                line: _freshLine,
+                products: products,
+                locations: locations,
+                kind: 'blank',
+                productSearchPath: productSearchPath|default(null),
+                productsRemote: productsRemote|default(false),
+                rowClass: 'no-js-row',
+            }), with_context = false) }}
+        {% endif %}
+    </tbody>
+</table>
+{% if hook|default('') %}
+    {# Where a Main Line fee's editable row actually lands (#690-follow-up: labeling the row
+       "Main Line" told an admin which placement they'd picked, but the row still sat wherever
+       Before Tax rows sit too — beside Subtotal, a whole toolbar+footer away from the table a
+       Main Line fee is conceptually part of. sellDocChargeRowAnchor() in app.js inserts a
+       Main Line fee row directly before this element when it exists, so the row now sits
+       immediately under the table it bills against instead of down by the totals box. Before
+       Tax and After Tax fees are unaffected — they still anchor beside Subtotal/Grand Total,
+       which is where a flat addition belongs. #}
+    <div class="js-{{ hook }}-mainline-fee-anchor sell-doc-mainline-fee-anchor"></div>
+{% endif %}

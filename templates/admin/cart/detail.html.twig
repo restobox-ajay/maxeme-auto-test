@@ -1,0 +1,60 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Cart #{{ cart.id }} | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow"><a href="{{ path('admin_cart_index') }}">&larr; Carts</a></p>
+                <h1>Cart #{{ cart.id }}</h1>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Region</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Subtotal</th>
+                    <th>Tax Class</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart.items %}
+                    <tr>
+                        <td>{{ item.product.sku }} &mdash; {{ item.product.name }}</td>
+                        <td>{{ item.fulfillmentRegion.name }}</td>
+                        <td>{{ item.quantity|qty }}</td>
+                        {# Null price is a "No Price" rule or nothing configured, not a $0 line — see CustomerPrice. #}
+                        <td>{{ item.price is null ? 'TBD' : '$' ~ item.price }}</td>
+                        <td>{{ item.subtotal is null ? 'TBD' : '$' ~ item.subtotal }}</td>
+                        <td>{{ item.taxCode }}</td>
+                        <td>{{ item.updatedAt|date('Y-m-d H:i:s') }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="empty-row">This cart has no items.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <h2>Totals</h2>
+        {# Written back by the customer's cart page, so they are as of that render rather than live. #}
+        <p class="lead">As of the customer's last view, {{ cart.updatedAt|date('Y-m-d H:i:s') }}.</p>
+        <table class="admin-grid-table data-table">
+            <tbody>
+                <tr><th>Subtotal</th><td>${{ (cart.subtotal ?? 0)|amount }}</td></tr>
+                <tr><th>Shipping{% if cart.shippingMethod %} &mdash; {{ cart.shippingMethod }}{% endif %}</th><td>${{ (cart.shipping ?? 0)|amount }}</td></tr>
+                <tr><th>Tax</th><td>${{ (cart.tax ?? 0)|amount }}</td></tr>
+                <tr><th>Total</th><td>${{ (cart.total ?? 0)|amount }}</td></tr>
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

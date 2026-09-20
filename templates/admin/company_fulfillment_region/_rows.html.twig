@@ -1,0 +1,35 @@
+{% for row in rows %}
+    <tr>
+        <td data-label="Customer">
+            {{ row.companyName }}
+            <form id="cfr-form-{{ row.id }}" method="post" action="{{ path('admin_company_fulfillment_region_update', {id: row.id}) }}"></form>
+        </td>
+        <td data-label="Region">{{ row.regionName }}</td>
+        <td data-label="Price Group">
+            <select class="js-cfr-price-list js-no-autosubmit" name="price_list_id" form="cfr-form-{{ row.id }}" data-row-id="{{ row.id }}" aria-label="Price group for {{ row.companyName }} / {{ row.regionName }}">
+                <option value="">No price list</option>
+                {% for priceList in priceLists %}
+                    <option value="{{ priceList.id }}" {{ row.priceListId == priceList.id ? 'selected' : '' }}>{{ priceList.name }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td data-label="Status">
+            <select class="js-cfr-status js-no-autosubmit" name="status" form="cfr-form-{{ row.id }}" data-row-id="{{ row.id }}" aria-label="Status for {{ row.companyName }} / {{ row.regionName }}">
+                <option value="Inactive" {{ row.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                <option value="Active" {{ row.status == 'Active' ? 'selected' : '' }}>Active</option>
+            </select>
+        </td>
+        <td data-label="Action">
+            <input type="hidden" name="_token" form="cfr-form-{{ row.id }}" class="js-cfr-token" value="{{ csrf_token_value() }}">
+            <input type="hidden" name="return_url" form="cfr-form-{{ row.id }}" value="{{ app.request.requestUri }}">
+            <button class="table-action primary js-cfr-save" type="submit" form="cfr-form-{{ row.id }}" data-url="{{ path('admin_company_fulfillment_region_update', {id: row.id}) }}">Save</button>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="5" class="empty-table-cell">
+            <strong>No customer/region assignments found.</strong>
+            <span>Rows appear automatically once customers and regions exist.</span>
+        </td>
+    </tr>
+{% endfor %}

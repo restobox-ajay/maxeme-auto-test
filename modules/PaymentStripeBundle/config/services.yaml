@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    PaymentStripeBundle\:
+        resource: '../src/'
+
+    PaymentStripeBundle\Payment\StripePaymentMethod:
+        tags: ['app.payment_method']
+
+    PaymentStripeBundle\Menu\StripePaymentMenuItem:
+        tags: ['app.payment_menu_item']
+
+    PaymentStripeBundle\Bundle\PaymentStripeBundleDescriptor:
+        tags: ['app.bundle_descriptor']

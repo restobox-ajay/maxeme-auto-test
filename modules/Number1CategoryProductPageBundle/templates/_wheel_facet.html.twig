@@ -1,0 +1,18 @@
+{# @var facet array{slug: string, label: string, advanced: bool, counts: array<string,int>, selected: list<string>} #}
+<div class="wheel-facet{{ facet.advanced ? ' is-advanced' : '' }}" role="group" aria-label="{{ facet.label }}">
+    <div class="wheel-facet-label">{{ facet.label }}</div>
+    <div class="wheel-facet-options">
+        {% for value, count in facet.counts %}
+            <label class="wheel-facet-option">
+                <input type="checkbox"
+                       name="ProductSearch[cf][{{ facet.slug }}][]"
+                       value="{{ value }}"
+                       form="catalog-search-form"
+                       {{ value in facet.selected ? 'checked' : '' }}>
+                {{ value }} ({{ count }})
+            </label>
+        {% else %}
+            <p class="wheel-facet-empty">No values yet.</p>
+        {% endfor %}
+    </div>
+</div>

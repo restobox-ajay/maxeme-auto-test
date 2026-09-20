@@ -1,0 +1,156 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Admin Dashboard | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+
+    {# ── Hero banner with KPI strip ──────────────────────────────────────────── #}
+    <section class="admin-board">
+        <div class="admin-titlebar">
+            <div>
+                <p class="eyebrow">Wholesale operations</p>
+                <h1>Dashboard</h1>
+            </div>
+            <div class="admin-actions">
+                <a class="button primary" href="{{ path('admin_product_inventory_create') }}">New product</a>
+                <a class="button primary" href="{{ path('admin_company_create') }}">New customer</a>
+            </div>
+        </div>
+        <div class="kpi-strip">
+            {% for stat in stats %}
+                <article class="kpi-tile">
+                    <span>{{ stat.label }}</span>
+                    <strong>{{ stat.value }}</strong>
+                    <small>{{ stat.detail }}</small>
+                </article>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# ── Secondary stat row ──────────────────────────────────────────────────── #}
+    <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:1px; border:1.5px solid var(--line); border-radius:0; overflow:hidden; background:var(--line); box-shadow:none;">
+        {% set secIcons = {
+            'product': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.27 6.96 8.73 5.04 8.73-5.04"/><path d="M12 22.08V12"/>',
+            'users':   '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+            'orders':  '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+            'alert':   '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
+        } %}
+        {% for s in secondaryStats %}
+            <div style="background:#fff; padding:20px 22px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;">
+                <span style="display:grid; place-items:center; width:40px; height:40px; border-radius:10px; background:var(--admin-blue-soft); color:var(--admin-blue-hover); flex-shrink:0;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{{ secIcons[s.icon]|raw }}</svg>
+                </span>
+                <div>
+                    <p style="margin:0 0 2px; font-size:0.7rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#64748b;">{{ s.label }}</p>
+                    <strong style="font-size:1.55rem; font-weight:800; letter-spacing:-0.04em; line-height:1; color:#1e293b;">{{ s.value }}</strong>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    {# ── Module quick-links ──────────────────────────────────────────────────── #}
+    <section class="module-list">
+        {% for section in sections %}
+            <a class="module-row" href="{{ section.href }}">
+                <div>
+                    <h2>{{ section.label }}</h2>
+                    <p>{{ section.text }}</p>
+                </div>
+                <span class="module-arrow">View</span>
+            </a>
+        {% endfor %}
+    </section>
+
+    {# ── Bottom row: recent orders + sidebar panels ──────────────────────────── #}
+    <div style="display:grid; grid-template-columns: 1fr 380px; gap:18px; align-items:start;">
+
+        {# Recent Orders #}
+        <section class="table-card no-search no-paginate">
+            <div class="table-header">
+                <h2>Recent Orders</h2>
+                <div class="table-tools">
+                    <a class="button primary" href="{{ path('admin_order_index') }}">View all</a>
+                </div>
+            </div>
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="orderNumber">Order #</th>
+                        <th data-sort-field="company">Customer</th>
+                        <th data-sort-field="total" style="text-align:right">Total</th>
+                        <th data-sort-field="status">Status</th>
+                        <th data-sort-field="date">Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/_main/_recent_order_rows.html.twig' with {recentOrders: recentOrders} %}
+                </tbody>
+            </table>
+            <div class="table-footer">
+                <span class="table-count"></span>
+                <div class="table-footer-actions" style="margin-left:auto;">
+                    <a class="button back-button" href="{{ path('admin_order_index') }}">All Orders →</a>
+                </div>
+            </div>
+        </section>
+
+        {# Right column: Order Status + Top Customers #}
+        <div style="display:flex; flex-direction:column; gap:18px;">
+
+            {# Order Status Breakdown #}
+            <div class="panel" style="padding:22px 24px;">
+                <p class="eyebrow" style="margin-bottom:14px;">Order Status Breakdown</p>
+                {% if statusCounts is not empty %}
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        {% for status, count in statusCounts %}
+                            {% set bc = status == 'Closed' ? 'success'
+                                : (status in ['Approved', 'Partially Invoiced'] ? 'warn'
+                                : (status in ['Draft', 'Void'] ? ''
+                                : 'info')) %}
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid var(--line-light); border-radius:8px; background:#fafafa;">
+                                <span style="font-size:0.875rem; font-weight:500; color:#374151;">{{ status }}</span>
+                                <span class="badge {{ bc }}">{{ count }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p style="color:var(--muted); font-size:0.875rem;">No orders found.</p>
+                {% endif %}
+            </div>
+
+            {# Top Customers #}
+            <div class="panel" style="padding:0; overflow:hidden;">
+                <div style="padding:16px 22px; border-bottom:1px solid var(--line-light);">
+                    <p class="eyebrow" style="margin:0;">Top Customers by Revenue</p>
+                </div>
+                <table class="admin-grid-table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th style="text-align:right">Orders</th>
+                            <th style="text-align:right">Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in topCompanies %}
+                            <tr>
+                                <td>
+                                    <a href="{{ path('admin_company_detail_by_id', {id: c.id}) }}" style="font-weight:600; font-size:0.85rem;">{{ c.name }}</a>
+                                </td>
+                                <td style="text-align:right; font-size:0.85rem;">{{ c.order_count }}</td>
+                                <td style="text-align:right; font-weight:600; font-size:0.85rem;">${{ c.total_revenue|amount('compact') }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="empty-table-cell">
+                                    <strong>No data yet.</strong>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+	                </table>
+		            </div>
+
+        </div>
+    </div>
+
+{% endblock %}

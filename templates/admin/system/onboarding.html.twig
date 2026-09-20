@@ -1,0 +1,48 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Onboarding | Admin{% endblock %}
+{% block admin_body %}
+
+    {% set failedCount = 0 %}
+    {% for check in checks %}
+        {% if not check.passed %}{% set failedCount = failedCount + 1 %}{% endif %}
+    {% endfor %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Onboarding</h1>
+            </div>
+            <div class="panel-actions">
+                {% if failedCount > 0 %}
+                    <span class="badge danger">{{ failedCount }} not done</span>
+                {% else %}
+                    <span class="badge success">All checks pass</span>
+                {% endif %}
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region">
+            <ul class="onboarding-checklist" style="list-style:none;margin:0;padding:0;">
+                {% for check in checks %}
+                    <li class="onboarding-check-row" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-soft, #e5e7eb);">
+                        <span class="badge {{ check.passed ? 'success' : 'danger' }}" style="flex-shrink:0;margin-top:2px;">{{ check.passed ? 'Done' : 'Not Done' }}</span>
+                        <div style="min-width:0;">
+                            <div style="font-weight:600;">{{ check.label }}</div>
+                            <div class="text-muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.03em;margin:2px 0 4px;">{{ check.group }}</div>
+                            {% if not check.passed or check.message != 'OK' %}
+                                <div style="font-size:0.9rem;">{{ check.message }}</div>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% else %}
+                    <li style="padding:16px;">No onboarding checks are registered.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+
+{% endblock %}

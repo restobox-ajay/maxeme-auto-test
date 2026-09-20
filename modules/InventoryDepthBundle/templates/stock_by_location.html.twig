@@ -1,0 +1,108 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Stock by Location | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'stock',
+        heading: 'Stock by Location',
+        lead: 'What is in each bin right now, across every product. A mixed-lot bin is normal — and is why scanning a bin does not identify stock on its own; the lot label has to be scanned too.'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="stock-by-location-filters">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'bin' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_stock_by_location', {filters: filters, limit: limit, page: 1, sort: 'bin', dir: currentSort == 'bin' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Bin</a>
+                        </th>
+                        <th>Warehouse</th>
+                        <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_stock_by_location', {filters: filters, limit: limit, page: 1, sort: 'product', dir: currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Product</a>
+                        </th>
+                        <th>Lot (code and expiry)</th>
+                        <th>Serial</th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_stock_by_location', {filters: filters, limit: limit, page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Status</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'quantity' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_stock_by_location', {filters: filters, limit: limit, page: 1, sort: 'quantity', dir: currentSort == 'quantity' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Quantity</a>
+                        </th>
+                        <th>Count</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[bin]" form="stock-by-location-filters" value="{{ filters.bin }}" placeholder="Bin code" aria-label="Filter bin"></th>
+                        <th>
+                            <select name="filters[warehouse]" form="stock-by-location-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for w in warehouses %}
+                                    <option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[product]" form="stock-by-location-filters" value="{{ filters.product }}" placeholder="SKU or name" aria-label="Filter product"></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[status]" form="stock-by-location-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for s in statuses %}
+                                    <option value="{{ s }}"{{ filters.status == s ? ' selected' : '' }}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_inventory_depth_stock_by_location') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr class="data-item-row">
+                        <td data-label="Bin">{{ row.location ? row.location.code : '—' }}</td>
+                        <td data-label="Warehouse">{{ row.warehouse.name }}</td>
+                        <td data-label="Product"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: row.product.id}) }}">{{ row.product.sku ?: row.product.name }}</a></td>
+                        <td data-label="Lot">{{ row.lot ? row.lot.label : '—' }}</td>
+                        <td data-label="Serial">{{ row.serial ?: '—' }}</td>
+                        <td data-label="Status">{{ row.status }}</td>
+                        <td data-label="Quantity"><strong>{{ row.quantity }}</strong></td>
+                        <td data-label="Count">
+                            {% if row.location %}
+                                <a class="table-action" href="{{ path('admin_bundle_inventory_depth_cycle_count', {bin: row.location.id}) }}">Count bin</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="empty-table-cell">
+                        <strong>Nothing matches.</strong>
+                        <span>Stock enters through Stock Adjustment until receiving exists.</span>
+                    </td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'stock rows'} only %}
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" form="stock-by-location-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}
+                            <option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_inventory_depth_stock_by_location',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page,
+                    pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

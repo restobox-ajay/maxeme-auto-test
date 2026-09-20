@@ -1,0 +1,28 @@
+{#
+    One flash-message loop, included by every purchase-side screen that used to hand-copy it:
+    `_nav.html.twig` (every list/create/edit screen still routed through it),
+    `_document_action_bar.html.twig` (PurchaseOrder's view action-bar slot),
+    `_bill_document_action_bar.html.twig` (Bill's), and PurchaseOrder's and Bill's own edit screens'
+    `form_head` blocks. All four used to hand-write this same loop; this is the one file all of them
+    now include.
+
+    Real, visible markup rather than the hidden JS-toast div the sell side's own screens rely on:
+    there is no app.js hook for the purchase side (see purchase_order_edit.html.twig's own
+    docblock), so a flash has to render whether or not scripting is on.
+
+    Each flash carries an id so a test can assert on THAT element rather than on the whole page
+    (#627). A bare see() over a rendered page matches the same string anywhere in it, and a bare
+    number matches half of them: see('30') matches '130'. The index is the flash's position in its
+    own channel, so the first error a refusal adds is always `#flash-error-1`.
+
+    No parameters — reads `app.flashes()` directly, exactly as every hand copy did.
+#}
+{% for msg in app.flashes('success') %}
+    <div class="flash flash-success" id="flash-success-{{ loop.index }}">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('info') %}
+    <div class="flash flash-info" id="flash-info-{{ loop.index }}">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('error') %}
+    <div class="flash flash-error" id="flash-error-{{ loop.index }}">{{ msg }}</div>
+{% endfor %}

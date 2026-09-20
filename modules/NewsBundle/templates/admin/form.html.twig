@@ -1,0 +1,61 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} News Post | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › News</p>
+                <h1>{{ mode }} News Post</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_news_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <form method="post" action="{{ post ? path('admin_bundle_news_edit', {id: post.id}) : path('admin_bundle_news_new') }}" class="form-grid config-form-grid">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                Title <span class="req">*</span>
+                <input type="text" name="title" value="{{ data.title ?? post.title ?? '' }}" required>
+                {% if errors.title is defined %}<span class="field-error">{{ errors.title }}</span>{% endif %}
+            </label>
+
+            <label class="span-2">
+                Excerpt
+                <textarea name="excerpt" rows="2" placeholder="Short teaser shown in the scroller">{{ data.excerpt ?? post.excerpt ?? '' }}</textarea>
+                {% if errors.excerpt is defined %}<span class="field-error">{{ errors.excerpt }}</span>{% endif %}
+            </label>
+
+            <label class="span-2">
+                Content <span class="req">*</span>
+                <span class="email-editor-shell">
+                    <span class="email-editor-toolbar">
+                        <button type="button" data-editor-action="code" title="Code">&lt;&gt;</button>
+                        <button type="button" data-editor-action="paragraph" title="Paragraph">&para;</button>
+                        <button type="button" data-editor-action="bold" title="Bold">B</button>
+                        <button type="button" data-editor-action="italic" title="Italic"><em>I</em></button>
+                        <button type="button" data-editor-action="strike" title="Strike"><s>S</s></button>
+                        <button type="button" data-editor-action="bullet" title="Bullet list">&bull; list</button>
+                        <button type="button" data-editor-action="number" title="Numbered list">1. list</button>
+                        <button type="button" data-editor-action="link" title="Link">link</button>
+                    </span>
+                    <textarea name="content" rows="12" required>{{ data.content ?? post.content ?? '' }}</textarea>
+                </span>
+                {% if errors.content is defined %}<span class="field-error">{{ errors.content }}</span>{% endif %}
+            </label>
+
+            <label>
+                Published At <span class="req">*</span>
+                <input type="datetime-local" name="published_at" value="{{ data.published_at ?? (post ? post.publishedAt|date('Y-m-d\\TH:i') : 'now'|date('Y-m-d\\TH:i')) }}" required>
+                {% if errors.published_at is defined %}<span class="field-error">{{ errors.published_at }}</span>{% endif %}
+            </label>
+
+            <div class="form-actions">
+                <button type="submit" class="button primary">{{ mode }} Post</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% for row in rows %}
+    <tr class="data-item-row">
+        <td data-label="Policy"><strong>{{ row.policy.name }}</strong><br><small>{{ row.policy.describe }}</small></td>
+        <td data-label="Identity">{{ row.policy.mode }}</td>
+        <td data-label="In">{{ row.policy.trackIn ? 'Yes' : 'No' }}</td>
+        <td data-label="Out">{{ row.policy.trackOut ? 'Yes' : 'No' }}</td>
+        <td data-label="Expiry">{{ row.policy.requiresExpiry ? 'Required' : '—' }}</td>
+        <td data-label="Sentinels">
+            in {{ row.policy.sentinelIn ?? '(blank)' }} / out {{ row.policy.sentinelOut ?? '(blank)' }}
+        </td>
+        <td data-label="Products">{{ row.products }}</td>
+        <td data-label="Actions">
+            {# One control per row, opened by the browser rather than by app.js — see
+               admin/_row_actions_no_js.html.twig for why this is <details> and not the
+               `.row-action-toggle` the other grids use. #}
+            <details class="row-action-menu no-js-row-actions">
+                <summary class="table-action" aria-label="Actions for {{ row.policy.name }}">Actions</summary>
+                <div class="row-action-dropdown">
+                    <a href="{{ path('admin_tracking_policy_edit', {id: row.policy.id}) }}">Edit</a>
+                    {# Offered only where the controller would allow it, so the menu does not hold a
+                       button whose only outcome is a refusal. The controller refuses both cases
+                       again regardless — the guard is there, not here. #}
+                    {% if row.policy.name != defaultName and row.products == 0 %}
+                        <form method="post" action="{{ path('admin_tracking_policy_delete', {id: row.policy.id}) }}">
+                            {{ csrf_field() }}
+                            <button class="danger" type="submit">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </details>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="8" class="empty-table-cell">
+            <strong>No tracking policies yet.</strong>
+            <span>Add one to declare what identity a product's stock must carry.</span>
+        </td>
+    </tr>
+{% endfor %}

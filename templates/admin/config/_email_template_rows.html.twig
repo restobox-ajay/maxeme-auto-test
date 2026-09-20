@@ -1,0 +1,49 @@
+{% for template in templates %}
+    <tr>
+        <td data-label="Module">{{ template.module }}</td>
+        <td data-label="Sent To">{{ template.sentTo }}</td>
+        <td data-label="Subject">{{ template.subject }}</td>
+        <td data-label="Body"><pre class="template-body-preview">{{ template.body }}</pre></td>
+        <td data-label="Description">{{ template.description|default('-') }}</td>
+        {#
+            Default / Modified / Custom. "Modified" is a field-by-field comparison against the
+            version that ships, so it is advisory rather than authoritative — whitespace an editor
+            introduced reads as a change. That is deliberate: the same comparison inside a migration
+            deciding what to delete would cost an admin their edits, whereas being wrong here costs
+            one glance at the template (#507).
+        #}
+        <td data-label="Source">
+            <span class="badge {{ template.origin == 'Modified' ? 'info' : (template.origin == 'Custom' ? '' : 'success') }}">{{ template.origin }}</span>
+        </td>
+        <td data-label="Status"><span class="badge {{ template.status == 'Inactive' ? 'danger-soft' : '' }}">{{ template.status }}</span></td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <button class="table-action info js-view-template" type="button" data-url="{{ path('admin_email_template_preview', {code: template.code}) }}" data-module="{{ template.module }}">View</button>
+                <a class="table-action" href="{{ path('admin_email_template_update', {code: template.code}) }}">Edit</a>
+                {#
+                    Only offered where there is something to revert TO — a template an admin
+                    authored has no shipped version behind it.
+
+                    form= + formaction= rather than a nested <form>: this whole table lives inside
+                    the GET filter form, and a form inside a form is dropped outright by the HTML
+                    parser, so a nested one would silently never render. The button associates with
+                    the POST form emitted after the filter form in email_templates.html.twig and
+                    overrides its action per row. No JS, and no _token leaking into the filter URL.
+                #}
+                {% if template.origin == 'Modified' %}
+                    <button class="table-action danger" type="submit"
+                            form="email-template-revert-form"
+                            formaction="{{ path('admin_email_template_revert', {code: template.code}) }}"
+                            onclick="return confirm('Reset “{{ template.module|e('js') }}” to the version that ships with the application? Your changes to it will be discarded.');">Revert</button>
+                {% endif %}
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="8" class="empty-table-cell">
+            <strong>No email templates found.</strong>
+            <span>Try clearing the filters above.</span>
+        </td>
+    </tr>
+{% endfor %}

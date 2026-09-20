@@ -1,0 +1,65 @@
+{#
+    The counterpart of `admin/company/_address_card_body.html.twig`. `address` is a VendorAddress
+    entity (not a row array — company's own partial reads a row array shaped for the CUSTOMER
+    screen's flatter data; the vendor screen has no such row builder and reads the entity directly,
+    the way the rest of this bundle's address forms already do).
+
+    Every field read below — companyName, contactName, emailPrimary, emailSecondary, fax, phone —
+    is declared once on `App\Entity\AbstractPartyAddress`, the mapped superclass both
+    `App\Entity\CompanyAddress` and `VendorAddress` extend (#635). That shared vocabulary is why
+    this partial and the customer's read the same field names for the same concepts despite two
+    separate tables; only the FK and the "what is this address FOR" flags differ by side, which is
+    also why this partial cannot simply BE the customer one — that one is shaped for a row array,
+    not an entity, and reads two default flags where a vendor address carries four purposes.
+
+    Params: address (VendorAddress|null), vendor (Vendor), compact (bool)
+#}
+{% if address %}
+    <div class="address-card-body">
+        <dl class="address-detail-list">
+            <div>
+                <dt>Company Name</dt>
+                <dd>{{ address.companyName ?: vendor.name }}</dd>
+            </div>
+            <div>
+                <dt>Contact</dt>
+                <dd>{{ address.contactName ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Email</dt>
+                <dd>{{ address.emailPrimary ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Secondary Email</dt>
+                <dd>{{ address.emailSecondary ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Fax</dt>
+                <dd>{{ address.fax ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Phone Number</dt>
+                <dd>{{ address.phone ?: '-' }}</dd>
+            </div>
+            <div class="address-lines">
+                <dt>Address</dt>
+                <dd>{{ address.toSnapshot|nl2br }}</dd>
+            </div>
+            <div>
+                <dt>Purposes</dt>
+                <dd>{{ address.purposeLabels is empty ? '-' : address.purposeLabels|join(', ') }}</dd>
+            </div>
+        </dl>
+        <div class="address-card-actions">
+            <a href="{{ path('admin_bundle_procurement_vendor_address_form', {id: vendor.id, address: address.id}) }}">Edit</a>
+            {% if not compact %}
+                <button class="link-button js-delete" type="submit" form="delete-address-{{ address.id }}">Delete</button>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="address-card-body address-card-empty">
+        <p>No address selected yet.</p>
+        <a class="button primary company-card-action" href="{{ path('admin_bundle_procurement_vendor_address_form', {id: vendor.id}) }}">Add Address</a>
+    </div>
+{% endif %}

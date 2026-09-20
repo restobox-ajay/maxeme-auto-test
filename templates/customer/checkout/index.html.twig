@@ -1,0 +1,366 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Checkout | {{ site_name() }}{% endblock %}
+
+{% block customer_body %}
+    {% include 'customer/_main/_cart_hold_banner.html.twig' %}
+    {% set actor = app.user %}
+    {# Adding or editing a company address is owner-only everywhere, checkout included (#522 §3), so
+       staff pick from the addresses an owner already saved. CompanyAddressController enforces it. #}
+    {% set canManageAddresses = actor and 'ROLE_COMPANY_OWNER' in actor.roles %}
+
+    <section class="checkout-page-head">
+        <h1>Checkout</h1>
+        <nav aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span>&rsaquo;</span>
+            <span>Checkout</span>
+        </nav>
+    </section>
+
+    <div class="checkout-page">
+        <div class="checkout-main">
+            <section class="checkout-card checkout-cart-review">
+                <h2>Order Items</h2>
+                <div class="checkout-card-body">
+                    <div class="cart-table-wrap">
+                        <table class="cart-table checkout-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Unit</th>
+                                    <th>Price</th>
+                                    <th>Qty</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in rows %}
+                                    <tr>
+                                        <td class="cart-item-name">{{ row.name }}<br><small>SKU: {{ row.sku }}</small></td>
+                                        <td data-label="Unit">{{ row.unit ?: '-' }}</td>
+                                        {% if row.priceResolved %}
+                                            <td data-label="Price">${{ row.price|price }}</td>
+                                        {% else %}
+                                            <td data-label="Price"><em>Quote required</em></td>
+                                        {% endif %}
+                                        <td data-label="Qty">{{ row.qty }}</td>
+                                        {% if row.priceResolved %}
+                                            <td data-label="Subtotal">${{ row.subtotal|amount }}</td>
+                                        {% else %}
+                                            <td data-label="Subtotal"><em>TBD</em></td>
+                                        {% endif %}
+                                    </tr>
+                                {% endfor %}
+                                {% for feeLine in feeLines|default([]) %}
+                                    {% if feeLine.placement == 'main_line' %}
+                                        <tr class="fee-line-row">
+                                            <td class="cart-item-name">{{ feeLine.label }}</td>
+                                            <td data-label="Unit">&mdash;</td>
+                                            <td data-label="Price">&mdash;</td>
+                                            <td data-label="Qty">&mdash;</td>
+                                            <td data-label="Subtotal">${{ feeLine.amount|amount }}</td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <a class="button outline" href="{{ path('customer_cart') }}">Edit Cart</a>
+                </div>
+            </section>
+
+            <section class="checkout-shipping-section">
+                <div class="checkout-address-columns">
+                    <div class="checkout-address-column">
+                        <h2>Shipping Address{% if company.name %} ({{ company.name }}){% endif %}</h2>
+                        <form method="post" action="{{ path('customer_checkout_set_address') }}" class="checkout-address-select-form">
+                            {{ csrf_field() }}
+                            <div class="checkout-address-select-row">
+                                <select name="ship_address_id" class="form-control checkout-address-select" onchange="this.form.submit()" aria-label="Choose shipping address">
+                                    <option value="">Choose Address&hellip;</option>
+                                    {% for address in addresses %}
+                                        <option value="{{ address.id }}" {{ selectedShippingAddressId and address.id == selectedShippingAddressId ? 'selected' : '' }}>{{ address.label|default(address.companyName|default('Address')) ?: 'Address' }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if canManageAddresses %}
+                                    <a class="button outline checkout-address-add" href="{{ path('customer_company_addresses_create', {return_to: 'checkout'}) }}" target="_blank" rel="noopener">+ Address</a>
+                                {% endif %}
+                                <button class="sr-only" type="submit">Update shipping address</button>
+                            </div>
+                        </form>
+
+                        {% if shippingAddress %}
+                            {% set shipDetailName = ((shippingAddress.firstName|default('') ~ ' ' ~ shippingAddress.lastName|default(''))|trim) %}
+                            <div class="checkout-address-detail">
+                                {% if shipDetailName %}{{ shipDetailName }}<br>{% endif %}
+                                {% if shippingAddress.phone %}{{ shippingAddress.phone }}<br>{% endif %}
+                                {{ shippingAddress.addressLine1 }}<br>
+                                {% if shippingAddress.addressLine2 %}{{ shippingAddress.addressLine2 }}<br>{% endif %}
+                                {{ shippingAddress.city }}{% if shippingAddress.province %}, {{ province_name(shippingAddress.country, shippingAddress.province) }}{% endif %}<br>
+                                {{ country_name(shippingAddress.country) }}{% if shippingAddress.postalCode %}, {{ shippingAddress.postalCode }}{% endif %}
+                                {% if canManageAddresses %}
+                                    <div class="checkout-address-detail-actions">
+                                        <a class="button outline" href="{{ path('customer_company_addresses_edit', {'id': shippingAddress.id, 'return_to': 'checkout'}) }}">Edit</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="checkout-address-detail is-empty">
+                                <strong>No shipping addresses yet</strong>
+                                <p>Add a company shipping address to complete checkout.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="checkout-address-column">
+                        <h2>Billing Address</h2>
+                        <form method="post" action="{{ path('customer_checkout_set_billing_address') }}" class="checkout-address-select-form">
+                            {{ csrf_field() }}
+                            <div class="checkout-address-select-row">
+                                <select name="bill_address_id" class="form-control checkout-address-select" onchange="this.form.submit()" aria-label="Choose billing address">
+                                    <option value="">Choose Address&hellip;</option>
+                                    {% for address in addresses %}
+                                        <option value="{{ address.id }}" {{ selectedBillingAddressId and address.id == selectedBillingAddressId ? 'selected' : '' }}>{{ address.label|default(address.companyName|default('Address')) ?: 'Address' }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if canManageAddresses %}
+                                    <a class="button outline checkout-address-add" href="{{ path('customer_company_addresses_create', {return_to: 'checkout'}) }}" target="_blank" rel="noopener">+ Address</a>
+                                {% endif %}
+                                <button class="sr-only" type="submit">Update billing address</button>
+                            </div>
+                        </form>
+
+                        {% if billingAddress %}
+                            {% set billDetailName = ((billingAddress.firstName|default('') ~ ' ' ~ billingAddress.lastName|default(''))|trim) %}
+                            <div class="checkout-address-detail">
+                                {% if billDetailName %}{{ billDetailName }}<br>{% endif %}
+                                {% if billingAddress.phone %}{{ billingAddress.phone }}<br>{% endif %}
+                                {{ billingAddress.addressLine1 }}<br>
+                                {% if billingAddress.addressLine2 %}{{ billingAddress.addressLine2 }}<br>{% endif %}
+                                {{ billingAddress.city }}{% if billingAddress.province %}, {{ province_name(billingAddress.country, billingAddress.province) }}{% endif %}<br>
+                                {{ country_name(billingAddress.country) }}{% if billingAddress.postalCode %}, {{ billingAddress.postalCode }}{% endif %}
+                                {% if canManageAddresses %}
+                                    <div class="checkout-address-detail-actions">
+                                        <a class="button outline" href="{{ path('customer_company_addresses_edit', {'id': billingAddress.id, 'return_to': 'checkout'}) }}">Edit</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="checkout-address-detail is-empty">
+                                <strong>No billing address selected</strong>
+                                <p>Choose or add an address above.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <form id="checkout-order-form" method="post" action="{{ path('customer_checkout_submit') }}" class="checkout-order-form">
+                {{ csrf_field() }}
+                <input type="hidden" name="ship_name" value="{{ shippingValues.ship_name|default('') }}">
+
+                <section class="checkout-card checkout-order-info">
+                    <h2>Order Info</h2>
+                    <div class="checkout-card-body">
+                        <label>
+                            <span>Company name</span>
+                            <input class="form-control" name="order_company_name" type="text" value="{{ company.name }}">
+                        </label>
+                        <label>
+                            <span>Phone Number</span>
+                            <input class="form-control" name="order_phone_number" type="tel" value="{{ actor.phoneNumber|default(company.phoneNumber|default('')) }}">
+                        </label>
+                        <label>
+                            <span>Expected Delivery Time</span>
+                            <textarea class="form-control" name="expected_delivery_time" rows="3"></textarea>
+                        </label>
+                        <label>
+                            <span>PO #</span>
+                            <input class="form-control" name="po_number" type="text" maxlength="80" value="">
+                        </label>
+                        <label>
+                            <span>Special Instructions</span>
+                            <textarea id="checkout-notes" name="checkout_notes" class="form-control" rows="6"></textarea>
+                        </label>
+                    </div>
+                </section>
+            </form>
+        </div>
+
+        <aside class="checkout-side">
+            <section class="checkout-card checkout-shipping-method-card">
+                <h2>Delivery Options</h2>
+                <div class="checkout-card-body">
+                    <form method="post" action="{{ path('customer_checkout_set_shipping') }}" class="checkout-shipping-form">
+                        {{ csrf_field() }}
+
+                        {% if shippingOptions is not empty %}
+                            <div class="checkout-shipping-options-wrap">
+                                {% for option in shippingOptions %}
+                                    <label class="checkout-shipping-option">
+                                        <input type="radio" name="shipping_method_choice" value="{{ option.label }}|{{ option.amount }}" data-amount="{{ option.amount }}" {{ option.label == selectedShippingLabel ? 'checked' : '' }}>
+                                        <span>{{ option.label }}{% if option.description %} &mdash; {{ option.description }}{% endif %}</span>
+                                        <strong class="checkout-shipping-option-amount"{{ shippingWaived ? ' data-free="1"' : '' }}>{{ option.forcesQuote ? 'TBD' : (shippingWaived ? 'FREE' : '$' ~ option.amount|amount) }}</strong>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="checkout-shipping-placeholder">No shipping options are available for the selected address yet.</p>
+                        {% endif %}
+
+                        <button class="button primary" type="submit">Update Delivery Options</button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="checkout-card checkout-total-card">
+                <h2>Cart Totals</h2>
+                <div class="cart-summary-body">
+                    {% if pricingRegion|default('') %}
+                        <div class="cart-summary-row">
+                            <span>Pricing Region:</span>
+                            <strong>{{ pricingRegion }}</strong>
+                        </div>
+                    {% endif %}
+                    <div class="cart-summary-row">
+                        <span>Subtotal:</span>
+                        <strong>${{ (subtotal|default(0) + feeTotalsMainLine|default(0))|amount }}</strong>
+                    </div>
+
+                    {% if couponsEnabled|default(false) %}
+                    <div class="cart-summary-row checkout-coupon-row">
+                        <span>Coupon Code:</span>
+                        {% if coupon %}
+                            <form method="post" action="{{ path('customer_checkout_remove_coupon') }}" class="checkout-coupon-applied">
+                                {{ csrf_field() }}
+                                <span>{{ coupon.code }}</span>
+                                <button class="button outline" type="submit">Remove</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{{ path('customer_checkout_set_coupon') }}">
+                                {{ csrf_field() }}
+                                <input class="form-control" type="text" name="coupon_code" value="{{ couponCode }}" placeholder="Enter coupon code">
+                                <button class="button primary" type="submit">Apply</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if totals.discount > 0 %}
+                        <div class="cart-summary-row">
+                            <span>Discount:</span>
+                            <strong>-${{ totals.discount|amount }}</strong>
+                        </div>
+                    {% endif %}
+
+                    <div class="cart-summary-row">
+                        <span>Shipping:{% if shippingForcesQuote %} <em>(Quote required)</em>{% elseif shippingWaived %} <em>(Free shipping over ${{ freeShippingThreshold|amount('compact') }})</em>{% endif %}</span>
+                        {% if shippingForcesQuote %}
+                            <strong id="checkout-shipping-total" class="cart-price-tbd">TBD</strong>
+                        {% else %}
+                            <strong id="checkout-shipping-total"{{ totals.shipping <= 0 ? ' class="cart-summary-free"' : '' }}>{{ totals.shipping <= 0 ? 'FREE' : '$' ~ totals.shipping|amount }}</strong>
+                        {% endif %}
+                    </div>
+
+                    {% for feeLine in feeLines|default([]) %}
+                        {% if feeLine.placement == 'before_tax_line' %}
+                            <div class="cart-summary-row">
+                                <span>{{ feeLine.label }}:</span>
+                                <strong>${{ feeLine.amount|amount }}</strong>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    {% for taxLine in taxLines|default([]) %}
+                        <div class="cart-summary-row">
+                            <span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span>
+                            <strong>${{ taxLine.amount|amount }}</strong>
+                        </div>
+                    {% endfor %}
+                    {% for feeLine in feeLines|default([]) %}
+                        {% if feeLine.placement == 'after_tax_line' %}
+                            <div class="cart-summary-row">
+                                <span>{{ feeLine.label }}:</span>
+                                <strong>${{ feeLine.amount|amount }}</strong>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="cart-summary-row total">
+                        <span>Grand Total:</span>
+                        <strong>${{ totals.total|amount }}</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="checkout-card checkout-payment-card">
+                <h2>Payment Method</h2>
+                <div class="checkout-card-body">
+                    <form method="post" action="{{ path('customer_checkout_set_payment_method') }}" class="checkout-payment-form">
+                        {{ csrf_field() }}
+
+                        {% if paymentMethods is not empty %}
+                            <div class="checkout-payment-options-wrap">
+                                {% for method in paymentMethods %}
+                                    <div class="checkout-payment-option">
+                                        {{ method.renderCheckoutOption({selected: selectedPaymentMethodSlug})|raw }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="checkout-payment-placeholder">No payment methods are currently available for your account. Please contact your account representative.</p>
+                        {% endif %}
+
+                        <button class="button primary" type="submit">Update Payment Method</button>
+                    </form>
+                    <div class="checkout-payment-fallback">
+                        {% if paymentTermName %}
+                            <div class="checkout-payment-term">
+                                <span>Payment Term</span>
+                                <strong>{{ paymentTermName }}</strong>
+                            </div>
+                        {% endif %}
+                        {% if willBeEstimate|default(false) %}
+                            <p class="checkout-payment-copy checkout-estimate-notice">
+                                Some pricing/shipping on this order still needs to be confirmed, so this will be submitted as a quote request. We'll follow up with final pricing before anything ships.
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <button class="button primary full-width checkout-confirm" type="submit" form="checkout-order-form" {{ shippingAddress ? '' : 'disabled' }}>
+                Submit Order
+            </button>
+            {% if not shippingAddress %}
+                <p class="checkout-payment-copy">Select a shipping address above before submitting your order.</p>
+            {% endif %}
+        </aside>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {% set hasStripe = false %}
+    {% for method in paymentMethods|default([]) %}
+        {% if method.slug == 'stripe' %}{% set hasStripe = true %}{% endif %}
+    {% endfor %}
+    {% if hasStripe %}
+        <script src="https://js.stripe.com/v3/"></script>
+    {% endif %}
+    <script>
+        (function () {
+            var shippingWaived = {{ shippingWaived ? 'true' : 'false' }};
+            var totalEl = document.getElementById('checkout-shipping-total');
+            if (!totalEl || shippingWaived) {
+                return;
+            }
+            document.querySelectorAll('input[name="shipping_method_choice"]').forEach(function (input) {
+                input.addEventListener('change', function () {
+                    var amount = parseFloat(input.dataset.amount || '0');
+                    totalEl.textContent = '$' + amount.toFixed(2);
+                    totalEl.classList.remove('cart-summary-free');
+                });
+            });
+        })();
+    </script>
+    {{ parent() }}
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends 'emails/layout.html.twig' %}
+
+{#
+    The email that carries a purchase order to its vendor (#555).
+
+    The `purchase_order_vendor` fallback view, in EmailNotifier's sense: PurchaseOrderController::
+    send() asks EmailTemplateRenderer for the code first, and this renders only when nothing
+    resolves — which today means "no admin has created a row for it". An admin who wants to reword
+    it creates `purchase_order_vendor` in Settings → Email Templates and their row wins outright,
+    exactly as it does for every other code in the catalogue.
+
+    It ships as a view rather than as a 23rd entry in ShippedEmailTemplates because that class is
+    byte-pinned to the migration chain by ShippedEmailTemplatesMatchTheChainTest — it is the record
+    of the 22 templates #507 lifted OUT of the chain, and a 23rd would have to be seeded back INTO
+    the chain to keep it green. See the note on the constants in PurchaseOrderController.
+
+    Every value is read through |default() so that a copy of this body pasted into the admin
+    template editor still previews: the preview renders against a fixed mock context that knows
+    nothing about a purchase order, and a bare {{ purchase_order.x }} under strict_variables would
+    fail there rather than render.
+
+    Note what this does NOT say. It asks a supplier to fulfil an order; it does not ask anyone to
+    pay anything, so there is no total-due language, no payment link and no terms-of-payment demand
+    — the PO total is stated as what we expect to be charged, and the vendor's own invoice is what
+    starts that conversation.
+#}
+
+{% block title %}Purchase order {{ purchase_order.poNumber|default('') }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Purchase Order {{ purchase_order.poNumber|default('') }}</h2>
+    <p>Hello <strong>{{ purchase_order.vendorName|default('') }}</strong>,</p>
+    <p>
+        Please find attached our purchase order
+        <span class="highlight">{{ purchase_order.poNumber|default('') }}</span>.
+        The PDF attached to this email is the order in full; the summary below is for convenience.
+    </p>
+
+    <div class="order-summary-box">
+        <table class="detail-table">
+            <tr>
+                <td class="detail-label">PO number:</td>
+                <td class="detail-value">{{ purchase_order.poNumber|default('') }}</td>
+            </tr>
+            <tr>
+                <td class="detail-label">PO date:</td>
+                <td class="detail-value">{{ purchase_order.documentDate|default('-') }}</td>
+            </tr>
+            <tr>
+                <td class="detail-label">Requested delivery:</td>
+                <td class="detail-value">{{ purchase_order.expectedDate|default('-') }}</td>
+            </tr>
+            <tr>
+                <td class="detail-label">Deliver to:</td>
+                <td class="detail-value">{{ purchase_order.warehouse.name|default('-') }}</td>
+            </tr>
+            <tr>
+                <td class="detail-label">Payment terms:</td>
+                <td class="detail-value">{{ purchase_order.paymentTerm|default('-') }}</td>
+            </tr>
+            <tr>
+                <td class="detail-label">Order total:</td>
+                <td class="detail-value">{{ purchase_order.currency|default('') }} {{ purchase_order.total|default('0.00') }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="line-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Your part no.</th>
+                <th>Quantity</th>
+                <th>Unit cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in purchase_order.lines|default([]) %}
+                <tr>
+                    <td>{{ line.name }}</td>
+                    <td>{{ line.vendorSku|default('-') }}</td>
+                    <td>{{ line.quantityOrdered }}</td>
+                    <td>{{ line.unitCost }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p>
+        Please confirm receipt of this order, along with your expected ship date, and quote
+        {{ purchase_order.poNumber|default('this purchase order number') }} on your order
+        confirmation, packing slips and invoice.
+    </p>
+{% endblock %}

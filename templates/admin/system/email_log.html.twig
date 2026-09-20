@@ -1,0 +1,114 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Email Log | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Email Log</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {# The URL is the only source of truth for what the grid is showing, so the controls are
+       repopulated straight from the query string rather than from anything the controller chose
+       to hand back — a pasted link and a submitted form then render identically. #}
+    {% set currentFilters = app.request.query.all('filters') %}
+    {% set currentSearch = app.request.query.get('q', '') %}
+    {% set currentSort = currentSort|default('id') %}
+    {% set currentDir = currentDir|default('desc') %}
+    {% set routeQuery = {q: currentSearch, sort: currentSort, dir: currentDir, limit: currentLimit, filters: currentFilters} %}
+    {# data-link-controls stands the table JS down, exactly as the order and estimate grids do:
+       the form below is a plain GET form, so filtering is a normal navigation and every control's
+       state lives in the URL. The data-filter-field attributes stay for the shared JS that reads
+       them elsewhere (and for the selectors tests and styles use). #}
+    <section class="table-card email-log-grid no-paginate"
+             data-link-controls="true"
+             data-ajax-url="{{ path('admin_email_log') }}"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        <div class="table-scroll-region">
+        <div class="table-header">
+            {# The form *is* the .table-tools flex row (rather than a wrapper around it) so the
+               search box and button stay laid out as they were. The filter-row controls sit in
+               table cells and cannot be nested inside it, so they join via form="...". #}
+            <form id="email-log-filters-form" class="table-tools" method="get" action="{{ path('admin_email_log') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentLimit }}">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                <input class="table-search email-log-search" type="search" name="q" value="{{ currentSearch }}" placeholder="Search logs..." aria-label="Search logs">
+                <button class="button primary js-email-log-search" type="submit">Search</button>
+                <a class="button outline" href="{{ path('admin_email_log') }}">Reset</a>
+            </form>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="email-log-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="date">Date</th>
+                        <th data-sort-field="module">Module</th>
+                        <th data-sort-field="to">To Address</th>
+                        <th data-sort-field="subject">Subject</th>
+                        <th data-sort-field="body">Body</th>
+                        <th data-sort-field="status">Status</th>
+                    </tr>
+                    <tr class="filter-row">
+                        {# A date picker, matching the Quotes grid's Created filter: the controller
+                           turns one whole calendar day into a UTC window, so a whole calendar day
+                           is the only input it can honour. #}
+                        <th><input type="date" name="filters[date]" form="email-log-filters-form" value="{{ currentFilters.date|default('') }}" data-filter-field="date" aria-label="Filter date" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"></th>
+                        <th>
+                            <select name="filters[module]" form="email-log-filters-form" data-filter-field="module" aria-label="Filter module" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value=""></option>
+                                <option value="password" {{ currentFilters.module|default('') == 'password' ? 'selected' : '' }}>Password Reset</option>
+                                <option value="invite" {{ currentFilters.module|default('') == 'invite' ? 'selected' : '' }}>Invitation</option>
+                                <option value="order" {{ currentFilters.module|default('') == 'order' ? 'selected' : '' }}>Order</option>
+                                <option value="registration" {{ currentFilters.module|default('') == 'registration' ? 'selected' : '' }}>Registration</option>
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[to]" form="email-log-filters-form" value="{{ currentFilters.to|default('') }}" data-filter-field="to" aria-label="Filter to address"></th>
+                        <th><input type="text" name="filters[subject]" form="email-log-filters-form" value="{{ currentFilters.subject|default('') }}" data-filter-field="subject" aria-label="Filter subject"></th>
+                        <th><input type="text" name="filters[body]" form="email-log-filters-form" value="{{ currentFilters.body|default('') }}" data-filter-field="body" aria-label="Filter body"></th>
+                        <th>
+                            <select name="filters[status]" form="email-log-filters-form" data-filter-field="status" aria-label="Filter status" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+                                <option value=""></option>
+                                <option {{ currentFilters.status|default('') == 'Sent' ? 'selected' : '' }}>Sent</option>
+                                <option {{ currentFilters.status|default('') == 'Failed' ? 'selected' : '' }}>Failed</option>
+                                <option {{ currentFilters.status|default('') == 'Queued' ? 'selected' : '' }}>Queued</option>
+                            </select>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/system/_email_log_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: logs|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_email_log',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

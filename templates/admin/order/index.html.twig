@@ -1,0 +1,316 @@
+﻿{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Orders | Admin{% endblock %}
+{% block admin_body %}
+    {# #539 stage 2's statuses. Void has no tab for the same reason Cancelled never had one: it is
+       the soft delete, and the list is of live business. #}
+    {% set tabs = ['All Orders', 'Draft', 'Approved', 'Partially Invoiced', 'Invoiced', 'Closed'] %}
+    {% set filters = app.request.query.all('filters') %}
+    {% set activeStatus = filters.status|default('') %}
+    {% set currentPage = page|default(1) %}
+    {% set currentPageLimit = limit|default(app.request.query.getInt('limit', 100)) %}
+    {% set currentSort = app.request.query.get('sort', 'id') %}
+    {% set currentDir = app.request.query.get('dir', 'desc') %}
+    {% set pageCount = pages|default((total / (currentPageLimit ?: 1))|round(0, 'ceil')) %}
+    {# The customer this grid is scoped to, carried onto every link the screen generates — filter
+       bar, status tabs, sort headers, per-page and pagination. A scope that survived the first
+       click and not the second would be worse than none: the grid would quietly widen to every
+       customer mid-session with nothing on the page saying so.
+
+       Read from the CONTROLLER's scope rather than off the query string, which is what this used
+       to do: `app.request.query.all('OrderSearch')` answers whatever the URL holds, including the
+       id of a customer that does not exist and shapes that are not ids at all, and the template
+       then had a second opinion about the scope from the one the query was built with. When the id
+       matched nothing it is carried onward too, so the empty list stays empty. #}
+    {% set scopeCompanyId = company ? company.id : (companyScopeMissingId is defined and companyScopeMissingId ? companyScopeMissingId : null) %}
+    {% set orderScope = scopeCompanyId ? {OrderSearch: {company_id: scopeCompanyId}} : {} %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {% set startPage = currentPage - 2 %}
+    {% if startPage < 1 %}
+        {% set startPage = 1 %}
+    {% endif %}
+    {% set endPage = startPage + 4 %}
+    {% if endPage > pageCount %}
+        {% set endPage = pageCount %}
+    {% endif %}
+    {% set startPage = endPage - 4 %}
+    {% if startPage < 1 %}
+        {% set startPage = 1 %}
+    {% endif %}
+    <section class="panel compact-panel order-list-hero">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Orders</p>
+                <h1>{{ company ? 'List orders for ' ~ company.name : 'List orders' }}</h1>
+                {% if company %}
+                    {# Whose orders these are, in the heading and again in words: a filtered grid
+                       that reads like an unfiltered one is how a total gets misread as the whole
+                       business rather than one customer's share of it. #}
+                    <p class="lead">Only the orders of {{ company.name }}. Every count and total below covers this customer alone.</p>
+                {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    <p class="lead">
+                        No orders are listed: this link asks for
+                        {{ companyScopeMissingId ? 'customer ' ~ companyScopeMissingId ~ ', and no such customer exists' : 'a customer, and the id it gives is not one' }}.
+                        Listing every customer's orders instead would answer a question nobody asked.
+                    </p>
+                {% else %}
+                    <p class="lead">
+                        Review purchase orders, how much of each has been invoiced, payment state rolled up from those invoices, and customer-linked order activity from one admin grid.
+                    </p>
+                {% endif %}
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ company ? path('admin_company_detail_by_id', {id: company.id}) : path('admin_company_index') }}">Back to customer</a>
+                {% if company or (companyScopeMissingId is defined and companyScopeMissingId is not null) %}
+                    {# The way back out of a scope is a link on the page, not a URL to remember —
+                       and that matters MOST when the scope resolved to nobody, because then the
+                       grid has nothing on it to click. #}
+                    <a class="button outline" href="{{ path('admin_order_index') }}">All Orders</a>
+                {% endif %}
+                <a class="button primary" href="{{ company ? path('admin_order_create', {OrderSearch: {company_id: company.id}}) : path('admin_order_create') }}">Create Order</a>
+            </div>
+        </div>
+    </section>
+
+    {% set orderQueryBase = {limit: currentPageLimit, filters: filters}|merge(orderScope) %}
+    {% set showPerPageSelector = not scopeCompanyId %}
+    <section class="table-card order-admin-grid no-search no-paginate"
+             data-link-controls="true"
+             data-ajax-url="{{ path('admin_order_index') }}"
+             data-current-page="{{ page }}"
+             data-per-page="{{ limit }}"
+             data-total="{{ total }}"
+             data-pages="{{ (total / (limit ?: 1))|round(0, 'ceil') }}">
+
+        <div class="table-scroll-region">
+        {# â”€â”€ Filter bar (scrolls with the table; header below sticks once this scrolls past) â”€â”€ #}
+        <div class="order-filter-section">
+            <form id="order-grid-filters-form" class="order-filter-fields" method="get" action="{{ path('admin_order_index') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentPageLimit }}">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                {# Plain GET, no JavaScript: the scope has to ride the form itself or submitting a
+                   column filter would drop it. #}
+                {% if scopeCompanyId %}
+                    <input type="hidden" name="OrderSearch[company_id]" value="{{ scopeCompanyId }}">
+                {% endif %}
+                <span class="order-filter-label">Filter by:</span>
+                <label class="order-filter-field">
+                    <span>Date From</span>
+                    <input type="date" name="filters[documentDateFrom]" value="{{ filters.documentDateFrom|default('') }}" data-filter-field="documentDateFrom">
+                </label>
+                <label class="order-filter-field">
+                    <span>Date To</span>
+                    <input type="date" name="filters[documentDateTo]" value="{{ filters.documentDateTo|default('') }}" data-filter-field="documentDateTo">
+                </label>
+                <div class="order-filter-field">
+                    <span>Batch</span>
+                    <div class="batch-field-group">
+                        <input type="number" name="filters[batchNumber]" min="1" step="1" placeholder="#" value="{{ filters.batchNumber|default('') }}" data-filter-field="batchNumber">
+                        <span class="batch-x-sep">×</span>
+                        <input type="date" name="filters[batchDate]" value="{{ filters.batchDate|default('') }}" data-filter-field="batchDate">
+                    </div>
+                </div>
+                <div class="order-filter-actions">
+                    <button class="button primary" type="submit">Search</button>
+                    <a class="button outline" href="{{ path('admin_order_index', orderScope) }}">Reset</a>
+                </div>
+            </form>
+
+            <nav class="order-status-tabs">
+                {% for tab in tabs %}
+                    {% set tabStatus = loop.first ? '' : tab %}
+                    {% set tabFilters = {} %}
+                    {% for key, value in filters %}
+                        {% if key != 'status' and value is not same as('') %}
+                            {% set tabFilters = tabFilters|merge({ (key): value }) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if tabStatus != '' %}
+                        {% set tabFilters = tabFilters|merge({'status': tabStatus}) %}
+                    {% endif %}
+                        {% set tabQuery = {
+                        page: 1,
+                        limit: currentPageLimit,
+                        sort: currentSort,
+                        dir: currentDir,
+                        filters: tabFilters
+                    } %}
+                    {% set tabQuery = tabQuery|merge(orderScope) %}
+                    <a class="{{ (tabStatus == activeStatus) or (loop.first and activeStatus == '') ? 'is-active' : '' }}"
+                       href="{{ path('admin_order_index', tabQuery) }}">{{ tab }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div class="wide-table-wrap">
+            <table class="order-list-table">
+                {# Twelve columns since #539 stage 6 dropped Invoice Date: an order billed across
+                   several invoices has several invoice dates, so the column now lives on the
+                   Invoices grid, where each row genuinely has one. #}
+                <colgroup>
+                    <col style="width: 85px">
+                    <col style="width: 100px">
+                    <col style="width: 100px">
+                    <col style="width: 70px">
+                    <col style="width: 70px">
+                    <col style="width: 80px">
+                    <col style="width: 60px">
+                    <col style="width: 80px">
+                    <col style="width: 88px">
+                    <col style="width: 100px">
+                    <col style="width: 100px">
+                    <col style="width: 82px">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'orderNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="orderNumber"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'orderNumber', dir: currentSort == 'orderNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Order #</a></th>
+                        <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="company"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'company', dir: currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Customer</a></th>
+                        <th class="is-sortable{% if currentSort == 'shippingCompanyName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="shippingCompanyName"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'shippingCompanyName', dir: currentSort == 'shippingCompanyName' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Shipping<br>Company</a></th>
+                        <th class="is-sortable{% if currentSort == 'userName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="userName"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'userName', dir: currentSort == 'userName' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">User</a></th>
+                        <th class="is-sortable{% if currentSort == 'billingName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="billingName"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'billingName', dir: currentSort == 'billingName' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Billing<br>Name</a></th>
+                        <th class="is-sortable{% if currentSort == 'shippingName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="shippingName"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'shippingName', dir: currentSort == 'shippingName' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Shipping<br>Name</a></th>
+                        <th class="is-sortable{% if currentSort == 'poNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="poNumber"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'poNumber', dir: currentSort == 'poNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">PO #</a></th>
+                        <th class="is-sortable{% if currentSort == 'total' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="total"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'total', dir: currentSort == 'total' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Total</a></th>
+                        <th class="is-sortable{% if currentSort == 'documentDate' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="documentDate"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'documentDate', dir: currentSort == 'documentDate' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Order Date</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Status</a></th>
+                        <th class="is-sortable{% if currentSort == 'paymentStatus' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="paymentStatus"><a href="{{ path('admin_order_index', orderQueryBase|merge({page: 1, sort: 'paymentStatus', dir: currentSort == 'paymentStatus' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Payment<br>Status</a></th>
+                        <th style="width: 80px; text-align: center;">Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[orderNumber]" form="order-grid-filters-form" value="{{ filters.orderNumber|default('') }}" data-filter-field="orderNumber" aria-label="Filter order number"></th>
+                        <th><input type="text" name="filters[company]" form="order-grid-filters-form" value="{{ filters.company|default(company ? company.name : '') }}" data-filter-field="company" aria-label="Filter customer"></th>
+                        <th><input type="text" name="filters[shippingCompanyName]" form="order-grid-filters-form" value="{{ filters.shippingCompanyName|default('') }}" data-filter-field="shippingCompanyName" aria-label="Filter shipping company"></th>
+                        <th><input type="text" name="filters[userName]" form="order-grid-filters-form" value="{{ filters.userName|default('') }}" data-filter-field="userName" aria-label="Filter user"></th>
+                        <th><input type="text" name="filters[billingName]" form="order-grid-filters-form" value="{{ filters.billingName|default('') }}" data-filter-field="billingName" aria-label="Filter billing name"></th>
+                        <th><input type="text" name="filters[shippingName]" form="order-grid-filters-form" value="{{ filters.shippingName|default('') }}" data-filter-field="shippingName" aria-label="Filter shipping name"></th>
+                        <th><input type="text" name="filters[poNumber]" form="order-grid-filters-form" value="{{ filters.poNumber|default('') }}" data-filter-field="poNumber" aria-label="Filter PO number"></th>
+                        <th><input type="text" name="filters[total]" form="order-grid-filters-form" value="{{ filters.total|default('') }}" data-filter-field="total" aria-label="Filter total"></th>
+                        <th>
+                            <input type="date" name="filters[documentDate]" form="order-grid-filters-form" value="{{ filters.documentDate|default('') }}" data-filter-field="documentDate" aria-label="Filter order date" onchange="submitOrderGridFilters('documentDate', this)">
+
+
+                        </th>
+                        <th>
+                            <select name="filters[status]" form="order-grid-filters-form" data-filter-field="status" aria-label="Filter status" onchange="submitOrderGridFilters('status', this)">
+                                <option value=""></option>
+                                {% for tab in tabs|slice(1) %}
+                                    <option value="{{ tab }}" {{ filters.status|default('') == tab ? 'selected' : '' }}>{{ tab }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[paymentStatus]" form="order-grid-filters-form" data-filter-field="paymentStatus" aria-label="Filter payment status" onchange="submitOrderGridFilters('paymentStatus', this)">
+                                <option value=""></option>
+                                <option {{ filters.paymentStatus|default('') == 'Not Paid' ? 'selected' : '' }}>Not Paid</option>
+                                <option {{ filters.paymentStatus|default('') == 'Partially Paid' ? 'selected' : '' }}>Partially Paid</option>
+                                <option {{ filters.paymentStatus|default('') == 'Paid' ? 'selected' : '' }}>Paid</option>
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/order/_list_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+
+        <div class="table-footer">
+            {% if showPerPageSelector %}
+                <form method="get" action="{{ path('admin_order_index') }}">
+                    <input type="hidden" name="page" value="1">
+                    <input type="hidden" name="sort" value="{{ currentSort }}">
+                    <input type="hidden" name="dir" value="{{ currentDir }}">
+                    {% if scopeCompanyId %}
+                        <input type="hidden" name="OrderSearch[company_id]" value="{{ scopeCompanyId }}">
+                    {% endif %}
+                    {% for key, value in filters %}
+                        <input type="hidden" name="filters[{{ key }}]" value="{{ value }}">
+                    {% endfor %}
+                    <label class="per-page-label">
+                        Per page
+                        <select name="limit" onchange="this.form.submit()">
+                            {% for size in [20, 100, 200, 500] %}
+                                <option value="{{ size }}" {{ currentPageLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </form>
+            {% endif %}
+            {% include 'admin/_table_count.html.twig' with {
+                count: orders|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentPageLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_order_index',
+                routeQuery: {limit: currentPageLimit, sort: currentSort, dir: currentDir, filters: filters}|merge(orderScope),
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+    {# â”€â”€ Approve modal (order listing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ #}
+    <div class="admin-modal-overlay" id="order-approve-modal" data-order-id="" data-status="">
+        <div class="admin-modal">
+            <button type="button" class="admin-modal-x js-modal-close" aria-label="Close dialog">Ã—</button>
+            <div class="admin-modal-header">
+                <h2>Approve Order</h2>
+            </div>
+            <div class="admin-modal-body">
+                <p class="admin-modal-question">Do you want to send email to customer?</p>
+            </div>
+            <div class="admin-modal-footer admin-modal-footer-split">
+                <button type="button" class="button primary js-approve-send">Yes</button>
+                <button type="button" class="button danger js-approve-nosend">No</button>
+            </div>
+        </div>
+    </div>
+
+    {# â”€â”€ Cancel modal (order listing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ #}
+    <div class="admin-modal-overlay" id="order-cancel-modal" data-order-id="" data-status="">
+        <div class="admin-modal">
+            <button type="button" class="admin-modal-x js-modal-close" aria-label="Close dialog">Ã—</button>
+            <div class="admin-modal-header">
+                <h2>Cancel Order</h2>
+            </div>
+            <div class="admin-modal-body">
+                <p class="admin-modal-question">Do you want to send email to customer?</p>
+            </div>
+            <div class="admin-modal-footer admin-modal-footer-split">
+                <button type="button" class="button primary js-cancel-send">Yes</button>
+                <button type="button" class="button danger js-cancel-nosend">No</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+function submitOrderGridFilters(fieldName, inputEl) {
+    var form = document.getElementById('order-grid-filters-form') || (inputEl && inputEl.form) || null;
+    if (!form) { return; }
+
+    if (fieldName === 'documentDate') {
+        var dateFrom = form.querySelector('[name="filters[documentDateFrom]"]');
+        var dateTo = form.querySelector('[name="filters[documentDateTo]"]');
+        if (dateFrom) { dateFrom.value = ''; }
+        if (dateTo) { dateTo.value = ''; }
+    }
+
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,30 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Invoice for Order #{{ order.orderNumber }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Order Confirmation</h2>
+    <p>Hello <strong>{{ order.companyIdentity.name }}</strong>,</p>
+    <p>Thank you for your order! We have processed your invoice for order <span class="highlight">#{{ order.orderNumber }}</span>. Please find the PDF invoice attached to this email for your records.</p>
+    
+    <div class="order-summary-box">
+        <div class="summary-row">
+            <span>Order Number:</span>
+            <strong>{{ order.orderNumber }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Order Date:</span>
+            <strong>{{ order.documentDate|calendar_date('F j, Y') }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Grand Total:</span>
+            <strong>${{ order.total|amount }}</strong>
+        </div>
+    </div>
+
+    <p>If you have any questions regarding this invoice or your order status, please don't hesitate to reach out to our billing department.</p>
+    
+    <div style="text-align: center;">
+        <a href="{{ order_url|default('#') }}" class="button">View Order Details</a>
+    </div>
+{% endblock %}

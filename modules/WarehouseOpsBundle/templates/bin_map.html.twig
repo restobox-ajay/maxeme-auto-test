@@ -1,0 +1,102 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Bin Map | Admin{% endblock %}
+{% block admin_body %}
+    <style>
+        .bin-map-grid { display: grid; gap: 0.25rem; overflow-x: auto; padding-bottom: 0.5rem; }
+        .bin-map-cell { border: 1px solid rgba(127,127,127,0.4); border-radius: 0.2rem; padding: 0.3rem; font-size: 0.75rem; min-width: 5.5rem; color: inherit; text-decoration: none; display: block; }
+        .bin-map-cell .code { font-weight: bold; display: block; }
+        .bin-map-cell .route { opacity: 0.7; }
+        .bin-map-cell.is-empty { background: rgba(127,127,127,0.08); }
+        .bin-map-cell.is-light { background: rgba(80,160,80,0.18); }
+        .bin-map-cell.is-full { background: rgba(80,160,80,0.42); }
+    </style>
+
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'map',
+        heading: 'Bin Map',
+        lead: 'The physical layout, so a pick path that zigzags stops being invisible. Sort key is entered by a person and is wrong the day a shelf is renumbered — every cell shows its route position for exactly that reason.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <form method="get" class="form-grid">
+            <label>Warehouse
+                <select name="filters[warehouse]" onchange="this.form.submit()">
+                    {% for w in warehouses %}<option value="{{ w.id }}"{{ warehouse and warehouse.id == w.id ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Zone
+                <select name="filters[zone]" onchange="this.form.submit()">
+                    <option value="">All</option>
+                    {% for z in zones %}<option value="{{ z }}"{{ filters.zone == z ? ' selected' : '' }}>{{ z }}</option>{% endfor %}
+                </select>
+            </label>
+            {# The controller has always accepted this filter; nothing rendered a box for it, so
+               "which bins hold this product" — the third thing this screen is for — could not be
+               asked. With a product set, every unit count below is that product's. #}
+            <label>Product
+                <input type="text" name="filters[product]" value="{{ filters.product }}" placeholder="SKU or name">
+                <small>Counts and shading become this product's units only.</small>
+            </label>
+            {# The onchange handlers above are the convenience; this button is what makes the
+               filters applicable at all with JavaScript off. #}
+            <div class="form-actions"><button class="button" type="submit">Show</button></div>
+        </form>
+    </section>
+
+    {% if placed is not empty %}
+        <section class="panel">
+            <h2>Layout</h2>
+            <div class="bin-map-grid" style="grid-template-columns: repeat({{ columns }}, minmax(5.5rem, 1fr));">
+                {% for bin in placed %}
+                    {% set units = occupancy[bin.id] ?? 0 %}
+                    {# #787 §6: every cell links to the filtered Stock screen for this bin, same
+                       bundle so no extra route guard is needed beyond the Stock screen's own. #}
+                    <a class="bin-map-cell {{ units == 0 ? 'is-empty' : (units < 50 ? 'is-light' : 'is-full') }}"
+                       style="grid-column: {{ bin.mapX }}; grid-row: {{ bin.mapY }};"
+                       href="{{ path('admin_bundle_warehouse_ops_stock', {filters: {bin: bin.code, warehouse: warehouse.id}}) }}"
+                       title="{{ bin.code }} — route {{ bin.sortKey }}, {{ units }} unit(s)">
+                        <span class="code">{{ bin.code }}</span>
+                        <span class="route">#{{ bin.sortKey }}</span> · {{ units }}
+                    </a>
+                {% endfor %}
+            </div>
+            <p class="lead">
+                Shading is available units in the bin{% if filters.product %}, of products matching
+                <strong>{{ filters.product }}</strong> only{% endif %}. Read the route numbers left to right, row by
+                row: if they do not climb steadily, the pick path is not the physical walk, and every round pays for it.
+            </p>
+        </section>
+    {% endif %}
+
+    <section class="panel">
+        <h2>Place bins</h2>
+        <p class="lead">A bin appears on the map once it has both coordinates; clear either one to take it off again.</p>
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_bin_map_save') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="warehouse_id" value="{{ warehouse ? warehouse.id : 0 }}">
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Bin</th><th>Type</th><th>Route</th><th>Units</th><th>Zone</th><th>Aisle</th><th>Column</th><th>Row</th></tr></thead>
+                <tbody>
+                    {% for bin in unplaced|merge(placed) %}
+                        <tr>
+                            <td>{{ bin.code }}</td>
+                            <td>{{ bin.type }}</td>
+                            <td>{{ bin.sortKey }}</td>
+                            <td>{{ occupancy[bin.id] ?? 0 }}</td>
+                            <td><input type="text" name="bins[{{ bin.id }}][zone]" value="{{ bin.zone }}" maxlength="32"></td>
+                            <td><input type="text" name="bins[{{ bin.id }}][aisle]" value="{{ bin.aisle }}" maxlength="32"></td>
+                            <td><input type="number" name="bins[{{ bin.id }}][x]" value="{{ bin.mapX }}" min="1" max="500"></td>
+                            <td><input type="number" name="bins[{{ bin.id }}][y]" value="{{ bin.mapY }}" min="1" max="500"></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">
+                            <strong>This warehouse has no bins yet.</strong>
+                            <span>Create them on the Inventory Depth bins screen.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+            <div class="form-actions"><button class="button primary" type="submit">Save placements</button></div>
+        </form>
+    </section>
+{% endblock %}

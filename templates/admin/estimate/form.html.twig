@@ -1,0 +1,572 @@
+{% extends 'admin/_base/commercial_document_edit.html.twig' %}
+{# What the last save had to rewrite on a line, handed back by EstimateController through the flash
+   bag (SalesDocumentLineWarnings): `lineWarnings` states it in words, `lineWarningQtyRows` and
+   `lineWarningPriceRows` list the zero-based rows whose quantity / price cell is painted red. All
+   are rendered server-side, not by script — the quote SAVED, so this banner is the only thing
+   telling a no-JS admin that a figure they typed is not the one that was stored on a document that
+   converts into an order. #}
+{% set lineWarnings = lineWarnings|default([]) %}
+{% set lineWarningQtyRows = lineWarningQtyRows|default([]) %}
+{% set lineWarningPriceRows = lineWarningPriceRows|default([]) %}
+{# Whether the catalog is past EstimateController::PRODUCT_SELECT_INLINE_LIMIT (#399) — passed to
+   the shared sales_lines_table.html.twig/sales_line_js_templates.html.twig below. #}
+{% set productsRemote = productsRemote|default(false) %}
+{# This quote's line-table columns — the shared base (#full-parity, 2026-09-13) plus this
+   document's own tail: no Batch (EstimateLine has no batch field — a lot is allocated at
+   fulfilment, and a quote allocates nothing), then Actions with no caption at all (the cell is
+   26px of round buttons with no room for one). Price's own header names the create page's TBD
+   rule, replacing the shared entry rather than appending. #}
+{% import 'admin/_partials/sales_line_columns.html.twig' as line_columns %}
+{% set estimateLineColumns = line_columns.base()|json_decode|map(c => c.key == 'price' ? c|merge({header: estimate ? 'Price' : 'Price (optional)'}) : c)|merge([
+    {key: 'actions', label: 'Actions', header: ''},
+]) %}
+
+{# ── The frame's parameters ──────────────────────────────────────────────────
+   The page's own shell — the hero, the workspace card, the line-items section, the footer and the
+   customer chooser — is admin/_base/commercial_document_edit.html.twig, shared with the order form and
+   the invoice create screen. What is left in this file is the quote's own vocabulary.
+
+   Step one is the bare customer chooser: order's create page renders literally only that until a
+   company is picked, and this does the same. Posting just company_id (no save_mode) sends
+   EstimateController::create() back here with ?company_id=X, which is what fills in the workspace. #}
+{% set workspaceReady = (estimate or company) ? true : false %}
+{% set formId = 'estimate-form' %}
+{% set formClass = 'js-estimate-form' %}
+{% set formAction = estimate ? path('admin_estimate_edit', {id: estimate.id}) : path('admin_estimate_create') %}
+{% set pickerAction = path('admin_estimate_create') %}
+{% set heroEyebrow = estimate ? 'Fill in pricing' : 'New quote' %}
+{% set heroLead = estimate
+    ? 'Add, remove or re-point line items, fill in any missing line prices and shipping, then send pricing back to the customer.'
+    : (company ? '' : 'Choose a customer first so pricing, billing, shipping, and account context can be applied to the quote.') %}
+{% set linesHeading = 'Line Items' %}
+{# Shipping is not in that list: it's whatever type=shipping charge rows the add-line bar adds, on
+   create just as on edit. Edit has real figures to show and says nothing. #}
+{% set footerNote = estimate ? '' : 'Tax and fees are calculated when the estimate is saved.' %}
+
+{% block title %}{{ estimate ? 'Edit Quote ' ~ estimate.documentNumber : 'Create Quote' }} | Admin{% endblock %}
+
+{% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+{# The totals box's <noscript> charge rows need the same .no-js-charge-rows CSS rule Order's own
+   no_js_noscript_style override states — its .order-total-box styles direct div children as CSS
+   grid rows, and the quote's box is that same shared macro/class now (#full-parity, 2026-09-13),
+   so it needs the same rule. Quote never overrode this block before; the frame's own default
+   lacked it. #}
+{% block no_js_noscript_style %}{{ js_templates.no_js_rules() }}{% endblock %}
+
+
+{# The quote's Fulfillment Region — order's own control (order/form.html.twig:290-306), rendered
+   for both quote branches from the one macro.
+
+   `regions` are the company's ACTIVE regions, which is what decides its price list; `selected` is
+   what the quote already holds; `stale` is that same value when the company no longer has it
+   active. A stale region is rendered as an extra selected option and kept: offering only the live
+   regions would leave nothing selected, and the server-side requirement would then force an admin
+   to re-point the region of a quote in flight before they could correct a PO number (#237).
+
+   Everything here is server-rendered, including the warning — the whole point is that it reaches a
+   no-JS admin, who otherwise has nothing telling them this quote carries a region its company no
+   longer has.
+
+   The `required` attribute is real, and it is the one place the two forms never disagreed about
+   what the rule was: EstimateController::applyEstimateFulfillmentRegion() and
+   OrderController::resolveFulfillmentRegion() both refuse a save that leaves it empty where the
+   company has active regions (#237/#251/#261). It used to be decoration on the ORDER form, which
+   carried novalidate and switched every native constraint off; that attribute is gone (#248), so
+   the browser now asserts on both forms exactly what both servers enforce. #}
+{% macro estimate_fulfillment_region_field(regions, selected, stale) %}
+    {% set regions = regions|default([]) %}
+    {% set selected = selected|default('') %}
+    {% set options = stale ? regions|merge([stale]) : regions %}
+    <label class="order-field-row">
+        <span>Fulfillment Region:{% if regions is not empty %} <span class="req">*</span>{% endif %}</span>
+        {% if options is not empty %}
+            {# A company with exactly one active region has an unambiguous answer, so pre-select it
+               even for a quote saved before this field existed — same rule order's form uses. #}
+            {% set selected = selected ?: (regions|length == 1 ? regions[0] : '') %}
+            <select name="fulfillment_region" {{ regions is not empty ? 'required' : '' }}>
+                <option value=""></option>
+                {% for region in options %}
+                    <option value="{{ region }}" {{ selected == region ? 'selected' : '' }}>{{ region }}</option>
+                {% endfor %}
+            </select>
+        {% else %}
+            <input type="text" value="No fulfillment regions configured for this customer" disabled>
+        {% endif %}
+    </label>
+    {% if stale %}
+        <div class="form-warning-banner js-estimate-stale-region">
+            Fulfillment Region <strong>{{ stale }}</strong> is no longer configured for this customer. This quote can be saved as usual — check whether it is still correct.
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% block hero_heading %}<h1>{{ estimate ? 'Edit Quote ' ~ estimate.documentNumber : 'Create Quote' }}</h1>{% endblock %}
+
+{# Order's form has exactly ONE action-button row per mode, and this is where edit mode keeps it:
+   edit's panel-actions holds Back + the saves and the form below renders no workspace action row
+   at all, while create mode keeps the saves in the form's own action row and puts the company
+   affordances — "Change Customer" back to the bare picker, plus a filtered list link — up here
+   instead. Mirrored exactly so neither mode shows a duplicate Back+Save pair stacked above the row
+   that already has one. #}
+{% block hero_actions %}
+                {% if estimate %}
+                    <a class="button back-button" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">Back</a>
+                    {# These post the form further down the page, exactly like order/edit's
+                       panel-actions "Save Order" button does via form="order-form". #}
+                    {# Split the same way order/edit splits its plain save: "Recalculate" stays on the
+                       edit page so refreshed fee/tax totals are visible, "Exit" leaves for detail.
+                       Labeled "Save as Draft & ..." only while still Draft — for every later status
+                       this plain save does not put the quote back in Draft, so the label must not
+                       imply it does. #}
+                    <button class="button primary" type="submit" form="estimate-form" name="action" value="save">{{ estimate.status == 'Draft' ? 'Save as Draft & Recalculate' : 'Save & Recalculate' }}</button>
+                    <button class="button primary" type="submit" form="estimate-form" name="action" value="save_exit">{{ estimate.status == 'Draft' ? 'Save as Draft & Exit' : 'Save & Exit' }}</button>
+                    {% if estimate.status == 'Draft' %}
+                        <button class="button primary" type="submit" form="estimate-form" name="save_mode" value="submit">Save &amp; Make Visible to Customer</button>
+                    {% endif %}
+                    <button class="button primary" type="submit" form="estimate-form" name="action" value="send_pricing">Save &amp; Send Pricing to Customer</button>
+                    {% if estimate.status in ['Submitted', 'Priced'] %}
+                        {# Not "delete" or "cancel" — the quote survives, it just goes back to being
+                           invisible to the customer, same as before it was ever submitted. For when
+                           the admin decides the customer should not see this quote right now. #}
+                        <button class="button outline" type="submit" form="estimate-form" name="action" value="save_draft">Save Back to Draft</button>
+                    {% endif %}
+                {% elseif company %}
+                    {# Order's create page has no company <select> in its info card — the company is
+                       a hidden field and a static "Company Name:" row, and this link is the only way
+                       to re-point it. Same here, so the button no longer sits inside the info card. #}
+                    <a class="button back-button" href="{{ path('admin_estimate_create') }}">Change Customer</a>
+                    <a class="button outline" href="{{ path('admin_estimate_index', {filters: {company: company.name}}) }}">List Estimates</a>
+                {% else %}
+                    <a class="button back-button" href="{{ path('admin_estimate_index') }}">Back</a>
+                {% endif %}
+{% endblock %}
+
+{% block tab_nav %}
+    {% if estimate %}
+        {# ── Tab nav — same set detail's page shows, "Edit / Price" as the current tab. The edit
+           route already redirects locked (Accepted/Rejected) estimates back to detail before this
+           template ever renders, so unlike detail's nav this one needs no `locked` guard. #}
+        <nav class="company-action-links order-tab-nav" aria-label="Quote edit actions">
+            <a class="button" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">View</a>
+            <a class="button is-current" href="{{ path('admin_estimate_edit', {id: estimate.id}) }}">Edit / Price</a>
+            <a class="button" href="{{ path('admin_estimate_quote', {id: estimate.id}) }}">Quote PDF</a>
+            {% if estimate.convertedOrder %}
+                <a class="button" href="{{ path('admin_order_detail', {id: estimate.convertedOrder.id}) }}">View Converted Order</a>
+            {% endif %}
+            {% if estimate.status == 'Priced' %}
+                {# See admin/estimate/detail.html.twig for why this is gated to Priced alone (#392),
+                   and for why accepting no longer creates an order. There is no Convert control on
+                   this screen and should not be: the edit route sends Accepted quotes back to
+                   detail before this template renders, so the only quote that can reach here is one
+                   that has not been accepted yet. #}
+                <form method="post" action="{{ path('admin_estimate_accept', {id: estimate.id}) }}" style="display:inline;" onsubmit="return confirm('Accept this quote on the customer\'s behalf? This cannot be undone.');">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Accept Quote</button>
+                </form>
+            {% endif %}
+            <button type="button" class="button danger js-estimate-reject" data-url="{{ path('admin_estimate_update_status', {id: estimate.id}) }}">Reject Quote</button>
+        </nav>
+    {% endif %}
+{% endblock %}
+
+{# data-next-line-index is the first row index no rendered row has taken, so a JS-added row cannot
+   land on one that already posts. Edit renders the quote's own lines at 0..n-1 and the two no-JS
+   spares after them; create renders one live row at 0 and the same two spares, which is 3 — and
+   max(0, 1) + 2 is 3, so the one expression answers for both modes rather than create hard-coding
+   the number it happens to reach. The spare rows are display:none with scripting on but STILL
+   POST, which is why their indexes count. Order's form carries the same attribute for the same
+   reason.
+
+   data-next-charge-index is edit-only: a quote that does not exist yet has no stored charges to
+   count past, and app.js reads the attribute's absence as 0. #}
+{# data-estimate-charges/data-fee-lines-url/data-tax-breakdown-url: the same live fee/tax preview
+   Order's form carries, given to Quote for the first time (#full-parity, 2026-09-13) — the two
+   AJAX endpoints exist now (EstimateController::feeLinesAjax()/taxBreakdownAjax()), so there is no
+   reason left for Quote's totals to only recompute on a full save/reload. #}
+{% block form_attributes %} data-next-line-index="{{ (estimate ? max(estimate.lines|length, 1) : 1) + 2 }}"{% if estimate %} data-next-charge-index="{{ chargeLines|default([])|length }}"{% endif %} data-estimate-charges="{{ chargeLines|default([])|json_encode|e('html_attr') }}" data-fee-lines-url="{{ path('admin_estimate_fee_lines') }}" data-tax-breakdown-url="{{ path('admin_estimate_tax_breakdown') }}"{% endblock %}
+
+{% block form_head %}
+                {% if estimate %}
+                    {# Round-trips the version this page was rendered with back to
+                       EstimateController::edit(), which refuses the submit outright if the quote's
+                       current version no longer matches — see the version check at the top of edit()'s
+                       POST handling. The same field order's form.html.twig carries for the order
+                       (#417); the quote had none, which is why the second of two concurrent saves used
+                       to win silently.
+
+                       No data-version-check-url here, deliberately: that attribute is app.js's polling
+                       hook for the order's admin_order_version_check endpoint, and the quote has no
+                       such endpoint. Adding a dead attribute would claim a poll that never happens.
+                       This field is the protection; the poll is only an early warning, and the app
+                       works without JavaScript either way.
+
+                       Create mode carries no version: there is no row yet for a second admin to be
+                       racing over. #}
+                    <input type="hidden" name="version" class="js-estimate-version" value="{{ estimate.version }}">
+                    {# The quote SAVED — this is not a refusal. It says what the save had to change on
+                       the way in, naming the line, and the matching quantity or price cell below is
+                       red. Only edit can show one: the warnings ride a redirect off a save, and a
+                       create lands on edit. #}
+                    {% if lineWarnings is not empty %}
+                        <div class="form-error-banner line-warning-banner">
+                            {% for warning in lineWarnings %}
+                                <div>{{ warning }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    {# Order's create form carries the chosen company as a hidden field too — the info
+                       card below shows it as a static row, not a re-pointable <select>. #}
+                    <input type="hidden" name="company_id" value="{{ company.id }}">
+                    {# Said up front rather than after a whole quote has been typed. The refusal itself
+                       is EstimateController::create()'s, server-side — this banner only makes it
+                       visible before the work is done, and it is rendered here rather than by script so
+                       a no-JS admin sees it too. #}
+                    {% if fulfillmentRegions|default([]) is empty %}
+                        <div class="form-error-banner">
+                            {{ company.name }} has no active fulfillment region, so there is no price list to quote from. Activate a fulfillment region for this customer before creating a quote.
+                        </div>
+                    {% endif %}
+                {% endif %}
+{% endblock %}
+
+{# No action row in edit mode on purpose: order's edit page keeps its action buttons in the page's
+   panel-actions above (and its own bottom actions below), and rendering both left this page with
+   two near-identical Back+Save rows stacked. Create mode has no panel-actions saves, so it keeps
+   this row — and the frame renders no empty wrapper where there is nothing to put in it. #}
+{% block top_actions %}
+                {% if not estimate %}
+                        <a class="button back-button" href="{{ path('admin_estimate_index') }}">Back</a>
+                        <button class="button primary" type="submit" name="save_mode" value="draft">Save as Draft</button>
+                        <button class="button primary" type="submit" name="save_mode" value="submit">Save &amp; Make Visible to Customer</button>
+                {% endif %}
+{% endblock %}
+
+{% block context %}
+    {% import _self as estimate_form %}
+    {%- import 'admin/_partials/sales_address_cards.html.twig' as address_form %}
+                <div class="order-workspace-grid">
+                    {# A company is already resolved by the time this renders in create mode (the bare
+                       picker posts just company_id, no save_mode, and EstimateController::create()
+                       redirects back here with ?company_id=X — the same trick OrderController::create()
+                       uses), so this card carries it exactly the way order's Order Info card does: a
+                       hidden field plus a static name row, with the "Change Customer" link up in the
+                       page's action-bar as the only way to re-point it. #}
+                    <section class="order-form-panel">
+                        <h2>Quote Info</h2>
+                        {# company is companyToRow() of the quote's own company in edit mode, so this
+                           is the same name `estimate.company.name` used to print — one expression for
+                           both rather than two that have to be kept saying the same thing. #}
+                        <div class="order-field-row static">
+                            <label>Customer Name:</label>
+                            <strong>{{ company.name }}</strong>
+                        </div>
+                        {% if estimate %}
+                            <div class="order-field-row static">
+                                <label>Estimate #:</label>
+                                <strong>{{ estimate.documentNumber }}</strong>
+                            </div>
+                            {# The one status-ish field this document owns — the quote's acceptance
+                               status. The order names its own status beside the page heading and its
+                               payment status in this card; a quote has nothing paid and nothing to
+                               fulfil, so this is the only one it has and it sits here. #}
+                            <div class="order-field-row static">
+                                <label>Status:</label>
+                                <strong><span class="badge {{ estimate.status == 'Accepted' ? 'success' : (estimate.status == 'Rejected' ? 'danger' : (estimate.status == 'Draft' ? 'warn' : '')) }}">{{ estimate.status }}</span></strong>
+                            </div>
+                        {% endif %}
+                        {# Order's Order Info card's Primary Email/Company Phone, bound to the quote's
+                           OWN frozen company identity rather than the live Company row — see
+                           EstimateController::applyEstimateCompanyCard(). Payment Status/Method/Term
+                           are deliberately not mirrored: nothing has been paid on a quote and Estimate
+                           has no column to persist them on.
+
+                           Snapshot first, live company only as a fallback — an empty snapshot value
+                           means "never recorded", not "recorded as blank", and covers quotes that
+                           predate the identity carrying these fields. A new quote has no snapshot at
+                           all, so create seeds these from the live company and the save freezes what
+                           comes back. Neither mode ever writes to company.*. #}
+                        <label class="order-field-row">
+                            <span>Primary Email:</span>
+                            <input type="email" name="primary_email" value="{{ estimate and estimate.companyIdentity.email|default('') ? estimate.companyIdentity.email : company.email|default('') }}">
+                        </label>
+                        <label class="order-field-row">
+                            <span>Customer Phone:</span>
+                            <input type="text" name="company_phone" value="{{ estimate and estimate.companyIdentity.phone|default('') ? estimate.companyIdentity.phone : company.phoneNumber|default('') }}">
+                        </label>
+                        <label class="order-field-row">
+                            <span>PO #:</span>
+                            <input type="text" name="po_number" maxlength="80" value="{{ estimate ? estimate.poNumber|default('') : '' }}">
+                        </label>
+                        {# Editable, like order's Invoice Date — the quote's own document date is the
+                           admin's to correct, and setDocumentDate() has always been able to persist
+                           it. Labeled "Quote Date" while an order labels the same field "Order Date":
+                           documentDate is the shared field, and each subclass names its own. The
+                           POST field stays quote_date for the same reason. #}
+                        <label class="order-field-row">
+                            <span>Quote Date:</span>
+                            <input type="date" name="quote_date" value="{{ estimate ? estimate.documentDate : 'now'|date('Y-m-d') }}">
+                        </label>
+                        <label class="order-field-row">
+                            <span>Special Instructions:</span>
+                            <input type="text" name="special_instructions" value="{{ estimate ? estimate.specialInstructions|default('') : '' }}">
+                        </label>
+                        {# The quote's region decides which price list its suggested prices came from,
+                           and EstimateConversionService copies it verbatim onto the order — so this is
+                           the field the whole quote/order price agreement rests on. A new quote has no
+                           stored region to keep or warn about, which is why the controller hands
+                           create an empty selection and no stale region rather than this template
+                           knowing to pass literals. #}
+                        {{ estimate_form.estimate_fulfillment_region_field(fulfillmentRegions|default([]), fulfillmentRegion|default(''), staleFulfillmentRegion|default(null)) }}
+                    </section>
+
+                    {{ address_form.address_cards(company, billingAddress, shippingAddress, addressBook) }}
+
+                    {# The admin-defined fields, in the same place on the page the order form puts
+                       them (templates/admin/order/form.html.twig): last card of the workspace grid,
+                       after the address cards and before the line table. Same guard shape too — the
+                       panel is absent entirely when no definition renders, rather than an empty
+                       "Custom Fields" heading on every quote in an installation that defines none.
+
+                       Form only, deliberately. Custom fields have never appeared on a detail/view
+                       screen in this application and do not start here. #}
+                    {% if customFieldFragment is defined and customFieldFragment %}
+                        <section class="order-form-panel">
+                            <h2>Custom Fields</h2>
+                            {{ customFieldFragment|raw }}
+                        </section>
+                    {% endif %}
+                </div>
+{% endblock %}
+
+{# Order's exact pair (templates/admin/order/form.html.twig): a product row gets a picker, a blank
+   row gets a free-text name. Sits above the table, same as order's does. #}
+{% block lines_toolbar %}
+    {{ include('admin/_partials/sales_lines_toolbar.html.twig', {
+        hook: 'estimate',
+        shippingOptions: shippingOptions|default([]),
+        sentinel: true,
+        categoryFilter: true,
+    }, with_context = false) }}
+{% endblock %}
+
+{% block lines_note %}
+                    {# Both buttons above are type="button" and do nothing without JS. Without them
+                       the admin fills one of the two spare .no-js-row rows at the bottom of the
+                       table and saves; the page that comes back renders two fresh ones — on create
+                       that page is the new quote's edit page, so the loop continues there. #}
+                    {% if estimate %}
+                        {# Order's hint, worded for a quote (#259), merged into the stock notice box
+                           rather than its own separate line so every quote-line rule reads as one
+                           list in one place instead of two disconnected notes. Blank Qty and blank
+                           Price are the quote-only halves, stated because nothing else on the page
+                           says them.
+                           Stated plainly because nothing else on this page says it, and the assumption
+                           runs the other way: an admin building a large quote has every reason to think
+                           the stock is being held for them. It is not, and not by configuration — the
+                           reconciliation subscriber only ever reacts to SalesOrder and SalesOrderLine,
+                           so a quote has no relationship to inventory at any status. Stock is touched
+                           for the first time when EstimateConversionService::convert() turns an accepted
+                           quote into an order, which is also where it can be refused (#326, #327). #}
+                        <div class="quote-stock-notice">
+                            <p>
+                                <strong>Quotes do NOT hold any stock until it is converted into an order.</strong>
+                                The quantity in stock is shown on each line for reference — a quote may promise more than
+                                that, but the order it becomes cannot.
+                            </p>
+                            <ul>
+                                <li>A line's Qty may be 0 — placeholder and soft-note lines are written that way.</li>
+                                <li>A negative quantity is stored as 0 and flagged on the line it happened to, and so is a Price that cannot be read as a number.</li>
+                                <li>Leaving Price blank means "No pricing" on a quote.</li>
+                            </ul>
+                        </div>
+                    {% endif %}
+{% endblock %}
+
+{# Quote's own line-row data, normalized into the flat shape sales_line_row.html.twig (and the
+   shared sales_lines_table.html.twig it renders through) expects — mirrors the now-deleted
+   estimate_line_row macro's own flattening exactly. #}
+{% set estimateLineRows = [] %}
+{% for line in (estimate ? estimate.lines : []) %}
+    {% set flat = {
+        id: line.id,
+        productId: line.product ? line.product.id : '',
+        name: line.name,
+        location: line.location,
+        sku: line.sku,
+        qty: line.quantityEntered,
+        qtyRendered: line.quantityEntered,
+        weight: line.weight,
+        unit: line.unit,
+        unitId: line.unitOfMeasure ? line.unitOfMeasure.id : '',
+        baseUnitLabel: line.baseUnitLabel,
+        taxCode: line.taxCode,
+        cost: line.cost,
+        originalPrice: line.product and line.product.originalPrice ? line.product.originalPrice : 0,
+        price: line.displayUnitPrice is not null ? line.displayUnitPrice : '',
+        priceRendered: line.displayUnitPrice is not null ? line.displayUnitPrice : '',
+        subtotal: line.subtotal is not null ? line.subtotal : null,
+        qtyWarning: loop.index0 in lineWarningQtyRows,
+        priceWarning: loop.index0 in lineWarningPriceRows,
+        taxAmount: perLineTax[loop.index0]|default(0),
+        available: perLineAvailable[loop.index0]|default(null),
+    } %}
+    {% if line.unitOfMeasure %}
+        {% set flat = flat|merge({baseQuantity: line.quantity}) %}
+    {% endif %}
+    {% if line.unitOfMeasure and line.price is not null %}
+        {% set flat = flat|merge({
+            unitLabel: line.displayUnitLabel,
+            baseUnitPrice: line.baseUnitRate,
+            resolvedLineTotal: line.lineTotal,
+        }) %}
+    {% endif %}
+    {% set estimateLineRows = estimateLineRows|merge([flat]) %}
+{% endfor %}
+{% if not estimate %}
+    {# One row to start typing into. It is a PRODUCT row: a blank line is reached from the spare
+       blank row below or from "Add Blank Line" when scripting is on. #}
+    {% set estimateLineRows = [{type: 'product'}] %}
+{% endif %}
+{% set estimateMainLineFeeRows = [] %}
+{% for feeLine in (estimate ? estimate.feeLines|default('[]')|json_decode : []) %}
+    {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set estimateMainLineFeeRows = estimateMainLineFeeRows|merge([{label: feeLine.label, amount: feeLine.amount}]) %}
+    {% endif %}
+{% endfor %}
+
+{% block lines_table %}
+    {{ include('admin/_partials/sales_lines_table.html.twig', {
+        hook: 'estimate',
+        tableClass: 'wide-price-table estimate-line-table',
+        tableId: 'estimate-line-table',
+        tbodyId: 'estimate-line-rows',
+        lineColumns: estimateLineColumns,
+        lineRows: estimateLineRows,
+        lineRowOptions: {
+            lineClass: 'estimate-line-row',
+            actionsTemplate: 'admin/estimate/_line_actions.html.twig',
+            controlClass: 'form-control',
+            hook: 'estimate',
+            labelled: true,
+            nameInProductCell: true,
+            namePlaceholder: 'Custom line name',
+            nameHook: 'js-estimate-name',
+            catalogHooks: true,
+            productSelectClass: 'estimate-line-product-select',
+            productsRemote: productsRemote,
+            showsWarnings: true,
+            priceType: 'text',
+            pricePlaceholder: 'TBD',
+            priceInputMode: 'decimal',
+            subtotalFallback: 'TBD',
+            documentFulfillmentRegion: fulfillmentRegion|default(''),
+        },
+        products: products,
+        locations: locations,
+        productsRemote: productsRemote,
+        productSearchPath: path('admin_estimate_product_search'),
+        lineUnits: lineUnits|default({}),
+        mainLineFeeRows: estimateMainLineFeeRows,
+        submitted: submitted|default({}),
+    }, with_context = false) }}
+{% endblock %}
+
+{# Quote's totals box IS Order's (#full-parity, 2026-09-13). The one exception is TBD (#254): a
+   quote may be saved before every line is priced or shipping is resolved, so Subtotal/Total Tax/
+   Grand Total may each be the literal string 'TBD' — sales_totals_footer.html.twig prints that
+   as-is. Quote folds shipping into the same single Subtotal figure Order does. #}
+{% set _knownTotal = estimate and estimate.total is not null and estimate.tax is not null %}
+{% set estimateBeforeTax = _knownTotal ? (estimate.total - estimate.tax) : null %}
+{% set _feeLinesTotal = 0 %}
+{% set estimateBeforeTaxFeeLines = [] %}
+{% set estimateAfterTaxFeeLines = [] %}
+{% for feeLine in (estimate ? estimate.feeLines|default('[]')|json_decode : []) %}
+    {% if feeLine.type|default('fee') != 'shipping' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set _feeLinesTotal = _feeLinesTotal + feeLine.amount %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'before_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set estimateBeforeTaxFeeLines = estimateBeforeTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+    {% if feeLine.placement|default('main_line') == 'after_tax_line' and feeLine.source|default('auto-calc') != 'manual' %}
+        {% set estimateAfterTaxFeeLines = estimateAfterTaxFeeLines|merge([feeLine]) %}
+    {% endif %}
+{% endfor %}
+
+{% block lines_footer %}
+    {{ include('admin/_partials/sales_lines_footer.html.twig', {
+        hook: 'estimate',
+        chargeLines: chargeLines|default([]),
+        beforeTaxFeeLines: estimateBeforeTaxFeeLines,
+        afterTaxFeeLines: estimateAfterTaxFeeLines,
+        taxLines: taxLines|default([]),
+        subtotalDisplay: estimateBeforeTax is not null ? estimateBeforeTax|number_format(2) : 'TBD',
+        taxLinesTotalDisplay: _knownTotal ? taxLinesTotal|default(0)|number_format(2) : 'TBD',
+        grandTotalDisplay: _knownTotal ? estimate.total|number_format(2) : 'TBD',
+        feeLinesTotalDisplay: _feeLinesTotal|number_format(2),
+        pendingSlot: '<div class="js-estimate-total-pending" hidden><span>Lines not yet priced:</span><strong class="js-estimate-total-pending-count">0</strong></div>',
+    }, with_context = false) }}
+{% endblock %}
+
+{% block bottom_actions %}
+                        {% if estimate %}
+                            <button class="button primary" type="submit" name="action" value="save">{{ estimate.status == 'Draft' ? 'Save as Draft & Recalculate' : 'Save & Recalculate' }}</button>
+                            <button class="button primary" type="submit" name="action" value="save_exit">{{ estimate.status == 'Draft' ? 'Save as Draft & Exit' : 'Save & Exit' }}</button>
+                            {% if estimate.status == 'Draft' %}
+                                <button class="button primary" type="submit" name="save_mode" value="submit">Save &amp; Make Visible to Customer</button>
+                            {% endif %}
+                            <button class="button primary" type="submit" name="action" value="send_pricing">Save &amp; Send Pricing to Customer</button>
+                            {% if estimate.status in ['Submitted', 'Priced'] %}
+                                {# Not "delete" or "cancel" — the quote survives, it just goes back to
+                                   being invisible to the customer. #}
+                                <button class="button outline" type="submit" name="action" value="save_draft">Save Back to Draft</button>
+                            {% endif %}
+                        {% else %}
+                            <button class="button primary" type="submit" name="save_mode" value="draft">Save as Draft</button>
+                            <button class="button primary" type="submit" name="save_mode" value="submit">Save &amp; Make Visible to Customer</button>
+                        {% endif %}
+{% endblock %}
+
+{# Cloned by addEstimateLine() in app.js — same template-driven pattern order's
+   #order-product-line-template / #order-blank-line-template pair uses, so no add/remove/populate
+   logic lives in this page. Only worth shipping once there's a line table to clone rows into,
+   which is exactly when the frame renders this block.
+
+   The index is the literal `__INDEX__`, which addEstimateLine() replaces with the next free row
+   number off the form's data-next-line-index — order's addOrderLine() has always done this, and the
+   quote needs it now that a row's fields are grouped under its own index rather than appended to
+   parallel arrays. Clone the same index twice and the second row would overwrite the first on
+   submit, silently.
+
+   The charge-row template below is cloned by the .js-estimate-bottom-add handler, mirroring order's
+   #order-charge-row-template — the field names/label visibility are filled in there because they
+   depend on which line type the bottom select had chosen. Needed in create mode too, since the bar
+   above renders there as well. #}
+{% block page_end %}
+    {% import 'admin/_partials/sales_line_js_templates.html.twig' as js_templates %}
+    {{ js_templates.line_templates('estimate', estimateLineColumns, products, locations, {
+        lineClass: 'estimate-line-row',
+        actionsTemplate: 'admin/estimate/_line_actions.html.twig',
+        controlClass: 'form-control',
+        hook: 'estimate',
+        labelled: true,
+        nameInProductCell: true,
+        namePlaceholder: 'Custom line name',
+        nameHook: 'js-estimate-name',
+        catalogHooks: true,
+        productSelectClass: 'estimate-line-product-select',
+        showsWarnings: true,
+        priceType: 'text',
+        pricePlaceholder: 'TBD',
+        priceInputMode: 'decimal',
+        subtotalFallback: 'TBD',
+    }, productsRemote, path('admin_estimate_product_search'), false) }}
+{% endblock %}
+
+{% block company_picker_options %}
+                            {% for row in companies %}
+                                {# `companies` is a Company entity list here, so this is
+                                   order's `row.email` under the entity's own name. #}
+                                <option value="{{ row.id }}">{{ row.name }}{% if row.primaryEmail %} - {{ row.primaryEmail }}{% endif %}</option>
+                            {% endfor %}
+{% endblock %}

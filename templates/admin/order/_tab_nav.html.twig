@@ -1,0 +1,52 @@
+{#
+    The order's screens and documents, in one place.
+
+    Expects: `order`, and `isOrderLocked` — true on a Closed or Void order, which withholds the
+    Edit tab because OrderController::isOrderLockedForEditing() would refuse the route anyway.
+
+    The <nav> itself is `admin/_partials/sales_document_action_bar.html.twig` now, shared with the
+    quote's and the invoice's. What stays here is everything that is the ORDER's: which state
+    withholds Edit, the two screens only this document has, and the two ways it prints. The shared
+    bar never asks which document it is rendering — every difference reaches it as a value or a
+    template path. See its docblock for the rule and the parameter list.
+#}
+{# `orderStatusKey` mirrors detail.html.twig's own `order.status|default('')|lower` — it is not
+   threaded through `actionBarContext` because `order` already is, and every other per-status
+   decision here (Edit, above) is likewise worked out from `order` rather than handed in
+   pre-computed. #}
+{% set orderStatusKey = order.status|default('')|lower %}
+{#
+    `pdf: null` below: NOT a standalone Sales Order PDF tab. `_print_menu.html.twig` (below) offers
+    "Print Sales Order" at the exact same `admin_order_document` href, and a page does not need the
+    same PDF reachable from two buttons in one bar. Quote's and Invoice's own tab_nav now pass
+    `pdf: null` too, for the identical reason — this was the one place all three still disagreed.
+
+    `overflowTemplate` below is the order's own entry at the top of the ⋯ overflow — see
+    admin/order/_overflow_actions.html.twig. `isOrderLocked` is the SAME guard the Update Order
+    Status modal's own trigger uses (summary_info_status, detail.html.twig): Closed and Void both
+    withhold it.
+#}
+{% include 'admin/_partials/sales_document_action_bar.html.twig' with {
+    document: order,
+    idPrefix: 'order',
+    documentNoun: 'order',
+    ariaLabel: 'Order detail actions',
+    view: {href: path('admin_order_detail', {id: order.id}), current: true},
+    edit: (isOrderLocked or document_is_locked(order)) ? null : {href: path('admin_order_edit', {id: order.id}), label: 'Edit'},
+    pdf: null,
+    barTemplate: 'admin/order/_bar_actions.html.twig',
+    barContext: {orderStatusKey: orderStatusKey, convertToInvoiceUrl: path('admin_invoice_create', {order_id: order.id})},
+    printMenuTemplate: 'admin/order/_print_menu.html.twig',
+    overflowTemplate: 'admin/order/_overflow_actions.html.twig',
+    overflowContext: {isOrderLocked: isOrderLocked},
+    cloneUrl: path('admin_order_clone', {id: order.id}),
+    lockUrl: path('admin_order_lock', {id: order.id}),
+    unlockUrl: path('admin_order_unlock', {id: order.id}),
+} only %}
+{#
+    `edit` above carries TWO refusals, and the order of them is the route's own. OrderController::
+    edit() asks the explicit lock first and the status rule second, on GET as well as on POST, "so
+    the edit screen does not open on a document that cannot be saved". A tab that can only be turned
+    away is exactly the dead end that comment is about — so a frozen order shows no Edit tab, the
+    same way a Closed one already showed none.
+#}

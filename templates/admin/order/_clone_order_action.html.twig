@@ -1,0 +1,5 @@
+{# Expects: order (object with .id) — a real form, not a GET link, since cloning creates state #}
+<form method="post" action="{{ path('admin_order_clone', {id: order.id}) }}" style="display: contents;">
+    {{ csrf_field() }}
+    <button type="submit">Clone Order</button>
+</form>

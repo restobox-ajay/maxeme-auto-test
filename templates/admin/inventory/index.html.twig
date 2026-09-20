@@ -1,0 +1,478 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Product Inventory | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set currentSort = currentSort|default('id') %}
+    {% set currentDir = currentDir|default('asc') %}
+    {% set filters = filters|default({}) %}
+    {% set warehouseFilter = filters.warehouses|default([]) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {# The filters that travel as plain scalars. `warehouses` is a list and is carried separately
+       wherever a query has to be rebuilt, so a sort link or a pager link never silently widens the
+       chosen warehouses back to all of them. #}
+    {% set textFilters = {id: filters.id|default(''), name: filters.name|default(''), sku: filters.sku|default(''), category: filters.category|default('')} %}
+    {% set linkFilters = textFilters|merge({warehouses: warehouseFilter}) %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Inventory overview</p>
+                <h1>Product Inventory</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                {# textFilters, not linkFilters: Pricing and Details have no warehouses to narrow,
+                   so forwarding the list would put a key they ignore into both their URLs. #}
+                {% include 'admin/_product_grid_nav.html.twig' with {
+                    addProductRedirect: 'admin_inventory_index',
+                    currentSort: currentSort,
+                    currentDir: currentDir,
+                    currentLimit: currentLimit,
+                    currentPage: currentPage,
+                    filters: textFilters
+                } only %}
+            </div>
+        </div>
+    </section>
+
+    {# Rendered in the page, not only through base.html.twig's hidden .flash-messages div — that
+       one is read by app.js and painted as a toast, so with JavaScript off the chooser's
+       confirmation would be invisible. Same treatment the shared list-screen skeleton gives it
+       (templates/admin/company_fulfillment_region/index.html.twig). #}
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    {#
+        The two choices that decide how wide this screen is, side by side and both real forms.
+
+        They are deliberately different mechanisms. WHICH WAREHOUSES is a filter — it narrows what
+        you are looking at right now, so it belongs in the query string with the other four filters
+        where it can be linked, bookmarked and backed out of. WHICH COLUMNS is a way of working, so
+        it is saved against the admin (admin_column_preference, the table the Product Detail grid
+        has used since #120) and is still there tomorrow.
+
+        Both are rendered as an HTML popup: a <details> — the browser's own disclosure widget —
+        floated over the page with CSS rather than pushed inline, with a plain form fully rendered
+        inside it. Neither needs JavaScript to open, close or submit: <details> toggles itself, and
+        the form's contents are in the response from the start rather than fetched afterward, so a
+        browser with scripting off can still open either popup and post it. A chooser that only
+        opened under JS would leave a no-JS admin stuck with whatever set was last saved, on a grid
+        that can be nineteen columns wide per warehouse.
+
+        Two <form>s, not one nested in the other: forms cannot nest, and each carries the other's
+        current state as hidden fields so neither discards it.
+    #}
+    <section class="panel compact-panel inventory-view-controls">
+        <details class="inventory-popup inventory-warehouse-chooser">
+            <summary><strong>Warehouses</strong> — {{ warehouseFilter is empty ? ('all ' ~ allWarehouses|length) : (warehouseFilter|length ~ ' of ' ~ allWarehouses|length) }} selected</summary>
+            <form method="get" action="{{ path('admin_inventory_index') }}" class="inventory-popup-body">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                <input type="hidden" name="limit" value="{{ currentLimit }}">
+                {% for key, value in textFilters %}
+                    <input type="hidden" name="filters[{{ key }}]" value="{{ value }}">
+                {% endfor %}
+                <div class="inventory-warehouse-chooser-list" id="inventory-warehouses">
+                    {% for warehouse in allWarehouses %}
+                        <label class="inventory-warehouse-chooser-item">
+                            <input type="checkbox" name="filters[warehouses][]" value="{{ warehouse.id }}"{{ warehouse.id in warehouseFilter ? ' checked' : '' }}>
+                            <span>{{ warehouse.name }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <p class="inventory-hint">Check none for all {{ allWarehouses|length }}.</p>
+                <div class="inventory-popup-actions">
+                    <button type="submit" class="button primary">Apply warehouses</button>
+                    {% if warehouseFilter is not empty %}
+                        <a class="button outline" href="{{ path('admin_inventory_index', {sort: currentSort, dir: currentDir, limit: currentLimit, page: 1, filters: textFilters}) }}">All warehouses</a>
+                    {% endif %}
+                </div>
+            </form>
+        </details>
+
+        <details class="inventory-popup inventory-column-chooser">
+            <summary><strong>Choose columns</strong> — showing {{ visibleColumns|length }} of {{ columnRegistry|length }}</summary>
+            <form method="post" action="{{ path('admin_inventory_columns_save') }}" class="inventory-popup-body">
+                {{ csrf_field() }}
+                {# So a save lands back on the grid the person was actually looking at, rather than
+                   at the top of an unfiltered one. Re-read and re-validated server side. #}
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                <input type="hidden" name="limit" value="{{ currentLimit }}">
+                {% for key, value in textFilters %}
+                    <input type="hidden" name="filters[{{ key }}]" value="{{ value }}">
+                {% endfor %}
+                {% for warehouseId in warehouseFilter %}
+                    <input type="hidden" name="filters[warehouses][]" value="{{ warehouseId }}">
+                {% endfor %}
+                <div class="inventory-column-chooser-list">
+                    {% for key, col in columnRegistry %}
+                        <label class="inventory-column-chooser-item" title="{{ col.note }}">
+                            <input type="checkbox" name="columns[]" value="{{ key }}"{{ key in visibleColumns ? ' checked' : '' }}>
+                            <span>{{ col.label }}{% if col.kind == 'bucket' and col.sign == 0 %} <em>(not counted)</em>{% endif %}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <div class="inventory-popup-actions">
+                    <button type="submit" class="button primary">Save columns</button>
+                </div>
+            </form>
+        </details>
+    </section>
+
+    <style>
+        .inventory-view-controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+
+        {# Both popups are the same primitive: a native <details> floated over the page with CSS.
+           No JavaScript opens, positions or closes them — the browser's own disclosure toggle
+           does that — and the form inside is fully rendered server-side rather than loaded on
+           open, so a no-JS browser can still use either one. #}
+        .inventory-popup { position: relative; }
+        .inventory-popup > summary { cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; list-style: none; }
+        .inventory-popup > summary::-webkit-details-marker { display: none; }
+        .inventory-popup > summary::after { content: '\00a0\25BE'; }
+        .inventory-popup[open] > summary::after { content: '\00a0\25B4'; }
+        .inventory-popup-body {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            z-index: 60;
+            width: max-content;
+            max-width: min(420px, 92vw);
+            max-height: 80vh;
+            overflow: auto;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 12px 44px rgba(0, 0, 0, 0.18);
+        }
+
+        .inventory-warehouse-chooser-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 4px 16px; min-width: 220px; margin: 4px 0 10px; }
+        .inventory-warehouse-chooser-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+        .inventory-hint { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
+        .inventory-popup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .inventory-column-chooser-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; margin: 4px 0 10px; }
+        .inventory-column-chooser-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+        .inventory-column-chooser-item em { color: var(--muted); font-style: normal; font-size: 0.75rem; }
+        .wide-price-table .inventory-bucket-sign { color: var(--muted); font-weight: 700; margin-left: 3px; }
+        .wide-price-table td.is-not-counted { opacity: 0.55; }
+        .wide-price-table td.has-off-page-terms { border-bottom: 2px solid var(--muted); }
+        .inventory-off-page-note { display: block; font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+    </style>
+
+    <section class="table-card no-search no-paginate">
+        <form method="get" action="{{ path('admin_inventory_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            {# The warehouse choice rides along so typing into a column filter does not quietly widen
+               the grid back to every warehouse. #}
+            {% for warehouseId in warehouseFilter %}
+                <input type="hidden" name="filters[warehouses][]" value="{{ warehouseId }}">
+            {% endfor %}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="wide-price-table" data-inventory-update-token="{{ csrf_token_value() }}">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th rowspan="2" class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_inventory_index', {sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: linkFilters}) }}">ID</a></th>
+                            {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th rowspan="2" class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_inventory_index', {sort: 'name', dir: nextDir, limit: currentLimit, page: 1, filters: linkFilters}) }}">Product name</a></th>
+                            {% set nextDir = currentSort == 'sku' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th rowspan="2" class="is-sortable{% if currentSort == 'sku' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_inventory_index', {sort: 'sku', dir: nextDir, limit: currentLimit, page: 1, filters: linkFilters}) }}">SKU</a></th>
+                            {% set nextDir = currentSort == 'category' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th rowspan="2" class="is-sortable{% if currentSort == 'category' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_inventory_index', {sort: 'category', dir: nextDir, limit: currentLimit, page: 1, filters: linkFilters}) }}">Category</a></th>
+                            {% for warehouse in warehouses %}
+                                {% set warehouseSortKey = 'warehouse_' ~ warehouse.id %}
+                                {% set nextDir = currentSort == warehouseSortKey and currentDir == 'asc' ? 'desc' : 'asc' %}
+                                <th colspan="{{ columns|length }}" class="is-sortable{% if currentSort == warehouseSortKey %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_inventory_index', {sort: warehouseSortKey, dir: nextDir, limit: currentLimit, page: 1, filters: linkFilters}) }}">{{ warehouse.name }}</a></th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            {#- The bucket headings come from the same resolved registry the body cells
+                                and both colspans come from, so the three cannot disagree. The label is
+                                in its own span because the sign beside it is decoration on the formula,
+                                not part of the column's name. -#}
+                            {% for warehouse in warehouses %}
+                                {% for col in columns %}
+                                    <th data-column="{{ col.key }}" data-avail-sign="{{ col.sign }}"
+                                        title="{% if col.kind == 'bucket' %}{{ col.sign > 0 ? 'Adds to Available.' : (col.sign < 0 ? 'Subtracts from Available.' : 'Not counted in Available.') }} {% endif %}{{ col.note }}"><span class="inventory-bucket-label">{{ col.label }}</span>{% if col.sign != 0 %}<span class="inventory-bucket-sign" aria-hidden="true">{{ col.sign > 0 ? '+' : '−' }}</span>{% endif %}</th>
+                                {% endfor %}
+                            {% endfor %}
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" aria-label="Filter by id"></th>
+                            <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" aria-label="Filter by product name"></th>
+                            <th><input type="text" name="filters[sku]" value="{{ filters.sku|default('') }}" aria-label="Filter by sku"></th>
+                            <th>
+                                {# See prices.html.twig: a real <select> of ids (issue #424) replaces
+                                   the old <input>+<datalist>, so the name-as-value workaround and the
+                                   backend's name-LIKE branch are both gone. #}
+                                <select name="filters[category]" class="js-searchable-select" data-placeholder="All categories" onchange="this.form.submit()" aria-label="Filter by category">
+                                    <option value="">All categories</option>
+                                    {% for category in categories|default([]) %}
+                                        <option value="{{ category.id }}" {{ filters.category|default('') == category.id ? 'selected' : '' }}>{{ category.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            {% for warehouse in warehouses %}
+                                <th colspan="{{ columns|length }}"></th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/inventory/_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in [20, 100, 200, 500] %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: rows|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_inventory_index',
+                    routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: linkFilters},
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function () {
+    var activeRow = null;
+
+    function findRow(el) {
+        return el ? el.closest('tr') : null;
+    }
+
+    function setRowEditing(row, editing) {
+        if (!row) return;
+        row.classList.toggle('is-editing', !!editing);
+    }
+
+    function deactivateRow() {
+        if (!activeRow) return;
+        setRowEditing(activeRow, false);
+        activeRow = null;
+    }
+
+    function activateRow(row) {
+        if (!row) return;
+        if (activeRow && activeRow !== row) {
+            setRowEditing(activeRow, false);
+        }
+        activeRow = row;
+        setRowEditing(activeRow, true);
+    }
+
+    function showToast(msg, type) {
+        var toast = document.querySelector('.toast');
+        if (!toast) return;
+        if (toast._timer) { clearTimeout(toast._timer); }
+        toast.classList.remove('is-success', 'is-error');
+        toast.textContent = msg;
+        if (type) { toast.classList.add('is-' + type); }
+        toast.classList.add('is-visible');
+        toast._timer = setTimeout(function () {
+            toast.classList.remove('is-visible', 'is-success', 'is-error');
+        }, 2200);
+    }
+
+    function postUpdate(input) {
+        var productId = input.getAttribute('data-product-id');
+        var warehouseId = input.getAttribute('data-warehouse-id');
+        var value = input.value;
+
+        var form = new URLSearchParams();
+        form.set('product_id', productId);
+        form.set('warehouse_id', warehouseId);
+        form.set('quantity', value);
+        form.set('_token', input.closest('table').getAttribute('data-inventory-update-token') || '');
+
+        input.disabled = true;
+        input.classList.remove('is-error');
+
+        fetch("{{ path('admin_inventory_update') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+              if (!data || !data.ok) {
+                  input.classList.add('is-error');
+                  showToast((data && data.message) ? data.message : 'Save failed.', 'error');
+                  return;
+              }
+              input.value = data.quantity;
+              var cell = input.closest('td');
+              if (cell) {
+                  var btn = cell.querySelector('.js-inventory-display');
+                  if (btn) btn.textContent = data.quantity;
+              }
+              if (data.released > 0) {
+                  showToast('Saved - ' + data.released + ' unit(s) released to waiting orders. Reload to see the updated buckets.', 'success');
+                  return;
+              }
+              showToast('Saved', 'success');
+          })
+          .catch(function () {
+              input.classList.add('is-error');
+              showToast('Network error.', 'error');
+          })
+          .finally(function () {
+              input.disabled = false;
+          });
+    }
+
+    /*
+     * The four backorder settings, saved through the same endpoint the quantity uses. Each is its
+     * own column since #36; before that all four shared one cell, which is why none of them could
+     * be shown or hidden on its own.
+     *
+     * It always states the CURRENT quantity alongside, because the endpoint validates one and a
+     * settings change is not a stock change - reading it off the row's own input is what makes
+     * flipping "Allow backorder" leave the Starting figure exactly where it was. Only the field
+     * that changed is posted; the server treats an absent setting as unchanged rather than false,
+     * so the other three cannot be reset as a side effect (see applyBackorderSettings()).
+     *
+     * With the Starting column hidden there IS no box to read it off, and the old fallback of '0'
+     * would ask the server to zero a quantity nobody typed - the exact bug the hidden input on the
+     * dimensional cell was added to avoid, reintroduced by the column chooser. So the control
+     * carries the figure itself in data-current-quantity, and the live input is only preferred when
+     * it is actually on the page (where it may hold an edit not yet saved).
+     */
+    function currentQuantityFor(control, productId, warehouseId) {
+        var input = document.getElementById('inv_' + productId + '_' + warehouseId);
+        if (input) {
+            return input.value;
+        }
+
+        return control.getAttribute('data-current-quantity') || '0';
+    }
+
+    function postBackorderSetting(control) {
+        var productId = control.getAttribute('data-product-id');
+        var warehouseId = control.getAttribute('data-warehouse-id');
+
+        var form = new URLSearchParams();
+        form.set('product_id', productId);
+        form.set('warehouse_id', warehouseId);
+        form.set('quantity', currentQuantityFor(control, productId, warehouseId));
+        form.set(control.getAttribute('data-field'), control.type === 'checkbox' ? (control.checked ? '1' : '0') : control.value);
+        form.set('_token', control.closest('table').getAttribute('data-inventory-update-token') || '');
+
+        control.disabled = true;
+
+        fetch("{{ path('admin_inventory_update') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+              if (!data || !data.ok) {
+                  showToast((data && data.message) ? data.message : 'Save failed.', 'error');
+                  return;
+              }
+              if (data.released > 0) {
+                  showToast('Saved - ' + data.released + ' unit(s) released to waiting orders.', 'success');
+                  return;
+              }
+              showToast('Saved', 'success');
+          })
+          .catch(function () {
+              showToast('Network error.', 'error');
+          })
+          .finally(function () {
+              control.disabled = false;
+          });
+    }
+
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.classList && t.classList.contains('js-inventory-input')) {
+            postUpdate(t);
+            return;
+        }
+        if (t && t.classList && t.classList.contains('js-backorder-setting')) {
+            postBackorderSetting(t);
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (!t || !t.classList || !t.classList.contains('js-inventory-input')) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            postUpdate(t);
+            t.blur();
+        }
+        if (e.key === 'Escape') {
+            deactivateRow();
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t) return;
+
+        if (t.classList && t.classList.contains('js-inventory-display')) {
+            var row = findRow(t);
+            activateRow(row);
+            var targetId = t.getAttribute('data-target-input');
+            if (targetId) {
+                var input = document.getElementById(targetId);
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
+            return;
+        }
+
+        if (t.classList && t.classList.contains('js-inventory-input')) {
+            activateRow(findRow(t));
+            return;
+        }
+
+        if (activeRow && !t.closest('tr.is-editing')) {
+            deactivateRow();
+        }
+    });
+}());
+</script>
+{% endblock %}

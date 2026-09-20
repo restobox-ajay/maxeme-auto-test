@@ -1,0 +1,217 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Price {{ reply.documentNumber }} | Admin{% endblock %}
+
+{#
+    Recording what one vendor quoted.
+
+    An admin types this, not the vendor: a VendorContact carries no login identity — the same rule
+    the customer-side mirror follows — so quotes arrive by phone or email and somebody in this
+    building writes them down. Which is exactly why the screen has to show what is being priced:
+    the requirement line, its quantity, and the running line total beside the box.
+
+    ## One reply, and nothing else
+
+    Every box on this page writes to THIS vendor's reply. The requirement above it belongs to the
+    RFQ and is read-only here — it is the same question asked of every vendor, and a buyer who could
+    edit the quantity while recording one vendor's answer would be comparing quotes for different
+    things. And nothing here touches any OTHER vendor's reply, which is the single most valuable
+    thing RfqVendorReplyScreensCest conducts: price one, then assert the others are untouched.
+
+    Modelled on templates/admin/estimate/form.html.twig — the workspace shell, the info panel, the
+    priced line table with per-line tax, and the totals box — because the vendor reply is the buy
+    side's estimate: one counterparty, priced, convertible into an order exactly once.
+#}
+
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'rfqs',
+        heading: 'Price ' ~ reply.documentNumber ~ ' — ' ~ reply.vendorName,
+        lead: 'Record what ' ~ reply.vendorName ~ ' quoted against ' ~ rfq.documentNumber ~ '.'
+    } only %}
+
+    <nav class="company-action-links order-tab-nav" aria-label="Vendor quote actions">
+        <a class="button" href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">View</a>
+        <a class="button is-current" href="{{ path('admin_bundle_procurement_rfq_reply_edit', {id: reply.id}) }}">Record prices</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_rfq_reply_print', {id: reply.id}) }}">Quote PDF</a>
+        <a class="button" href="{{ path('admin_bundle_procurement_rfq', {id: rfq.id}) }}">Back to {{ rfq.documentNumber }}</a>
+    </nav>
+
+    <section class="order-create-shell">
+        <form method="post" id="reply-form" class="order-workspace-card" action="{{ path('admin_bundle_procurement_rfq_reply_save', {id: reply.id}) }}">
+            {{ csrf_field() }}
+
+            <div class="order-workspace-grid">
+                <section class="order-form-panel">
+                    <h2>Quote Info</h2>
+                    <div class="order-field-row static">
+                        <label>Reply #:</label>
+                        <strong>{{ reply.documentNumber }}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Vendor:</label>
+                        <strong>{{ reply.vendorName }}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Status:</label>
+                        <strong>{% include 'admin/_partials/document_status.html.twig' with {status: reply.status.value, loud: false} only %}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Against RFQ:</label>
+                        <strong><a href="{{ path('admin_bundle_procurement_rfq', {id: rfq.id}) }}">{{ rfq.documentNumber }}</a></strong>
+                    </div>
+                    {# The document's own date, editable the way the estimate's Quote Date is: a
+                       quote taken down on Friday for a call that happened on Wednesday is dated
+                       Wednesday. A plain 'Y-m-d' string, validated server-side — see
+                       AbstractPurchaseDocument::$documentDate on why it is not a date column. #}
+                    <label class="order-field-row">
+                        <span>Quote date:</span>
+                        <input type="date" name="document_date" value="{{ reply.documentDate }}">
+                    </label>
+                    {# Per document and never converted. Defaulted from the vendor when the reply was
+                       created; editable because a supplier may quote in a currency other than the
+                       one they usually bill in, and a quote is read in the currency it was given in. #}
+                    <label class="order-field-row">
+                        <span>Currency:</span>
+                        <input type="text" name="currency" value="{{ reply.currency }}" maxlength="3" size="3" aria-label="Currency code">
+                    </label>
+                    <label class="order-field-row">
+                        <span>Quote notes:</span>
+                        <textarea name="notes" rows="3" placeholder="Validity, lead time, minimum order, who quoted it">{{ reply.notes }}</textarea>
+                    </label>
+                </section>
+
+                <section class="order-form-panel">
+                    <h2>Quote From</h2>
+                    <div class="order-field-row static">
+                        <label>Vendor:</label>
+                        <strong><a href="{{ path('admin_bundle_procurement_vendor', {id: reply.vendor.id}) }}">{{ reply.vendorName }}</a></strong>
+                    </div>
+                    {% set quoteFrom = reply.vendor.orderToAddress %}
+                    <div class="order-field-row static">
+                        <label>Address:</label>
+                        <strong>{{ quoteFrom ? quoteFrom.toSnapshot()|nl2br : 'No address on file' }}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Phone:</label>
+                        <strong>{{ reply.vendor.phone|default('-') }}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Email:</label>
+                        <strong>{{ reply.vendor.orderEmail|default(reply.vendor.email)|default('-') }}</strong>
+                    </div>
+                    <p class="field-hint">
+                        Edit the vendor itself to change any of this — a quote records prices, not master data.
+                    </p>
+                </section>
+
+                <section class="order-form-panel">
+                    <h2>Deliver To</h2>
+                    <div class="order-field-row static">
+                        <label>Warehouse:</label>
+                        <strong>{{ rfq.warehouse ? rfq.warehouse.name : 'Not stated' }}</strong>
+                    </div>
+                    <div class="order-field-row static">
+                        <label>Address:</label>
+                        <strong>
+                            {% if rfq.deliveryAddress %}
+                                {{ rfq.deliveryAddress|nl2br }}
+                            {% else %}
+                                {{ app_setting('company_name', '')|default('-') }}<br>
+                                {{ app_setting('company_address', '') }}<br>
+                                {{ [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', '')), app_setting('company_postal_code', '')]|filter(v => v)|join(', ') }}
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <p class="field-hint">
+                        The tender states this, so every vendor quoted freight to the same place. It belongs to
+                        {{ rfq.documentNumber }} and is edited there.
+                    </p>
+                </section>
+            </div>
+
+            <section class="order-lines-section">
+                <h2>Line prices</h2>
+                <div class="quote-stock-notice">
+                    <p><strong>This is one vendor's answer to a question asked of several.</strong></p>
+                    <ul>
+                        <li>The item, SKU and quantity come from the RFQ and are the same on every vendor's reply — they are not editable here.</li>
+                        <li>A blank unit cost means "not quoted yet", which is not a quote of zero. A quote is accepted whole, so every line needs a price before this reply can be accepted.</li>
+                        <li>Saving with lines still blank keeps the reply Invited and records what you have.</li>
+                        <li>Tax is computed from the same rates the sell side uses; it is not typed here.</li>
+                    </ul>
+                </div>
+
+                <div class="wide-table-wrap">
+                    <table class="wide-price-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th><th>SKU</th><th>Qty</th><th>Unit cost</th><th>Line total</th><th>Tax code</th><th>Tax $</th><th>Line notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                <tr>
+                                    <td data-label="Item">
+                                        {{ row.requirement ? row.requirement.name : '(requirement removed — quote kept)' }}
+                                        {% if row.requirement and row.requirement.notes %}<br><small class="field-hint">{{ row.requirement.notes }}</small>{% endif %}
+                                    </td>
+                                    <td data-label="SKU">{{ row.requirement and row.requirement.sku ? row.requirement.sku : '-' }}</td>
+                                    <td data-label="Qty">{{ row.requirement ? row.requirement.quantity : '-' }}</td>
+                                    <td data-label="Unit cost">
+                                        {% if row.requirement %}
+                                            <input type="text" inputmode="decimal"
+                                                   name="unit_cost[{{ row.requirement.id }}]"
+                                                   value="{{ row.line and row.line.unitCost is not null ? row.line.unitCost : '' }}"
+                                                   placeholder="per {{ row.requirement.sku|default('unit') }}"
+                                                   aria-label="Unit cost for {{ row.requirement.name }}">
+                                        {% else %}
+                                            {{ row.line.unitCost|default('-') }}
+                                        {% endif %}
+                                    </td>
+                                    {# The stored figure, not a live one — this page has no script, so
+                                       the line total appears when the quote is saved. That is also
+                                       the honest thing to show: it is what the database holds. #}
+                                    <td data-label="Line total">{{ row.line and row.line.subtotal is not null ? reply.currency ~ ' ' ~ row.line.subtotal|amount : 'TBD' }}</td>
+                                    <td data-label="Tax code">{{ row.taxCode }}</td>
+                                    <td data-label="Tax $">{{ row.tax is not null ? reply.currency ~ ' ' ~ row.tax|amount : 'TBD' }}</td>
+                                    <td data-label="Line notes">
+                                        {% if row.requirement %}
+                                            <input type="text" name="line_notes[{{ row.requirement.id }}]"
+                                                   value="{{ row.line ? row.line.notes : '' }}"
+                                                   placeholder="Their part no., pack size, lead time"
+                                                   aria-label="Quote notes for {{ row.requirement.name }}">
+                                        {% else %}
+                                            {{ row.line.notes|default('-') }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="8" class="empty-table-cell"><span>This RFQ has no requirement lines, so there is nothing to price.</span></td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="order-lines-footer">
+                    <div class="order-total-box" style="width:380px;">
+                        <div class="order-field-row static"><label>Subtotal:</label><strong>{{ reply.currency }} {{ reply.subtotal|amount }}</strong></div>
+                        {% for taxLine in taxLines %}
+                            <div class="order-field-row static">
+                                <label>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</label>
+                                <strong>{{ reply.currency }} {{ taxLine.amount|amount }}</strong>
+                            </div>
+                        {% endfor %}
+                        <div class="order-field-row static"><label>Total tax:</label><strong>{{ reply.currency }} {{ reply.tax|amount }}</strong></div>
+                        <div class="order-field-row static"><label>Quote total:</label><strong>{{ reply.currency }} {{ reply.total|amount }}</strong></div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save prices</button>
+                <button class="button primary" type="submit" name="action" value="save_exit">Save &amp; view quote</button>
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_rfq_reply', {id: reply.id}) }}">Back</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

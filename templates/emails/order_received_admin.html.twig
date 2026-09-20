@@ -1,0 +1,14 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}New Order Received{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">New order received</h2>
+    <p>A new order <span class="highlight">#{{ order.orderNumber }}</span> was placed by <strong>{{ company.name|default('a customer') }}</strong>.</p>
+
+    {% include 'emails/_order_summary.html.twig' %}
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{{ admin_url|default('#') }}" class="button">Review Order</a>
+    </div>
+{% endblock %}

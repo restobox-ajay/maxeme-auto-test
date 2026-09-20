@@ -1,0 +1,52 @@
+{# VendorBill's own <tfoot> for _purchase_detail_line_table.html.twig — Subtotal, charge rows, tax
+   rows, Total tax, Total, Amount paid, Balance. The one thing PurchaseOrder has no equivalent of:
+   an order is never paid, its bills are, so only this document's foot carries the last two rows —
+   the same reason Invoice's own foot carries Amount Paid/Balance Due and Order's does not.
+
+   `columns` is added automatically by _purchase_detail_line_table.html.twig; every row here spans
+   the same number.
+
+   Parameters
+   ----------
+   bill        required  the VendorBill entity.
+   chargeRows  required  the bill's freight/fee entities (PurchaseChargeLine[]), read directly.
+   taxLines    required  the frozen tax breakdown rows.
+   columns     required  how many columns the line table has, for this tfoot's own colspans.
+#}
+<tfoot>
+    <tr>
+        <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:600;">Subtotal (goods)</td>
+        <td colspan="3" class="bill-total-subtotal" style="text-align:right; font-weight:600;">{{ bill.currency }} {{ bill.subtotal|amount }}</td>
+    </tr>
+    {% for charge in chargeRows %}
+        <tr>
+            <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:600;">
+                {{ charge.label }}
+                <span style="font-weight:400;">({{ charge.type }}{% if charge.placement == 'after_tax_line' %}, after tax{% endif %})</span>
+            </td>
+            <td colspan="3" style="text-align:right; font-weight:600;">{{ bill.currency }} {{ charge.amount|amount }}</td>
+        </tr>
+    {% endfor %}
+    {% for taxLine in taxLines %}
+        <tr>
+            <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:600;">{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}</td>
+            <td colspan="3" style="text-align:right; font-weight:600;">{{ bill.currency }} {{ taxLine.amount|amount }}</td>
+        </tr>
+    {% endfor %}
+    <tr>
+        <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:600;">Total tax</td>
+        <td colspan="3" class="bill-total-tax" style="text-align:right; font-weight:600;">{{ bill.currency }} {{ bill.tax|amount }}</td>
+    </tr>
+    <tr>
+        <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:700;">Total</td>
+        <td colspan="3" class="bill-total-grand" style="text-align:right; font-weight:700;">{{ bill.currency }} {{ bill.total|amount }}</td>
+    </tr>
+    <tr>
+        <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:600;">Amount paid</td>
+        <td colspan="3" style="text-align:right; font-weight:600;">{{ bill.currency }} {{ bill.amountPaid|amount }}</td>
+    </tr>
+    <tr>
+        <td colspan="{{ columns - 3 }}" style="text-align:right; font-weight:700;">Balance</td>
+        <td colspan="3" class="bill-total-balance" style="text-align:right; font-weight:700;">{{ bill.currency }} {{ bill.balance|amount }}</td>
+    </tr>
+</tfoot>

@@ -1,0 +1,324 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+
+{% set orderStatusKey = order.status|default('')|lower %}
+{# Closed and Void are #539 stage 2's successors to Completed and Cancelled — see
+   OrderController::isOrderLockedForEditing(), which this mirrors. #}
+{% set isOrderLocked = orderStatusKey in ['closed', 'void'] %}
+{# Rolled up from this order's invoices by the controller (#539 stage 4). The order carries no
+   payment status of its own any more — money is the invoice's question, and each invoice derives
+   its own answer from its payment rows. #}
+{% set paymentStatusLabel = paymentStatus %}
+{% set isPaid = paymentStatusLabel == 'Paid' %}
+
+{# No company-default fallback: the order either recorded an address or it did not. Falling
+   back to today's default made this page show an address the goods never went to. #}
+{% set billing  = order.billingAddress %}
+{% set shipping = order.shippingAddress %}
+
+{# Shipping rows are fee lines too, but they are named in the totals box rather than listed as
+   products, so every main_line total and loop below leaves them out. #}
+{% set feeLines = order.feeLines|default('')|json_decode %}
+{% set feeTotalsMainLine = 0 %}
+{% set mainLineFeeRows = [] %}
+{% set beforeTaxFeeRows = [] %}
+{% set afterTaxFeeRows = [] %}
+{% for feeLine in feeLines %}
+    {% set placement = feeLine.placement|default('main_line') %}
+    {% if placement == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + feeLine.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: feeLine.label, amount: feeLine.amount, quantity: feeLine.quantity|default(1)}]) %}
+    {% elseif placement == 'before_tax_line' %}
+        {% set beforeTaxFeeRows = beforeTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount}]) %}
+    {% elseif placement == 'after_tax_line' %}
+        {% set afterTaxFeeRows = afterTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount}]) %}
+    {% endif %}
+{% endfor %}
+
+{# The frame's parameters. #}
+{% set document = order %}
+{% set slotPrefix = 'admin_order_detail' %}
+{% set actionBarTemplate = 'admin/order/_tab_nav.html.twig' %}
+{% set actionBarContext = {order: order, isOrderLocked: isOrderLocked} %}
+
+{% block title %}View Order: {{ order.orderNumber }} | Admin{% endblock %}
+
+{% block hero_eyebrow %}Order detail{% endblock %}
+{% block hero_title %}{{ order.orderNumber }}{% endblock %}
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: order.status} only %}{% endblock %}
+{% block hero_actions %}<a class="button back-button" href="{{ path('admin_order_index') }}">Back</a>{% endblock %}
+
+{% block summary_info_heading %}Order Info{% endblock %}
+{% block summary_info_status %}
+    <div style="display:flex; gap:8px; align-items:center;">
+        {# js-order-status-badge is the hook the status modal writes the new value into.
+           Without it the handler had to guess at `.badge.success, .badge.warn` — which
+           this badge does not carry on a Pending order, and the Paid badge below does (#224). #}
+        <span class="badge js-order-status-badge {{ order.status|lower == 'closed' ? 'success' : (order.status|lower in ['draft', 'void'] ? 'warn' : '') }}">{{ order.status }}</span>
+        {% if not isOrderLocked %}
+            <button class="button primary js-trigger-status-modal" style="padding:4px 12px; font-size:0.75rem; border-radius:4px; min-height:22px;">Edit</button>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block summary_info_rows %}
+    {# Read-only here. This is the view screen; Order Date is edited on the order form with
+       every other field, not through a pencil and an endpoint of its own. #}
+    <div class="detail-row">
+        <label>Order Date:</label>
+        <strong>{{ order.documentDate }}</strong>
+    </div>
+
+    {% if sourceEstimate %}
+        <div class="detail-row">
+            <label>Quote:</label>
+            <strong><a href="{{ path('admin_estimate_detail', {id: sourceEstimate.id}) }}" style="color:var(--admin-blue-hover);">{{ sourceEstimate.documentNumber }}</a></strong>
+        </div>
+    {% endif %}
+    {{ injection_point('admin_order_detail_info', {order: order}) }}
+
+    <div class="detail-row">
+        <label>Order Placed By:</label>
+        <strong>
+            {{ order.userName|default('-') }}
+            {% if order.companyIdentity.email %}
+                <br><span style="font-size:0.8em; color:#64748b;">{{ order.companyIdentity.email }}</span>
+            {% endif %}
+        </strong>
+    </div>
+    {# No Invoice Date row. It was sales_order.invoice_date, which #539 stage 6 dropped: an
+       order billed across several invoices has several invoice dates, and each is on the
+       invoice that carries it — see the Invoices table further down this page. #}
+    <div class="detail-row">
+        <label>Customer Name:</label>
+        <strong><a href="{{ path('admin_company_detail_by_id', {id: order.company.id}) }}" style="color:var(--admin-blue-hover);">{{ order.companyIdentity.name }}</a></strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Email:</label>
+        <strong style="color:var(--admin-blue-hover);">{{ order.companyIdentity.email|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Phone:</label>
+        <strong>{{ order.companyIdentity.phone|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>PO #:</label>
+        <strong>{{ order.poNumber|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Fulfillment Region:</label>
+        <strong>{{ order.fulfillmentRegion|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Special Instructions:</label>
+        <strong>{{ order.specialInstructions|default('-') }}</strong>
+    </div>
+    {# Payments live on the invoices listed below, which is where they are recorded and
+       where the balance is shown. #}
+    {% include 'admin/_partials/sales_detail_payment_status_field.html.twig' with {
+        value: paymentStatusLabel,
+    } only %}
+    <div class="detail-row">
+        <label>Payment Method:</label>
+        <strong>{{ order.paymentMethod|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Payment Terms:</label>
+        <strong>{{ order.paymentTerm|default('No payment terms') }}</strong>
+    </div>
+    {# No "Shipping Tracking Info" row. It printed the words "Edit Tracking Info" in link
+       blue under a pointer cursor and did nothing at all: no entity in the app stores a
+       shipment tracking number, no route accepts one and no handler was ever bound to it.
+       (The Tracking Policies screens are about lot and serial tracking of PRODUCTS, and
+       have nothing to do with a carrier's number.) A control that looks clickable and is
+       inert is a defect this repo already treats as one, so the row is gone rather than
+       kept for symmetry — the invoice screen deliberately never copied it. #}
+{% endblock %}
+
+{# An address-less order keeps its thirteen rows and fills four of them from the company
+   snapshot — it is the invoice, not this screen, that prints a sentence instead. No
+   `fieldFallback`: a blank field on an address the order DID record stays blank here. #}
+{% block summary_billing %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: billing,
+        title: 'Billing Detail',
+        fallbacks: {
+            companyName: order.companyIdentity.name,
+            firstName: order.billingName|default('-'),
+            phone: order.companyIdentity.phone|default('-'),
+            country: 'Canada',
+            emailPrimary: order.companyIdentity.email|default('-'),
+        },
+    } only %}
+{% endblock %}
+
+{% block summary_shipping %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: shipping,
+        title: 'Shipping Detail',
+        deliverable: true,
+        fallbacks: {
+            companyName: order.shippingCompanyName|default(order.companyIdentity.name),
+            firstName: order.shippingName|default('-'),
+            country: 'Canada',
+        },
+    } only %}
+{% endblock %}
+
+{% block line_items_table %}
+    {% include 'admin/_partials/sales_detail_line_table.html.twig' with {
+        lines: order.lines,
+        perLineTax: perLineTax|default([]),
+        perLineTaxLabel: perLineTaxLabel|default([]),
+        emptyMessage: 'No products on this order.',
+        tableStyle: 'min-width: 100%;',
+        feeRows: mainLineFeeRows,
+        showBatch: true,
+        showBackorderBadge: true,
+        nameCellClass: 'order-product-name-cell',
+        cellIdPrefix: 'order-line',
+    } only %}
+{% endblock %}
+
+{% block totals %}
+    {% include 'admin/_partials/sales_detail_totals_box.html.twig' with {
+        subtotal: order.subtotal + feeTotalsMainLine,
+        shippingLines: order.shippingLines,
+        beforeTaxRows: beforeTaxFeeRows,
+        afterTaxRows: afterTaxFeeRows,
+        taxLines: taxLines|default([]),
+        tax: order.tax,
+        total: order.total,
+        taxRowIds: true,
+    } only %}
+{% endblock %}
+
+{# Sold beyond stock (#326). #}
+{% block stock_overrides %}
+    {% include 'admin/_partials/sales_detail_stock_override_panel.html.twig' with {
+        lines: order.lines,
+        heading: 'Sold beyond stock',
+        quantityColumnLabel: 'Asked for',
+        noticeTemplate: 'admin/order/_stock_override_notice.html.twig',
+        showBackorderCapacity: true,
+        sectionStyle: 'margin-top:30px;',
+    } only %}
+{% endblock %}
+
+{% block add_message %}
+    {% include 'admin/_partials/sales_detail_add_message.html.twig' with {
+        addUrl: path('admin_order_log_add', {id: order.id}),
+    } only %}
+{% endblock %}
+
+{# Invoices raised against this order (#539 stage 2). #}
+{% block related_documents %}
+    <section class="table-card no-search no-paginate detail-page-card" style="margin-top:20px;">
+        <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+            <div>
+                <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Invoices</h2>
+                <p style="margin:4px 0 0; font-size:0.78rem; color:#64748b;">
+                    This order's status is worked out from these: how much of it they bill, and whether they are paid.
+                </p>
+            </div>
+            {# Convert to Invoice moved into the top action bar (admin/order/_bar_actions.html.twig)
+               — same href, same guard, offered once rather than twice on this page. #}
+        </div>
+        <div class="wide-table-wrap">
+            <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:170px;">Invoice</th>
+                        <th style="width:150px;">Status</th>
+                        <th style="width:140px;">Invoice date</th>
+                        <th style="width:170px;">Payment</th>
+                        <th style="text-align:right; width:110px;">Total</th>
+                        <th style="width:80px; text-align:center;">Documents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in order.invoices %}
+                        <tr>
+                            <td>
+                                <a href="{{ path('admin_invoice_detail', {id: invoice.id}) }}" style="font-weight:600; font-size:0.875rem;">{{ invoice.documentNumber }}</a>
+                            </td>
+                            <td><span class="badge order-status order-status-{{ invoice.status|lower|replace({' ': '-'}) }}">{{ invoice.status }}</span></td>
+                            <td style="font-size:0.83rem; color:#64748b;">{{ invoice.invoiceDate ?: '—' }}</td>
+                            <td style="font-size:0.83rem; color:#64748b;">
+                                {{ invoice.paymentStatus.value }}
+                                {% if not invoice.draft %}
+                                    &middot; <a href="{{ path('admin_invoice_payments', {id: invoice.id}) }}">Payments</a>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right; font-size:0.875rem;">{{ invoice.total }}</td>
+                            {# The invoice's own documents, per row rather than once for the order —
+                               which is the whole reason they left the order's PDF menu in stage 6.
+                               An order billed in three parts has three invoices to print, three
+                               packing slips to pick from, and three things to send. #}
+                            <td style="text-align:center;">
+                                <div class="row-action-menu" style="margin: 0 auto;">
+                                    <button class="row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open invoice documents"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_invoice_print', {id: invoice.id}) }}" target="_blank">Print Invoice</a>
+                                        <a href="{{ path('admin_invoice_print', {id: invoice.id, download: 1}) }}">Download Invoice</a>
+                                        <a href="{{ path('admin_invoice_packing_slip', {id: invoice.id, pdf: 1}) }}">Download Packing Slip</a>
+                                        {% include 'admin/invoice/_send_invoice_actions.html.twig' with {invoice: invoice} %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell"><span>No invoices have been raised against this order yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}
+
+{% block activity_log %}
+    {% include 'admin/_partials/sales_detail_activity_log.html.twig' with {
+        logs: logs,
+        deleteRoute: 'admin_order_log_delete',
+        documentId: order.id,
+        sectionStyle: 'margin-top:20px; margin-bottom:50px;',
+    } only %}
+{% endblock %}
+
+{# Update Status Modal. #}
+{% block page_end %}
+    <div class="admin-modal-overlay" id="status-modal" data-order-id="{{ order.id }}">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Update Order Status</h2>
+            </div>
+            <div class="admin-modal-body">
+                <div class="form-group" style="margin-bottom:20px;">
+                    <label style="display:block; margin-bottom:8px; font-weight:600; font-size:0.9rem;">Status</label>
+                    <select class="form-control" style="width:100%; min-height:44px; border:1px solid var(--line); border-radius:6px; padding:0 12px; font-size:0.9rem;">
+                        {# Approve and Void are the only two statuses a person sets (#539 stage 2).
+                           Partially Invoiced, Invoiced and Closed are derived from this order's
+                           invoices and would be recomputed away; the endpoint refuses them, and this
+                           control does not offer a choice the system would overrule. The fulfilment
+                           states an admin used to pick here belong to the INVOICE now — its page has
+                           its own Issue / Start processing / Complete / Cancel buttons. #}
+                        <option {{ order.status == 'Approved' ? 'selected' }}>Approved</option>
+                        <option {{ order.status == 'Void' ? 'selected' }}>Void</option>
+                    </select>
+                    <p style="margin:10px 0 0; font-size:0.78rem; color:#64748b; line-height:1.5;">
+                        Every other status — Partially Invoiced, Invoiced, Closed — is worked out from
+                        this order's invoices and cannot be set here. To move fulfilment on, open the
+                        invoice.
+                    </p>
+                </div>
+                <label style="display:flex; align-items:center; gap:10px; font-weight:500; font-size:0.88rem; cursor:pointer;">
+                    <input type="checkbox" style="width:18px; height:18px; border:1px solid var(--line); border-radius:4px;">
+                    Send e-mail notification to client on update
+                </label>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:30px;">
+                <button class="button primary js-status-update" style="min-width:100px;">Update</button>
+                <button class="button outline js-modal-close" style="min-width:80px;">Close</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}

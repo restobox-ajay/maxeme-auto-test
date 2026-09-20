@@ -1,0 +1,66 @@
+{#
+   Every editable field on the vendor record, in ONE copy (#660).
+
+   Included by `vendor_form.html.twig` for both the create page (mode='Create') and the Edit
+   Profile page (mode='Update', the vendor record's own separate edit page). Both modes post to
+   `VendorController::applyVendorRequest()` — one template and one writer, so a field added here is
+   stored by both screens instead of by whichever one somebody remembered.
+
+   `vendor` is an ENTITY on the edit page and an ARRAY on the create page. Twig resolves
+   `vendor.name` either way, and every name below is spelled the same in both
+   (`VendorController::blankVendorForm()` is keyed to match the getters).
+
+   The caller supplies the <form> element, its action, and its CSRF field: a create posts to
+   /vendors/new and an edit posts to /vendors/save with the id, and neither belongs inside a
+   partial that does not know which it is.
+
+   Params: vendor, paymentTerms, statuses, mode ('Create' | 'Update').
+#}
+<label>Name <span class="req">*</span>
+    <input type="text" name="name" maxlength="200" value="{{ vendor.name }}" required>
+</label>
+<label>Our account number with them
+    <input type="text" name="account_number" maxlength="80" value="{{ vendor.accountNumber }}">
+</label>
+<label>Email
+    <input type="email" name="email" maxlength="180" value="{{ vendor.email }}">
+</label>
+<label>Phone
+    <input type="text" name="phone" maxlength="60" value="{{ vendor.phone }}">
+</label>
+<label>Payment term
+    {% if paymentTerms is not empty %}
+        {# Posts payment_term.id, matching company.payment_term_id. The name is derived from the id
+           on save, so the two columns cannot disagree. A plain <select>, not the customer side's
+           searchable one: that control needs jQuery to open at all and this list is short. #}
+        <select name="payment_term_id">
+            <option value="0">—</option>
+            {% for term in paymentTerms %}
+                <option value="{{ term.id }}"{{ vendor.paymentTermId == term.id ? ' selected' : '' }}>{{ term.name }}</option>
+            {% endfor %}
+        </select>
+    {% else %}
+        {# No `payment_term` table on this instance — a free-text box rather than a 500 on a
+           dropdown with nothing to put in it. #}
+        <input type="text" name="payment_term" maxlength="80" value="{{ vendor.paymentTerm }}">
+    {% endif %}
+</label>
+<label>Currency
+    <input type="text" name="currency" maxlength="3" value="{{ vendor.currency }}" pattern="[A-Za-z]{3}">
+</label>
+<label>Status
+    <select name="status">
+        {% for status in statuses %}
+            <option value="{{ status }}"{{ vendor.status == status ? ' selected' : '' }}>{{ status }}</option>
+        {% endfor %}
+    </select>
+</label>
+{% if mode == 'Update' and paymentTerms is not empty and vendor.paymentTermId is null and vendor.paymentTerm %}
+    {# Hints go in a <small> after the control, never inside the <label> — a label takes the control
+       column in a .form-grid and pushes the input onto its own row. #}
+    <small class="span-2">
+        This vendor's payment term was typed in as free text — &ldquo;{{ vendor.paymentTerm }}&rdquo; — and has never been
+        matched to a term on the list above. Nothing guesses which one was meant: pick it from the list and press Save
+        to settle it.
+    </small>
+{% endif %}

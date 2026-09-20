@@ -1,0 +1,40 @@
+{#
+    The quote's screens and actions, in one place.
+
+    Expects: `estimate`, and `locked` — true on an Accepted or Rejected quote, which withholds
+    Edit / Price and Reject.
+
+    The <nav> itself is `admin/_partials/sales_document_action_bar.html.twig` now, shared with the
+    order's and the invoice's. What stays here is everything that is the QUOTE's: the two POSTs that
+    mint or settle a document, the Reject control, the link to the order it became, and which state
+    withholds each. Those four are exactly what a shared bar cannot know, so they arrive as a
+    template path — the `barTemplate` slot — rather than as a branch inside it.
+
+    `pdf: null` below: this <nav> renders only on the DETAIL screen (the quote PDF page hand-rolls
+    its own nav, same as the order's document page), and the PDF/Download disclosure's own "Print
+    Quote"/"Download Quote" already reach `admin_estimate_quote` — the same route a standalone tab
+    here would have. See `admin/order/_tab_nav.html.twig`'s own note; this is the same rule.
+#}
+{% set quoteFrozen = document_is_locked(estimate) %}
+{% include 'admin/_partials/sales_document_action_bar.html.twig' with {
+    document: estimate,
+    idPrefix: 'quote',
+    documentNoun: 'quote',
+    ariaLabel: 'Quote detail actions',
+    view: {href: path('admin_estimate_detail', {id: estimate.id}), current: true},
+    edit: (locked or quoteFrozen) ? null : {href: path('admin_estimate_edit', {id: estimate.id}), label: 'Edit / Price'},
+    pdf: null,
+    barTemplate: 'admin/estimate/_bar_actions.html.twig',
+    barContext: {locked: locked, frozen: quoteFrozen},
+    printMenuTemplate: 'admin/estimate/_print_menu.html.twig',
+    cloneUrl: path('admin_estimate_clone', {id: estimate.id}),
+    lockUrl: path('admin_estimate_lock', {id: estimate.id}),
+    unlockUrl: path('admin_estimate_unlock', {id: estimate.id}),
+} only %}
+{#
+    `edit` carries TWO refusals, and the order of them is the route's own. EstimateController::edit()
+    asks the explicit lock first and the status rule second, on GET as well as on POST, "so the edit
+    SCREEN does not open on a document that cannot be saved" — and its comment names the Unlock
+    control on this page as where the refusal sends the reader. So a frozen quote shows no
+    Edit / Price tab, the same way an Accepted one already showed none.
+#}

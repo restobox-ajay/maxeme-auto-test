@@ -1,0 +1,182 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ memo ? 'Edit ' ~ memo.documentNumber : 'New credit note' }} | Admin{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Credit note</p>
+                <h1>{{ memo ? memo.documentNumber : 'New credit note' }}</h1>
+                <p class="lead">
+                    {% if invoice %}
+                        Raised from invoice <strong>{{ invoice.documentNumber }}</strong> for {{ company.name }}.
+                        {# invoice_id on the header is PROVENANCE. Where the balance LANDS is a
+                           separate, many-to-many thing recorded per application — a note raised from
+                           one invoice can still be applied to another. #}
+                        That records where the figures came from; where the balance is spent is
+                        decided later, on the note itself, and need not be this invoice.
+                    {% else %}
+                        A standalone credit for {{ company.name }} &mdash; goodwill, a pricing
+                        correction, or credit raised before anyone decides which invoice it lands
+                        against. It is created with its full total as balance.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ memo ? path('admin_credit_memo_detail', {id: memo.id}) : path('admin_credit_memo_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {#
+        The scope the editor was OPENED with, repeated on the action so the POST is answered in the
+        same scope the GET was. `sales_return` used to be dropped here: the draft screen knew it was
+        crediting an RMA, and the submit that created the note did not, so a note raised through the
+        return's own "Raise credit note" button was stored with no return against it — and with it,
+        the rule that such a note may not also restock. The Cests that cover #596 posted to a
+        hand-built URL rather than to the form, so the gap was invisible to them.
+    #}
+    {% set newScope = invoice ? {invoice: invoice.id} : {company: company.id} %}
+    {% set newScope = salesReturn ? newScope|merge({sales_return: salesReturn.id}) : newScope %}
+    <form method="post" action="{{ memo ? path('admin_credit_memo_edit', {id: memo.id}) : path('admin_credit_memo_new', newScope) }}" id="credit-memo-form">
+        {{ csrf_field() }}
+
+        <section class="form-card">
+            <div class="form-grid">
+                <label>
+                    Credit note date <span class="req">*</span>
+                    <input type="date" name="document_date" value="{{ memo and memo.documentDate ? memo.documentDate : "now"|date("Y-m-d") }}" required>
+                </label>
+
+                <label>
+                    Type
+                    {# Configured at /admin/config/credit-memo-types, and deliberately EMPTY until
+                       somebody configures it — #586 seeds no rows. An unclassified note is fine. #}
+                    <select name="credit_memo_type_id">
+                        <option value="0">&mdash; unclassified &mdash;</option>
+                        {% for type in types %}
+                            <option value="{{ type.id }}"{{ memo and memo.creditMemoTypeId == type.id ? ' selected' : '' }}>{{ type.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if types is empty %}
+                        <small>No credit note types are configured. <a href="{{ path('admin_credit_memo_types') }}">Add some</a>, or leave this unclassified.</small>
+                    {% endif %}
+                </label>
+
+                <label>
+                    Tax
+                    <input type="number" step="0.01" min="0" name="tax" value="{{ memo ? memo.tax : '0.00' }}">
+                    <small>Entered, not calculated. A credit note credits figures already agreed on the invoice it came from; re-pricing it against today's rules would credit a different amount from the one that was billed.</small>
+                </label>
+
+                <label class="full-width">
+                    Reason
+                    <input type="text" name="reason" maxlength="255" value="{{ memo ? memo.reason : '' }}" placeholder="Damaged in transit, wrong item shipped, goodwill&hellip;">
+                </label>
+
+                {% if salesReturn %}
+                    {#
+                        #596: this note credits an RMA, and that RMA's receipt is what put the goods
+                        back. The tick box is not offered, because a note carrying a sales return
+                        REFUSES to restock — CreditMemo::setRestock() throws — and inviting somebody
+                        to tick a box that will be refused is worse than not showing it.
+
+                        The refusal is the rule and this is the courtesy. Posting `restock=1` here by
+                        hand still fails, loudly, which is what the mutation check exercises.
+                    #}
+                    <label class="full-width">
+                        Goods
+                        <p>Already recorded by return <strong>{{ salesReturn.documentNumber }}</strong>{% if salesReturn.receivedAt %}, received {{ salesReturn.receivedAt|date('Y-m-d') }}{% endif %}.</p>
+                        <small>
+                            This note credits the money only. It may not also put the goods back:
+                            the return&rsquo;s receipt already did, and doing it twice would enter the
+                            same units into the ledger twice and make quarantine read double.
+                        </small>
+                    </label>
+                {% else %}
+                    <label class="full-width">
+                        <input type="checkbox" name="restock" value="1"{{ memo and memo.restock ? ' checked' : '' }}>
+                        The goods came back
+                        {#
+                            The whole of the restock decision, and it has to be a decision: a customer
+                            returning faulty goods and one returning sellable goods raise the same credit
+                            note, and nothing but the person raising it knows which happened.
+
+                            Unticked is financial only — stock never moves. Ticked writes `returned`
+                            inventory rows when the note is issued, which count as QUARANTINE and are
+                            explicitly not sellable until somebody inspects them and releases them from
+                            hold.
+
+                            #596 did NOT remove this. A standalone credit with no RMA behind it still
+                            needs it — goodwill credits, and credits where the goods are not worth the
+                            freight to ship back — and this branch is that case, unchanged.
+                        #}
+                        <small>Ticked, issuing this note puts the units back as <strong>returned</strong> stock &mdash; present in the warehouse but <em>not</em> sellable until somebody inspects and releases them. Unticked, it credits the money and stock never moves.</small>
+                    </label>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="table-card">
+            <div class="table-header">
+                <h2>Lines</h2>
+                {% if invoice %}
+                    <p class="field-hint">Quantities start at zero: a credit note is usually for part of an invoice, so crediting the whole thing is a deliberate act rather than a missed keystroke.</p>
+                {% endif %}
+            </div>
+            <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>SKU</th>
+                        <th>Region</th>
+                        <th>Credit qty</th>
+                        <th>Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td data-label="Item">
+                                {{ row.name }}
+                                <input type="hidden" name="lines[{{ loop.index0 }}][name]" value="{{ row.name }}">
+                                <input type="hidden" name="lines[{{ loop.index0 }}][invoice_line_id]" value="{{ row.invoiceLine ? row.invoiceLine.id : '' }}">
+                                <input type="hidden" name="lines[{{ loop.index0 }}][location]" value="{{ row.location }}">
+                                <input type="hidden" name="lines[{{ loop.index0 }}][unit]" value="{{ row.unit }}">
+                                <input type="hidden" name="lines[{{ loop.index0 }}][tax_code]" value="{{ row.taxCode }}">
+                            </td>
+                            <td data-label="SKU">
+                                {{ row.sku }}
+                                <input type="hidden" name="lines[{{ loop.index0 }}][sku]" value="{{ row.sku }}">
+                            </td>
+                            <td data-label="Region">{{ row.location|default('-') }}</td>
+                            <td data-label="Credit qty">
+                                <input type="number" step="0.01" min="0"{% if row.maximum > 0 %} max="{{ row.maximum }}"{% endif %} name="lines[{{ loop.index0 }}][quantity]" value="{{ row.quantity }}">
+                                {% if row.maximum > 0 %}<small>{{ row.maximum }} still creditable</small>{% endif %}
+                            </td>
+                            <td data-label="Rate">
+                                <input type="number" step="0.01" min="0" name="lines[{{ loop.index0 }}][price]" value="{{ row.price }}">
+                            </td>
+                        </tr>
+                    {% else %}
+                        {# A standalone note still needs somewhere to type. One free row is enough:
+                           a credit with no invoice behind it is a single figure far more often than
+                           it is an itemised list. #}
+                        <tr>
+                            <td data-label="Item"><input type="text" name="lines[0][name]" value="Credit" required></td>
+                            <td data-label="SKU"><input type="text" name="lines[0][sku]" value=""></td>
+                            <td data-label="Region"><input type="text" name="lines[0][location]" value=""></td>
+                            <td data-label="Credit qty"><input type="number" step="0.01" min="0" name="lines[0][quantity]" value="1.00"></td>
+                            <td data-label="Rate"><input type="number" step="0.01" min="0" name="lines[0][price]" value="0.00"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <div class="table-footer">
+                <button class="button primary" type="submit">{{ memo ? 'Save draft' : 'Create draft' }}</button>
+            </div>
+        </section>
+    </form>
+{% endblock %}

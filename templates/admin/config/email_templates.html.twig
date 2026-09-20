@@ -1,0 +1,224 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Email Templates | Admin{% endblock %}
+{% block admin_body %}
+    {% set filters = app.request.query.all('filters') %}
+    {% if filters is not iterable %}
+        {% set filters = {} %}
+    {% endif %}
+    {% set search = app.request.query.get('q', '') %}
+    {% set currentSort = app.request.query.get('sort', 'id') %}
+    {% set currentDir = app.request.query.get('dir', 'asc')|lower == 'desc' ? 'desc' : 'asc' %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Email Templates</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_email_template_create') }}">Add Template</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card email-template-grid no-paginate">
+        <form id="email-template-filter-form" method="get" action="{{ path('admin_email_template') }}" class="js-auto-submit-form">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="page" value="1">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="email-template-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'module' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'module' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="module"><a href="{{ path('admin_email_template', {q: search, sort: 'module', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Module</a></th>
+                            {% set nextDir = currentSort == 'sentTo' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'sentTo' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="sentTo"><a href="{{ path('admin_email_template', {q: search, sort: 'sentTo', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Sent To</a></th>
+                            {% set nextDir = currentSort == 'subject' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'subject' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="subject"><a href="{{ path('admin_email_template', {q: search, sort: 'subject', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Subject</a></th>
+                            {% set nextDir = currentSort == 'body' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'body' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="body"><a href="{{ path('admin_email_template', {q: search, sort: 'body', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Body</a></th>
+                            {% set nextDir = currentSort == 'description' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'description' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="description"><a href="{{ path('admin_email_template', {q: search, sort: 'description', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Description</a></th>
+                            {% set nextDir = currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th>Source</th>
+                            <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_email_template', {q: search, sort: 'status', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Status</a></th>
+                            <th>Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[module]" value="{{ filters.module|default('') }}" data-filter-field="module" aria-label="Filter module"></th>
+                            <th>
+                                <select name="filters[sentTo]" data-filter-field="sentTo" aria-label="Filter sent to">
+                                    <option value=""></option>
+                                    <option value="Customer" {{ filters.sentTo|default('') == 'Customer' ? 'selected' : '' }}>Customer</option>
+                                    <option value="Admin" {{ filters.sentTo|default('') == 'Admin' ? 'selected' : '' }}>Admin</option>
+                                </select>
+                            </th>
+                            <th><input type="text" name="filters[subject]" value="{{ filters.subject|default('') }}" data-filter-field="subject" aria-label="Filter subject"></th>
+                            <th><input type="text" name="filters[body]" value="{{ filters.body|default('') }}" data-filter-field="body" aria-label="Filter body"></th>
+                            <th><input type="text" name="filters[description]" value="{{ filters.description|default('') }}" data-filter-field="description" aria-label="Filter description"></th>
+                            <th></th>
+                            <th>
+                                <select name="filters[status]" data-filter-field="status" aria-label="Filter status">
+                                    <option value=""></option>
+                                    <option value="Active" {{ filters.status|default('') == 'Active' ? 'selected' : '' }}>Active</option>
+                                    <option value="Inactive" {{ filters.status|default('') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/config/_email_template_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: templates|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_email_template',
+                    routeQuery: {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+
+        {# The POST target for every Revert button in the grid above. It sits OUTSIDE the GET
+           filter form on purpose: those buttons are inside it, and a nested form would be
+           discarded by the parser. Each button supplies its own formaction. #}
+        <form id="email-template-revert-form" method="post">
+            {# CsrfProtectionSubscriber checks every state-changing request against the single
+               'submit' token id (Csrf::ID); a per-action id would simply be rejected. #}
+            <input type="hidden" name="_token" value="{{ csrf_token('submit') }}">
+        </form>
+    </section>
+
+    <div id="template-viewer" class="admin-overlay" style="display: none;">
+        <div class="overlay-card viewer-card">
+            <div class="overlay-header">
+                <h2 id="viewer-title">Template Preview</h2>
+                <button class="overlay-close js-close-viewer" type="button" title="Close Preview">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="viewer-body">
+                <iframe id="viewer-frame" style="width: 100%; height: 65vh; min-height: 400px; border: none; background: #fff; border-radius: 8px;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .admin-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 40px;
+        }
+        .viewer-card {
+            background: #fff;
+            width: 100%;
+            max-width: 1000px;
+            max-height: 90vh;
+            border-radius: 20px;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .overlay-header {
+            padding: 20px 30px;
+            border-bottom: 1.5px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--paper);
+        }
+        .overlay-header h2 { margin: 0; font-size: 1.25rem; color: var(--ink); }
+        .overlay-close {
+            background: #f1f5f9;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--ink);
+            cursor: pointer;
+            line-height: 1;
+            padding: 5px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .overlay-close:hover {
+            background: var(--red);
+            color: #fff;
+        }
+        .viewer-body { padding: 30px; background: #f8fafc; overflow-y: auto; flex: 1; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const viewer = document.getElementById('template-viewer');
+            const frame = document.getElementById('viewer-frame');
+            const title = document.getElementById('viewer-title');
+            const closeBtn = document.querySelector('.js-close-viewer');
+            const filterForm = document.getElementById('email-template-filter-form');
+
+            function openViewer(url, module) {
+                if (!url) { return; }
+                title.textContent = 'Preview: ' + (module || 'Template');
+                const src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+                frame.src = src;
+                viewer.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            closeBtn.addEventListener('click', function() {
+                viewer.style.display = 'none';
+                frame.src = 'about:blank';
+                document.body.style.overflow = '';
+            });
+
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest('.js-view-template');
+                if (!btn) { return; }
+                e.preventDefault();
+                openViewer(btn.getAttribute('data-url'), btn.getAttribute('data-module'));
+            });
+
+            viewer.addEventListener('click', function(e) {
+                if (e.target === viewer) { closeBtn.click(); }
+            });
+        });
+    </script>
+
+{% endblock %}

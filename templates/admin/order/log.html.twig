@@ -1,0 +1,84 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Order Log: {{ order.orderNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel" style="margin-bottom:0; border-bottom:0; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Order detail</p>
+                <h1>{{ order.orderNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_order_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav" aria-label="Order detail actions">
+        <a class="button" href="{{ path('admin_order_detail', {id: order.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_order_document', {id: order.id}) }}">Sales Order PDF</a>
+        <a class="button is-current" href="{{ path('admin_order_log', {id: order.id}) }}">Log</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More order actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                {% include 'admin/order/_clone_order_action.html.twig' with {order: order} %}
+            </span>
+        </span>
+        <span class="row-action-menu">
+            <button class="btn-pdf row-action-toggle order-pdf-toggle" type="button" aria-expanded="false" aria-haspopup="true">PDF / Download</button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="{{ path('admin_order_document', {id: order.id}) }}" target="_blank">Print Sales Order</a>
+                <a href="{{ path('admin_order_document', {id: order.id, download: 1}) }}">Download Sales Order</a>
+            </span>
+        </span>
+    </nav>
+
+    <div class="order-detail-content">
+        <div class="table-card no-search no-paginate" style="margin-top: 24px;">
+            <table class="admin-grid-table table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">DATE</th>
+                        <th style="width: 25%;">USER</th>
+                        <th style="width: 30%;">COMMENT</th>
+                        <th style="width: 10%;">TYPE</th>
+                        <th style="width: 10%;">CUSTOMER NOTIFIED</th>
+                        <th style="width: 10%; text-align: center;">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                        <tr>
+                            <td style="padding: 12px;">{{ log.occurredAt|date('Y-m-d h:i:s A') }}</td>
+                            <td style="padding: 12px;">{{ log.actorName ?: 'System' }}</td>
+                            <td style="padding: 12px; color: #64748b;">{{ log.summary }}</td>
+                            <td style="padding: 12px;">{{ log.action }}</td>
+                            <td style="padding: 12px;">
+                                {% if log.recipientNotified %}
+                                    <span class="badge success" style="font-size: 11px;">Yes</span>
+                                {% else %}
+                                    <span class="badge danger" style="font-size: 11px;">No</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 12px; text-align: center;">
+                                {% if log.action != 'System' %}
+                                    <button class="js-delete-log" 
+                                            data-url="{{ path('admin_order_log_delete', {id: order.id, logId: log.id}) }}"
+                                            style="background: #b91c1c; color: #fff; border: none; padding: 4px 20px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: background 0.2s;">
+                                        Delete
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 24px; color: #64748b;">No log records found for this order.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div style="padding: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">
+                Showing <strong>1-{{ logs|length }}</strong> of <strong>{{ logs|length }}</strong> items.
+            </div>
+        </div>
+    </div>
+{% endblock %}

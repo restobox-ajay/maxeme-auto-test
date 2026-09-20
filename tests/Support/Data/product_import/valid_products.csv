@@ -1,0 +1,3 @@
+sku,name,status,visible
+IMPORT-NEW-SKU,New Import Product,Active,Yes
+IMPORT-EXISTING-SKU,Updated Import Product,Active,Yes

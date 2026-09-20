@@ -1,0 +1,160 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Category Product Pages | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Catalog pages</p>
+                <h1>Category Product Pages</h1>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" class="form-grid">
+            {{ csrf_field() }}
+
+            <div class="span-2 section-label">1. Which category is which page?</div>
+            <p class="span-2 help-text">
+                Three page types exist: Tire, Wheel, Accessories. Each dropdown below says which of your
+                <strong>real</strong> categories plays that part — a customer browsing that category gets that
+                page instead of the shared default. It's not about the category's name; pick whichever one
+                actually has the right products in it.
+            </p>
+            {% for role, defaultName in roles %}
+                <label>
+                    {{ defaultName }} page
+                    <select name="role_category_{{ role }}">
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {{ resolvedCategories[role].id == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endfor %}
+            <p class="span-2 help-text">
+                Not set up yet? A category named "Tire" / "Wheel" / "Accessories" gets created automatically the
+                first time a customer loads the catalog, if one doesn't already exist by that name — just pick a
+                different one from the list above if you'd rather use an existing category instead.
+            </p>
+
+            <div class="span-2 section-label">2. View mode per page</div>
+            <p class="span-2 help-text">
+                Which view mode(s) each page's "SELECT VIEW" toggle offers, and which one customers see first.
+                Uncheck both on a page and Grid stays on automatically — a page always needs at least one usable
+                view.
+            </p>
+            <div class="span-2 table-scroll">
+                <table class="admin-grid-table data-table">
+                    <thead>
+                        <tr>
+                            <th>Page</th>
+                            <th>Grid view available</th>
+                            <th>List view available</th>
+                            <th>Default view</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for role, defaultName in roles %}
+                            {% set viewConfig = viewConfigByRole[role] %}
+                            <tr>
+                                <td>{{ defaultName }} page</td>
+                                <td>
+                                    <input type="checkbox" name="view_grid_available_{{ role }}" value="1" {{ viewConfig.gridAvailable ? 'checked' : '' }}>
+                                </td>
+                                <td>
+                                    <input type="checkbox" name="view_list_available_{{ role }}" value="1" {{ viewConfig.listAvailable ? 'checked' : '' }}>
+                                </td>
+                                <td>
+                                    <select name="view_default_{{ role }}">
+                                        <option value="GRID_VIEW" {{ viewConfig.defaultView == 'GRID_VIEW' ? 'selected' : '' }}>Grid</option>
+                                        <option value="LIST_VIEW" {{ viewConfig.defaultView == 'LIST_VIEW' ? 'selected' : '' }}>List</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="span-2 section-label">3. Wheel page filters</div>
+            <p class="span-2 help-text">
+                Check <strong>Show as filter</strong> on any field below to add it as a checkbox filter (with
+                live counts) on the Wheel page — e.g. Diameter, PCD. Check <strong>Advanced</strong> too if it
+                should stay hidden behind the "Advanced View" toggle instead of always showing, like Offset/CB
+                in the reference app. <strong>Filter label</strong> is the heading shown above the checkboxes.
+            </p>
+            <div class="span-2 table-scroll">
+                <table class="admin-grid-table data-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Show as filter</th>
+                            <th>Advanced</th>
+                            <th>Filter label</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for definition in definitions %}
+                            {% set facet = wheelFacetSlugs[definition.slug] ?? null %}
+                            <tr>
+                                <td>{{ definition.label }} <code>{{ definition.slug }}</code></td>
+                                <td>
+                                    <input type="checkbox" name="field_facet_{{ definition.id }}" value="1" {{ facet ? 'checked' : '' }}>
+                                </td>
+                                <td>
+                                    <input type="checkbox" name="field_facet_advanced_{{ definition.id }}" value="1" {{ facet and facet.advanced ? 'checked' : '' }}>
+                                </td>
+                                <td>
+                                    <input type="text" name="field_facet_label_{{ definition.id }}" value="{{ facet ? facet.label : definition.label }}">
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="4">No product custom fields are registered yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <details class="span-2 config-advanced-section">
+                <summary>Advanced: limit a field to one category (optional)</summary>
+                <p class="help-text">
+                    A separate, optional setting — nothing to do with filters. By default every field here
+                    shows up on every product's admin add/edit form, regardless of category (today's behavior,
+                    unchanged). Pick a specific category for a field below and it'll only show on the admin form
+                    when the product being edited is in that category.
+                </p>
+                <div class="table-scroll">
+                    <table class="admin-grid-table data-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Applies to</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for definition in definitions %}
+                                <tr>
+                                    <td>{{ definition.label }} <code>{{ definition.slug }}</code></td>
+                                    <td>
+                                        <select name="field_category_{{ definition.id }}">
+                                            <option value="0" {{ definition.category is null ? 'selected' : '' }}>All categories</option>
+                                            {% for category in categories %}
+                                                <option value="{{ category.id }}" {{ definition.category and definition.category.id == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="2">No product custom fields are registered yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+
+            <div class="span-2 form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

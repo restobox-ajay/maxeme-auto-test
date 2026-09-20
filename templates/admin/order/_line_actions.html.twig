@@ -1,0 +1,38 @@
+{# The Actions cell of an ORDER line row, kept out of the shared row (see the note at the end of
+   templates/admin/_partials/sales_line_row.html.twig): the three documents' Actions cells differ in
+   eight independent ways at once, and eight parameters for one cell of fourteen would have made the
+   shared row worse than the three copies it replaced. So each document keeps its own, beside the
+   JavaScript that binds it, and the shared row includes it by name.
+
+   Rendered with {index, kind, showRemove, line, column, labelled}. #}
+<td class="order-line-controls">
+    {# Appends a BATCH SUB-ROW to this line — not another line. The quote form deliberately has no
+       twin: it used to carry one described as mirroring this, which cloned a whole product row
+       instead, two identical glyphs doing unrelated things (#245).
+
+       Hidden unless this row's product tracks lot/serial — see the same test in
+       sales_line_row.html.twig's batch column. The .js-order-product-select change handler in
+       app.js re-derives it and toggles this button (via .js-batch-toggle) whenever a row's
+       product changes. #}
+    <button class="mini-action success js-order-add-after js-batch-toggle js-only" type="button" aria-label="Add line"{% if not (kind == 'product' and line.tracksBatch|default(false)) %} hidden{% endif %}>+</button>
+    {% if kind == 'product' %}
+    {# Opens the row's currently-selected product in the product edit page. The href is rendered
+       server-side here and re-synced client-side whenever the row's product changes (see the
+       .js-order-product-select change handler in app.js). #}
+    <a class="mini-action info js-order-search-product"
+        data-product-edit-url-template="{{ path('admin_product_inventory_update', {id: '__PRODUCT_ID__'}) }}"
+        {% if line.productId|default('') %}href="{{ path('admin_product_inventory_update', {id: line.productId}) }}"{% else %}hidden{% endif %}
+        target="_blank" rel="noopener" aria-label="Open product in a new tab">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="8.5" cy="8.5" r="5.2"></circle>
+            <path d="M12.3 12.3 17 17"></path>
+        </svg>
+    </a>
+    {% endif %}
+    {% if showRemove %}
+        <button class="mini-action danger js-order-remove-line js-only" type="button" aria-label="Delete line">x</button>
+        {# Without JS the button above can't do anything, so the row also carries a real submit that
+           posts the row's index and lets the server drop it. #}
+        <button class="mini-action danger no-js-inline" type="submit" name="remove_line" value="{{ index }}" aria-label="Delete line">x</button>
+    {% endif %}
+</td>

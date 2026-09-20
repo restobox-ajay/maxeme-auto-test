@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Number1RimImportBundle\:
+        resource: '../src/'
+
+    Number1RimImportBundle\Menu\RimImportMenuItem:
+        tags: ['app.injection_point_menu_item']
+
+    Number1RimImportBundle\Bundle\Number1RimImportBundleDescriptor:
+        tags: ['app.bundle_descriptor']

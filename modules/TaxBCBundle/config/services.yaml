@@ -1,0 +1,25 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    TaxBCBundle\:
+        resource: '../src/'
+
+    TaxBCBundle\Tax\BCTaxCalculator:
+        tags: ['app.tax_calculator', 'app.cart_info_field']
+
+    TaxBCBundle\Menu\BCTaxMenuItem:
+        tags: ['app.tax_menu_item']
+
+    TaxBCBundle\Bundle\BCTaxBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    TaxBCBundle\Hook\BCTaxAdminOrderDetailProvider:
+        tags: ['app.injection_point']
+
+    TaxBCBundle\Hook\BCTaxCustomerOrderDetailProvider:
+        tags: ['app.injection_point']
+
+    TaxBCBundle\Hook\BCTaxInvoiceNoteProvider:
+        tags: ['app.injection_point']

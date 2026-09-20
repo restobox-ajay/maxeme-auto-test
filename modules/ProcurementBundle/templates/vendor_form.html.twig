@@ -1,0 +1,55 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% set mode = mode|default('Create') %}
+{% block title %}{{ mode == 'Update' ? 'Edit ' ~ vendor.name : 'Create Vendor' }} | Admin{% endblock %}
+{% block admin_body %}
+    {#
+       The vendor create PAGE (#660), the counterpart of `admin/company/form.html.twig` at
+       `/admin/company/create`.
+
+       Creating a vendor used to be a form sitting on the list screen. Two things were wrong with
+       that and both are visible rather than theoretical: the list's own layout is a
+       `.table-scroll-region` clamped to `calc(100vh - 3rem)`, and a plain `section.panel` above it
+       is not `flex: 0 0 auto`, so the create panel was squeezed and its text ran into the table.
+       And a create form that renders every row of the table beneath it makes the first field of a
+       new vendor the last thing on screen.
+
+       No `.table-scroll-region` anywhere here: this is a form page, and that class carries the
+       220px floor and the 100vh clamp meant for a single-table list screen.
+    #}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Inventory › Procurement</p>
+                <h1>{{ mode == 'Update' ? 'Edit ' ~ vendor.name : 'Create Vendor' }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ mode == 'Update' ? path('admin_bundle_procurement_vendor', {id: vendor.id}) : path('admin_bundle_procurement_vendors') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="form-card">
+        {# Posts to itself. No JavaScript in the path: a real submit button on a real form, which is
+           what makes this page usable with scripting off. #}
+        <form class="form-grid" method="post" action="{{ mode == 'Update' ? path('admin_bundle_procurement_vendor_save') : path('admin_bundle_procurement_vendor_create') }}">
+            {{ csrf_field() }}
+            {% if mode == 'Update' %}<input type="hidden" name="id" value="{{ vendor.id }}">{% endif %}
+            {% include '@Procurement/_vendor_fields.html.twig' with {
+                vendor: vendor, paymentTerms: paymentTerms, statuses: statuses, mode: mode
+            } only %}
+            {% if customFieldFragment is defined and customFieldFragment %}
+                <div class="span-2 custom-fields-section">
+                    <p class="section-label">Custom Fields</p>
+                    {{ customFieldFragment|raw }}
+                </div>
+            {% endif %}
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit" id="vendor-create-submit">{{ mode == 'Update' ? 'Save' : 'Create' }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

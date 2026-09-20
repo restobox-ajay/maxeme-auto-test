@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+# Test-environment container overrides.
+#
+# This file — not config/packages/test/ — is where a parameter defined in config/services.yaml
+# has to be overridden: MicroKernelTrait imports config/packages/{env}/ *before* services.yaml,
+# so a value set there is overwritten by services.yaml's own definition a moment later.
+# config/services_{env}.yaml is imported last and is the only one that wins.
+
+parameters:
+    # The test database is deleted and rebuilt from entity metadata on every run, so nothing in
+    # it is worth surviving a crash — and the fsync that synchronous=FULL performs on every
+    # statement is the single largest cost in the PHPUnit suite. DoctrineIntegrationTestCase
+    # recreates the whole schema per test method, and under FULL those 128 DDL statements take
+    # ~163ms instead of ~10ms; across the ~200 tests extending it that was ~30s of a ~51s run.
+    # Every other environment keeps FULL — see config/services.yaml.
+    app.sqlite_synchronous: 'OFF'

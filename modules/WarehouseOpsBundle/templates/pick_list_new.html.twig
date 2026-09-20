@@ -1,0 +1,50 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Compile a Pick Round | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'picks',
+        heading: 'Compile a Pick Round',
+        lead: 'Tick several orders and walk them in one round. The sort is applied across all of them at once — that is the whole reason batch picking is faster than picking each order in turn.'
+    } only %}
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_compile') }}">
+            {{ csrf_field() }}
+            <div class="form-grid">
+                <label>Warehouse
+                    <select name="warehouse_id" required>
+                        {% for w in warehouses %}<option value="{{ w.id }}"{{ warehouse and warehouse.id == w.id ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label>Assign to <input type="text" name="assigned_to" maxlength="160" placeholder="Picker's name"></label>
+            </div>
+
+            <p class="lead">
+                A line is left off the round, with a reason, when its product is on simple inventory, when it is
+                fulfilled from another warehouse, or when it is already on an open list.
+            </p>
+
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th></th><th>Order</th><th>Status</th><th>Region</th><th>Lines</th></tr></thead>
+                <tbody>
+                    {% for order in orders %}
+                        <tr>
+                            <td><input type="checkbox" name="orders[]" value="{{ order.id }}"></td>
+                            <td>{{ order.orderNumber }}</td>
+                            <td>{{ order.status }}</td>
+                            <td>{{ order.fulfillmentRegion ?? '—' }}</td>
+                            <td>{{ order.lines|length }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell">
+                            <strong>No orders are currently owing goods.</strong>
+                            <span>An order appears here once it is approved onward and not yet fully invoiced.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+
+            <div class="form-actions"><button class="button primary" type="submit">Compile round</button></div>
+        </form>
+    </section>
+{% endblock %}

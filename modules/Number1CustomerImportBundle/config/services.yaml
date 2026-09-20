@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Number1CustomerImportBundle\:
+        resource: '../src/'
+
+    Number1CustomerImportBundle\Menu\CustomerImportMenuItem:
+        tags: ['app.injection_point_menu_item']
+
+    Number1CustomerImportBundle\Bundle\Number1CustomerImportBundleDescriptor:
+        tags: ['app.bundle_descriptor']

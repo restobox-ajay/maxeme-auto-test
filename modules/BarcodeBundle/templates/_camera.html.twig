@@ -1,0 +1,98 @@
+{#
+    A camera BESIDE the typed field, never instead of it (#609 gap 2).
+
+    ## Read this before changing anything here
+
+    The typed input is the mechanism. This block is an enhancement and must stay one:
+
+      - it renders `hidden` and is only ever revealed by the script below, so a browser with
+        scripting off shows no camera controls at all and the page reads exactly as it did before
+        this partial existed;
+      - it is only revealed when `window.BarcodeDetector` actually exists AND reports a format it
+        can read. Chrome and Edge on Android have it; Firefox and desktop Safari do not, and those
+        users get the typed field, which is the reliable path anyway;
+      - on a successful read it does exactly what a keyboard-wedge scanner does — puts the string in
+        the same `<input name="code">` and submits the same `<form>`. There is no fetch(), no second
+        route, and no JSON endpoint. Delete this file and every screen still works.
+
+    A fixed receiving station has a wedge scanner and should use it: it is faster and it does not
+    care about focus, glare or a cracked lens. The camera is for somebody walking the aisles with a
+    phone, which is the case a wedge cannot serve at all.
+
+    Expects: `formId`  the id of the form whose `code` input this fills and submits.
+#}
+<div class="barcode-camera" id="{{ formId }}-camera" hidden>
+    <button class="button" type="button" data-camera-start>Use the camera instead</button>
+    <div data-camera-stage hidden>
+        <video data-camera-video playsinline muted style="width:100%;max-width:22rem;border-radius:0.3rem;background:#000;"></video>
+        <p class="lead" data-camera-status>Point the camera at the barcode.</p>
+        <button class="button" type="button" data-camera-stop>Stop the camera</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('{{ formId }}-camera');
+    var form = document.getElementById('{{ formId }}');
+    if (!root || !form || !('BarcodeDetector' in window) || !navigator.mediaDevices) { return; }
+
+    var field = form.querySelector('input[name="code"]');
+    if (!field) { return; }
+
+    var video = root.querySelector('[data-camera-video]');
+    var stage = root.querySelector('[data-camera-stage]');
+    var status = root.querySelector('[data-camera-status]');
+    var stream = null;
+    var running = false;
+
+    // Only reveal the controls once the browser has confirmed it can actually read something.
+    // `getSupportedFormats()` is the honest test; the constructor succeeds on browsers that then
+    // detect nothing at all.
+    window.BarcodeDetector.getSupportedFormats().then(function (formats) {
+        if (formats && formats.length) { root.hidden = false; }
+    }).catch(function () { /* no camera path; the typed field is untouched */ });
+
+    function stop() {
+        running = false;
+        stage.hidden = true;
+        if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    }
+
+    root.querySelector('[data-camera-stop]').addEventListener('click', stop);
+
+    root.querySelector('[data-camera-start]').addEventListener('click', function () {
+        var detector = new window.BarcodeDetector();
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function (s) {
+            stream = s;
+            video.srcObject = s;
+            stage.hidden = false;
+            running = true;
+            return video.play();
+        }).then(function () {
+            (function scan() {
+                if (!running) { return; }
+
+                detector.detect(video).then(function (codes) {
+                    if (!running) { return; }
+
+                    if (codes && codes.length && codes[0].rawValue) {
+                        // Exactly what a wedge scanner does: fill the field, submit the form. The
+                        // server sees a request it cannot tell from a typed one.
+                        field.value = codes[0].rawValue;
+                        stop();
+                        form.requestSubmit ? form.requestSubmit() : form.submit();
+                        return;
+                    }
+
+                    window.requestAnimationFrame(scan);
+                }).catch(function () {
+                    if (running) { window.requestAnimationFrame(scan); }
+                });
+            })();
+        }).catch(function () {
+            status.textContent = 'The camera could not be started. Type or scan the code instead.';
+        });
+    });
+})();
+</script>

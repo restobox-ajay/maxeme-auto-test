@@ -1,0 +1,17 @@
+{# The INVOICE's PDF / Download menu — the slot the shared action bar renders inside its disclosure.
+   Expects: `document` (the Invoice), `current` and `printable`.
+
+   Email lives here rather than in the bar, where the owner's Zoho reference puts it, because
+   `admin_invoice_send` is the only mail route on the sell side: there is nothing to put on the
+   order's or the quote's bar beside it, so it is not a shared control. #}
+{% if printable|default(false) %}
+    {# On a page that IS a document, Print means this sheet — so it is named after the
+       document actually on screen. Labelling it "Print Invoice" on the packing slip
+       would have offered one document and printed the other. #}
+    <a id="invoice-action-print" href="#" onclick="window.print(); return false;">Print {{ current == 'packing-slip' ? 'Packing Slip' : 'Invoice' }}</a>
+{% else %}
+    <a id="invoice-action-print" href="{{ path('admin_invoice_print', {id: document.id}) }}" target="_blank">Print Invoice</a>
+{% endif %}
+<a id="invoice-action-download" href="{{ path('admin_invoice_print', {id: document.id, download: 1}) }}">Download Invoice</a>
+<a id="invoice-action-download-slip" href="{{ path('admin_invoice_packing_slip', {id: document.id, pdf: 1}) }}">Download Packing Slip</a>
+{% include 'admin/invoice/_send_invoice_actions.html.twig' with {invoice: document} only %}

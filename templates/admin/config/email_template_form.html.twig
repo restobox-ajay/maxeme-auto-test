@@ -1,0 +1,132 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Email Template | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>{{ mode }} Email Template</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_email_template') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card email-template-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Module <span class="req">*</span>
+                <input type="text" name="module" value="{{ template.module }}" placeholder="e.g. company_registration" required>
+            </label>
+            <label>
+                Sent To
+                <select name="sent_to">
+                    {% for target in ['Customer', 'Admin'] %}
+                        <option {{ template.sentTo == target ? 'selected' : '' }}>{{ target }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="span-2">
+                Subject <span class="req">*</span>
+                <input type="text" name="subject" value="{{ template.subject }}" placeholder="Email subject line" required>
+            </label>
+            <label class="span-2">
+                Body <span class="req">*</span>
+                <span class="email-editor-shell">
+                    <span class="email-editor-toolbar">
+                        <button type="button" data-editor-action="code" title="Code">&lt;&gt;</button>
+                        <button type="button" data-editor-action="paragraph" title="Paragraph">&para;</button>
+                        <button type="button" data-editor-action="bold" title="Bold">B</button>
+                        <button type="button" data-editor-action="italic" title="Italic"><em>I</em></button>
+                        <button type="button" data-editor-action="strike" title="Strike"><s>S</s></button>
+                        <button type="button" data-editor-action="bullet" title="Bullet list">&bull; list</button>
+                        <button type="button" data-editor-action="number" title="Numbered list">1. list</button>
+                        <button type="button" data-editor-action="outdent" title="Outdent">&larr;</button>
+                        <button type="button" data-editor-action="indent" title="Indent">&rarr;</button>
+                        <button type="button" data-editor-action="link" title="Link">link</button>
+                        <button type="button" data-editor-action="rule" title="Horizontal rule">&mdash;</button>
+                        <button type="button" data-editor-action="placeholder" title="Placeholder">%...%</button>
+                    </span>
+                    <textarea name="body" rows="14" required>{{ template.body }}</textarea>
+                </span>
+            </label>
+            <label>
+                Description
+                <textarea name="description" rows="3" placeholder="Optional notes about this template.">{{ template.description }}</textarea>
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    {% for status in ['Active', 'Inactive'] %}
+                        <option {{ template.status == status ? 'selected' : '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="span-2">
+                <small>
+                    Shared email footer text comes from <a href="{{ path('admin_settings') }}">Admin Settings</a>
+                    with the keys `email_footer_copyright` and `email_footer_address`.
+                </small>
+            </div>
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+                <button class="button info js-email-preview-btn" type="button" data-url="{{ previewUrl }}">Preview Design</button>
+            </div>
+        </form>
+
+        <div class="email-preview-wrapper" style="display: none; margin-top: 30px; border-top: 2px solid var(--line); padding-top: 30px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                <h2 style="margin: 0;">Design Preview</h2>
+                <button class="overlay-close js-close-preview" type="button" title="Close Preview" style="width: 40px;height: 40px;border: none;border-radius: 10%;background: #fffafa;color: #333;display: flex;align-items: center;justify-content: center;cursor: pointer;transition: all 0.2s ease;padding: 0;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="preview-container" style="background: #f1f5f9; padding: 20px; border-radius: 12px; border: 1.5px solid var(--line);">
+                <iframe id="email-preview-frame" name="email-preview-frame" style="width: 100%; height: 600px; border: none; background: #fff; border-radius: 8px; box-shadow: var(--shadow-sm);"></iframe>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const previewBtn = document.querySelector('.js-email-preview-btn');
+                const previewWrapper = document.querySelector('.email-preview-wrapper');
+                const previewFrame = document.getElementById('email-preview-frame');
+                const closeBtn = document.querySelector('.js-close-preview');
+                const bodyTextarea = document.querySelector('textarea[name="body"]');
+
+                if (previewBtn && previewWrapper && previewFrame) {
+                    previewBtn.addEventListener('click', function() {
+                        const url = this.getAttribute('data-url');
+                        const body = bodyTextarea.value;
+
+                        previewWrapper.style.display = 'block';
+                        previewWrapper.scrollIntoView({ behavior: 'smooth' });
+
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = url;
+                        form.target = 'email-preview-frame';
+
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'body';
+                        input.value = body;
+
+                        form.appendChild(input);
+                        document.body.appendChild(form);
+                        form.submit();
+                        document.body.removeChild(form);
+                    });
+
+                    closeBtn.addEventListener('click', function() {
+                        previewWrapper.style.display = 'none';
+                    });
+                }
+            });
+        </script>
+    </section>
+
+{% endblock %}

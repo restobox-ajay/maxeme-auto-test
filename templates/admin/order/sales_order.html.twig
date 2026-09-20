@@ -1,0 +1,89 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Sales Order: {{ order.orderNumber }} | Admin{% endblock %}
+
+{#
+    The Sales Order document (#539 stage 6).
+
+    A NEW template rather than the moved invoice one, and the difference is the point. Until #539
+    this page printed the order as an invoice, because it was one. It is not any more: an order
+    records what the customer ordered and what was accepted, and the money it will be billed for
+    lives on the invoices raised against it.
+
+    So four things the invoice document has are deliberately absent here, and must stay absent:
+
+      * no AMOUNT DUE — nothing is owed on an order; the invoice is what asks for money
+      * no payment status and no amount received — those are per-invoice answers, and an order
+        billed across three invoices has three of them
+      * no remit-to / payment note — `invoice_payment_note` is the "how to pay this" block and
+        does not belong on a document nobody can pay
+      * no "INVOICE" heading, no invoice number and no invoice date
+
+    And two things it has that the invoice does not: the ordered-versus-invoiced quantity per line,
+    which is the question the order now exists to answer, and the list of invoices raised against
+    it. Together those make this a statement of what was ordered and how much of it has been
+    billed — which is what the order became when the invoice moved out.
+#}
+
+{% block admin_body %}
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0; border-bottom:0; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Order detail</p>
+                <h1>{{ order.orderNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_order_detail', {id: order.id}) }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav no-print" aria-label="Order detail actions">
+        <a class="button" href="{{ path('admin_order_detail', {id: order.id}) }}">View</a>
+        <a class="button is-current" href="{{ path('admin_order_document', {id: order.id}) }}">Sales Order PDF</a>
+        <a class="button" href="{{ path('admin_order_log', {id: order.id}) }}">Log</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More order actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                {% include 'admin/order/_clone_order_action.html.twig' with {order: order} %}
+            </span>
+        </span>
+        <span class="row-action-menu">
+            <button class="btn-pdf row-action-toggle order-pdf-toggle" type="button" aria-expanded="false" aria-haspopup="true">PDF / Download</button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="#" onclick="window.print(); return false;">Print Sales Order</a>
+                <a href="{{ path('admin_order_document', {id: order.id, download: 1}) }}">Download Sales Order</a>
+            </span>
+        </span>
+    </nav>
+    {% endif %}
+
+    {{ include('admin/_partials/sell_side_pdf_document.html.twig', {
+        docLabel: 'SALES ORDER',
+        sectionTitle: 'Ordered Items',
+        metaLeftTemplate: 'admin/order/_pdf_meta_left.html.twig',
+        metaLeftContext: {order: order},
+        billingAddress: billingAddress,
+        shippingAddress: shippingAddress,
+        billingFallbackName: order.billingName,
+        shippingFallbackName: order.shippingName,
+        companyIdentityName: order.companyIdentity.name,
+        companyIdentityPhone: order.companyIdentity.phone,
+        companyIdentityEmail: order.companyIdentity.email,
+        lineColumns: ['name', 'unit', 'sku', 'ordered', 'invoiced', 'remaining', 'price', 'subtotal'],
+        lines: order.lines,
+        document: order,
+        feeLinesJson: order.feeLines,
+        footerNoteTemplate: 'admin/order/_pdf_footer_note.html.twig',
+        footerNoteContext: {order: order},
+        subtotal: order.subtotal,
+        shippingTotal: order.shippingTotal,
+        shippingLines: order.shippingLines,
+        taxLines: taxLines|default([]),
+        tax: order.tax,
+        grandTotalLabel: 'ORDER VALUE:',
+        total: order.total,
+        extraSectionTemplate: 'admin/order/_pdf_invoices_raised.html.twig',
+        extraSectionContext: {order: order},
+    }, with_context = false) }}
+{% endblock %}

@@ -1,0 +1,14 @@
+{# The invoice's own facts, in sell_side_pdf_document.html.twig's left meta column.
+   Rendered with {invoice, order}. #}
+<p><strong>Invoice number:</strong> <span style="color:#408dfb;">{{ invoice.documentNumber }}</span></p>
+<p><strong>Invoice date:</strong> {{ invoice.invoiceDate ?: invoice.documentDate ?: '-' }}</p>
+<p><strong>Due date:</strong> {{ invoice.dueDate ?: '-' }}</p>
+{# The cross-link, printed rather than only shown in the admin UI: an invoice raised against an
+   order states which order it bills, on the copy the customer receives as well as the one staff
+   read. #}
+<p><strong>Sales order:</strong> {{ order ? order.orderNumber : '-' }}</p>
+<p><strong>Order date:</strong> {{ order ? order.documentDate : '-' }}</p>
+<p><strong>Customer number:</strong> {{ invoice.company.id }}</p>
+<p><strong>Purchase order:</strong> {{ invoice.poNumber|default('-') }}</p>
+<p><strong>Payment method:</strong> {{ invoice.paymentMethod|default('-') }}</p>
+<p><strong>Payment terms:</strong> {{ invoice.paymentTerm|default('No payment terms') }}</p>

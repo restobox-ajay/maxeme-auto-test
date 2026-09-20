@@ -1,0 +1,11 @@
+{# Common line-table columns, shared by order/quote/invoice — typed ONCE, in PHP, as
+   App\Service\SalesDocumentLineColumns::BASE (InvoiceController's standalone-screen column list
+   reads the same constant, so there is exactly one place these 12 columns are ever written).
+   Output is JSON (Twig macros can't return a list directly) — decode it, then |merge() to append
+   or override:
+       {% set columns = line_columns.base()|json_decode|merge([{key: 'actions', label: 'Actions'}]) %}
+   No Actions column here: every document's own control set differs too much for one header to fit
+   all three (see sales_line_row.html.twig), so each caller appends its own last. #}
+{% macro base() %}
+    {{- constant('App\\Service\\SalesDocumentLineColumns::BASE')|json_encode|raw -}}
+{% endmacro %}

@@ -1,0 +1,32 @@
+{% for region in regions %}
+    <tr>
+        {# Queue item 61: creating a region no longer creates its warehouse where no province can be
+           supplied, so a region with nowhere to draw stock from is now reachable — and has to be
+           visible, because orders placed against it will find no stock and no purchase order can
+           be raised to restock it. #}
+        <td data-label="Name">
+            <strong>{{ region.name }}</strong>
+            {% if region.warehouseMissing|default('') %}
+                <span class="badge warn">No warehouse &mdash; add one under Warehouses</span>
+            {% endif %}
+        </td>
+        <td data-label="Default On For New Customer"><span class="badge {{ region.defaultForNewCompany == 'No' ? 'danger-soft' : '' }}">{{ region.defaultForNewCompany }}</span></td>
+        <td data-label="Status"><span class="badge {{ region.status == 'Inactive' ? 'danger-soft' : '' }}">{{ region.status }}</span></td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_fulfillment_region_update', {id: region.id}) }}">Edit</a>
+                {% if region.locked is defined and region.locked == 'Yes' %}
+                {% else %}
+                    <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_fulfillment_region_delete', {id: region.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ region.name }} region">Delete</button>
+                {% endif %}
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="4" class="empty-table-cell">
+            <strong>No fulfillment regions found.</strong>
+            <span>Regions will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

@@ -1,0 +1,37 @@
+{% for category in categories %}
+    <tr>
+        <td data-label="ID">{{ category.id }}</td>
+        <td data-label="Name" class="searchable">
+            {# {% set depth = category.depth|default('0')|int %} #}
+            {% set depth = category.depth|default(0) + 0 %}
+            {# <strong>{{ depth > 0 ? ('-' ~ ('-'|repeat(depth - 1)) ~ ' ') : '' }}{{ category.name }}</strong> #}
+            <strong>
+                {% if depth > 0 %}
+                    {% for i in 1..depth %}-{% endfor %}
+                    &nbsp;
+                {% endif %}
+                {{ category.name }}
+            </strong>
+        </td>
+        <td data-label="Parent category">{{ category.parent }}</td>
+        <td data-label="Status">
+            <button class="status-switch js-category-status {{ category.status == 'Visible' ? 'is-on' : '' }}" type="button" data-url="{{ path('admin_category_toggle', {id: category.id}) }}" data-token="{{ csrf_token_value() }}" aria-pressed="{{ category.status == 'Visible' ? 'true' : 'false' }}" aria-label="Toggle {{ category.name }} catalog visibility"></button>
+            <span class="badge {{ category.status == 'Hidden' ? 'danger-soft' : '' }}">{{ category.status }}</span>
+        </td>
+        <td data-label="Client catalog">{{ category.status == 'Visible' ? 'Shown to customers' : 'Hidden from customers' }}</td>
+        <td data-label="Products">{{ category.products }}</td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_category_update', {id: category.id}) }}">Edit</a>
+                <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_category_delete', {id: category.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ category.name }}">Delete</button>
+            </span>
+        </td>
+    </tr>
+    {% else %}
+        <tr>
+            <td colspan="7" class="empty-table-cell">
+                <strong>No categories found.</strong>
+                <span>Categories will appear here once created.</span>
+            </td>
+        </tr>
+    {% endfor %}

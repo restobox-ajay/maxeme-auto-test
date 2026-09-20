@@ -1,0 +1,236 @@
+{% extends 'base.html.twig' %}
+{% block body_class %}site site-customer{% endblock %}
+{% block area_label %}Buyer Portal{% endblock %}
+{% block home_path %}/{% endblock %}
+{% block site_header %}
+    {% set route = app.request.attributes.get('_route') %}
+    {% set productSearch = app.request.query.all('ProductSearch') %}
+    {% set currentCategoryId = (activeCategoryId|default(productSearch['category_id']|default('0'))) ~ '' %}
+    {# Seller contact details, and only those — they come from Settings → Company Information.
+       Defaults are intentionally blank: a hardcoded fallback printed some other company's phone
+       and email the moment the setting was cleared. Blank omits the link. #}
+    {% set companyPhone = app_setting('company_phone', '') %}
+    {% set companyPhoneHref = companyPhone|replace({' ': '', '(': '', ')': '', '-': ''}) %}
+    {% set salesEmail = app_setting('sales_email', '') %}
+    {% set minimalCustomerHeader = minimalCustomerHeader|default(false) %}
+    <header class="customer-site-header">
+        <div class="customer-topbar">
+            <a class="brand customer-brand" href="{{ path('customer_home') }}" aria-label="{{ site_name() }} home">
+                {# Was a hardcoded "WC": the customer header never read logo_url, so an uploaded logo
+                   showed on the admin side only. The tile is artwork-only now — no initials fallback,
+                   matching base.html.twig and the email header (#351). #}
+                {% set logoUrl = app_setting('logo_url', '') %}
+                {% set logoOnly = logoUrl and app_setting('header_logo_only', 'No') == 'Yes' %}
+                {% if logoUrl %}
+                    <span class="brand-mark customer-brand-mark brand-mark-logo{{ logoOnly ? ' brand-mark-logo-only' : '' }}">
+                        <img src="{{ logoUrl }}" alt="">
+                    </span>
+                {% endif %}
+                {% if not logoOnly %}
+                    <span class="brand-copy customer-brand-copy">
+                        {{ site_name() }}
+                        <small>Buyer Portal</small>
+                    </span>
+                {% endif %}
+            </a>
+
+            {% if not minimalCustomerHeader %}
+                {% if companyPhone or salesEmail %}
+                    <div class="customer-topbar-meta">
+                        {% if companyPhone %}<a href="tel:{{ companyPhoneHref }}">{{ companyPhone }}</a>{% endif %}
+                        {% if salesEmail %}<a href="mailto:{{ salesEmail }}">{{ salesEmail }}</a>{% endif %}
+                    </div>
+                {% endif %}
+
+                <form class="customer-topbar-search" method="get" action="{{ path('customer_catalog') }}">
+                    <input type="hidden" name="ProductSearch[category_id]" value="0">
+                    <label class="sr-only" for="customer-header-search">Search catalog</label>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input id="customer-header-search" type="search" name="q" placeholder="Search by SKU or Product Name" value="{{ app.request.query.get('q', '') }}">
+                </form>
+
+                <div class="customer-topbar-actions">
+                    {% if app.user %}
+                        <a class="customer-cart-pill js-cart-link" href="{{ path('customer_cart') }}">
+                            <svg class="nav-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                            </svg>
+                            <span>View Cart</span>
+                            <span class="nav-badge js-cart-badge"{{ app.user and customer_cart_count() > 0 ? '' : ' hidden' }}>{{ app.user ? customer_cart_count() : 0 }}</span>
+                        </a>
+                    {% endif %}
+                    {% if app.user and app.user.company %}
+                        <div class="user-menu customer-user-menu">
+                            <button class="user-menu-toggle customer-user-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+                                <span class="customer-user-menu-icon" aria-hidden="true">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </span>
+                                <span class="customer-user-menu-label">{{ app.user.company.name }}</span>
+                                <span class="user-menu-caret" aria-hidden="true">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                </span>
+                            </button>
+                            <div class="user-menu-dropdown customer-user-menu-dropdown">
+                                <a class="user-menu-link user-menu-link--profile" href="{{ path('customer_profile') }}">My Profile</a>
+                                <a class="user-menu-link user-menu-link--users" href="{{ path('customer_company_users') }}">Company User</a>
+                                <a class="user-menu-link user-menu-link--company" href="{{ path('customer_company_profile') }}">Company Profile</a>
+                                <a class="user-menu-link user-menu-link--api" href="{{ path('customer_api_key') }}">API Key</a>
+                                <a class="user-menu-link user-menu-link--logout" href="/logout">Sign Out</a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="user-menu customer-user-menu customer-user-menu--guest">
+                            <button class="user-menu-toggle customer-user-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+                                <span class="customer-user-menu-icon" aria-hidden="true">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </span>
+                                <span class="customer-user-menu-label">My Account</span>
+                                <span class="user-menu-caret" aria-hidden="true">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                </span>
+                            </button>
+                            <div class="user-menu-dropdown customer-user-menu-dropdown">
+                                <a class="user-menu-link user-menu-link--login" href="{{ path('customer_login') }}">Login</a>
+                                <a class="user-menu-link user-menu-link--register" href="{{ path('customer_register') }}">Register</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {# Menu toggle lives here so it rides in the same right-aligned icon group as
+                       cart + account on mobile (one line). Hidden on desktop, where the subnav
+                       shows the category links inline. The click handler finds .customer-subnav-menu
+                       anywhere inside the header, so its DOM position here is fine. #}
+                    <button class="nav-toggle customer-topbar-nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Toggle navigation">
+                        <span class="nav-toggle-bars" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                        </span>
+                        <span class="nav-toggle-text">Menu</span>
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if not minimalCustomerHeader %}
+            <div class="customer-subnav">
+                <div class="customer-subnav-inner">
+                    <nav id="primary-navigation" class="nav customer-subnav-menu" aria-label="Primary navigation">
+                        {% for item in frontend_menu_items() %}
+                            {# Catalog links (Tire/Wheel/Accessories from Number1CategoryProductPageBundle) carry a category_id route param and highlight by matching it against the page's current category — everything else falls back to route-name matching. A plural list route (e.g. customer_orders) also highlights for its singular detail/action sub-routes (customer_order_detail, customer_order_cancel, ...) — preserves the highlighting My Orders/My Quotes had before this loop replaced their hardcoded links. #}
+                            {% set catalogCategoryId = item.routeParams['ProductSearch[category_id]']|default(null) %}
+                            {% set activeRoutePrefix = (catalogCategoryId is null and item.route and item.route ends with 's') ? item.route[:-1] ~ '_' : null %}
+                            {% set isCurrent = catalogCategoryId is not null
+                                ? (route in ['customer_catalog', 'customer_product_detail'] and currentCategoryId == (catalogCategoryId ~ ''))
+                                : (item.route and (route == item.route or (activeRoutePrefix and route starts with activeRoutePrefix))) %}
+                            <a class="{{ isCurrent ? 'is-current' : '' }}" href="{{ item.route ? path(item.route, item.routeParams) : item.url }}">{{ item.label }}</a>
+                        {% endfor %}
+                    </nav>
+                </div>
+            </div>
+        {% endif %}
+    </header>
+{% endblock %}
+{% block topbar_actions %}
+    {% if app.user and app.user.company %}
+        <div class="user-menu customer-user-menu">
+            <button class="user-menu-toggle customer-user-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+                <span class="customer-user-menu-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </span>
+                <span class="customer-user-menu-label">{{ app.user.company.name }}</span>
+                <span class="user-menu-caret" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+            </button>
+            <div class="user-menu-dropdown customer-user-menu-dropdown">
+                <a class="user-menu-link user-menu-link--profile" href="{{ path('customer_profile') }}">My Profile</a>
+                <a class="user-menu-link user-menu-link--users" href="{{ path('customer_company_users') }}">Company User</a>
+                <a class="user-menu-link user-menu-link--company" href="{{ path('customer_company_profile') }}">Company Profile</a>
+                <a class="user-menu-link user-menu-link--api" href="{{ path('customer_api_key') }}">API Key</a>
+                <a class="user-menu-link user-menu-link--logout" href="/logout">Sign Out</a>
+            </div>
+        </div>
+    {% else %}
+        <div class="user-menu customer-user-menu customer-user-menu--guest">
+            <button class="user-menu-toggle customer-user-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+                <span class="customer-user-menu-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </span>
+                <span class="customer-user-menu-label">My Account</span>
+                <span class="user-menu-caret" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+            </button>
+            <div class="user-menu-dropdown customer-user-menu-dropdown">
+                <a class="user-menu-link user-menu-link--login" href="{{ path('customer_login') }}">Login</a>
+                <a class="user-menu-link user-menu-link--register" href="{{ path('customer_register') }}">Register</a>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+{% block navigation %}
+    {% set route = app.request.attributes.get('_route') %}
+    {% set nav = customer_nav() %}
+    {% set productSearch = app.request.query.all('ProductSearch') %}
+    {% set currentCategoryId = (activeCategoryId|default(productSearch['category_id']|default('0'))) ~ '' %}
+    {% for category in nav.categories %}
+        {% set hasChildren = category.children is defined and category.children is not empty %}
+        {% set isCurrentCategory = route in ['customer_catalog', 'customer_product_detail'] and (currentCategoryId == category.id or currentCategoryId in (category.descendantIds|default([]))) %}
+        {% if hasChildren %}
+            <div class="nav-dropdown {{ isCurrentCategory ? 'is-current' : '' }}">
+                <div class="nav-dropdown-head">
+                    <a class="nav-dropdown-link nav-dropdown-link--with-caret" href="{{ path('customer_catalog', { 'ProductSearch[category_id]': category.id }) }}">{{ category.name }}</a>
+                </div>
+                <div class="nav-dropdown-menu" role="menu" aria-label="{{ category.name }} categories">
+                    {% include 'customer/_main/_nav_category_tree.html.twig' with {categories: category.children} only %}
+                </div>
+            </div>
+        {% else %}
+            <a class="{{ isCurrentCategory ? 'is-current' : '' }}" href="{{ path('customer_catalog', { 'ProductSearch[category_id]': category.id }) }}">{{ category.name }}</a>
+        {% endif %}
+    {% endfor %}
+
+    <a class="{{ (route starts with 'customer_order' or route == 'customer_orders') and not (route starts with 'customer_estimate') ? 'is-current' : '' }}" href="{{ path('customer_orders') }}">My Orders</a>
+    <a class="{{ route starts with 'customer_estimate' ? 'is-current' : '' }}" href="{{ path('customer_estimates') }}">My Quote Requests</a>
+    <a class="{{ route == 'customer_faq' ? 'is-current' : '' }}" href="{{ path('customer_faq') }}">FAQ</a>
+    <a class="{{ route == 'customer_contact' ? 'is-current' : '' }}" href="{{ path('customer_contact') }}">Contact</a>
+    {% if not app.user %}
+        <a class="{{ route == 'customer_login' ? 'is-current' : '' }}" href="{{ path('customer_login') }}">Login</a>
+        <a class="nav-cta {{ route == 'customer_register' ? 'is-current' : '' }}" href="{{ path('customer_register') }}">Register</a>
+    {% endif %}
+    {% if app.user %}
+        <a class="js-cart-link nav-icon-link {{ route == 'customer_cart' ? 'is-current' : '' }}" href="{{ path('customer_cart') }}" aria-label="Cart">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            <span class="nav-badge js-cart-badge"{{ app.user and customer_cart_count() > 0 ? '' : ' hidden' }}>{{ app.user ? customer_cart_count() : 0 }}</span>
+        </a>
+    {% endif %}
+{% endblock %}
+{% block body %}{% block customer_body %}{% endblock %}{% endblock %}
+{% block head_extra %}
+    {{ injection_point('customer_head_top') }}
+{% endblock %}
+{% block body_end %}
+    {{ injection_point('customer_body_end') }}
+{% endblock %}

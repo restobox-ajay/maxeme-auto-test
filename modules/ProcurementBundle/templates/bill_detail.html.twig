@@ -1,0 +1,382 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+{% block title %}{{ bill.billNumber }} | Admin{% endblock %}
+
+{#
+    Joining the shared view frame (matching purchase_order_detail.html.twig's own migration).
+
+    `commercial_document_view.html.twig` is the base Invoice, SalesOrder, Estimate and — since its
+    own Phase 1 — PurchaseOrder already share. This is Bill joining it. Nothing about what this
+    screen shows or how a bill is priced, taxed, guarded or transitioned changed here; only where
+    its markup sits, and two small declutters the move made possible (see below).
+
+    The content-to-block mapping:
+      - `hero_eyebrow` / `hero_title` / `hero_status` / `hero_actions` — the eyebrow, bill number,
+        status badge and Back button `@Procurement/_nav.html.twig` used to render for this screen.
+        `_nav.html.twig` is still used by every OTHER purchase-side screen; this one grew its own
+        hero because the frame already draws one.
+      - `actionBarTemplate` — points at `@Procurement/_bill_document_action_bar.html.twig`, a small
+        Bill-specific partial for the same reason `_document_action_bar.html.twig` exists for PO:
+        this document has no real tab bar (there is only one GET route), so the slot's only job is
+        the flash messages `_nav.html.twig` also used to render (no app.js hook here, so a flash has
+        to be real, visible markup) — PLUS the duplicate-invoice-number and received-elsewhere
+        warnings, which are this document's own report-driven notices and belong beside the other
+        loud, above-everything-else banners rather than folded into a summary card below them.
+      - `summary_info_heading` / `summary_info_rows` — "Received at" and the warehouse/tax-province
+        paragraph, with its `#bill-receiving-warehouse` id kept on a wrapper `<div>` (the frame gives
+        `summary_info` no id slot of its own), the same shape `#po-delivery-province` uses on the
+        purchase order's own detail screen. The paragraph's own "Received at" label is dropped since
+        the heading now says it — the one declutter this move makes possible, not a fact removed.
+      - `summary_billing` — "Remit to", given its own heading the same way "Order to" is on the
+        purchase order's screen, for the same reason: the label was inline prose before, and the
+        frame gives every address card a real heading now. Empty entirely when the bill has no
+        remit-to address, same as PO's "Order to" panel is never conditional on the vendor having no
+        vendor at all.
+      - `summary_shipping` — left empty. A bill has no shipping-to-a-customer concept, same ruling
+        as the purchase order's screen.
+      - `document_actions` — the title-row panel: Balance, the vendor-name-and-total line that used
+        to be the hero's own lead sentence (the view frame's hero has no lead slot — nothing else
+        here restated the vendor's name, so it is kept as its own sentence rather than dropped), the
+        dated/paid/PO-link line, and the Edit / Payments / Print / Download PDF / Raise a debit memo
+        / Approve buttons — unchanged.
+      - `line_items_heading` / `line_items_table` — "Lines" and its table, unchanged, tfoot and all.
+      - `totals` — left EMPTY. This document itemises its money inside the line table's own
+        `<tfoot>`, which is exactly the case the frame's own docblock names: "a document that
+        itemises its money inside the line table's own tfoot must not be given an empty flex row to
+        push it about."
+      - `related_documents` — Three-way match, Charges and tax, Notes, Payments, Dispute, Return to
+        draft and Void, in their original relative order: this document's own related information
+        and transition controls, the same concept the purchase order's screen uses this slot for.
+      - `activity_log` — the Timeline table, unchanged. `change_history` is left at the frame's own
+        default (the generic AuditLog panel), which this screen did not carry before and now gets
+        for free, the same as every other CommercialDocument's detail screen.
+#}
+
+{% set document = bill %}
+{% set slotPrefix = 'admin_bill_detail' %}
+{% set actionBarTemplate = '@Procurement/_bill_document_action_bar.html.twig' %}
+{% set actionBarContext = {report: report, bill: bill} %}
+
+{% block hero_eyebrow %}Apps › Inventory › Procurement{% endblock %}
+{% block hero_title %}{{ bill.billNumber }}{% endblock %}
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: bill.status} only %}{% endblock %}
+{% block hero_actions %}<a class="button back-button" href="{{ path('admin_bundle_procurement_index') }}">Back</a>{% endblock %}
+
+{# Where the goods landed, and the province frozen from it (queue item 32). The province is the
+   document's OWN snapshot, not a live read of the warehouse: moving a warehouse next year must not
+   restate last year's tax, which is the same rule CompanyIdentity states and PurchaseOrder::issue()
+   applies to its vendor address. So both are printed — the building it came from, and what this
+   bill actually says.
+
+   The warehouse clause below is ASKED, not stated (queue item 65). It used to read "its receiving
+   warehouse has no province on file" whenever this bill had no province — so filling the
+   warehouse's address in left the screen printing "Received at Main — 1 Walkthrough Way, Surrey,
+   BC, V3S 0A1" two lines above a sentence saying that warehouse had no province. The building's
+   address is read live, so the sentence about it has to be too, or the page contradicts itself. #}
+{% block summary_info_heading %}Received at{% endblock %}
+{% block summary_info_rows %}
+    {# The remedy inside the shared partial's "no tax province" branch depends on where the gap
+       actually is, and stays behind Draft: deriveTaxProvinceFrom() refuses off Draft, so telling
+       somebody to re-save a bill that has already been approved would be telling them to do
+       something the document forbids.
+
+       A DISPUTED bill carries the same gap and a different first step, appended below rather than
+       folded into the shared partial: PurchaseOrder has no Disputed status at all, so this is a
+       real VendorBill-only exception, not something `_purchase_tax_province_note_view.html.twig`
+       should know how to render. It used to carry no step at all: approve() accepts Disputed, so
+       this screen stated a rule, offered the button, and then refused it with a message naming a
+       save that save() forbids off Draft. The bill could be neither approved nor fixed.
+
+       This names the extra step rather than the gap — the gap is already stated in the sentence
+       directly above, and saying it twice is how one copy goes stale. Which step is ASKED of the
+       bill (canReturnToDraft), not derived from a status typed out here, so this sentence and the
+       control in the Return to draft panel below cannot offer different answers. #}
+    <div id="bill-receiving-warehouse">
+        <div>
+            {% if bill.warehouse %}
+                {{ bill.warehouse.name }}{% if bill.warehouse.addressSummary %} — {{ bill.warehouse.addressSummary }}{% endif %}.
+            {% else %}
+                no warehouse recorded.
+            {% endif %}
+            {% include '@Procurement/_purchase_tax_province_note_view.html.twig' with {
+                documentNoun: 'bill',
+                hasProvince: bill.taxProvince,
+                provinceDisplay: bill.taxProvince,
+                provinceTail: 'frozen onto this bill when it was entered.',
+                warehouse: bill.warehouse,
+                showWarehouseClause: bill.warehouse and not bill.warehouse.province,
+                warehouseClauseText: 'its receiving warehouse has no province on file',
+                cannotFreezeSentence: 'A bill with taxable goods and no province cannot be approved.',
+                cannotFreezeHere: true,
+                showDraftRemedy: bill.status == 'Draft' and bill.warehouse,
+            } only %}
+            {% if not bill.taxProvince and bill.status == 'Disputed' %}
+                {% if bill.canReturnToDraft %}
+                    <strong>Return this bill to draft</strong> — the control is further down this page — then save the draft, which is what takes the province from the warehouse.
+                {% else %}
+                    {{ bill.currency }} {{ bill.amountPaid|amount }} is paid against this bill, so it cannot be returned to draft. Delete or move that payment on its Payments screen first.
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{# Where paying this bill sends the money, frozen when it was entered (#606). Often a different
+   legal entity from the vendor — a factor, a lockbox, a parent's accounts department — which is why
+   it is on the bill and not read live off the vendor. #}
+{% block summary_billing %}
+    {% if bill.remitToAddress %}
+        <section class="panel">
+            <h2>Remit to</h2>
+            <p class="lead">{{ bill.remitToAddress|nl2br }}</p>
+        </section>
+    {% endif %}
+{% endblock %}
+
+{% block document_actions %}
+    <section class="panel">
+        <div class="panel-title-row">
+            <div>
+                <h2>Balance {{ bill.currency }} {{ bill.balance|amount }}</h2>
+                {# The vendor-and-total line the hero's own lead sentence used to carry — the view
+                   frame's hero has no lead slot, and nothing else on this screen restates the
+                   vendor's name, so it is kept here rather than dropped. #}
+                <p class="lead">{{ bill.vendorName }} &middot; {{ bill.currency }} {{ bill.total|amount }}.</p>
+                <p class="lead">
+                    Dated {{ bill.documentDate }}{% if bill.dueDate %}, due {{ bill.dueDate }}{% endif %}.
+                    {{ bill.currency }} {{ bill.amountPaid|amount }} paid of {{ bill.currency }} {{ bill.total|amount }}, across {{ bill.applications|length }} payment(s).
+                    {% if bill.purchaseOrder %}
+                        Against <a href="{{ path('admin_bundle_procurement_purchase_order', {id: bill.purchaseOrder.id}) }}">{{ bill.purchaseOrder.poNumber }}</a>.
+                    {% else %}
+                        <strong>No purchase order to match against.</strong>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="panel-actions">
+                {% if bill.status == 'Draft' %}
+                    <a class="button" href="{{ path('admin_bundle_procurement_bill_edit', {id: bill.id}) }}">Edit</a>
+                {% endif %}
+                <a class="button" href="{{ path('admin_bundle_procurement_bill_payments', {id: bill.id}) }}">Payments</a>
+                {# The same pair, in the same order and with the same words, that every other
+                   printable buy-side document carries (_send_purchase_order_actions.html.twig and
+                   the RFQ reply's) — the owner's ruling on item 44 is that the control is learned
+                   once. There is no Send beside them: a bill is never sent to anybody. #}
+                <a class="button" href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id}) }}">Print</a>
+                <a class="button" href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id, pdf: 1}) }}">Download PDF</a>
+                {# The buy-side mirror of "Raise a credit note" on an invoice. The memo records which
+                   bill it came from, which is what lets anybody answer "what is this against?"
+                   afterwards — the provenance debit_memo.vendor_bill_id was mapped for. #}
+                {% if bill.status != 'Void' %}
+                    <a class="button" href="{{ path('admin_bundle_procurement_debit_memo_new', {bill: bill.id}) }}">Raise a debit memo</a>
+                {% endif %}
+                {% if bill.status in ['Draft', 'Disputed'] %}
+                    <form method="post" action="{{ path('admin_bundle_procurement_bill_approve', {id: bill.id}) }}" class="inline-form">
+                        {{ csrf_field() }}
+                        <button class="button primary" type="submit">Approve for payment</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{# ── Lines ───────────────────────────────────────────────────────────
+   What the vendor is charging for, extended, with the tax taken on each row and a foot that
+   adds up to the figure stored on the document.
+
+   perLineTax and perLineTaxLabel are positional and come off this bill's own frozen tax_lines
+   snapshot, so a rate change tomorrow does not reprice a bill entered today. #}
+{% block line_items_heading %}Lines{% endblock %}
+{% block line_items_table %}
+    {{ include('@Procurement/_purchase_detail_line_table.html.twig', {
+        lines: bill.lines,
+        perLineTax: perLineTax,
+        perLineTaxLabel: perLineTaxLabel,
+        emptyMessage: 'This bill has no lines. Edit the draft to enter what the vendor is charging for.',
+        tableStyle: 'border-collapse: collapse;',
+        showFulfillment: false,
+        currency: bill.currency,
+        footTemplate: '@Procurement/_bill_lines_foot.html.twig',
+        footContext: {bill: bill, chargeRows: chargeRows, taxLines: taxLines},
+    }, with_context = false) }}
+{% endblock %}
+
+{% block related_documents %}
+    {# Named so an assertion — or a link — can reach this section's summary sentence rather than
+       the whole page. The sentence below is the one that told a user their draft bill's ten
+       exceptions each needed a human, on a document no worklist would ever show them on. #}
+    <section class="table-card no-paginate" id="bill-three-way-match">
+        <h2>Three-way match</h2>
+        <p class="lead">
+            Ordered ↔ received ↔ charged, within {{ report.quantityTolerancePercent }}% quantity and
+            {{ report.priceTolerancePercent }}% price tolerance.
+            {% if report.isAutoApprovable %}
+                <strong>Clean.</strong> Approvable without anyone thinking about it.
+            {% else %}
+                {# The count and the scope it holds for, in one sentence, because they were in two
+                   places and disagreed. This match counts the exceptions on THIS bill in whatever
+                   state it is in; the Exceptions worklist covers only the bills that count as a
+                   charge against the business. "Every one needs a human" is true of a bill that is
+                   on that worklist and false of one that is not — nothing is going to pick a draft
+                   up off a list it is not on, so the page has to say which of the two it is.
+
+                   `onExceptionWorklist` comes from VendorBillStatus::counts(), the same predicate
+                   whose enumeration ExceptionController binds to its query. The status word below is
+                   the bill's own, so this renders correctly for Void as well as Draft without either
+                   being named here. #}
+                <strong id="bill-exception-count">{{ report.exceptionCount }} exception(s).</strong>
+                {% if onExceptionWorklist %}
+                    Every one needs a human.
+                {% else %}
+                    <span id="bill-exception-scope">A {{ bill.status }} bill is not on the Exceptions worklist, which covers approved bills only — nobody will pick these up from there.</span>
+                {% endif %}
+            {% endif %}
+        </p>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Line</th><th>Ordered</th><th>Received</th><th>Billed</th><th>Cost ordered</th><th>Cost billed</th><th>Verdict</th></tr></thead>
+            <tbody>
+                {% for line in report.lines %}
+                    <tr>
+                        <td>{{ line.description }}</td>
+                        <td>{{ line.quantityOrdered }}</td>
+                        <td>{{ line.quantityReceived }}</td>
+                        <td>{{ line.quantityBilled }}</td>
+                        <td>{{ line.unitCostOrdered ?? '—' }}</td>
+                        <td>{{ line.unitCostBilled ?? '—' }}</td>
+                        <td>{{ line.describeExceptions }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-table-cell">
+                        <strong>This bill has no lines.</strong>
+                        <span>Edit the draft to enter the charges it covers.</span>
+                    </td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="table-card no-paginate">
+        <h2>Charges and tax</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Row</th><th>Kind</th><th>Tax class</th><th>Placement</th><th>Amount</th></tr></thead>
+            <tbody>
+                {% for charge in chargeRows %}
+                    <tr>
+                        <td>{{ charge.label }}</td>
+                        <td>{{ charge.type }}{{ charge.source == 'manual' ? ' (typed)' : ' (calculated)' }}</td>
+                        <td>{{ charge.taxClass }}</td>
+                        <td>{{ charge.placement|replace({'_': ' '}) }}</td>
+                        <td>{{ bill.currency }} {{ charge.amount|amount }}</td>
+                    </tr>
+                {% endfor %}
+                {% for taxRow in taxLines %}
+                    <tr>
+                        <td>{{ taxRow.label }}</td>
+                        <td>tax{{ taxRow.source == 'manual' ? ' (manual)' : ' (calculated)' }}</td>
+                        <td>—</td>
+                        <td>tax</td>
+                        <td>{{ bill.currency }} {{ taxRow.amount|amount }}</td>
+                    </tr>
+                {% endfor %}
+                {% if chargeRows is empty and taxLines is empty %}
+                    <tr><td colspan="5" class="empty-table-cell">
+                        <strong>No charges and no tax on this bill.</strong>
+                        <span>Edit the draft to add freight, brokerage or the tax the vendor charged.</span>
+                    </td></tr>
+                {% endif %}
+            </tbody>
+        </table></div>
+        <p class="lead">
+            Goods {{ bill.currency }} {{ bill.subtotal|amount }} · tax {{ bill.currency }} {{ bill.tax|amount }} ·
+            <strong>total {{ bill.currency }} {{ bill.total|amount }}</strong>.
+        </p>
+    </section>
+
+    {# ── Notes ───────────────────────────────────────────────────────────
+       Typed on the entry form since #555 into `vendor_bill.notes`, stored, and printed by nothing:
+       neither this page nor any other screen in the bundle ever rendered the column, so every note
+       anybody has written on a bill went into a hole. Rendered only when there is one — thirteen
+       empty rows on a document that has no note reads as data that failed to load. #}
+    {% if bill.notes %}
+        <section class="panel">
+            <h2>Notes</h2>
+            <p class="lead">{{ bill.notes|nl2br }}</p>
+        </section>
+    {% endif %}
+
+    <section class="panel">
+        <h2>Payments</h2>
+        <p class="lead">
+            {{ bill.applications|length }} payment(s) recorded, {{ bill.currency }} {{ bill.amountPaid|amount }} in total, leaving
+            a balance of {{ bill.currency }} {{ bill.balance|amount }}. The paid figure is the sum of those rows and nothing
+            else holds it, so the two cannot disagree.
+        </p>
+        <p><a class="button" href="{{ path('admin_bundle_procurement_bill_payments', {id: bill.id}) }}">Record or correct a payment</a></p>
+    </section>
+
+    {# Asked of the bill, not compared against a list typed out here. This used to read
+       `bill.status in ['Draft', 'Open', 'Partially Paid']` — a third hand-kept copy of the
+       guard inside VendorBill::dispute(), alongside the one in ExceptionController. See
+       VendorBill::DISPUTABLE_FROM. #}
+    {% if bill.canBeDisputed %}
+        {# Named so the exceptions screen can land a person on this form rather than at the top of
+           the page, and pre-fill it with the finding that sent them here. #}
+        <section class="panel" id="dispute">
+            <h2>Dispute</h2>
+            <p class="lead">Parks the bill out of the payment run. A part payment against a disputed bill does not settle the dispute, so nothing derives it back.</p>
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_dispute', {id: bill.id}) }}" class="form-grid">
+                {{ csrf_field() }}
+                <label class="span-2">What is wrong with it? <input type="text" name="reason" maxlength="255" value="{{ suggestedDisputeReason }}" required></label>
+                <div class="form-actions span-2"><button class="button" type="submit">Dispute</button></div>
+            </form>
+        </section>
+    {% endif %}
+
+    {# The third answer to a dispute. Approving it ("we argued, we lost") and voiding it ("the bill
+       was wrong") were both on this page already; correcting it was not, and correcting a document
+       means editing it, which means Draft. Asked of the bill for the reason the dispute panel above
+       is — VendorBill::canReturnToDraft() is returnToDraft()'s own guard, so this control appears
+       exactly when pressing it would work. #}
+    {% if bill.canReturnToDraft %}
+        <section class="panel" id="return-to-draft">
+            <h2>Return to draft</h2>
+            <p class="lead">Refused once money has gone out against this bill.</p>
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_return_to_draft', {id: bill.id}) }}" class="form-grid">
+                {{ csrf_field() }}
+                <label class="span-2">Reason <input type="text" name="reason" maxlength="255"></label>
+                <div class="form-actions span-2"><button class="button" type="submit" id="return-to-draft-submit">Return to draft</button></div>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if bill.status in ['Draft', 'Open', 'Disputed'] and not bill.hasPaidAnything %}
+        <section class="panel">
+            <h2>Void</h2>
+            <p class="lead">For a bill entered in error or a duplicate caught before it was paid. The number survives; nothing is deleted.</p>
+            <form method="post" action="{{ path('admin_bundle_procurement_bill_void', {id: bill.id}) }}" class="form-grid">
+                {{ csrf_field() }}
+                <label class="span-2">Reason <input type="text" name="reason" maxlength="255"></label>
+                <div class="form-actions span-2"><button class="button" type="submit">Void</button></div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}
+
+{# Identified so a test can assert a timeline entry against THIS table rather than against the
+   page (#627): every entry's text — a dispute reason, a status change — is also plausible copy
+   somewhere else on this screen. #}
+{% block activity_log %}
+    <section class="table-card no-paginate" id="bill-timeline">
+        <h2>Timeline</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead>
+            <tbody>
+                {% for log in bill.logs %}
+                    <tr><td>{{ log.createdAt|date('Y-m-d H:i') }}</td><td>{{ log.userName ?? 'System' }}</td><td>{{ log.comment }}</td></tr>
+                {% else %}
+                    <tr><td colspan="3" class="empty-table-cell"><strong>Nothing has happened to this bill yet.</strong></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        <p class="lead">Written at approval time and never recomputed.</p>
+    </section>
+{% endblock %}

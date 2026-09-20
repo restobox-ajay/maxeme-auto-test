@@ -1,0 +1,133 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Scan Console | Admin{% endblock %}
+{% block admin_body %}
+    {# Scoped to this screen and shipped inside the bundle rather than in the global stylesheet:
+       remove the bundle and the styling goes with it, and no cache-buster has to be bumped for a
+       feature most instances never turn on. #}
+    <style>
+        .scan-console { max-width: 30rem; margin: 0 auto; }
+        .scan-console .scan-input { font-size: 1.5rem; width: 100%; padding: 0.6rem; letter-spacing: 0.05em; }
+        .scan-console .scan-step { font-size: 1.1rem; }
+        .scan-console .scan-crumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+        .scan-console .scan-crumbs span { background: rgba(127,127,127,0.15); padding: 0.2rem 0.5rem; border-radius: 0.2rem; font-size: 0.85rem; }
+        .scan-console .button { min-height: 2.75rem; }
+    </style>
+
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'scan',
+        heading: 'Scan Console',
+        lead: 'Scan where → scan what → confirm how many. Built for a keyboard-wedge scanner on a phone: it types the barcode and presses Enter, so every step is one field and no drivers are involved.'
+    } only %}
+
+    <section class="panel scan-console">
+        {% if step != 'start' %}
+            <div class="scan-crumbs">
+                <span>{{ flow|capitalize }}</span>
+                {% if warehouse %}<span>{{ warehouse.name }}</span>{% endif %}
+                {% if bin %}<span>at {{ bin.code }}</span>{% endif %}
+                {% if product %}<span>{{ product.sku }}</span>{% endif %}
+                {% if lot %}<span>{{ lot.label }}</span>{% endif %}
+                {% if serial %}<span>S/N {{ serial }}</span>{% endif %}
+                {% if target %}<span>→ {{ target.code }}</span>{% endif %}
+            </div>
+        {% endif %}
+
+        {% if step == 'start' %}
+            <h2 class="scan-step">Where are you, and what are you doing?</h2>
+            <form method="get" action="{{ path('admin_bundle_warehouse_ops_scan') }}" class="form-grid">
+                <label>Warehouse
+                    <select name="warehouse" required>
+                        {% for w in warehouses %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label>Flow
+                    <select name="flow" required>
+                        {% for f in flows %}<option value="{{ f }}">{{ f|capitalize }}</option>{% endfor %}
+                    </select>
+                </label>
+                <div class="form-actions span-2"><button class="button primary" type="submit">Start</button></div>
+            </form>
+
+            <h3>Transfers</h3>
+            <p class="lead">
+                Moving stock between warehouses on a handheld is the transfer document's own dispatch or receive
+                action, not an ad-hoc move — a transfer without a document is two unrelated adjustments, and the
+                stock falls into the gap between them.
+            </p>
+            <ul>
+                {% for t in draftTransfers %}
+                    <li><a href="{{ path('admin_bundle_warehouse_ops_transfer', {id: t.id}) }}">{{ t.number }}</a>
+                        — {{ t.fromWarehouse.name }} → {{ t.toWarehouse.name }} ({{ t.status }})</li>
+                {% else %}
+                    <li>No open transfers.</li>
+                {% endfor %}
+            </ul>
+
+        {% elseif step in ['bin', 'target', 'item'] %}
+            <h2 class="scan-step">
+                {% if step == 'bin' %}Scan the bin{% elseif step == 'target' %}Scan where it is going{% else %}Scan the item{% endif %}
+            </h2>
+            <p class="lead">
+                {% if step == 'item' %}
+                    A SKU, a lot label or a serial. Scanning a lot settles the product too; scanning a serial
+                    settles the product, the lot and the quantity, which is exactly one.
+                {% else %}
+                    Bin first, always. Knowing where you are is what makes everything after it unambiguous.
+                {% endif %}
+            </p>
+            <form id="scan-console-form" method="post" action="{{ path('admin_bundle_warehouse_ops_scan_step') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="flow" value="{{ flow }}">
+                <input type="hidden" name="warehouse" value="{{ warehouse.id }}">
+                {% if bin %}<input type="hidden" name="bin" value="{{ bin.id }}">{% endif %}
+                {% if target %}<input type="hidden" name="target" value="{{ target.id }}">{% endif %}
+                {% if product %}<input type="hidden" name="product" value="{{ product.id }}">{% endif %}
+                {% if lot %}<input type="hidden" name="lot" value="{{ lot.id }}">{% endif %}
+                {% if serial %}<input type="hidden" name="serial" value="{{ serial }}">{% endif %}
+                <input type="hidden" name="expect" value="{{ step == 'item' ? 'item' : step }}">
+                <input class="scan-input" type="text" name="code" autofocus autocomplete="off" placeholder="Scan or type, then Enter">
+                <div class="form-actions"><button class="button primary" type="submit">Accept scan</button></div>
+            </form>
+            {# Beside the typed field, never instead of it: the wedge scanner is the mechanism and
+               the camera is for somebody walking the aisles with a phone (#609). #}
+            {% include '@Barcode/_camera.html.twig' with {formId: 'scan-console-form'} only %}
+
+        {% else %}
+            <h2 class="scan-step">How many?</h2>
+            <p class="lead">
+                {{ bin.code }} holds <strong>{{ onHand }}</strong> of this right now.
+                {% if flow == 'count' %}Enter what you actually counted — the difference is what gets written, and a count that agrees writes nothing.{% endif %}
+            </p>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_scan_apply') }}">
+                {{ csrf_field() }}
+                {# Minted when this form was rendered. Warehouse wi-fi is bad: a submit that times out
+                   and gets retried finds this same key and applies nothing the second time. #}
+                <input type="hidden" name="op_id" value="{{ operationId }}">
+                <input type="hidden" name="flow" value="{{ flow }}">
+                <input type="hidden" name="warehouse" value="{{ warehouse.id }}">
+                <input type="hidden" name="bin" value="{{ bin.id }}">
+                {% if target %}<input type="hidden" name="target" value="{{ target.id }}">{% endif %}
+                <input type="hidden" name="product" value="{{ product.id }}">
+                {% if lot %}<input type="hidden" name="lot" value="{{ lot.id }}">{% endif %}
+                {% if serial %}<input type="hidden" name="serial" value="{{ serial }}">{% endif %}
+
+                {% if serial %}
+                    <p><strong>One unit.</strong> A serial is one physical thing; there is no quantity to type.</p>
+                    <input type="hidden" name="quantity" value="1">
+                {% else %}
+                    <input class="scan-input" type="number" name="quantity" min="0" value="{{ flow == 'count' ? onHand : 1 }}" autofocus>
+                {% endif %}
+
+                <label>Reference
+                    <input type="text" name="reference" maxlength="160" autocomplete="off">
+                    <small>Order number, count sheet, whatever this is for.</small>
+                </label>
+
+                <div class="form-actions">
+                    <button class="button primary" type="submit">Confirm {{ flow }}</button>
+                    <a class="button" href="{{ path('admin_bundle_warehouse_ops_scan', {flow: flow, warehouse: warehouse.id, bin: bin.id}) }}">Different item</a>
+                </div>
+            </form>
+        {% endif %}
+    </section>
+{% endblock %}

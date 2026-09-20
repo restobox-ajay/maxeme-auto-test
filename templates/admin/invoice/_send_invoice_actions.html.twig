@@ -1,0 +1,18 @@
+{# Expects: invoice (object with .id) — real forms, not GET links, since sending an invoice emails the recipient
+
+   Offered on every invoice, order-linked or standalone. This used to refuse a standalone invoice —
+   the shipped invoice_customer / invoice_self bodies were written order-first, and
+   /admin/invoice/create raises invoices with no order on purpose, so that refusal was reachable on
+   the one entry path built specifically to not need one. InvoiceController::send() no longer
+   requires an order, and both shipped bodies now read the invoice's own fields first and treat the
+   order as optional enhancement. #}
+<form method="post" action="{{ path('admin_invoice_send', {id: invoice.id}) }}" style="display: contents;">
+    {{ csrf_field() }}
+    <input type="hidden" name="type" value="customer">
+    <button id="invoice-action-send-customer" type="submit">Send Invoice to Customer</button>
+</form>
+<form method="post" action="{{ path('admin_invoice_send', {id: invoice.id}) }}" style="display: contents;">
+    {{ csrf_field() }}
+    <input type="hidden" name="type" value="self">
+    <button id="invoice-action-send-self" type="submit">Send Invoice to Self</button>
+</form>

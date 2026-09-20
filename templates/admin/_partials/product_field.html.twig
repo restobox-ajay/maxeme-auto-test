@@ -1,0 +1,132 @@
+{#
+    The product field every admin screen shares. Include it rather than copying it.
+
+    It lives in core because core is the only layer no bundle can delete: `config/bundles.php`
+    discovers modules with glob(), and `bundle_status` switches them off, so a partial owned by one
+    bundle and included by another is a 500 waiting for the day somebody removes the first. The
+    reasoning in full is on App\Service\Product\ProductPicker.
+
+    Parameters
+    ----------
+    field         required  the input name, e.g. 'lines[0][product_id]' or 'product_id'
+    products      required  the options to carry — ProductPicker::options(), or any rows carrying
+                            the keys `optionData` and `optionText` name
+    remote        required  ProductPicker::isRemote(): past the inline limit, search takes over
+    selected      optional  the currently-chosen ProductCore, or null
+    selectedId    optional  the chosen product's id, for a caller holding an id rather than an
+                            entity — a sell-side line row knows `line.productId` and nothing more.
+                            Beats `selected` when both are given; falsy (0, '', null) means none.
+    form          optional  a form id, when the control sits outside its <form> (#613)
+    required      optional  defaults to false
+    label         optional  aria-label; defaults to 'Product'. `false` renders no aria-label at all,
+                            which is what a control already labelled by its surroundings wants.
+    placeholder   optional  overrides the placeholder, for a field that may legitimately be blank
+    searchUrl     optional  where tier 2 fetches matches; defaults to core's plain product search.
+                            A purchase screen passes its own, because it prices the results against
+                            a vendor's rate card and core knows nothing about vendors.
+    selectClass   optional  extra classes on the <select>, for a screen whose JavaScript binds to a
+                            hook of its own. Appended; the widget's own classes are not negotiable.
+    optionData    optional  the `data-*` payload each <option> carries, as {suffix: key} — the
+                            attribute name WITHOUT its `data-` prefix, mapped to the key read off
+                            each product row. Defaults to `{sku: 'sku'}`, which is what a screen
+                            that only has to name the product needs. A key a given row does not
+                            carry renders as the empty string rather than raising: one payload can
+                            then serve documents whose rows differ by a key (the order's carry
+                            `tracksBatch`; the quote's and the invoice's do not), which is the whole
+                            point of a payload the caller states once.
+    optionText    optional  the keys whose values make up an option's visible text, joined with
+                            ' — '. Defaults to `['sku', 'name']`.
+
+    ## Why the payload and the option text are parameters and not a branch
+
+    The ten inventory and purchasing screens that call this — nineteen call sites between them —
+    want one `data-sku` and a SKU-and-name label, because all they do with the answer is save it.
+    The sell side's three want eight attributes and a bare name, because its line JavaScript fills
+    the rest of the row — weight, unit, tax code, cost, original price, price, batch tracking — off
+    the chosen option without another round trip, and the SKU already has a column of its own one
+    cell along.
+    That is a difference in what the CALLER does with the answer, so it is an argument. It must
+    never become `{% if document == 'order' %}`: the moment this file knows which screen it is
+    rendering it is a dozen templates in one and worse than the copies it replaced.
+
+    The failure mode the shapes exist for is silent. A missed `data-*` throws nothing, logs nothing
+    and renders a select that looks perfect; the row simply stops filling in. So the defaults are
+    today's behaviour exactly, and each attribute is asserted individually, by name and value, off
+    a rendered page — see SellSideProductFieldCest.
+
+    The three tiers are #399's, from the sell side's order form.
+#}
+{% set fieldName = field %}
+{% set manualName = field ends with ']' ? field[:-1] ~ '_manual]' : field ~ '_manual' %}
+{% set pickerSearchUrl = searchUrl is defined and searchUrl ? searchUrl : path('admin_product_picker_search') %}
+{% set pickerIsRequired = required|default(false) %}
+{% set pickerLabel = label is defined ? label : 'Product' %}
+{% set pickerClass = ['js-searchable-select', remote ? 'js-only' : '', selectClass|default('')]|filter(v => v)|join(' ') %}
+{% set pickerSelectedId = selectedId|default(null) ?: (selected is defined and selected ? selected.id : null) %}
+{% set pickerOptionData = optionData|default({'sku': 'sku'}) %}
+{% set pickerOptionText = optionText|default(['sku', 'name']) %}
+{# Tier 1 has no server round-trip to ask for a barcode match, so each option carries its own
+   product's codes as search data instead — see App\Twig\ProductBarcodeSearchExtension and
+   app.js's filter(), which already reads data-sku the same way. #}
+{% set pickerBarcodeData = product_barcode_search_data(products) %}
+
+{# js-searchable-select is the shared widget; it upgrades this select in place when scripting is
+   on. With scripting off the select is still a real select, which a browser makes type-to-search
+   for free — which is the whole reason tier 1 needs no fallback at all. #}
+<select name="{{ fieldName }}"
+        class="{{ pickerClass }}"
+        {% if form is defined and form %}form="{{ form }}"{% endif %}
+        data-placeholder="{{ placeholder is defined and placeholder ? placeholder : (remote ? 'Type to search products…' : 'Select a product…') }}"
+        {% if remote %}data-search-url="{{ pickerSearchUrl }}"{% endif %}
+        {# `required` goes on the control the admin can actually reach. Past the inline limit this
+           select is `js-only`, i.e. display:none with scripting off — and a browser refuses to
+           submit a form carrying a required control it cannot focus to complain about (core's own
+           order form records the same trap at templates/admin/order/form.html.twig). So past the
+           limit the requirement moves to the <noscript> box below, which is the visible control in
+           that tier. The server refuses a missing product either way; that is what backs it. #}
+        {% if pickerIsRequired and not remote %}required{% endif %}
+        {% if pickerLabel is not same as(false) %}aria-label="{{ pickerLabel }}"{% endif %}>
+    <option value=""></option>
+    {% for product in products %}
+        <option value="{{ product.id }}"
+{# The loop tags sit in column 0 so the payload keeps the attribute-per-line layout this field has
+   always rendered, byte for byte: Twig drops the newline that immediately follows a `%}`, so a
+   tag indented with its body would silently pull each attribute onto the line above. #}
+{% for dataName, dataKey in pickerOptionData %}                data-{{ dataName }}="{{ attribute(product, dataKey) is defined ? attribute(product, dataKey) : '' }}"
+{% endfor %}                data-barcodes="{{ pickerBarcodeData[product.id] is defined ? pickerBarcodeData[product.id] : '' }}"
+                {{ pickerSelectedId and pickerSelectedId == product.id ? 'selected' : '' }}>{{ pickerOptionText|map(key => attribute(product, key))|join(' — ') }}</option>
+    {% endfor %}
+</select>
+
+{#
+    Past the inline limit the select above carries only what this screen already names, so with
+    scripting off there is no option for anything else and no way to name a product at all — the
+    search endpoint is reachable only from JS. This is the no-JS way in.
+
+    <noscript> and not a hidden input or a CSS class, deliberately: a hidden input still POSTS, so
+    with scripting on it would post alongside the select and the two would fight over which wins.
+    Inside <noscript> a scripting-enabled parser treats the whole thing as text, so it is not in the
+    DOM at all and the widget never sees it.
+
+    Its name is `*_manual` rather than a second copy of the field name, so nothing depends on which
+    of the two PHP happens to parse last. Every controller reads the select first and falls back to
+    this, through one function — ProductPicker::idFromPostedRow().
+
+    The derivation above understands one convention, the indexed one: `lines[0][product_id]` gives
+    `lines[0][product_id_manual]`, and a bare `product_id` gives `product_id_manual`. Every caller
+    in the application posts one of those two shapes — the sell side's three reconciled on
+    `lines[N][field]` before this field was adopted — so no caller overrides it and there is no
+    parameter to do so. Write the override rather than making this line cleverer if one ever does.
+#}
+{% if remote %}
+    <noscript>
+        <label class="no-js-product-id">
+            Product ID
+            <input type="number" min="1" step="1" name="{{ manualName }}"
+                   value="{{ pickerSelectedId ?: '' }}"
+                   {% if form is defined and form %}form="{{ form }}"{% endif %}
+                   {% if pickerIsRequired %}required{% endif %}>
+        </label>
+        <small>Find a product's ID at <code>{{ pickerSearchUrl }}{{ '?' in pickerSearchUrl ? '&' : '?' }}q=</code> (2+ characters).</small>
+    </noscript>
+{% endif %}

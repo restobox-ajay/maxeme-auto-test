@@ -1,0 +1,6 @@
+{% extends 'emails/layout.html.twig' %}
+{% block body %}
+<h2 style="margin-top: 0; color: #0f172a;">Order approved</h2>
+<p>Hello <strong>{{ order.company.name|default('Customer') }}</strong>,</p>
+<p>Your order <span class="highlight">#{{ order.orderNumber|default('') }}</span> has been approved.</p>
+{% endblock %}

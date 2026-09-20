@@ -1,0 +1,167 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Backorders | Admin{% endblock %}
+{% block admin_body %}
+    {# The queue joined the grid model in #621: .content-frame > .table-card, so it gets the
+       full-height clamp (app.css:7764) every other list screen gets, and so the list-screen
+       conventions have something to hold it to. Before this it was .panel > table.data-table,
+       which is markup the conventions do not reach — and being unreachable is exactly why it
+       had no filters at all. #}
+    {% set anyFilter = filters.order or filters.customer or filters.sku or filters.warehouse or filters.etaBy %}
+    {# '' first, then the statuses themselves — labelled with the word the Status column prints, so
+       the bar and the cells cannot say different things about the same row. #}
+    {% set tabs = {'': 'All backorders'} %}
+    {% for status in statuses %}
+        {% set tabs = tabs|merge({(status): status}) %}
+    {% endfor %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Inventory</p>
+                <h1>Backorders</h1>
+            </div>
+            <div class="panel-actions">
+                {# No create button, and that is not an omission: nothing raises a backorder by
+                   hand. An episode is opened by InventoryReconciliationSubscriber the moment a
+                   line goes short, so the only thing this header can offer is where the stock
+                   itself is looked after. #}
+                <a class="button back-button" href="{{ path('admin_inventory_index') }}">Product Inventory</a>
+            </div>
+        </div>
+        {# Open / Resolved / All, as links back to this screen — the same bar the Orders and
+           Invoices grids carry. Open is what a bare /admin/backorders shows, so the All tab states
+           its empty status rather than leaving it out; see BackorderController::index(). #}
+        <nav class="order-status-tabs">
+            {% for value, label in tabs %}
+                <a class="{{ value == filters.status ? 'is-active' : '' }}"
+                   href="{{ path('admin_backorder_index', {filters: filters|merge({status: value}), limit: limit, page: 1}) }}">{{ label }}</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="table-card no-paginate">
+        <form method="get" id="backorder-filters" action="{{ path('admin_backorder_index') }}">
+            {# Any change to the filters starts at the first page: page 3 of the old result set is
+               not page 3 of the new one. #}
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Order</th>
+                        <th>Customer</th>
+                        <th>SKU</th>
+                        <th>Warehouse</th>
+                        <th>Ordered</th>
+                        <th>Backordered</th>
+                        <th>Releasable now</th>
+                        <th>Restock ETA</th>
+                        <th>Opened</th>
+                        <th>Resolved</th>
+                        <th>Actions</th>
+                    </tr>
+                    {# Six filters, one per column that answers a question somebody chasing goods
+                       actually asks. Ordered / Backordered / Releasable now / Opened / Resolved
+                       carry none: narrowing a queue by a quantity or by when the episode was
+                       recorded is not a question anybody puts to it, and a box that answers
+                       nothing is furniture. #}
+                    <tr class="filter-row">
+                        <th>
+                            <select name="filters[status]" form="backorder-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value=""{{ filters.status == '' ? ' selected' : '' }}>Any</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status }}"{{ filters.status == status ? ' selected' : '' }}>{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[order]" form="backorder-filters" value="{{ filters.order }}" aria-label="Filter order number"></th>
+                        <th><input type="text" name="filters[customer]" form="backorder-filters" value="{{ filters.customer }}" aria-label="Filter customer"></th>
+                        <th><input type="text" name="filters[sku]" form="backorder-filters" value="{{ filters.sku }}" aria-label="Filter SKU or description"></th>
+                        <th>
+                            <select name="filters[warehouse]" form="backorder-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}"{{ filters.warehouse == warehouse.id ? ' selected' : '' }}>{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        {# Due on or before. With today's date it reads "what is already late". #}
+                        <th><input type="date" name="filters[etaBy]" form="backorder-filters" value="{{ filters.etaBy }}" aria-label="Filter restock ETA due on or before"></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            {# A real submit button, so the filter row applies by pressing Enter and
+                               with JavaScript off — the onchange handlers above are a convenience
+                               on top of it, never the only way through. #}
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_backorder_index', {filters: {status: filters.status}}) }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr class="data-item-row" data-backorder-entry="{{ row.id }}">
+                            <td data-label="Status"><span class="order-status order-status-{{ row.status|lower }}">{{ row.status }}</span></td>
+                            <td data-label="Order"><a class="link-strong" href="{{ path('admin_order_detail', {id: row.orderId}) }}">{{ row.orderNumber }}</a></td>
+                            <td data-label="Customer">{{ row.company }}</td>
+                            <td data-label="SKU">{{ row.sku }}<br><small>{{ row.name }}</small></td>
+                            <td data-label="Warehouse">{{ row.warehouse }}</td>
+                            <td data-label="Ordered">{{ row.ordered|qty }}</td>
+                            <td data-label="Backordered">{{ row.backordered|qty }}</td>
+                            {# Stock with no real hold standing on it — what a release may draw on right
+                               now. Zero on a resolved row, which is correct: it is nothing's turn. #}
+                            <td data-label="Releasable now">{{ row.status == 'Open' ? row.availableToRelease|qty : '-' }}</td>
+                            <td data-label="Restock ETA">{{ row.restockEta ? row.restockEta|date('Y-m-d') : '-' }}</td>
+                            <td data-label="Opened">{{ row.createdAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Resolved">{{ row.completedAt ? row.completedAt|date('Y-m-d H:i') : '-' }}</td>
+                            <td data-label="Actions" class="row-actions">
+                                {# One dropdown rather than a spread of flat links, the shape
+                                   templates/admin/order/_list_rows.html.twig uses. Who released an
+                                   episode and when lives on the order's own timeline, never
+                                   duplicated onto the queue entry — so the reads go there. #}
+                                <div class="row-action-menu">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open backorder actions"></button>
+                                    <div class="row-action-dropdown">
+                                        {% if row.status == 'Open' %}
+                                            <a href="{{ path('admin_backorder_show', {id: row.orderId}) }}">Release stock</a>
+                                            <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                                        {% endif %}
+                                        <a href="{{ path('admin_order_detail', {id: row.orderId}) }}">View order</a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="12" class="empty-table-cell">
+                                {% if anyFilter or filters.status %}
+                                    <strong>No backorders match.</strong>
+                                    <span>Widen the filters, or look at every status.</span>
+                                {% else %}
+                                    <strong>Nothing is on backorder.</strong>
+                                    <span>Lines appear here when an order is accepted for more than a warehouse has, on a SKU configured to allow it.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'backorders'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="backorder-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_backorder_index',
+                    routeQuery: {filters: filters, limit: limit},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}My Quotes | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-orders-header">
+        <h1>My Quotes</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span>My Quotes</span>
+        </nav>
+    </section>
+
+    <section class="table-card customer-order-card"
+             data-current-page="{{ page|default(1) }}"
+             data-per-page="{{ limit|default(10) }}"
+             data-total="{{ total|default(estimates|length) }}"
+             data-pages="{{ (total|default(estimates|length) / (limit|default(10) ?: 1))|round(0, 'ceil') }}">
+        <div class="order-detail-nav customer-order-nav">
+            <nav class="detail-tabs" aria-label="Quote request status">
+                <a class="{{ activeTab == 'ALL' ? 'is-active' : '' }}" href="{{ path('customer_estimates', {'tab': 'ALL', 'filters[region]': regionFilter}) }}">All Quotes</a>
+                <a class="{{ activeTab == 'SUBMITTED' ? 'is-active' : '' }}" href="{{ path('customer_estimates', {'tab': 'SUBMITTED', 'filters[region]': regionFilter}) }}">Submitted</a>
+                <a class="{{ activeTab == 'PRICED' ? 'is-active' : '' }}" href="{{ path('customer_estimates', {'tab': 'PRICED', 'filters[region]': regionFilter}) }}">Priced</a>
+                <a class="{{ activeTab == 'ACCEPTED' ? 'is-active' : '' }}" href="{{ path('customer_estimates', {'tab': 'ACCEPTED', 'filters[region]': regionFilter}) }}">Accepted</a>
+                <a class="{{ activeTab == 'REJECTED' ? 'is-active' : '' }}" href="{{ path('customer_estimates', {'tab': 'REJECTED', 'filters[region]': regionFilter}) }}">Rejected</a>
+            </nav>
+        </div>
+
+        {% set sort = currentSort|default('created_at') %}
+        {% set dir = currentDir|default('desc') %}
+        <form id="estimate-filter-form" method="get" action="{{ path('customer_estimates') }}">
+            <input type="hidden" name="tab" value="{{ activeTab }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="limit" value="{{ limit|default(10) }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="dir" value="{{ dir }}">
+        </form>
+        <div class="wide-table-wrap customer-order-table-wrap">
+            <table class="order-list-table customer-order-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if sort == 'id' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'id', dir: sort == 'id' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">ID</a></th>
+                        <th class="is-sortable{% if sort == 'product' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'product', dir: sort == 'product' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">Product</a></th>
+                        <th>Expected Delivery Time</th>
+                        <th class="is-sortable{% if sort == 'po' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'po', dir: sort == 'po' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">PO</a></th>
+                        <th>Special Instructions</th>
+                        <th class="is-sortable{% if sort in ['region', 'warehouse'] %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'region', dir: sort in ['region', 'warehouse'] and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">Fulfillment Region</a></th>
+                        <th class="is-sortable{% if sort == 'status' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'status', dir: sort == 'status' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">Status</a></th>
+                        <th class="is-sortable{% if sort == 'total' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'total', dir: sort == 'total' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">Total</a></th>
+                        <th class="is-sortable{% if sort == 'created_at' %} is-sorted-{{ dir }}{% endif %}"><a href="{{ path('customer_estimates', {tab: activeTab, page: 1, limit: limit|default(10), sort: 'created_at', dir: sort == 'created_at' and dir == 'asc' ? 'desc' : 'asc', filters: {region: regionFilter}}) }}">Created At</a></th>
+                        <th></th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select class="quote-filter-select" name="filters[region]" form="estimate-filter-form" onchange="this.form.submit()" aria-label="Filter Fulfillment Region">
+                                <option value="">All</option>
+                                {% for region in regionOptions %}
+                                    <option value="{{ region }}" {{ regionFilter == region ? 'selected' : '' }}>{{ region }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th><button class="button primary quote-filter-submit" type="submit" form="estimate-filter-form">Filter</button></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'customer/estimate/_list_rows.html.twig' with {
+                        estimates: estimates,
+                        expectedDeliveryByEstimateId: expectedDeliveryByEstimateId,
+                        specialInstructionsByEstimateId: specialInstructionsByEstimateId
+                    } %}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: estimates|length,
+                total: total|default(estimates|length),
+                currentPage: page|default(1),
+                perPage: limit|default(10)
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

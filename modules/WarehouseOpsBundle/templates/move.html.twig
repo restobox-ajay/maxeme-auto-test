@@ -1,0 +1,75 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Move Stock | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'stock',
+        heading: 'Move stock',
+        lead: 'All rows come from ' ~ warehouse.name ~ '. Choosing a bin in that same warehouse is a bin move — no document, no bucket change. Choosing a different warehouse is a transfer. Nothing is written until you confirm on the preview screen.'
+    } only %}
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_move_preview') }}">
+            {{ csrf_field() }}
+            <table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>From bin</th>
+                        <th>Lot</th>
+                        <th>Expiry</th>
+                        <th>Serial</th>
+                        <th>Available</th>
+                        <th>Move quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        {% set expiry = row.lot ? row.lot.expiry : row.expiry %}
+                        <tr>
+                            <td data-label="Product">{{ row.product.sku ?: row.product.name }}</td>
+                            <td data-label="From bin">{{ row.location ? row.location.code : '—' }}</td>
+                            <td data-label="Lot">{{ row.lot ? row.lot.code : '—' }}</td>
+                            <td data-label="Expiry">{{ expiry ? expiry|date('Y-m-d') : '—' }}</td>
+                            <td data-label="Serial">{{ row.serial ?: '—' }}</td>
+                            <td data-label="Available">{{ row.quantity|qty }}</td>
+                            <td data-label="Move quantity">
+                                {% if row.serial %}
+                                    <input type="hidden" name="qty[{{ row.id }}]" value="1">
+                                    <input type="number" value="1" readonly disabled aria-label="Quantity (fixed at 1, serial)">
+                                {% else %}
+                                    <input type="number" name="qty[{{ row.id }}]" value="{{ row.quantity }}" min="0.0001" max="{{ row.quantity }}" step="any" required aria-label="Quantity to move">
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="form-grid">
+                <label>To
+                    <select name="destination" required>
+                        <option value="">Choose a destination</option>
+                        {% for group in binsByWarehouse %}
+                            <optgroup label="{{ group.warehouse.name }}{{ group.isSource ? ' (same warehouse — a bin move)' : ' (transfer)' }}">
+                                {% if not group.isSource %}
+                                    <option value="warehouse:{{ group.warehouse.id }}">— put away later —</option>
+                                {% endif %}
+                                {% for bin in group.bins %}
+                                    <option value="bin:{{ bin.id }}">{{ bin.code }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <fieldset>
+                    <legend>How should it travel? (only asked if the destination turns out to be a different warehouse)</legend>
+                    <label><input type="radio" name="travel_mode" value="send_and_receive" checked> Send and receive now</label>
+                    <label><input type="radio" name="travel_mode" value="track_in_transit"> Track in transit</label>
+                </fieldset>
+            </div>
+
+            <div class="form-actions"><button class="button primary" type="submit">Preview move</button></div>
+        </form>
+    </section>
+{% endblock %}

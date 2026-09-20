@@ -1,0 +1,54 @@
+{#
+   One <tr> per vendor, in its own partial the way `admin/company/_list_rows.html.twig` is (#660).
+
+   `rows` are ARRAYS built by `VendorController::vendorToRow()`, not entities: the primary contact
+   and the remit-to address are resolved in two bulk queries for the whole page, because reaching
+   for them per row in Twig is one lazy-load each and the per-page control offers 500 rows.
+
+   Ten columns. Positions 1-5 and 8-10 are the customer list's, column for column; 6 and 7 are the
+   two facts a vendor has and a customer does not.
+#}
+{% for row in rows %}
+    <tr class="data-item-row">
+        <td data-label="Vendor Name" class="searchable"><a href="{{ path('admin_bundle_procurement_vendor', {id: row.id}) }}">{{ row.name }}</a></td>
+        <td data-label="Primary Email" class="searchable">{{ row.email }}</td>
+        <td data-label="Primary Contact" class="searchable">{{ row.contact }}</td>
+        <td data-label="Remit-To Address" style="white-space: normal; overflow: visible; min-width: 220px;">
+            {% if row.remitTo != '-' and row.remitTo|length > 25 %}
+                <span class="js-address-short" style="display: inline-flex; align-items: center; gap: 6px;">{{ row.remitTo|slice(0, 25) }}... <button type="button" class="mini-action info js-expand-address" title="Show full address" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; font-size: 15px; line-height: 1; border-radius: 4px; font-weight: bold;">+</button></span>
+                <span class="js-address-full" style="display:none; line-height: 1.4;">{{ row.remitTo }}</span>
+            {% else %}
+                {{ row.remitTo }}
+            {% endif %}
+        </td>
+        <td data-label="Account Number">{{ row.accountNumber }}</td>
+        <td data-label="Payment Term">{{ row.paymentTerm }}</td>
+        <td data-label="Currency">{{ row.currency }}</td>
+        <td data-label="Status">
+            <span class="badge {{ row.status == 'Inactive' ? 'danger' : '' }}">{{ row.status }}</span>
+        </td>
+        <td data-label="ID">{{ row.id }}</td>
+        <td data-label="Actions" style="text-align: center;">
+            <div class="row-action-menu" style="margin: 0 auto;">
+                <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open vendor actions"></button>
+                <div class="row-action-dropdown">
+                    <a href="{{ path('admin_bundle_procurement_vendor', {id: row.id}) }}">Detail</a>
+                    <a href="{{ path('admin_bundle_procurement_vendor_edit', {id: row.id}) }}">Edit</a>
+                    <a href="{{ path('admin_bundle_procurement_vendor_address_book', {id: row.id}) }}">Addresses</a>
+                    <a href="{{ path('admin_bundle_procurement_vendor', {id: row.id}) }}#vendor-contacts">Contacts</a>
+                    {# No Delete here, on purpose: the customer record's own row menu
+                       (admin/company/_list_rows.html.twig) has none either — a customer is only
+                       ever deactivated, never hard-deleted, and the vendor record now follows that
+                       exactly. Deactivate is on the vendor's own detail page. #}
+                </div>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="10" class="empty-table-cell">
+            <strong>No vendors found.</strong>
+            <span>Create Vendor, above right, adds the first one.</span>
+        </td>
+    </tr>
+{% endfor %}

@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    CustomFieldExampleBundle\:
+        resource: '../src/'
+
+    CustomFieldExampleBundle\Bundle\CustomFieldExampleBundleDescriptor:
+        tags: ['app.bundle_descriptor']

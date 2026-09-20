@@ -1,0 +1,62 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ price ? 'Edit vendor price' : 'New vendor price' }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_prices',
+        heading: price ? 'Edit vendor price' : 'New vendor price',
+        lead: 'One current row per vendor and product. Saving over an existing pair updates it rather than adding a second row.'
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the form it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_procurement_vendor_price_save') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ price ? price.id : 0 }}">
+
+            <div class="form-grid">
+                <label>Vendor
+                    <select name="vendor_id" required>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}"{{ (price and price.vendor.id == v.id) or (vendor and vendor.id == v.id) ? ' selected' : '' }}>{{ v.name }} ({{ v.currency }})</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Product
+                    {{ include('@Procurement/_product_field.html.twig', {
+                        field: 'product_id',
+                        products: productOptions,
+                        remote: productsRemote,
+                        selected: price ? price.product : null,
+                        required: true,
+                        label: 'Product',
+                    }) }}
+                    {% if price %}<small>{{ price.product.sku }} — {{ price.product.name }}</small>{% endif %}
+                </label>
+                <label>Vendor SKU <input type="text" name="vendor_sku" maxlength="80" value="{{ price ? price.vendorSku : '' }}"></label>
+                <label>Unit cost <input type="text" name="unit_cost" inputmode="decimal" value="{{ price ? price.unitCost : '0.0000' }}"></label>
+                <label>Currency <input type="text" name="currency" maxlength="3" value="{{ price ? price.currency : (vendor ? vendor.currency : 'CAD') }}"></label>
+                <label>Order multiple
+                    <input type="number" name="order_multiple" min="1" value="{{ price ? price.orderMultiple : 1 }}">
+                    <small>Purchase quantities round up to a multiple of this many — "1" means no rounding. A narrow stand-in until real units of measure land (#601).</small>
+                </label>
+                <label>Vendor stock
+                    <input type="text" name="available_quantity" inputmode="decimal" value="{{ price ? price.availableQuantity : '' }}">
+                    <small>What the vendor says they have, not what we've received — display only, never written to our own inventory.</small>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_active" value="1"{{ (not price) or price.active ? ' checked' : '' }}>
+                    Active — offered to price a new purchase order line
+                </label>
+                <label class="span-2">Notes <textarea name="notes" rows="2">{{ price ? price.notes : '' }}</textarea></label>
+            </div>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_vendor_prices', vendor ? {filters: {vendor_id: vendor.id}} : {}) }}">Back</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

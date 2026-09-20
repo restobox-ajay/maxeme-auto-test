@@ -1,0 +1,9 @@
+{# The invoice document's left footer note. Rendered with {invoice}. #}
+{# Customer note captured at checkout (CheckoutController writes the checkout_notes field, plus
+   delivery/phone/coupon annotations, into specialInstructions). #}
+{% if invoice.specialInstructions %}
+    <p class="footer-note-block"><strong>Customer Note:</strong> {{ invoice.specialInstructions }}</p>
+{% endif %}
+{% if app_setting('invoice_payment_note', '') %}
+    <p class="footer-note-block">{{ app_setting('invoice_payment_note', '') }}</p>
+{% endif %}

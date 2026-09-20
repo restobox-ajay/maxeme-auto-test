@@ -1,0 +1,91 @@
+<section class="news-scroller" aria-label="Latest news">
+    <div class="news-scroller-track">
+        {% for post in posts %}
+            <article class="news-scroller-slide{{ loop.first ? ' is-active' : '' }}">
+                <h3 class="news-scroller-title">{{ post.title }}</h3>
+                {% if post.excerpt %}
+                    <p class="news-scroller-excerpt">{{ post.excerpt }}</p>
+                {% endif %}
+                <a class="news-scroller-link" href="{{ path('customer_news_view', {id: post.id}) }}">Read more</a>
+            </article>
+        {% endfor %}
+    </div>
+    {% if posts|length > 1 %}
+        <div class="news-scroller-dots">
+            {% for post in posts %}
+                <button type="button" class="news-scroller-dot{{ loop.first ? ' is-active' : '' }}" data-slide-index="{{ loop.index0 }}" aria-label="Show news item {{ loop.index }}"></button>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+
+<style>
+    .news-scroller {
+        position: relative;
+        margin: 0 0 20px;
+        padding: 16px 20px;
+        border: 1px solid var(--line, #e2e8f0);
+        border-radius: 10px;
+        background: var(--surface, #fff);
+        overflow: hidden;
+    }
+    .news-scroller-track { position: relative; min-height: 3.5em; }
+    .news-scroller-slide {
+        display: none;
+        animation: news-scroller-fade .3s ease;
+    }
+    .news-scroller-slide.is-active { display: block; }
+    .news-scroller-title { margin: 0 0 4px; font-size: 1rem; }
+    .news-scroller-excerpt { margin: 0 0 8px; color: var(--muted, #64748b); font-size: .9rem; }
+    .news-scroller-link { font-size: .85rem; font-weight: 600; }
+    .news-scroller-dots { display: flex; gap: 6px; margin-top: 10px; }
+    .news-scroller-dot {
+        width: 8px; height: 8px; padding: 0; border: none; border-radius: 50%;
+        background: var(--line, #cbd5e1); cursor: pointer;
+    }
+    .news-scroller-dot.is-active { background: var(--primary, #1d4ed8); }
+    @keyframes news-scroller-fade { from { opacity: 0; } to { opacity: 1; } }
+</style>
+
+<script>
+    (function () {
+        document.querySelectorAll('.news-scroller:not([data-news-scroller-ready])').forEach(function (root) {
+            root.setAttribute('data-news-scroller-ready', '1');
+
+            var slides = root.querySelectorAll('.news-scroller-slide');
+            var dots = root.querySelectorAll('.news-scroller-dot');
+            if (slides.length < 2) {
+                return;
+            }
+
+            var current = 0;
+            var timer = null;
+
+            var show = function (index) {
+                current = (index + slides.length) % slides.length;
+                slides.forEach(function (slide, i) { slide.classList.toggle('is-active', i === current); });
+                dots.forEach(function (dot, i) { dot.classList.toggle('is-active', i === current); });
+            };
+
+            var start = function () {
+                timer = window.setInterval(function () { show(current + 1); }, 8000);
+            };
+            var stop = function () {
+                if (timer) { window.clearInterval(timer); timer = null; }
+            };
+
+            dots.forEach(function (dot) {
+                dot.addEventListener('click', function () {
+                    show(parseInt(dot.getAttribute('data-slide-index'), 10));
+                    stop();
+                    start();
+                });
+            });
+
+            root.addEventListener('mouseenter', stop);
+            root.addEventListener('mouseleave', start);
+
+            start();
+        });
+    })();
+</script>

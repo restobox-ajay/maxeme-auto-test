@@ -1,0 +1,35 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Payments: {{ bill.billNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'bills',
+        heading: 'Payments: ' ~ bill.billNumber,
+        status: bill.status,
+        lead: 'What has actually gone out against this bill, one row per payment. The paid figure and the status are worked out from these rows — neither is typed.'
+    } only %}
+
+    {# Queue item 51: `?payment=` naming a row that is not one of this bill's is said out loud,
+       above the form it is about, rather than silently rendering the blank "record a payment" form
+       as if nobody had asked for anything. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    {#
+        The shared payments card (#708, queue item 34) — the balance panel, the entry/edit form, the
+        payment table with its move and delete actions, and the explanatory footer. Built to this
+        screen's own shape; the invoice payments screen now renders this same file.
+    #}
+    {% include 'admin/_partials/document_payments.html.twig' with {
+        document: bill,
+        editing: editing,
+        methods: methods,
+        moveTargets: moveTargets,
+        recordRoute: 'admin_bundle_procurement_bill_payments',
+        deleteRoute: 'admin_bundle_procurement_bill_payment_delete',
+        moveRoute: 'admin_bundle_procurement_bill_payment_move',
+        dateFieldName: 'paid_at',
+        noun: 'bill',
+        counterpartyNoun: 'vendor',
+        noRecorderLabel: 'System',
+        backUrl: path('admin_bundle_procurement_bill', {id: bill.id}),
+    } only %}
+{% endblock %}

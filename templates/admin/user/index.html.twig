@@ -1,0 +1,160 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}User Manager | Admin{% endblock %}
+{% block admin_body %}
+    {% set userGroup = userGroup|default('all') %}
+    {% set title = title|default('Users') %}
+    {% set lead = lead|default('Manage admin and customer users, roles, customer access, and account status.') %}
+    {% set indexRoute = userGroup == 'customer' ? 'admin_user_customer_index' : 'admin_user_staff_index' %}
+    {% set createUrl = createUrl|default(userGroup == 'customer' ? path('admin_user_customer_create') : path('admin_user_staff_create')) %}
+    {% set createLabel = createLabel|default('Add User') %}
+    {% set companyCreateUrl = companyCreateUrl|default(null) %}
+    {% set companyCreateLabel = companyCreateLabel|default('Add Customer') %}
+    {% set roleOptions = roleOptions|default(['Super Admin','Admin']) %}
+    {% set filters = app.request.query.all('filters') %}
+    {% if filters is not iterable %}
+        {% set filters = {} %}
+    {% endif %}
+    {% set search = app.request.query.get('q', '') %}
+    {% set currentSort = app.request.query.get('sort', userGroup == 'customer' ? 'company' : 'firstName') %}
+    {% set currentDir = app.request.query.get('dir', 'asc')|lower == 'desc' ? 'desc' : 'asc' %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(10) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">User manager</p>
+                <h1>{{ title }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button outline {{ userGroup == 'staff' ? 'is-current' : '' }}" href="{{ path('admin_user_staff_index') }}">Staff</a>
+                <a class="button outline {{ userGroup == 'customer' ? 'is-current' : '' }}" href="{{ path('admin_user_customer_index') }}">Customer</a>
+                <a class="button primary" href="{{ createUrl }}">{{ createLabel }}</a>
+                {% if companyCreateUrl %}
+                    <a class="button primary" href="{{ companyCreateUrl }}">{{ companyCreateLabel }}</a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card user-admin-grid no-paginate">
+        <form id="user-filter-form" method="get" action="{{ path(indexRoute) }}">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="page" value="1">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="user-manager-table">
+                    <thead>
+                        <tr>
+                            {% if userGroup == 'customer' %}
+                                {% set nextDir = currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                                <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="company"><a href="{{ path(indexRoute, {q: search, sort: 'company', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Customer name</a></th>
+                            {% endif %}
+                            {% set nextDir = currentSort == 'firstName' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'firstName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="firstName"><a href="{{ path(indexRoute, {q: search, sort: 'firstName', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">First Name</a></th>
+                            {% set nextDir = currentSort == 'lastName' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'lastName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="lastName"><a href="{{ path(indexRoute, {q: search, sort: 'lastName', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Last Name</a></th>
+                            {% set nextDir = currentSort == 'email' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'email' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="email"><a href="{{ path(indexRoute, {q: search, sort: 'email', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Email</a></th>
+                            {% set nextDir = currentSort == 'phone' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'phone' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="phone"><a href="{{ path(indexRoute, {q: search, sort: 'phone', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Phone</a></th>
+                            {% set nextDir = currentSort == 'role' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'role' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="role"><a href="{{ path(indexRoute, {q: search, sort: 'role', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Role</a></th>
+                            {% set nextDir = currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path(indexRoute, {q: search, sort: 'status', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Status</a></th>
+                            {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="id"><a href="{{ path(indexRoute, {q: search, sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">ID</a></th>
+                            <th style="width: 80px; text-align: center;">Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            {% if userGroup == 'customer' %}
+                                <th><input type="text" name="filters[company]" value="{{ filters.company|default('') }}" data-filter-field="company" aria-label="Filter customer name"></th>
+                            {% endif %}
+                            <th><input type="text" name="filters[firstName]" value="{{ filters.firstName|default('') }}" data-filter-field="firstName" aria-label="Filter first name"></th>
+                            <th><input type="text" name="filters[lastName]" value="{{ filters.lastName|default('') }}" data-filter-field="lastName" aria-label="Filter last name"></th>
+                            <th><input type="text" name="filters[email]" value="{{ filters.email|default('') }}" data-filter-field="email" aria-label="Filter email"></th>
+                            <th><input type="text" name="filters[phone]" value="{{ filters.phone|default('') }}" data-filter-field="phone" aria-label="Filter phone"></th>
+                            <th>
+                                <select name="filters[role]" data-filter-field="role" aria-label="Filter role">
+                                    <option value=""></option>
+                                    {% for opt in roleOptions %}
+                                        <option value="{{ opt }}" {{ filters.role|default('') == opt ? 'selected' : '' }}>{{ opt }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th>
+                                <select name="filters[status]" data-filter-field="status" aria-label="Filter status">
+                                    <option value=""></option>
+                                    {% for status in ['Active', 'Invited', 'Inactive'] %}
+                                        <option value="{{ status }}" {{ filters.status|default('') == status ? 'selected' : '' }}>{{ status }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" data-filter-field="id" aria-label="Filter ID"></th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/user/_list_rows.html.twig' with {userGroup: userGroup} %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in [20, 100, 200, 500] %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: users|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                <div class="table-pagination">
+                    <a class="page-btn{{ currentPage <= 1 ? ' is-disabled' : '' }}" {{ currentPage <= 1 ? 'aria-disabled="true"' : 'href="' ~ path(indexRoute, {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: 1, filters: filters}) ~ '"' }}>First</a>
+                    <a class="page-btn{{ currentPage <= 1 ? ' is-disabled' : '' }}" {{ currentPage <= 1 ? 'aria-disabled="true"' : 'href="' ~ path(indexRoute, {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage - 1, filters: filters}) ~ '"' }}>&lt;</a>
+                    {% for p in 1..pageCount %}
+                        <a class="page-btn{{ p == currentPage ? ' is-active' : '' }}" href="{{ path(indexRoute, {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: p, filters: filters}) }}">{{ p }}</a>
+                    {% endfor %}
+                    <a class="page-btn{{ currentPage >= pageCount ? ' is-disabled' : '' }}" {{ currentPage >= pageCount ? 'aria-disabled="true"' : 'href="' ~ path(indexRoute, {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage + 1, filters: filters}) ~ '"' }}>&gt;</a>
+                    <a class="page-btn{{ currentPage >= pageCount ? ' is-disabled' : '' }}" {{ currentPage >= pageCount ? 'aria-disabled="true"' : 'href="' ~ path(indexRoute, {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: pageCount, filters: filters}) ~ '"' }}>Last</a>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <div class="admin-modal-overlay" id="user-status-modal">
+        <div class="admin-modal">
+            <button type="button" class="admin-modal-x js-modal-close" aria-label="Close dialog">×</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">User status</p>
+                <h2>Update User Status</h2>
+                <p class="lead" id="user-status-modal-email">Choose the account status for this user.</p>
+            </div>
+            <div class="form-grid" style="margin-top: 20px;">
+                <div class="field">
+                    <label for="user-status-modal-select">Status</label>
+                    <select id="user-status-modal-select">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="admin-modal-footer-split" style="margin-top: 24px;">
+                <button class="button outline js-modal-close" type="button">Close</button>
+                <button class="button primary js-user-status-save" type="button" data-status-url="">Save Status</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}

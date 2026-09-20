@@ -1,0 +1,1954 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Replays the whole migration chain against an empty database, with data in it.
+ *
+ * Neither test suite runs migrations — PHPUnit builds its schema with SchemaTool, Codeception with
+ * doctrine:schema:create — so nothing exercises the chain. That is how three migrations were found
+ * broken while all 900-odd tests stayed green, and a fresh deploy would have failed.
+ *
+ * The important part is that "N migrations executed" and exit code 0 prove nothing. Two failures pass
+ * that check:
+ *
+ *  1. Silent data loss. Version20260730150000 drops columns from admin_order, which under SQLite means
+ *     Doctrine rebuilds the table via a temp copy. The first version of it reported complete success
+ *     while DROP TABLE cascaded and deleted every address snapshot the previous migration had just
+ *     backfilled — because PRAGMA foreign_keys = OFF is silently ignored inside a transaction. The fix
+ *     was isTransactional(): false. Exit code 0 throughout.
+ *  2. Schema drift. A migration can succeed and still leave a schema the mappings disagree with.
+ *
+ * So this seeds rows *before* the destructive migrations run and asserts they are still there
+ * afterwards, along with the columns those migrations were supposed to populate.
+ *
+ * Usage: php bin/ci-migration-replay
+ */
+
+/**
+ * Names as they are at the *seed point*. This used to be mid-chain and therefore pre-rename: the
+ * orders table was CREATEd as admin_order and only became sales_order at Version20260731160000
+ * (#152), long after the seed step, so this list needed the old name.
+ *
+ * The #367 baseline collapsed that history into a single migration which emits only the final
+ * names, so admin_order is never created and this check failed for every branch — including main's
+ * own. Since the rename no longer happens inside the chain, the seed point and the assertions now
+ * agree on sales_order.
+ */
+const REQUIRED_TABLES = ['company', 'company_address', 'sales_order', 'estimate'];
+
+/**
+ * The buy-side tables, seeded at a SECOND point further down the chain.
+ *
+ * They cannot ride the seed above: procurement arrives at Version20260826120000, long after the
+ * four tables that fix the first seed point, so at that point none of these exists to insert into.
+ *
+ * They are here because the risk this whole script was written for moved to this side of the
+ * application. Version20260911170000 drops vendor_bill.amount_paid, which on SQLite 3.26 means
+ * rebuilding vendor_bill: copy out, DROP TABLE, recreate, copy back. vendor_bill_line and
+ * vendor_bill_log both reference vendor_bill ON DELETE CASCADE, so if `PRAGMA foreign_keys = OFF`
+ * fails to take — which is exactly what happened in Version20260730150000, because the pragma is
+ * silently ignored inside a transaction — that DROP TABLE takes every line and every log row with
+ * it and still reports success. Without rows on this side, nothing in this file could see that: the
+ * column check in step 6 compares SCHEMA, and an empty table has the right columns.
+ */
+const PROCUREMENT_TABLES = ['vendor', 'purchase_order', 'purchase_order_line', 'vendor_bill', 'vendor_bill_line', 'vendor_bill_log', 'procurement_product_rule'];
+
+/**
+ * What the seeded vendor's legacy notes box holds, and what the migrated note must hold afterwards.
+ *
+ * A newline, an apostrophe and a pipe on purpose. Those three characters are the reason
+ * `company.notes` and `vendor.notes` were never split into rows in the first place — the old packed
+ * format encoded entries as "timestamp|text", one per line, so a pipe made a note ambiguous and a
+ * newline silently made it two. Item 43's migration does not split anything, and this string is what
+ * proves it: one row, this text, unchanged.
+ */
+const VENDOR_NOTES_CLOB = "Rep is Dana. Won't ship Fridays.\nCredit hold | lifted 2026-02-01.";
+
+/**
+ * The last migration that may safely touch the injected `Schema` — the one that creates the index.
+ *
+ * `Version20260821160000` emits `uniq_inventory_detail`, an EXPRESSION index over
+ * `COALESCE(location_id, 0), COALESCE(lot_id, 0), COALESCE(serial, '')`. From the moment it runs,
+ * introspecting this database throws a TypeError out of DBAL — see
+ * {@see \App\Doctrine\SqliteMigrationIntrospection} for the whole explanation and the alternative.
+ *
+ * Everything at or before this version is grandfathered, and the cutoff is the real boundary rather
+ * than an arbitrary date: those migrations run BEFORE the index exists, so the schema they
+ * introspect has no expression in it and they are genuinely safe. 19 of them touch `$schema`, over
+ * 45 lines, and all 19 are already applied everywhere. They are history and are not to be
+ * rewritten — but they are also the migrations somebody copies, which is precisely how this becomes
+ * a problem again.
+ *
+ * The known limit, stated rather than papered over: a migration BACKDATED below this cutoff and
+ * added now would be exempted by this check and would still fail, because Doctrine runs any
+ * not-yet-applied version regardless of where it sorts against the ones already applied. Nobody
+ * backdates migrations here, and closing it would mean keeping a hand-written list of the 45 — the
+ * kind of hand-kept absolute this file already learned to avoid (see the reference_data_seed_mark
+ * note further down).
+ */
+const SCHEMA_SAFE_THROUGH = 'Version20260821160000';
+
+$projectDir = \dirname(__DIR__);
+$databaseFile = $projectDir . '/var/data/ci-migration-replay.sqlite';
+
+chdir($projectDir);
+
+$failures = [];
+$step = 0;
+
+function heading(string $text): void
+{
+    global $step;
+    printf("\n\033[1m[%d] %s\033[0m\n", ++$step, $text);
+}
+
+function ok(string $text): void
+{
+    printf("    \033[32m✓\033[0m %s\n", $text);
+}
+
+function bad(string $text): void
+{
+    global $failures;
+    $failures[] = $text;
+    printf("    \033[31m✗\033[0m %s\n", $text);
+}
+
+/** Runs a console command against the replay database and returns its output. */
+function console(string $databaseFile, string ...$args): array
+{
+    $command = array_merge(['php', 'bin/console'], $args);
+    $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+
+    $process = proc_open($command, $descriptors, $pipes, null, [
+        // test env because .env.test supplies APP_SECRET; .env.local is developer-local and absent
+        // from a fresh checkout, so nothing here may depend on it.
+        'APP_ENV' => 'test',
+        'DATABASE_URL' => 'sqlite:///' . $databaseFile,
+        'PATH' => getenv('PATH') ?: '/usr/bin:/bin',
+        'HOME' => getenv('HOME') ?: '/tmp',
+    ] + array_filter($_SERVER, static fn ($v): bool => \is_string($v)));
+
+    if (!\is_resource($process)) {
+        throw new RuntimeException('Could not start: ' . implode(' ', $command));
+    }
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+
+    return [proc_close($process), $stdout . $stderr];
+}
+
+/**
+ * Every migration after {@see SCHEMA_SAFE_THROUGH} that reads the injected `Schema` object.
+ *
+ * Touching `$schema` introspects the whole database, and after `Version20260821160000` that throws
+ * a TypeError naming a DBAL internal — the full explanation lives on
+ * {@see \App\Doctrine\SqliteMigrationIntrospection}, which is also the way to ask the same questions
+ * safely. This function is the reason nobody has to find that out by hitting it.
+ *
+ * ## Tokenised rather than grepped, for three reasons
+ *
+ * A regex for `$schema->` gets all three of these wrong, and each one is real in this directory:
+ *
+ *   - `Version20260917090000` explains this whole hazard in its DOCBLOCK and names `$schema` four
+ *     times while being the most careful migration in the chain about not touching it. Comments are
+ *     their own token type, so they are excluded for free rather than by a fragile negative lookahead.
+ *   - `public function up(Schema $schema)` and `postUp(Schema $schema)` are the required signatures.
+ *     Every migration has them, including the 58 that never read the object. A declaration is the
+ *     variable preceded by its TYPE, which is the same thing that identifies which name is bound.
+ *   - The parameter does not have to be called `$schema`. So the names are read off the signatures —
+ *     the token after a type ending in `Schema` — rather than assumed, and a use of any of those
+ *     names is then a use of the object. Renaming the parameter is not an escape hatch.
+ *
+ * @return list<array{version: string, line: int, source: string}>
+ */
+function migrationsTouchingSchema(string $projectDir): array
+{
+    $offences = [];
+
+    foreach (glob($projectDir . '/migrations/Version*.php') ?: [] as $file) {
+        $version = basename($file, '.php');
+        if (strcmp($version, SCHEMA_SAFE_THROUGH) <= 0) {
+            continue;
+        }
+
+        foreach (schemaUsesIn($file) as $use) {
+            $offences[] = ['version' => $version] + $use;
+        }
+    }
+
+    return $offences;
+}
+
+/**
+ * The migrations at or before the cutoff that DO read `$schema` — the grandfathered ones.
+ *
+ * Counted rather than written down, for the reason this file already records at length about
+ * `reference_data_seed_mark`: a hand-kept absolute in a message nobody can run goes stale silently.
+ * It is quoted at the author of a new offending migration, so it has to be true when they read it.
+ *
+ * @return list<string> version names
+ */
+function grandfatheredSchemaUsers(string $projectDir): array
+{
+    $versions = [];
+
+    foreach (glob($projectDir . '/migrations/Version*.php') ?: [] as $file) {
+        $version = basename($file, '.php');
+        if (strcmp($version, SCHEMA_SAFE_THROUGH) > 0 || schemaUsesIn($file) === []) {
+            continue;
+        }
+
+        $versions[] = $version;
+    }
+
+    return $versions;
+}
+
+/**
+ * Every line of one migration that READS the injected Schema, with the source line for the report.
+ *
+ * @return list<array{line: int, source: string}>
+ */
+function schemaUsesIn(string $file): array
+{
+    $source = (string) file_get_contents($file);
+    $tokens = token_get_all($source);
+    $lines = explode("\n", $source);
+
+    $bound = [];
+    $uses = [];
+
+    foreach ($tokens as $i => $token) {
+        if (!\is_array($token) || $token[0] !== T_VARIABLE) {
+            continue;
+        }
+
+        // The previous token that is not whitespace. A type sits directly before the variable it
+        // declares, so this is what separates `Schema $schema` from every later `$schema`.
+        $previous = null;
+        for ($j = $i - 1; $j >= 0; --$j) {
+            if (\is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE) {
+                continue;
+            }
+            $previous = $tokens[$j];
+            break;
+        }
+
+        $isDeclaration = \is_array($previous)
+            && \in_array($previous[0], [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)
+            // Imported as `Schema`, written out as `\Doctrine\DBAL\Schema\Schema`, or aliased to
+            // anything ending the same way — all three end in the class name.
+            && str_ends_with(strtolower((string) $previous[1]), 'schema');
+
+        if ($isDeclaration) {
+            $bound[$token[1]] = true;
+
+            continue;
+        }
+
+        $uses[] = ['name' => $token[1], 'line' => $token[2]];
+    }
+
+    $found = [];
+    foreach ($uses as $use) {
+        if (!isset($bound[$use['name']])) {
+            continue;
+        }
+
+        $found[] = ['line' => $use['line'], 'source' => trim($lines[$use['line'] - 1] ?? '')];
+    }
+
+    return $found;
+}
+
+/**
+ * The earliest point at which every table the fixture needs exists.
+ *
+ * Computed rather than pinned: a hardcoded version number goes stale the moment a migration is
+ * renamed or a table moves, and it would go stale silently — leaving the seed step running after the
+ * destructive migrations, where it proves nothing.
+ */
+function seedPointVersion(string $projectDir, array $tables = REQUIRED_TABLES): string
+{
+    $files = glob($projectDir . '/migrations/Version*.php') ?: [];
+    sort($files);
+
+    $creators = [];
+
+    foreach ($files as $file) {
+        $contents = (string) file_get_contents($file);
+        foreach ($tables as $table) {
+            // First match only. SQLite has no ALTER TABLE DROP COLUMN, so later migrations rebuild
+            // tables by re-issuing CREATE TABLE for them; taking the last match would put the seed
+            // point after the very backfills it exists to run before.
+            if (preg_match('/CREATE TABLE (?:IF NOT EXISTS )?' . preg_quote($table, '/') . '\s*[\(\n]/i', $contents)) {
+                $creators[$table] ??= basename($file, '.php');
+            }
+        }
+    }
+
+    $missing = array_diff($tables, array_keys($creators));
+    if ($missing !== []) {
+        throw new RuntimeException(sprintf(
+            "No migration creates: %s.\nEither the table was renamed or REQUIRED_TABLES in %s is out of date.",
+            implode(', ', $missing),
+            'bin/ci-migration-replay',
+        ));
+    }
+
+    // Latest of them: every required table exists once this one has run.
+    $versions = array_values($creators);
+    sort($versions);
+
+    return 'DoctrineMigrations\\' . end($versions);
+}
+
+/** @return array<string, array{notnull: bool, type: string, default: mixed, pk: bool}> */
+function columns(PDO $pdo, string $table): array
+{
+    $out = [];
+    foreach ($pdo->query(sprintf('PRAGMA table_info(%s)', $table))->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $out[$row['name']] = [
+            'notnull' => (bool) $row['notnull'],
+            'type' => strtoupper((string) $row['type']),
+            'default' => $row['dflt_value'],
+            'pk' => (bool) $row['pk'],
+        ];
+    }
+
+    return $out;
+}
+
+/**
+ * Inserts a row, adapting to whatever the table looks like at the seed point.
+ *
+ * Values naming columns that do not exist yet are dropped, and NOT NULL columns without a default
+ * that the caller did not supply are filled with something type-appropriate. Both matter because the
+ * seed runs against a mid-chain schema: admin_order still had billing_address_id there, and estimate
+ * has a NOT NULL deposit that a naive INSERT trips over.
+ *
+ * @param array<string, mixed> $values
+ */
+function seedRow(PDO $pdo, string $table, array $values): int
+{
+    $columns = columns($pdo, $table);
+    $row = array_intersect_key($values, $columns);
+    // Only a SINGLE-column INTEGER primary key is SQLite's rowid alias. company_product_access keys
+    // on (company_id, product_id) — both INTEGER, both primary, neither assigned by anything — so
+    // treating "primary and integer" as self-assigning left it the one table with no fixture row.
+    $composite = \count(array_filter($columns, static fn (array $m): bool => $m['pk'])) > 1;
+
+    foreach ($columns as $name => $meta) {
+        // An INTEGER primary key is SQLite's rowid alias and assigns itself; any other primary key
+        // is an ordinary NOT NULL column that has to be supplied — rememberme_token.series and
+        // db_console_throttle.ip_address are both VARCHAR keys, and skipping them meant those two
+        // tables silently never got a fixture row.
+        $assignsItself = $meta['pk'] && !$composite && str_contains($meta['type'], 'INT');
+        if ($assignsItself || !$meta['notnull'] || $meta['default'] !== null || \array_key_exists($name, $row)) {
+            continue;
+        }
+
+        // 1 rather than 0 for a quantity: several line tables carry CHECK (quantity > 0), and a
+        // fixture that cannot be inserted guards nothing. Nothing asserts on an auto-filled value —
+        // every assertion below names a column the caller supplied.
+        $row[$name] = match (true) {
+            str_contains($meta['type'], 'INT') => 0,
+            str_contains($meta['type'], 'NUMERIC'), str_contains($meta['type'], 'DECIMAL') => '1.0000',
+            str_contains($meta['type'], 'BOOL') => 0,
+            str_contains($meta['type'], 'DATETIME') => '2026-01-01 00:00:00',
+            str_contains($meta['type'], 'DATE') => '2026-01-01',
+            default => 'ci-replay',
+        };
+    }
+
+    $names = array_keys($row);
+    if ($names === []) {
+        // Every column is nullable or defaulted — company_product_access is two nullable keys — and
+        // `INSERT INTO t () VALUES ()` is a syntax error in SQLite.
+        $pdo->exec(sprintf('INSERT INTO %s DEFAULT VALUES', $table));
+
+        return (int) $pdo->lastInsertId();
+    }
+
+    $statement = $pdo->prepare(sprintf(
+        'INSERT INTO %s (%s) VALUES (%s)',
+        $table,
+        implode(', ', $names),
+        implode(', ', array_map(static fn (string $n): string => ':' . $n, $names)),
+    ));
+    $statement->execute(array_combine(array_map(static fn (string $n): string => ':' . $n, $names), array_values($row)));
+
+    return (int) $pdo->lastInsertId();
+}
+
+/**
+ * Every table holding application data, discovered from the database rather than listed.
+ *
+ * @return list<string>
+ */
+function dataTables(PDO $pdo): array
+{
+    $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+
+    return array_values(array_filter(
+        $tables,
+        static fn (string $t): bool => !str_starts_with($t, 'sqlite_') && $t !== 'doctrine_migration_versions',
+    ));
+}
+
+/** @return array<string, int> table => row count */
+function census(PDO $pdo): array
+{
+    $out = [];
+    foreach (dataTables($pdo) as $table) {
+        $out[$table] = (int) $pdo->query(sprintf('SELECT COUNT(*) FROM %s', $table))->fetchColumn();
+    }
+
+    return $out;
+}
+
+/**
+ * Every foreign-key column's non-NULL values, as `table.column` => the sorted values.
+ *
+ * This is what catches ON DELETE SET NULL, which loses no row and so is invisible to {@see census()}:
+ * an invoice line whose `sales_order_line_id` is quietly blanked still counts as one row, and the
+ * document it came from can no longer be found from it.
+ *
+ * Every foreign-key column present is recorded, including one holding nothing — as the empty string,
+ * not as an absent key. A key that simply disappeared when its last value went NULL would be read as
+ * "this column is no longer here" by the comparison, which is the one reading that excuses the
+ * severing this function exists to find. Absent therefore means only that the column or its
+ * constraint is gone, which is a shape change a migration is entitled to make.
+ *
+ * @return array<string, string>
+ */
+function linkCensus(PDO $pdo): array
+{
+    $out = [];
+    foreach (dataTables($pdo) as $table) {
+        foreach ($pdo->query(sprintf('PRAGMA foreign_key_list(%s)', $table))->fetchAll(PDO::FETCH_ASSOC) as $fk) {
+            $column = (string) $fk['from'];
+            $values = $pdo->query(sprintf('SELECT %s FROM %s WHERE %s IS NOT NULL ORDER BY %s', $column, $table, $column, $column))->fetchAll(PDO::FETCH_COLUMN);
+            $out[$table . '.' . $column] = implode(',', $values);
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Whether a migration says, in its own SQL, that it empties this table.
+ *
+ * This is the line between a deliberate deletion and a silent one, and it is the migration's own
+ * text that draws it rather than a list kept here. Two migrations in the chain empty a table on
+ * purpose and say so: `Version20260810120000` DROPs `api_credential` and recreates it with a
+ * different shape, and `Version20260820140000` DELETEs `order_inventory_reservation` before
+ * rebuilding both hold ledgers from the documents — its own docblock explains at length why moving
+ * the rows across would have carried an error into the new table.
+ *
+ * A cascade says nothing. Nothing in `Version20260911235400` mentions `invoice_line` losing rows;
+ * they would go because `DROP TABLE sales_order_line` took them, through a foreign key, with the
+ * pragma that was supposed to prevent it silently ignored. That asymmetry is the whole check: a
+ * migration that means to empty a table names it, so a table emptied without being named was emptied
+ * by something nobody wrote down.
+ *
+ * The rebuild statements {@see \App\Doctrine\SqliteTableRebuild} produces are built with sprintf and
+ * never spell a table name into the migration source, so a rebuild cannot excuse itself here.
+ */
+function statesItEmpties(string $projectDir, string $version, string $table): bool
+{
+    static $sources = [];
+    $sources[$version] ??= (string) file_get_contents($projectDir . '/migrations/' . $version . '.php');
+    $name = preg_quote($table, '/');
+
+    return preg_match('/DELETE\s+FROM\s+' . $name . '\b/i', $sources[$version]) === 1
+        || preg_match('/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?' . $name . '\b/i', $sources[$version]) === 1;
+}
+
+/** The single-column primary key of a table, or null when it has none or a composite one. */
+function primaryKey(PDO $pdo, string $table): ?string
+{
+    $keys = [];
+    foreach (columns($pdo, $table) as $name => $meta) {
+        if ($meta['pk']) {
+            $keys[] = $name;
+        }
+    }
+
+    return \count($keys) === 1 ? $keys[0] : null;
+}
+
+/**
+ * Gives every empty table a row, then points every foreign key at a parent that actually exists.
+ *
+ * Both halves are load-bearing and neither is enough alone. A row is what makes a lost row visible —
+ * a table rebuilt through a temp copy that drops its contents reads identically to one that was
+ * always empty. A foreign key pointing at a REAL parent row is what makes a cascade visible: SQLite
+ * implements `DROP TABLE` as a DELETE of every row, so `ON DELETE CASCADE` and `ON DELETE SET NULL`
+ * fire on the children — but only on children whose key matches a row that is actually there. A
+ * fixture whose keys all read 0 survives every cascade and proves nothing.
+ *
+ * That is the failure this whole script exists for. `Version20260730150000` deleted every address
+ * snapshot the migration before it had just written, and exited 0 while doing it, because
+ * `PRAGMA foreign_keys = OFF` is silently ignored inside a transaction.
+ *
+ * Self-references are skipped: a row pointing at itself is deleted by the same DELETE that would
+ * have cascaded to it, so it can never show the difference.
+ *
+ * A table that refuses a row is retried at every step rather than written off at the first one. Its
+ * shape changes under it as the chain runs — `pick_task` and `transfer_order_line` both reject the
+ * fixture when they are first created and accept it a few migrations later — and caching the refusal
+ * left two of the fourteen line tables unguarded through every rebuild that followed.
+ *
+ * @param array<string, string> $skipped table => why it could not be seeded, rewritten on each call
+ */
+function topUp(PDO $pdo, array &$skipped): void
+{
+    $skipped = [];
+    foreach (dataTables($pdo) as $table) {
+        if ((int) $pdo->query(sprintf('SELECT COUNT(*) FROM %s', $table))->fetchColumn() > 0) {
+            continue;
+        }
+
+        try {
+            seedRow($pdo, $table, []);
+        } catch (Throwable $e) {
+            $skipped[$table] = $e->getMessage();
+        }
+    }
+
+    $present = dataTables($pdo);
+    foreach ($present as $table) {
+        foreach ($pdo->query(sprintf('PRAGMA foreign_key_list(%s)', $table))->fetchAll(PDO::FETCH_ASSOC) as $fk) {
+            $parent = (string) $fk['table'];
+            $column = (string) $fk['from'];
+            if ($parent === $table || !\in_array($parent, $present, true)) {
+                continue;
+            }
+
+            $parentColumn = $fk['to'] ?? null;
+            $parentColumn = \is_string($parentColumn) && $parentColumn !== '' ? $parentColumn : primaryKey($pdo, $parent);
+            if ($parentColumn === null) {
+                continue;
+            }
+
+            $value = $pdo->query(sprintf('SELECT %s FROM %s WHERE %s IS NOT NULL LIMIT 1', $parentColumn, $parent, $parentColumn))->fetchColumn();
+            if ($value === false || $value === null) {
+                continue;
+            }
+
+            // Only rows that name nothing: a key the fixture or a migration already set is left
+            // alone, so the document rows seeded by hand above keep pointing where they were put.
+            $statement = $pdo->prepare(sprintf('UPDATE %s SET %s = ? WHERE %s IS NULL OR %s = 0', $table, $column, $column, $column));
+            $statement->execute([$value]);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+
+printf("\033[1mMigration replay\033[0m — chain from empty, with data, then assertions\n");
+
+try {
+    $seedPoint = seedPointVersion($projectDir);
+    $buySeedPoint = seedPointVersion($projectDir, PROCUREMENT_TABLES);
+
+    // The buy-side seed has to come after the sell-side one and before the end of the chain. Both
+    // are computed, so this states the relationship rather than trusting two glob sorts to agree.
+    if (strcmp($buySeedPoint, $seedPoint) <= 0) {
+        throw new RuntimeException(sprintf(
+            "The procurement tables are now created at %s, at or before the sell-side seed point %s.\n"
+            . 'Fold PROCUREMENT_TABLES into REQUIRED_TABLES and seed both at once.',
+            $buySeedPoint,
+            $seedPoint,
+        ));
+    }
+} catch (RuntimeException $e) {
+    fwrite(STDERR, "\n\033[31m" . $e->getMessage() . "\033[0m\n");
+    exit(1);
+}
+
+// Checked BEFORE anything is replayed, and fatal on its own, because the replay's own report of
+// this problem is useless. A migration that touches $schema fails in Doctrine's executor with
+// "Argument #1 ($column) must be of type string, null given" — a DBAL internal, about an inventory
+// index, on a migration that may only have asked whether one column exists. Reaching that takes a
+// minute and a half of replaying and then tells you nothing you can act on. This takes milliseconds
+// and names the file, the line and the fix.
+heading('Does any new migration introspect the schema?');
+$schemaOffences = migrationsTouchingSchema($projectDir);
+if ($schemaOffences !== []) {
+    $first = $schemaOffences[0];
+    fwrite(STDERR, "\n");
+    foreach ($schemaOffences as $offence) {
+        fwrite(STDERR, sprintf(
+            "\033[31m✗\033[0m migrations/%s.php:%d  %s\n",
+            $offence['version'],
+            $offence['line'],
+            $offence['source'],
+        ));
+    }
+    fwrite(STDERR, sprintf(<<<'TEXT'
+
+        %s uses the injected Doctrine\DBAL\Schema\Schema, and a migration in this project may not.
+
+        Reading it introspects the WHOLE database on first access. Since %s this schema carries
+        uniq_inventory_detail, an EXPRESSION index over COALESCE(location_id, 0), COALESCE(lot_id, 0)
+        and COALESCE(serial, ''). SQLite reports an expression's column name as NULL, and DBAL's
+        Index::_addColumn() is typed string — so your migration would have died with:
+
+            Migration DoctrineMigrations\%s failed during Execution. Error:
+            "Doctrine\DBAL\Schema\Index::_addColumn(): Argument #1 ($column) must be of type
+            string, null given"
+
+        which names a DBAL internal and an inventory index, whatever your migration was doing.
+
+        The index is correct and is not to be changed: it is what makes the inventory uniqueness rule
+        enforceable, and a plain unique index would not collapse NULLs. Ask the database directly
+        instead — App\Doctrine\SqliteMigrationIntrospection has tableExists(), columnExists() and
+        indexExists(), over sqlite_master and PRAGMA, which read an expression index as a row like
+        any other:
+
+            use App\Doctrine\SqliteMigrationIntrospection;
+
+            final class %s extends AbstractMigration
+            {
+                use SqliteMigrationIntrospection;
+
+                public function up(Schema $schema): void
+                {
+                    if ($this->columnExists('estimate', 'version')) {
+                        return;
+                    }
+                    ...
+
+        Keep $schema in the signature — Doctrine requires the parameter — just never read it.
+        Version20260917090000 is a worked example of the whole shape.
+
+        The %d migrations at or before %s that DO use $schema are exempt and correct: they run
+        before the index exists. Do not copy them. Read docs/QUEUE.md, migration rules.
+
+        TEXT,
+        $first['version'],
+        SCHEMA_SAFE_THROUGH,
+        $first['version'],
+        $first['version'],
+        // Counted, not written down. A hand-kept figure in a message nobody can test goes stale the
+        // first time a migration is added, and this file has been bitten by exactly that before.
+        \count(grandfatheredSchemaUsers($projectDir)),
+        SCHEMA_SAFE_THROUGH,
+    ));
+    exit(1);
+}
+ok(sprintf(
+    'no migration after %s reads the Schema object it is handed (%d checked)',
+    SCHEMA_SAFE_THROUGH,
+    \count(array_filter(
+        glob($projectDir . '/migrations/Version*.php') ?: [],
+        static fn (string $f): bool => strcmp(basename($f, '.php'), SCHEMA_SAFE_THROUGH) > 0,
+    )),
+));
+
+heading('Start from nothing');
+@unlink($databaseFile);
+@unlink($databaseFile . '-wal');
+@unlink($databaseFile . '-shm');
+if (!is_dir(\dirname($databaseFile)) && !mkdir(\dirname($databaseFile), 0o777, true)) {
+    fwrite(STDERR, "Could not create var/data\n");
+    exit(1);
+}
+// Deliberately no doctrine:database:create — SQLite does not support it (getCreateDatabaseSQL
+// throws), and does not need it: the file appears on first connect. Deleting it above is what makes
+// this a replay from empty.
+if (file_exists($databaseFile)) {
+    fwrite(STDERR, "Could not remove the previous replay database.\n");
+    exit(1);
+}
+ok('starting from no database at all: var/data/ci-migration-replay.sqlite');
+
+heading(sprintf('Migrate as far as %s, where every fixture table exists', substr($seedPoint, 19)));
+[$code, $output] = console($databaseFile, 'doctrine:migrations:migrate', $seedPoint, '--no-interaction');
+if ($code !== 0) {
+    fwrite(STDERR, $output);
+    fwrite(STDERR, "\n\033[31mThe chain cannot be replayed from empty.\033[0m\n");
+    exit(1);
+}
+preg_match('/(\d+) migrations executed/', $output, $matches);
+ok(sprintf('%s migrations executed', $matches[1] ?? '?'));
+
+heading('Seed rows that the remaining migrations must not destroy');
+$pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$pdo->exec('PRAGMA foreign_keys = ON');
+
+$companyId = seedRow($pdo, 'company', [
+    'name' => 'Replay Fixture Co',
+    'code' => 'CI-REPLAY',
+    'status' => 'Active',
+    'primary_email' => 'ap@replay.example',
+    'phone_number' => '+1 604 555 0101',
+    'pst_number' => 'PST-REPLAY',
+    'account_type' => 'Business',
+]);
+$addressId = seedRow($pdo, 'company_address', [
+    'company_id' => $companyId,
+    'label' => 'Main',
+    'first_name' => 'Ada',
+    'last_name' => 'Lovelace',
+    'company_name' => 'Replay Receiving',
+    'address_line1' => '1 Dock Road',
+    'city' => 'Vancouver',
+    'province' => 'BC',
+    'country' => 'CA',
+    'postal_code' => 'V5K0A1',
+    'is_default_billing' => 1,
+    'is_default_shipping' => 1,
+]);
+// sales_order: the #367 baseline emits final table names, so the admin_order -> sales_order
+// rename no longer happens inside the chain and there is no pre-rename name to seed against.
+$orderId = seedRow($pdo, 'sales_order', [
+    'company_id' => $companyId,
+    'order_number' => 'CI-REPLAY-ORD-1',
+    'status' => 'Pending',
+    'po_date' => '2026-01-01',
+    'source' => 'Admin',
+    'billing_address_id' => $addressId,
+    'shipping_address_id' => $addressId,
+    'billing_name' => 'Ada Lovelace',
+    'shipping_name' => 'Ada Lovelace',
+    'total' => '123.45',
+]);
+$estimateId = seedRow($pdo, 'estimate', [
+    'company_id' => $companyId,
+    'document_number' => 'CI-REPLAY-QT-1',
+    'status' => 'Priced',
+    'po_date' => '2026-01-01',
+    'source' => 'Admin',
+    'billing_address_id' => $addressId,
+    'shipping_address_id' => $addressId,
+    // The two ways shipping was recorded before it became rows: the order carries the charge-row
+    // form's zone=shipping entry, the estimate only the older amount/method pair. Version20260801040000
+    // has to turn both into type=shipping rows in fee_lines, and a document with neither is what
+    // the order above would look like if the seed had left this out.
+    'shipping' => '17.50',
+    'shipping_method' => 'Legacy Courier',
+]);
+// Up to the #367 baseline this fixture seeded the *legacy* shapes - packed extra_charges/shipping
+// columns and bare address columns - and the assertions below proved the backfill migrations
+// converted them. The baseline emits the post-conversion schema, so there is nothing left to
+// convert and those columns no longer exist.
+//
+// What the assertions are actually for still applies, and is the reason this file exists: a SQLite
+// table rebuild (which is how Doctrine emulates DROP COLUMN) silently cascaded away every child row
+// a previous migration had just written, and reported success. So the fixture now seeds the data in
+// its *current* shape and the assertions prove a later migration did not take it with them.
+$pdo->prepare('UPDATE sales_order SET fee_lines = ?, company_snapshot = ? WHERE id = ?')->execute([
+    json_encode([['type' => 'shipping', 'label' => 'Shipping (Ground)', 'amount' => 12.5]]),
+    json_encode(['name' => 'Replay Fixture Co', 'pstNumber' => 'PST-REPLAY']),
+    $orderId,
+]);
+$pdo->prepare('UPDATE estimate SET fee_lines = ? WHERE id = ?')->execute([
+    json_encode([['type' => 'shipping', 'label' => 'Shipping (Legacy Courier)', 'amount' => 17.5]]),
+    $estimateId,
+]);
+
+foreach ([['sales_order_address', 'order_id', $orderId], ['estimate_address', 'estimate_id', $estimateId]] as [$snapshotTable, $key, $parentId]) {
+    foreach (['billing', 'shipping'] as $type) {
+        seedRow($pdo, $snapshotTable, [
+            'type' => $type,
+            $key => $parentId,
+            'source_address_id' => $addressId,
+            'company_name' => 'Replay Receiving',
+            'address_line1' => '1 Dock Road',
+            'city' => 'Vancouver',
+            'province' => 'BC',
+            'country' => 'CA',
+            'postal_code' => 'V5K0A1',
+        ]);
+    }
+}
+ok(sprintf('company #%d, address #%d, order #%d, estimate #%d', $companyId, $addressId, $orderId, $estimateId));
+
+// Two bundle_status rows, because Version20260916104500 is the first migration in this chain that
+// writes ROWS to a table that already has some, and a fixture with none would prove nothing about
+// it. It flips the meaning of an absent row from "enabled" to "disabled" and INSERTs the Active
+// rows that were previously implicit — so what has to be provable here is that it adds rows without
+// touching one that was already there.
+//
+// topUp() would give this table a row on its own, but only a `ci-replay` one with the column
+// default, which cannot show the difference: the value that matters is an explicit INACTIVE on a
+// source the migration will iterate over. These are real module names for the same reason — a
+// fictional source would never appear in the migration's modules/* glob, so it would survive by not
+// being looked at rather than by being respected.
+$pdo->prepare('INSERT INTO bundle_status (source, status) VALUES (?, ?)')->execute(['BarcodeBundle', 'Inactive']);
+$pdo->prepare('INSERT INTO bundle_status (source, status) VALUES (?, ?)')->execute(['ProcurementBundle', 'Active']);
+ok('bundle_status seeded: BarcodeBundle Inactive (a decision the upgrade must not overrule), ProcurementBundle Active');
+
+heading('Migrate the rest of the chain one migration at a time, with rows in every table');
+// One at a time rather than in one call, because a table cannot be seeded before it exists and most
+// of them do not exist at the seed point above — only 3 of the 14 document-line tables do, and the
+// first table rebuild runs before the other 11 are created. There is therefore no single point at
+// which the whole fixture can be laid down ahead of the destructive migrations, and a bulk migrate
+// runs every rebuild after the seed point against tables that are empty, where losing every row and
+// losing none look exactly alike.
+//
+// So the fixture is topped up between migrations: each table gets a row as soon as it appears, and
+// every foreign key is pointed at a parent that exists. What is then asserted after each step is
+// the pair of things a rebuild can silently do — lose rows, and sever links — named with the
+// migration that did it.
+//
+// A table the migration DROPPED is not a loss: it leaves the census entirely, and dropping a table
+// is a thing a migration is entitled to do and says so in its own name. What this catches is a table
+// that is still there and emptier than it was.
+$versions = [];
+foreach (glob($projectDir . '/migrations/Version*.php') ?: [] as $file) {
+    $versions[] = basename($file, '.php');
+}
+sort($versions);
+$remaining = array_values(array_filter($versions, static fn (string $v): bool => $v > substr($seedPoint, 19)));
+
+$skipped = [];
+$damage = [];
+$stated = [];
+$buySeeded = false;
+foreach ($remaining as $version) {
+    $pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec('PRAGMA foreign_keys = OFF');
+    topUp($pdo, $skipped);
+    $before = census($pdo);
+    $beforeLinks = linkCensus($pdo);
+    $pdo = null;
+
+    [$code, $output] = console($databaseFile, 'doctrine:migrations:migrate', 'DoctrineMigrations\\' . $version, '--no-interaction');
+    if ($code !== 0) {
+        fwrite(STDERR, $output);
+        fwrite(STDERR, sprintf("\n\033[31mThe chain failed at %s.\033[0m\n", $version));
+        exit(1);
+    }
+
+    $pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $after = census($pdo);
+    $afterLinks = linkCensus($pdo);
+
+    foreach ($before as $table => $count) {
+        if ($count === 0 || !\array_key_exists($table, $after) || $after[$table] >= $count) {
+            continue;
+        }
+
+        if (statesItEmpties($projectDir, $version, $table)) {
+            $stated[$version . ' ' . $table] = sprintf('%s empties %s and says so in its own SQL', $version, $table);
+
+            continue;
+        }
+
+        $damage[] = sprintf('%s emptied %s from %d row(s) to %d without saying so', $version, $table, $count, $after[$table]);
+    }
+    foreach ($beforeLinks as $key => $value) {
+        if ($value === '' || !\array_key_exists($key, $afterLinks) || $afterLinks[$key] === $value) {
+            continue;
+        }
+
+        // A table the migration states it empties has no links left to keep, and its rebuild writes
+        // whatever rows it computes. Reporting those would be the same stated deletion a second time
+        // in another shape — Version20260820140000 rebuilds both hold ledgers, so all three of
+        // order_inventory_reservation's keys move by design.
+        if (statesItEmpties($projectDir, $version, substr($key, 0, (int) strrpos($key, '.')))) {
+            continue;
+        }
+
+        $damage[] = sprintf(
+            '%s changed %s from %s to %s — a cascade severed the link',
+            $version,
+            $key,
+            $value,
+            $afterLinks[$key] === '' ? 'nothing' : $afterLinks[$key],
+        );
+    }
+    $pdo = null;
+
+    // The buy-side fixture from the batch-1 replay repair, moved INSIDE the stepping loop.
+    //
+    // It used to follow a bulk `migrate <buy seed point>` of its own. That call cannot stay: this
+    // loop already steps every migration after the sell-side seed point one at a time, and asking
+    // Doctrine to migrate to a version that has already been applied is a request to migrate DOWN
+    // to it. So the seed happens where it always did — immediately after the migration that creates
+    // the procurement tables — and the eleven migrations between the two seed points are now
+    // stepped and censused rather than run in one opaque jump.
+    if ($version === substr($buySeedPoint, 19)) {
+        heading('Seed a vendor bill and its children, which the vendor_bill rebuild must not cascade away');
+        $pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec('PRAGMA foreign_keys = ON');
+
+        $vendorId = seedRow($pdo, 'vendor', [
+            'name' => 'Replay Supply Co',
+            'status' => 'Active',
+            'account_number' => 'CI-REPLAY-VEND',
+            'currency' => 'CAD',
+            // Item 43 moves this CLOB into a vendor_note row and then rebuilds `vendor` without the
+            // column. Both halves need a value here to be visible at all: a NULL notes column
+            // migrates to nothing, and an empty `vendor` table survives a rebuild that lost every
+            // row. The text is deliberately awkward — a newline, an apostrophe and a pipe — because
+            // the whole reason the column was never split into rows is that its content has no
+            // structure anyone recorded, and the assertion below is that it arrived byte for byte.
+            'notes' => VENDOR_NOTES_CLOB,
+        ]);
+        // The control the migration must leave alone: a vendor whose notes box was never typed in
+        // must not gain an empty note. Two of them, because '' and NULL are different values and
+        // the migration's guard has to reject both.
+        $emptyNotesVendorId = seedRow($pdo, 'vendor', [
+            'name' => 'Replay Empty Notes Co',
+            'status' => 'Active',
+            'account_number' => 'CI-REPLAY-VEND-EMPTY',
+            'currency' => 'CAD',
+            'notes' => '',
+        ]);
+        $nullNotesVendorId = seedRow($pdo, 'vendor', [
+            'name' => 'Replay Null Notes Co',
+            'status' => 'Active',
+            'account_number' => 'CI-REPLAY-VEND-NULL',
+            'currency' => 'CAD',
+            'notes' => null,
+        ]);
+        // purchase_order.warehouse_id is NOT NULL with a real foreign key, and seedRow()'s fallback for an
+        // unsupplied NOT NULL integer is 0 — which is a FK violation, not a row. Seeded explicitly.
+        $warehouseId = seedRow($pdo, 'warehouse', [
+            'name' => 'Replay Warehouse',
+            'status' => 'Active',
+        ]);
+        $poId = seedRow($pdo, 'purchase_order', [
+            'vendor_id' => $vendorId,
+            'warehouse_id' => $warehouseId,
+            'vendor_name' => 'Replay Supply Co',
+            // po_number at the seed point; #656 renames it later in the chain, and that rename is itself
+            // one of the things the assertions below are watching.
+            'po_number' => 'CI-REPLAY-PO-1',
+            'status' => 'Draft',
+            'document_date' => '2026-01-01',
+            'currency' => 'CAD',
+            'subtotal' => '200.00',
+            'total' => '200.00',
+        ]);
+        $poLineId = seedRow($pdo, 'purchase_order_line', [
+            'purchase_order_id' => $poId,
+            'name' => 'Replay widget',
+            'sku' => 'CI-REPLAY-SKU',
+            'quantity_ordered' => '4.00',
+            'unit_cost' => '50.0000',
+            'subtotal' => '200.00',
+            'sort_order' => 0,
+        ]);
+        $billId = seedRow($pdo, 'vendor_bill', [
+            'vendor_id' => $vendorId,
+            'purchase_order_id' => $poId,
+            'vendor_name' => 'Replay Supply Co',
+            'bill_number' => 'CI-REPLAY-BILL-1',
+            'vendor_invoice_no' => 'INV-REPLAY-1',
+            'status' => 'Draft',
+            'document_date' => '2026-01-02',
+            'currency' => 'CAD',
+            'subtotal' => '200.00',
+            'tax' => '10.00',
+            'total' => '210.00',
+            // Dropped by Version20260911170000. Seeded anyway, because the row has to be REBUILT rather
+            // than merely survive: a rebuild that copied nothing back would lose the whole row.
+            'amount_paid' => '25.00',
+        ]);
+        $billLineIds = [];
+        foreach ([['Replay widget', '2.00', '50.0000', '100.00'], ['Replay freight', '1.00', '100.0000', '100.00']] as $i => [$name, $qty, $cost, $sub]) {
+            $billLineIds[] = seedRow($pdo, 'vendor_bill_line', [
+                'vendor_bill_id' => $billId,
+                'purchase_order_line_id' => $i === 0 ? $poLineId : null,
+                'name' => $name,
+                'sku' => 'CI-REPLAY-SKU',
+                'quantity' => $qty,
+                'unit_cost' => $cost,
+                'subtotal' => $sub,
+                'sort_order' => $i,
+            ]);
+        }
+        // The receiving-rule fixture, for item 67's Version20260913120000.
+        //
+        // That migration DROPS three columns from procurement_product_rule, which on SQLite 3.26
+        // means rebuilding the table: copy out, DROP TABLE, recreate, copy back. The row below is
+        // the only thing on this box that can see it go wrong. `product_id` is
+        // `REFERENCES product_core (id) ON DELETE CASCADE`, so if `PRAGMA foreign_keys = OFF`
+        // fails to take — which is exactly what happened in Version20260730150000, because the
+        // pragma is silently ignored inside a transaction — the rebuild's DROP TABLE severs it and
+        // still reports success. The column check further down compares SCHEMA, and an empty table
+        // has the right columns.
+        //
+        // `location_required` is the column that SURVIVES, and it is seeded true so that "the row
+        // came back" and "the row came back with its value" are different assertions.
+        $ruleProductId = seedRow($pdo, 'product_core', [
+            'sku' => 'CI-REPLAY-RULE-SKU',
+            'name' => 'Replay rule product',
+            'status' => 'Active',
+        ]);
+        $ruleId = seedRow($pdo, 'procurement_product_rule', [
+            'product_id' => $ruleProductId,
+            'location_required' => 1,
+            // Dropped by Version20260913120000. Seeded anyway, because the row has to be REBUILT
+            // rather than merely survive: a rebuild that copied nothing back would lose it whole.
+            'lot_required' => 1,
+            'expiry_required' => 0,
+            'serial_required' => 0,
+        ]);
+
+        $billLogId = seedRow($pdo, 'vendor_bill_log', [
+            'vendor_bill_id' => $billId,
+            'user_name' => 'ci-replay',
+            'comment' => 'Seeded before the vendor_bill rebuild.',
+            'type' => 'note',
+            'created_at' => '2026-01-02 00:00:00',
+        ]);
+        ok(sprintf(
+            'warehouse #%d, vendor #%d (with notes) + #%d (empty) + #%d (null), purchase order #%d, bill #%d with %d lines and a log row, receiving rule #%d on product #%d',
+            $warehouseId,
+            $vendorId,
+            $emptyNotesVendorId,
+            $nullNotesVendorId,
+            $poId,
+            $billId,
+            count($billLineIds),
+            $ruleId,
+            $ruleProductId,
+        ));
+
+        $pdo = null;
+        $buySeeded = true;
+    }
+}
+
+if (!$buySeeded) {
+    fwrite(STDERR, sprintf("\n\033[31mThe buy-side seed point %s was never stepped, so the vendor bill fixture never went in.\033[0m\n", $buySeedPoint));
+    exit(1);
+}
+
+$pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+ok(sprintf('%d migrations executed, with a row in %d of the %d tables they touched', \count($remaining), \count(array_filter(census($pdo))), \count(census($pdo))));
+if ($skipped !== []) {
+    ok(sprintf('%d table(s) could not take a fixture row and are unguarded: %s', \count($skipped), implode(', ', array_keys($skipped))));
+}
+foreach ($stated as $note) {
+    ok($note);
+}
+foreach ($damage as $problem) {
+    bad($problem);
+}
+if ($damage === []) {
+    ok('no migration emptied a table it left standing without saying so, and no cascade severed a foreign key');
+}
+
+heading('Did the data survive?');
+$pdo = new PDO('sqlite:' . $databaseFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+$one = static fn (string $sql, array $params = []): mixed => (function () use ($pdo, $sql, $params) {
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+
+    return $statement->fetchColumn();
+})();
+
+foreach ([
+    ['company', 'SELECT COUNT(*) FROM company WHERE id = ?', $companyId],
+    ['company_address', 'SELECT COUNT(*) FROM company_address WHERE id = ?', $addressId],
+    ['sales_order', 'SELECT COUNT(*) FROM sales_order WHERE id = ?', $orderId],
+    ['estimate', 'SELECT COUNT(*) FROM estimate WHERE id = ?', $estimateId],
+] as [$table, $sql, $id]) {
+    if ((int) $one($sql, [$id]) === 1) {
+        ok(sprintf('%s row still present', $table));
+    } else {
+        bad(sprintf('%s row #%d was destroyed by a later migration', $table, $id));
+    }
+}
+
+// The exact bug that reported success while deleting everything it had just written: these rows
+// are seeded above, so a later migration cascading them away is the only way to lose them.
+foreach ([
+    ['sales_order_address', 'order_id', $orderId],
+    ['estimate_address', 'estimate_id', $estimateId],
+] as [$table, $key, $parentId]) {
+    $count = (int) $one(sprintf('SELECT COUNT(*) FROM %s WHERE %s = ?', $table, $key), [$parentId]);
+    if ($count === 2) {
+        ok(sprintf('%s still holds both seeded snapshots', $table));
+    } else {
+        bad(sprintf(
+            '%s holds %d snapshot(s) for the seeded document, expected the 2 that were seeded — a later '
+            . 'table rebuild cascaded them away',
+            $table,
+            $count,
+        ));
+    }
+}
+
+$city = $one('SELECT city FROM sales_order_address WHERE order_id = ? LIMIT 1', [$orderId]);
+if ($city === 'Vancouver') {
+    ok('the address snapshot carries the seeded values, not empty columns');
+} else {
+    bad(sprintf('address snapshot city is %s, expected the seeded Vancouver', var_export($city, true)));
+}
+
+// Shipping became rows (issue #165 step 7) and the scalar column that used to cache their sum,
+// along with extra_charges, was dropped in step 8. Both recording mechanisms must still arrive as
+// one type=shipping row in fee_lines — and must survive the column drops, which is the assertion
+// that matters here: a column drop that took the row with it would be the address-snapshot bug
+// again, on the other half of the document.
+foreach ([
+    ['sales_order', $orderId, 'Shipping (Ground)', 12.5],
+    ['estimate', $estimateId, 'Shipping (Legacy Courier)', 17.5],
+] as [$table, $documentId, $expectedLabel, $expectedAmount]) {
+    $feeLines = $one(sprintf('SELECT fee_lines FROM %s WHERE id = ?', $table), [$documentId]);
+    $rows = \is_string($feeLines) ? json_decode($feeLines, true) : null;
+    $shippingRows = \is_array($rows)
+        ? array_values(array_filter($rows, static fn (array $r): bool => ($r['type'] ?? '') === 'shipping'))
+        : [];
+
+    if (\count($shippingRows) === 1
+        && ($shippingRows[0]['label'] ?? null) === $expectedLabel
+        && abs((float) ($shippingRows[0]['amount'] ?? 0) - $expectedAmount) < 0.001
+    ) {
+        ok(sprintf('%s still carries its shipping as one fee line', $table));
+    } else {
+        bad(sprintf(
+            '%s.fee_lines is %s, expected one %s row of %s — the drop migration took the rows with it',
+            $table,
+            var_export($feeLines, true),
+            $expectedLabel,
+            $expectedAmount,
+        ));
+    }
+}
+
+// The columns themselves are gone from all three document tables. Asserted rather than assumed:
+// "38 migrations executed" says nothing about what they did, and a drop that silently did not
+// apply would leave the mappings and the schema disagreeing in the direction schema:validate
+// --skip-sync cannot see.
+foreach (['cart', 'estimate', 'sales_order'] as $table) {
+    $remaining = array_values(array_intersect(['shipping', 'extra_charges'], array_keys(columns($pdo, $table))));
+    if ($remaining === []) {
+        ok(sprintf('%s has neither shipping nor extra_charges any more', $table));
+    } else {
+        bad(sprintf('%s still has %s', $table, implode(' and ', $remaining)));
+    }
+}
+
+$snapshot = $one('SELECT company_snapshot FROM sales_order WHERE id = ?', [$orderId]);
+$decoded = \is_string($snapshot) ? json_decode($snapshot, true) : null;
+if (\is_array($decoded) && ($decoded['name'] ?? null) === 'Replay Fixture Co' && ($decoded['pstNumber'] ?? null) === 'PST-REPLAY') {
+    ok('the buyer identity frozen onto the order survived');
+} else {
+    bad(sprintf('sales_order.company_snapshot is %s, expected the seeded company details', var_export($snapshot, true)));
+}
+
+// The #498 rename carried the values, not just the column name. RENAME COLUMN cannot lose them,
+// but every other schema change on these tables has been a drop-and-rebuild that could — so this
+// asserts the outcome rather than the mechanism, and keeps holding if one is ever swapped for the
+// other. Both rows were seeded as po_date before the rename ran.
+foreach (['sales_order' => $orderId, 'estimate' => $estimateId] as $table => $rowId) {
+    $dated = $one(sprintf('SELECT document_date FROM %s WHERE id = ?', $table), [$rowId]);
+    if ($dated === '2026-01-01') {
+        ok(sprintf('%s.document_date still holds the date seeded as po_date', $table));
+    } else {
+        bad(sprintf('%s.document_date is %s, expected the seeded 2026-01-01 — the rename lost the value', $table, var_export($dated, true)));
+    }
+}
+
+// The shipped email-template bodies are Twig SOURCE stored as data, and the invoice_customer row
+// seeded by the baseline reads the document date off the order. Renaming the entity field (#498)
+// therefore had to rewrite the row too, because OrderController renders THE ROW rather than
+// templates/emails/invoice_customer.html.twig — so a rename that stopped at the code would throw
+// when an invoice email is sent, and no functional test can see it: both suites build their schema
+// from entity metadata and never execute a migration. This is the only place that can check it.
+$staleTemplates = (int) $one("SELECT COUNT(*) FROM email_template WHERE body LIKE '%poDate%'");
+if ($staleTemplates === 0) {
+    ok('no email_template body still names the pre-rename poDate field');
+} else {
+    bad(sprintf('%d email_template row(s) still name order.poDate — the invoice email will throw when sent', $staleTemplates));
+}
+
+// The positive control that pairs with the absence above (#627: never assert a thing is gone
+// without also proving the row it should be gone FROM is still there and readable).
+//
+// This used to look for `order.documentDate`, which is where #498's rename left it. It is not there
+// any more, and that is correct rather than a regression: Version20260919180000 deliberately moved
+// every date/number/total in the invoice_customer body off `order` and onto `invoice`, because
+// /admin/invoice/create has raised invoices with no order behind them since #539 and the unguarded
+// `order.*` expressions threw on those. So the date the rename produced now reads
+// `invoice.documentDate`, and asserting the old spelling asserted that a later, intended migration
+// had NOT run.
+//
+// The rename itself is still checked, by the poDate absence above — a rename that never applied
+// leaves `order.poDate` sitting in the body, because Version20260919180000's REPLACE() is keyed on
+// the post-rename fragment and matches nothing against a stale row. The two together say: the
+// stored Twig has been carried through both migrations and names a field the entity still has.
+$datedTemplates = (int) $one("SELECT COUNT(*) FROM email_template WHERE code = 'invoice_customer' AND body LIKE '%invoice.documentDate%'");
+if ($datedTemplates > 0) {
+    ok('the invoice_customer body reads invoice.documentDate — both the rename and the invoice-first rewrite applied');
+} else {
+    bad('the invoice_customer body names no documentDate at all — one of the two UPDATEs matched nothing, so it silently did not apply');
+}
+
+// The vendor_bill rebuild (Version20260911170000, dropping amount_paid on SQLite 3.26) is the
+// destructive migration this side of the chain has. vendor_bill_line and vendor_bill_log both
+// reference vendor_bill ON DELETE CASCADE, so its DROP TABLE is the cascade that silently emptied
+// two tables in Version20260730150000 and reported success. The row itself has to survive the
+// copy-out/copy-back as well, with its values, which is more than the column check below can say.
+if ((int) $one('SELECT COUNT(*) FROM vendor_bill WHERE id = ?', [$billId]) === 1) {
+    ok('the vendor bill survived the table rebuild that dropped amount_paid');
+} else {
+    bad(sprintf('vendor_bill row #%d was destroyed by the rebuild — copy-back did not run', $billId));
+}
+
+$billTotal = $one('SELECT total FROM vendor_bill WHERE id = ?', [$billId]);
+$billNumber = $one('SELECT bill_number FROM vendor_bill WHERE id = ?', [$billId]);
+if ((float) $billTotal === 210.0 && $billNumber === 'CI-REPLAY-BILL-1') {
+    ok('the rebuilt vendor bill carries its seeded values, not empty columns');
+} else {
+    bad(sprintf(
+        'the rebuilt vendor_bill reads total=%s number=%s, expected 210.00 / CI-REPLAY-BILL-1 — the rebuild copied columns back in the wrong order',
+        var_export($billTotal, true),
+        var_export($billNumber, true),
+    ));
+}
+
+$lineCount = (int) $one('SELECT COUNT(*) FROM vendor_bill_line WHERE vendor_bill_id = ?', [$billId]);
+if ($lineCount === 2) {
+    ok('vendor_bill_line still holds both seeded lines');
+} else {
+    bad(sprintf(
+        'vendor_bill_line holds %d line(s) for the seeded bill, expected the 2 that were seeded — the vendor_bill rebuild cascaded them away',
+        $lineCount,
+    ));
+}
+
+$logCount = (int) $one('SELECT COUNT(*) FROM vendor_bill_log WHERE vendor_bill_id = ?', [$billId]);
+if ($logCount === 1) {
+    ok('vendor_bill_log still holds the seeded entry');
+} else {
+    bad(sprintf('vendor_bill_log holds %d row(s) for the seeded bill, expected 1 — the rebuild cascaded it away', $logCount));
+}
+
+// ON DELETE SET NULL rather than CASCADE, so the failure mode here is a link quietly nulled: the
+// bill line would still be there and would no longer say which purchase order line it billed,
+// which is the attribution the over-billing guard reads.
+$attributed = $one('SELECT purchase_order_line_id FROM vendor_bill_line WHERE id = ?', [$billLineIds[0]]);
+if ((int) $attributed === $poLineId) {
+    ok('the bill line still points at the purchase order line it bills');
+} else {
+    bad(sprintf(
+        'vendor_bill_line #%d points at purchase_order_line %s, expected #%d — a rebuild nulled the attribution the billing guard reads',
+        $billLineIds[0],
+        var_export($attributed, true),
+        $poLineId,
+    ));
+}
+
+// The procurement_product_rule rebuild (Version20260913120000, item 67) — the second destructive
+// migration on this side. Its foreign key is product_id REFERENCES product_core ON DELETE CASCADE,
+// so a `PRAGMA foreign_keys = OFF` that failed to take would sever the row against a DEPLOYED
+// parent table with many children. Three separate things have to be true, and only the first is
+// visible to the census: the row is still here, it carries the value the drop was supposed to
+// LEAVE ALONE, and it still points at its product.
+if ((int) $one('SELECT COUNT(*) FROM procurement_product_rule WHERE id = ?', [$ruleId]) === 1) {
+    ok('the receiving rule survived the table rebuild that dropped its three derived columns');
+} else {
+    bad(sprintf('procurement_product_rule row #%d was destroyed by the rebuild — copy-back did not run', $ruleId));
+}
+
+$ruleBin = $one('SELECT location_required FROM procurement_product_rule WHERE id = ?', [$ruleId]);
+$ruleProduct = $one('SELECT product_id FROM procurement_product_rule WHERE id = ?', [$ruleId]);
+if ((int) $ruleBin === 1 && (int) $ruleProduct === $ruleProductId) {
+    ok('the rebuilt receiving rule keeps location_required and still points at its product');
+} else {
+    bad(sprintf(
+        'the rebuilt procurement_product_rule reads location_required=%s product_id=%s, expected 1 / #%d — the rebuild copied columns back in the wrong order or severed the key',
+        var_export($ruleBin, true),
+        var_export($ruleProduct, true),
+        $ruleProductId,
+    ));
+}
+
+foreach (['lot_required', 'expiry_required', 'serial_required'] as $dropped) {
+    if (!array_key_exists($dropped, columns($pdo, 'procurement_product_rule'))) {
+        ok(sprintf('procurement_product_rule.%s is gone — the tracking policy is the only place it lives now', $dropped));
+    } else {
+        bad(sprintf('procurement_product_rule still has %s — the rebuild reported success without dropping the column', $dropped));
+    }
+}
+
+// Item 68: the per-product minimum shelf life override, added to the SAME table by
+// Version20260915142000, one migration further down the chain.
+//
+// The migration is ADD-only and the seeded row is what proves it. Two things have to be true and
+// they are different claims: the column arrived, and the row that was already there reads NULL for
+// it. NULL is "no override, follow the global"; a DEFAULT 0 would have been the obvious spelling of
+// this ALTER and would have declared every existing product PERMANENTLY EXEMPT from the minimum —
+// a decision nobody made, written by a deploy. Step 6 compares column NAMES and cannot see a value,
+// so this is the only place that claim is checked anywhere: neither suite replays the chain.
+if (array_key_exists('minimum_shelf_life_days', columns($pdo, 'procurement_product_rule'))) {
+    ok('procurement_product_rule.minimum_shelf_life_days arrived');
+} else {
+    bad('procurement_product_rule has no minimum_shelf_life_days — Version20260915142000 did not apply');
+}
+
+$ruleShelfLife = $one('SELECT minimum_shelf_life_days FROM procurement_product_rule WHERE id = ?', [$ruleId]);
+if ($ruleShelfLife === null) {
+    ok('the existing receiving rule reads NULL for it — no override, follow the global, nothing rewritten');
+} else {
+    bad(sprintf(
+        'procurement_product_rule row #%d reads minimum_shelf_life_days=%s, expected NULL — the ADD COLUMN carried a DEFAULT and has declared an existing product exempt from the minimum shelf life',
+        $ruleId,
+        var_export($ruleShelfLife, true),
+    ));
+}
+
+// And the exception table the override writes into. Empty, because nothing before this point could
+// have written one — it is created by the same migration and no later migration touches it. What is
+// being checked is that the CREATE TABLE ran and that its unique index came with it, since that
+// index is the only thing making "one line, at most one shortfall" unrepresentable rather than
+// merely unwritten.
+if (columns($pdo, 'procurement_short_dated_receipt') !== []) {
+    ok('procurement_short_dated_receipt exists — a short-dated override has somewhere to be recorded');
+} else {
+    bad('procurement_short_dated_receipt was not created by Version20260915142000');
+}
+
+$shortDatedIndex = $one("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'uniq_short_dated_receipt_line'");
+if ((int) $shortDatedIndex === 1) {
+    ok('uniq_short_dated_receipt_line is in place — one receipt line cannot carry two shortfalls');
+} else {
+    bad('uniq_short_dated_receipt_line is missing — two exception rows could be written about one receipt line');
+}
+
+// The drop actually happened. A rebuild that silently did not apply leaves a column the mappings
+// no longer declare, which step 6 cannot see: it only looks for columns that are MISSING.
+if (!array_key_exists('amount_paid', columns($pdo, 'vendor_bill'))) {
+    ok('vendor_bill.amount_paid is gone, so the paid figure is the payment rows and nothing else');
+} else {
+    bad('vendor_bill still has amount_paid — the rebuild reported success without dropping the column');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Item 43: vendor.notes was moved into a vendor_note row and only then dropped.
+//
+// This is the ONLY place that claim can be checked. Neither suite replays migrations — both build
+// their schema from entity metadata — and after this migration the mappings do not declare
+// `vendor.notes` at all, so no functional test can even create the state the migration reads. A
+// green suite says nothing about it.
+//
+// Three things have to hold, and the third is the one that is easy to lose: the text ARRIVED, the
+// rebuild that followed did not then cascade it away, and a vendor that never had notes did not
+// gain an empty one.
+$migratedAuthor = 'Migrated from the old notes field';
+
+$migrated = $pdo->prepare('SELECT text FROM vendor_note WHERE vendor_id = ? AND user_name = ?');
+$migrated->execute([$vendorId, $migratedAuthor]);
+$migratedNotes = $migrated->fetchAll(PDO::FETCH_COLUMN);
+
+if (count($migratedNotes) === 1 && $migratedNotes[0] === VENDOR_NOTES_CLOB) {
+    ok('the legacy vendor notes arrived as exactly one vendor_note row, byte for byte');
+} elseif (count($migratedNotes) === 0) {
+    bad(sprintf(
+        'vendor #%d has no migrated note — either the INSERT matched nothing, or the vendor rebuild that followed it cascaded the row away through vendor_note.vendor_id ON DELETE CASCADE',
+        $vendorId,
+    ));
+} elseif (count($migratedNotes) > 1) {
+    bad(sprintf(
+        'vendor #%d has %d migrated notes, expected 1 — the migration split the CLOB, which invents boundaries nobody recorded',
+        $vendorId,
+        count($migratedNotes),
+    ));
+} else {
+    bad(sprintf(
+        'the migrated note reads %s, expected %s — the text was altered on the way across',
+        var_export($migratedNotes[0], true),
+        var_export(VENDOR_NOTES_CLOB, true),
+    ));
+}
+
+// The negative, paired with the positive control above: the same query, the same author, against
+// the two vendors whose box was never typed in. Without the assertion above this one would pass
+// just as happily if the INSERT had never run at all.
+foreach ([['empty string', $emptyNotesVendorId], ['null', $nullNotesVendorId]] as [$shape, $controlId]) {
+    $control = $pdo->prepare('SELECT COUNT(*) FROM vendor_note WHERE vendor_id = ? AND user_name = ?');
+    $control->execute([$controlId, $migratedAuthor]);
+    $spurious = (int) $control->fetchColumn();
+
+    if ($spurious === 0) {
+        ok(sprintf('the vendor whose notes were %s gained no note', $shape));
+    } else {
+        bad(sprintf(
+            'vendor #%d had %s notes and gained %d migrated note(s) — an empty box became a note that was never written',
+            $controlId,
+            $shape,
+            $spurious,
+        ));
+    }
+}
+
+// All three vendor rows have to still be there, with their names: the rebuild is a DROP TABLE and a
+// copy-back, and a copy-back that did not run reads exactly like a table that was always empty.
+$survivors = $pdo->prepare('SELECT name FROM vendor WHERE id IN (?, ?, ?) ORDER BY id');
+$survivors->execute([$vendorId, $emptyNotesVendorId, $nullNotesVendorId]);
+$vendorNames = $survivors->fetchAll(PDO::FETCH_COLUMN);
+if ($vendorNames === ['Replay Supply Co', 'Replay Empty Notes Co', 'Replay Null Notes Co']) {
+    ok('all three vendors survived the rebuild that dropped notes, with their names');
+} else {
+    bad(sprintf(
+        'the rebuilt vendor table holds %s for the three seeded rows, expected all three by name — the copy-back lost or reordered them',
+        var_export($vendorNames, true),
+    ));
+}
+
+// And the column is actually gone. A rebuild that silently did not apply leaves a column the
+// mappings no longer declare, which the column check below cannot see: it only looks for columns
+// that are MISSING from the database, never for ones left behind in it.
+if (!array_key_exists('notes', columns($pdo, 'vendor'))) {
+    ok('vendor.notes is gone, so a vendor has one notes list and not two');
+} else {
+    bad('vendor still has a notes column — the rebuild reported success without dropping it');
+}
+
+// The reference-data seed marks, and specifically the UNIQUE index on seeder_key.
+//
+// This is here rather than left to topUp() for a mechanical reason worth stating: topUp() runs
+// BEFORE each remaining migration, so the table created by the LAST migration in the chain never
+// gets a fixture row and never enters the census. That is harmless for survival — nothing runs
+// after it to destroy it — but it would leave the one thing this table exists for unproven.
+//
+// **Which is why the assertion below counts the CHANGE and not the total.** Its first version
+// asserted `COUNT(*) === 2`, and that number was only ever right while this table was the one the
+// LAST migration created: the moment any migration is added after Version20260914113000, topUp()
+// runs once more, seeds its fixture row here like it does everywhere else, and the total becomes 3
+// with nothing whatsoever wrong. Item 68's migration is the first to be added after it and this is
+// exactly what happened — a green check on main going red on a branch that never touched this
+// table or its migration. A hand-kept absolute is the same hazard in a script that a hand-kept list
+// of subjects is in a conformance test (docs/QUEUE.md), and it is fixed the same way: measure.
+//
+// And it is a thing NO test suite can prove. Both suites build their schema from Doctrine metadata
+// (tests/_bootstrap.php, DoctrineIntegrationTestCase), so a green suite only ever demonstrates that
+// the ENTITY declares the constraint. What stops two simultaneous admin logins seeding twice is the
+// index in the database the MIGRATION built, and this is the only place that is ever true.
+if (in_array('reference_data_seed_mark', dataTables($pdo), true)) {
+    // Counted rather than assumed to be zero. This used to assert a literal row count of 2, which
+    // held only while Version20260914113000 was the LAST migration in the chain: topUp() gives every
+    // empty table a `ci-replay` row before each step, and a table created by the final migration is
+    // never stepped past, so it stayed empty by accident. The moment any migration was added after
+    // it — Version20260916104500 was the first — topUp() seeded the table, the count read 3 and this
+    // check failed while reporting `refused=yes`, i.e. announcing a broken UNIQUE index that was in
+    // fact working perfectly. Relative counts cannot go stale that way.
+    //
+    // So whatever is already here is fine — a topUp() fixture row if any migration was added after
+    // this table's, nothing if it is still the last. Neither is this check's business; what follows
+    // measures the CHANGE against it.
+    $marksBefore = (int) $one('SELECT COUNT(*) FROM reference_data_seed_mark');
+
+    $pdo->prepare('INSERT INTO reference_data_seed_mark (seeder_key, rows_created, seeded_at) VALUES (?, ?, ?)')
+        ->execute(['core.unit_of_measure', 4, '2026-09-14 11:30:00']);
+
+    $storedKey = $one('SELECT seeder_key FROM reference_data_seed_mark WHERE seeder_key = ?', ['core.unit_of_measure']);
+    if ($storedKey === 'core.unit_of_measure') {
+        ok('a reference data seed mark can be written to the migrated table');
+    } else {
+        bad('the migrated reference_data_seed_mark would not take a mark row');
+    }
+
+    $refused = false;
+    try {
+        $pdo->prepare('INSERT INTO reference_data_seed_mark (seeder_key, rows_created, seeded_at) VALUES (?, ?, ?)')
+            ->execute(['core.unit_of_measure', 4, '2026-09-14 11:30:01']);
+    } catch (PDOException) {
+        $refused = true;
+    }
+
+    // Positive control: a DIFFERENT key still inserts, so the refusal above is the index and not
+    // the table refusing everything.
+    $pdo->prepare('INSERT INTO reference_data_seed_mark (seeder_key, rows_created, seeded_at) VALUES (?, ?, ?)')
+        ->execute(['core.tracking_policy', 1, '2026-09-14 11:30:02']);
+    // Two inserts were meant to land — the first key and the distinct one — and the duplicate was
+    // meant to land nowhere. Three added means the index is not there; two means it is.
+    $added = (int) $one('SELECT COUNT(*) FROM reference_data_seed_mark') - $marksBefore;
+
+    if ($refused && $added === 2) {
+        ok('the migration built the UNIQUE index: a duplicate seeder_key is refused, a distinct one is not');
+    } else {
+        bad(sprintf(
+            'reference_data_seed_mark took a duplicate seeder_key (refused=%s, rows added=%d of 2) — two simultaneous logins would seed twice',
+            $refused ? 'yes' : 'no',
+            $added,
+        ));
+    }
+} else {
+    bad('reference_data_seed_mark was not created by the chain');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Version20260916104500 — bundles are inert until activated.
+//
+// The migration that had to run BEFORE the new default could be observed, or every bundle on every
+// existing installation would have gone dark at once. It is INSERT-only, and all three things worth
+// proving about it are things no test suite can: tests/_bootstrap.php and DoctrineIntegrationTestCase
+// both build their schema from Doctrine metadata and never replay the chain, so this is the only
+// place the migration's own SQL ever runs.
+if (in_array('bundle_status', dataTables($pdo), true)) {
+    $inactiveSurvivor = $one('SELECT status FROM bundle_status WHERE source = ?', ['BarcodeBundle']);
+    if ($inactiveSurvivor === 'Inactive') {
+        ok('the explicitly Inactive bundle is still Inactive — the upgrade did not overrule a decision somebody made');
+    } else {
+        bad(sprintf(
+            'BarcodeBundle was seeded Inactive and reads "%s" after the chain — the upgrade step swept up an explicit decision',
+            \is_string($inactiveSurvivor) && $inactiveSurvivor !== '' ? $inactiveSurvivor : 'no row at all',
+        ));
+    }
+
+    // ADD-only, the other half: an existing row must not be duplicated either. bundle_status.source
+    // is UNIQUE, so a second INSERT would have thrown — but the migration is written as
+    // INSERT ... WHERE NOT EXISTS precisely so it never gets that far, and a count is what shows it.
+    $procurementRows = (int) $one('SELECT COUNT(*) FROM bundle_status WHERE source = ?', ['ProcurementBundle']);
+    $procurementStatus = $one('SELECT status FROM bundle_status WHERE source = ?', ['ProcurementBundle']);
+    if ($procurementRows === 1 && $procurementStatus === 'Active') {
+        ok('the bundle that already had an Active row still has exactly one, still Active');
+    } else {
+        bad(sprintf(
+            'ProcurementBundle has %d row(s) reading "%s" — the upgrade step should have left its existing row alone',
+            $procurementRows,
+            \is_string($procurementStatus) && $procurementStatus !== '' ? $procurementStatus : 'nothing',
+        ));
+    }
+
+    // The positive control, and the whole point of the migration: a module that had NO row — which
+    // under the old rule was the enabled state — comes out of the chain explicitly Active. Without
+    // this the two assertions above would pass on a migration that did nothing at all.
+    $wasImplicit = $one('SELECT status FROM bundle_status WHERE source = ?', ['WarehouseOpsBundle']);
+    if ($wasImplicit === 'Active') {
+        ok('a bundle that was enabled only by the absence of a row now says so explicitly');
+    } else {
+        bad(sprintf(
+            'WarehouseOpsBundle reads "%s" after the chain — it was enabled before the flip and the upgrade step left it dark',
+            \is_string($wasImplicit) && $wasImplicit !== '' ? $wasImplicit : 'no row at all',
+        ));
+    }
+} else {
+    bad('bundle_status was not created by the chain');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Version20260917153000 — the record of a line deliberately sold beyond available stock (#326).
+//
+// Two new tables and, on each, a UNIQUE index carrying the whole "one line, one decision" rule. Both
+// are things NO test suite can prove: tests/_bootstrap.php and DoctrineIntegrationTestCase build
+// their schema from Doctrine metadata, so a green suite only ever shows that the ENTITY declares the
+// constraint. What stops two override rows from landing against one line in production is the index
+// the MIGRATION built, and this is the only place that SQL is ever executed.
+//
+// It is here rather than left to topUp() for the mechanical reason the reference_data_seed_mark
+// block above states: topUp() runs BEFORE each remaining migration, so a table created by the LAST
+// migration in the chain never gets a fixture row. That is harmless for survival — nothing runs
+// after it to destroy it — but it would leave the one thing these tables exist for unproven.
+//
+// **Counted as a CHANGE, never as a total**, for the same reason. The moment any migration is added
+// after this one, topUp() seeds these tables like it does everywhere else and an absolute count goes
+// stale while nothing whatsoever is wrong.
+//
+// ## The line is chosen, not taken
+//
+// This block used to take `sales_order_line` #1 and insert against it, and that worked only while
+// Version20260917153000 was the LAST migration in the chain — because topUp() runs before each
+// REMAINING migration, so the table it creates never received a fixture row. The moment any
+// migration was added after it, topUp() seeded `sales_order_line_stock_override` and pointed the
+// fixture row's FK at line #1, and this block's FIRST insert then died on the unique index:
+//
+//     PHP Fatal error: Uncaught PDOException: SQLSTATE[23000]: UNIQUE constraint failed:
+//     sales_order_line_stock_override.order_line_id
+//
+// An uncaught fatal, so the replay stopped here and steps 8 and 9 never ran at all — the two that
+// compare the migrated schema against the mappings, which is the whole reason a new migration is
+// replayed. The comment above anticipated topUp() reaching these tables and said only that the
+// COUNT would go stale; the collision was the part nobody had hit yet.
+//
+// So the line is now chosen: the first migrated line that does not already carry an override. The
+// assertions below are unchanged and still run against a line that survived the chain.
+if (in_array('sales_order_line_stock_override', dataTables($pdo), true)) {
+    $anyLineId = $one('SELECT id FROM sales_order_line ORDER BY id LIMIT 1');
+    $lineId = $one(
+        'SELECT id FROM sales_order_line
+         WHERE id NOT IN (SELECT order_line_id FROM sales_order_line_stock_override)
+         ORDER BY id LIMIT 1'
+    );
+    $orderId = $one('SELECT order_id FROM sales_order_line WHERE id = ?', [$lineId !== false && $lineId !== null ? $lineId : $anyLineId]);
+
+    if ($anyLineId === false || $anyLineId === null) {
+        bad('no sales_order_line row survived the chain, so the override table cannot be exercised against one');
+    } else {
+        if ($lineId === false || $lineId === null) {
+            // Every surviving line already carries one, which happens when the fixture seeded the
+            // only line there was. A fresh line keeps the rest of the block honest rather than
+            // skipping it.
+            $lineId = seedRow($pdo, 'sales_order_line', is_numeric($orderId) ? ['order_id' => (int) $orderId] : []);
+        }
+        $overridesBefore = (int) $one('SELECT COUNT(*) FROM sales_order_line_stock_override');
+        $write = static function (PDO $pdo, int $line, string $reason): void {
+            $pdo->prepare(
+                'INSERT INTO sales_order_line_stock_override
+                 (order_line_id, region_name, requested_quantity, available_quantity, backorder_capacity, reason, overridden_by, overridden_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([$line, 'ci-replay', 50, 12, 0, $reason, 'ci-replay@example.test', '2026-09-17 15:30:00']);
+        };
+
+        $write($pdo, (int) $lineId, 'Restock lands Friday');
+        $stored = $one('SELECT reason FROM sales_order_line_stock_override WHERE order_line_id = ?', [$lineId]);
+        if ($stored === 'Restock lands Friday') {
+            ok('an oversell decision can be recorded against a migrated sales_order_line');
+        } else {
+            bad('the migrated sales_order_line_stock_override would not take a row against a real line');
+        }
+
+        // available_quantity has to come back SIGNED. A column declared unsigned somewhere, or a
+        // rebuild that re-typed it, would clamp the one figure that says how far past the shelf a
+        // second override went.
+        $pdo->prepare(
+            'UPDATE sales_order_line_stock_override SET available_quantity = ? WHERE order_line_id = ?'
+        )->execute([-40, $lineId]);
+        if ((int) $one('SELECT available_quantity FROM sales_order_line_stock_override WHERE order_line_id = ?', [$lineId]) === -40) {
+            ok('available_quantity stores a negative, so a second oversell records how deep it went');
+        } else {
+            bad('available_quantity came back clamped — a SKU already in the hole would read as merely empty');
+        }
+
+        $duplicateRefused = false;
+        try {
+            $write($pdo, (int) $lineId, 'A second answer to the same question');
+        } catch (PDOException) {
+            $duplicateRefused = true;
+        }
+
+        // POSITIVE CONTROL on the same table: a DIFFERENT line still takes a row, so the refusal
+        // above is the unique index and not the table refusing everything.
+        $secondLineId = seedRow($pdo, 'sales_order_line', is_numeric($orderId) ? ['order_id' => (int) $orderId] : []);
+        $write($pdo, $secondLineId, 'Drop-shipping this one');
+
+        // Two inserts were meant to land and the duplicate was meant to land nowhere.
+        $added = (int) $one('SELECT COUNT(*) FROM sales_order_line_stock_override') - $overridesBefore;
+        if ($duplicateRefused && $added === 2) {
+            ok('uniq_stock_override_order_line is in place: one line cannot carry two override records');
+        } else {
+            bad(sprintf(
+                'sales_order_line_stock_override took a duplicate order_line_id (refused=%s, rows added=%d of 2) — one line would carry two answers',
+                $duplicateRefused ? 'yes' : 'no',
+                $added,
+            ));
+        }
+    }
+} else {
+    bad('sales_order_line_stock_override was not created by the chain');
+}
+
+// Same choice, for the same reason, on the invoice side. This one did not fatal — its first insert
+// is not inside a closure the catch below misses — but with a fixture row already on invoice_line #1
+// it reported `rows added=0 of 1` and failed, naming a unique index that was working perfectly.
+if (in_array('invoice_line_stock_override', dataTables($pdo), true)) {
+    $anyInvoiceLineId = $one('SELECT id FROM invoice_line ORDER BY id LIMIT 1');
+    $invoiceLineId = $one(
+        'SELECT id FROM invoice_line
+         WHERE id NOT IN (SELECT invoice_line_id FROM invoice_line_stock_override)
+         ORDER BY id LIMIT 1'
+    );
+    if ($anyInvoiceLineId === false || $anyInvoiceLineId === null) {
+        bad('no invoice_line row survived the chain, so the invoice override table cannot be exercised against one');
+    } else {
+        if ($invoiceLineId === false || $invoiceLineId === null) {
+            // Every surviving line already carries one, which is what happens when the fixture
+            // seeded the only line there was. A fresh line on the same invoice keeps the assertion
+            // honest rather than skipping it — the same answer the sales side above gives.
+            $overriddenInvoiceId = $one('SELECT invoice_id FROM invoice_line WHERE id = ?', [$anyInvoiceLineId]);
+            $invoiceLineId = seedRow($pdo, 'invoice_line', is_numeric($overriddenInvoiceId) ? ['invoice_id' => (int) $overriddenInvoiceId] : []);
+        }
+        $before = (int) $one('SELECT COUNT(*) FROM invoice_line_stock_override');
+        $insert = $pdo->prepare(
+            'INSERT INTO invoice_line_stock_override
+             (invoice_line_id, region_name, requested_quantity, available_quantity, backorder_capacity, reason, overridden_by, overridden_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $insert->execute([$invoiceLineId, 'ci-replay', 50, 12, 0, 'Customer collecting from the vendor', 'ci-replay@example.test', '2026-09-17 15:30:00']);
+
+        $refused = false;
+        try {
+            $insert->execute([$invoiceLineId, 'ci-replay', 50, 12, 0, 'A second answer', 'ci-replay@example.test', '2026-09-17 15:30:01']);
+        } catch (PDOException) {
+            $refused = true;
+        }
+
+        $added = (int) $one('SELECT COUNT(*) FROM invoice_line_stock_override') - $before;
+        if ($refused && $added === 1) {
+            ok('uniq_stock_override_invoice_line is in place, and the invoice override table takes a row against a migrated invoice_line');
+        } else {
+            bad(sprintf(
+                'invoice_line_stock_override took a duplicate invoice_line_id (refused=%s, rows added=%d of 1)',
+                $refused ? 'yes' : 'no',
+                $added,
+            ));
+        }
+    }
+} else {
+    bad('invoice_line_stock_override was not created by the chain');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Version20260918090000 — the record that somebody deliberately froze a document.
+//
+// A CREATE TABLE, so it endangers no existing row and there is none for topUp() to have seeded: it
+// is the last migration in the chain, and topUp() runs BEFORE each remaining migration. The rule is
+// still that a migration is only proved against rows, so the rows are written here — the same shape
+// the two override blocks above use, and for the same reason: what stops one document carrying two
+// lock rows in production is `uniq_document_lock`, which the MIGRATION builds and which no test
+// suite ever executes (both build their schema from Doctrine metadata).
+if (in_array('document_lock', dataTables($pdo), true)) {
+    $lockOrderId = $one('SELECT id FROM sales_order ORDER BY id LIMIT 1');
+    if ($lockOrderId === false || $lockOrderId === null) {
+        bad('no sales_order row survived the chain, so document_lock cannot be exercised against one');
+    } else {
+        $locksBefore = (int) $one('SELECT COUNT(*) FROM document_lock');
+        $lockInsert = $pdo->prepare(
+            'INSERT INTO document_lock (document_type, document_id, locked_at, locked_by, reason) VALUES (?, ?, ?, ?, ?)'
+        );
+        $lockInsert->execute(['sales_order', $lockOrderId, '2026-09-18 09:30:00', 'ci-replay@example.test', 'Audit in progress']);
+
+        $storedReason = $one('SELECT reason FROM document_lock WHERE document_type = ? AND document_id = ?', ['sales_order', $lockOrderId]);
+        if ($storedReason === 'Audit in progress') {
+            ok('a lock can be recorded against a migrated sales_order, reason and all');
+        } else {
+            bad('the migrated document_lock would not take a row against a real sales_order');
+        }
+
+        $lockRefused = false;
+        try {
+            $lockInsert->execute(['sales_order', $lockOrderId, '2026-09-18 09:31:00', 'somebody-else@example.test', 'A second answer']);
+        } catch (PDOException) {
+            $lockRefused = true;
+        }
+
+        // POSITIVE CONTROL on the same table and the same document id: the SAME number under a
+        // DIFFERENT document_type still takes a row. That is what makes the refusal above the
+        // two-column index rather than the table refusing everything — and it is the one thing that
+        // would break if the index had been built on document_id alone, which would silently mean
+        // invoice #7 could not be locked because order #7 already was.
+        $lockInsert->execute(['invoice', $lockOrderId, '2026-09-18 09:32:00', 'ci-replay@example.test', null]);
+
+        $locksAdded = (int) $one('SELECT COUNT(*) FROM document_lock') - $locksBefore;
+        if ($lockRefused && $locksAdded === 2) {
+            ok('uniq_document_lock is in place: one document cannot carry two locks, and two document types share a number freely');
+        } else {
+            bad(sprintf(
+                'document_lock took a duplicate (type, id) (refused=%s, rows added=%d of 2) — a document would carry two locks',
+                $lockRefused ? 'yes' : 'no',
+                $locksAdded,
+            ));
+        }
+
+        // NULL is the "no reason given" state and has to survive as NULL rather than as ''.
+        $nullReason = $one('SELECT reason FROM document_lock WHERE document_type = ? AND document_id = ?', ['invoice', $lockOrderId]);
+        if ($nullReason === null) {
+            ok('document_lock.reason is genuinely nullable — a lock with no reason is not a lock with an empty one');
+        } else {
+            bad(sprintf('document_lock.reason came back as %s for a row that gave none', var_export($nullReason, true)));
+        }
+    }
+} else {
+    bad('document_lock was not created by the chain');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Version20260918120000 — two fulfillment regions may not share a name.
+//
+// `uniq_fulfillment_region_name` is a UNIQUE index over LOWER(TRIM(name)), and this is the ONLY
+// place in the repository where that statement is ever executed. Not "the only place it is tested"
+// — the only place it EXISTS. Both suites build their schema from Doctrine metadata
+// (tests/_bootstrap.php runs doctrine:schema:create; DoctrineIntegrationTestCase uses SchemaTool),
+// and Doctrine's mapping cannot express an index over an expression at all: declaring
+// #[ORM\UniqueConstraint(columns: ['LOWER(TRIM(name))'])] makes schema:create fail outright with
+// "There is no column with name "LOWER(TRIM(name))" on table "fulfillment_region"". So a green
+// Functional suite can only ever demonstrate that the SCREEN refuses a duplicate. What stops the
+// fifth region-creating path — or the one written next year — is the index the MIGRATION builds.
+//
+// The case variants are the point and not thoroughness. warehousesByLowerRegionName() keys on
+// strtolower(trim(name)), so "Main", "main" and " Main " are already ONE region to every stock
+// lookup; two rows spelt that way are one region of which only the lowest id is ever resolved,
+// while the other holds a warehouse and a price list nothing reaches. A plain UNIQUE(name) would
+// have permitted exactly that, and each variant below is a row it would have accepted.
+//
+// **Counted as a CHANGE, never as a total**, for the reason the reference_data_seed_mark block
+// above states at length: topUp() seeds every empty table before each remaining migration, so an
+// absolute row count goes stale the moment any migration is added after this one.
+if (in_array('fulfillment_region', dataTables($pdo), true)) {
+    $indexSql = (string) $one("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", ['uniq_fulfillment_region_name']);
+    if (str_contains(strtoupper($indexSql), 'LOWER(TRIM(NAME))')) {
+        ok('uniq_fulfillment_region_name exists and is built on LOWER(TRIM(name)), not on name');
+    } else {
+        bad(sprintf(
+            'uniq_fulfillment_region_name is %s — "main" could still be created beside "Main"',
+            $indexSql === '' ? 'not in the migrated schema at all' : 'not an expression index: ' . $indexSql,
+        ));
+    }
+
+    // The fixture may hold no region of a name this script chose. topUp() only seeds tables that are
+    // EMPTY, so whichever row it left here (if any) wears an auto-filled name, and colliding with a
+    // name nothing wrote down would make the assertions below depend on that filler. A unique index
+    // proved against zero rows is not proved at all, so one is written here either way — the same
+    // thing the three override blocks above do, and for the same reason.
+    $regionName = 'Replay Region';
+    if ((int) $one('SELECT COUNT(*) FROM fulfillment_region WHERE LOWER(TRIM(name)) = ?', [strtolower($regionName)]) === 0) {
+        seedRow($pdo, 'fulfillment_region', ['name' => $regionName, 'status' => 'Active']);
+    }
+
+    $regionsBefore = (int) $one('SELECT COUNT(*) FROM fulfillment_region');
+
+    $insertRegion = static function (string $name) use ($pdo): void {
+        seedRow($pdo, 'fulfillment_region', ['name' => $name, 'status' => 'Active']);
+    };
+
+    $verdicts = [];
+    foreach ([$regionName, strtolower($regionName), strtoupper($regionName), ' ' . $regionName . ' '] as $collides) {
+        try {
+            $insertRegion($collides);
+            $verdicts[$collides] = 'accepted';
+        } catch (PDOException) {
+            $verdicts[$collides] = 'refused';
+        }
+    }
+
+    // POSITIVE CONTROL on the same table through the same insert: a genuinely different name still
+    // takes a row. Without it the four refusals above read the same as a table refusing everything,
+    // which is what a botched index actually produces.
+    $distinctName = 'Replay Overflow';
+    $positiveControl = 'accepted';
+    try {
+        $insertRegion($distinctName);
+    } catch (PDOException) {
+        $positiveControl = 'refused';
+    }
+
+    $regionsAdded = (int) $one('SELECT COUNT(*) FROM fulfillment_region') - $regionsBefore;
+    $accepted = array_keys(array_filter($verdicts, static fn (string $v): bool => $v === 'accepted'));
+
+    if ($accepted === [] && $positiveControl === 'accepted' && $regionsAdded === 1) {
+        ok('uniq_fulfillment_region_name is in place: one name is one region, in any capitalisation or padding, and a different name still takes a row');
+    } else {
+        bad(sprintf(
+            'fulfillment_region took a duplicate name (accepted: %s; a distinct name was %s; rows added=%d of 1) — the word on a document would mean two regions',
+            $accepted === [] ? 'none' : implode(', ', array_map(static fn (string $n): string => var_export($n, true), $accepted)),
+            $positiveControl,
+            $regionsAdded,
+        ));
+    }
+
+    if ((int) $one('SELECT COUNT(*) FROM fulfillment_region WHERE LOWER(TRIM(name)) = ?', [strtolower($regionName)]) === 1) {
+        ok(sprintf('exactly one row answers to "%s" after four attempts to add a second', $regionName));
+    } else {
+        bad(sprintf('more than one fulfillment_region row answers to "%s"', $regionName));
+    }
+} else {
+    bad('fulfillment_region was not created by the chain');
+}
+
+heading('Does every column the mappings expect actually exist?');
+// The gap --skip-sync leaves open, closed narrowly.
+//
+// Version20260806140000 rebuilt sales_order with a column list that omitted `version` — the
+// optimistic-lock counter #[ORM\Version] requires — so every database built by replaying the chain
+// silently lost it, and Doctrine names that column in every INSERT and UPDATE of an order. This
+// script reported OK throughout, because the only mapping-vs-database comparison it makes is
+// schema:validate with --skip-sync, which does not look at the database at all. Neither test suite
+// could catch it either: both build their schema from entity metadata and never run a migration.
+//
+// A full sync check is still not usable (see the comment below it), so this compares exactly one
+// thing: the set of column NAMES the mappings expect, against the set the migrated database has.
+// Types, index names and ON UPDATE clauses — where all the pre-existing drift lives — are ignored.
+// A column that the mappings require and the chain did not produce is not drift, it is a database
+// the application cannot run against.
+[$code, $dump] = console($databaseFile, 'doctrine:schema:create', '--dump-sql');
+if ($code !== 0) {
+    bad('could not dump the schema the mappings describe');
+} else {
+    preg_match_all('/CREATE TABLE (\w+) \((.*?)\);/s', $dump, $matches, PREG_SET_ORDER);
+    if ($matches === []) {
+        bad('the schema dump produced no CREATE TABLE statements to compare against');
+    }
+
+    $missingByTable = [];
+    foreach ($matches as [, $table, $body]) {
+        // Column definitions only: skip the trailing CONSTRAINT/FOREIGN KEY/PRIMARY KEY clauses,
+        // and anything nested inside parentheses (NUMERIC(12, 2) and friends).
+        $expected = [];
+        foreach (preg_split('/,(?![^(]*\))/', $body) as $fragment) {
+            $fragment = trim($fragment);
+            if ($fragment === '' || preg_match('/^(CONSTRAINT|FOREIGN KEY|PRIMARY KEY|UNIQUE)\b/i', $fragment)) {
+                continue;
+            }
+            // Reserved words arrive quoted in the DDL ("action", "order"), while PRAGMA table_info
+            // reports them bare — compare the identifiers, not their quoting.
+            $expected[] = trim(strtok($fragment, ' '), '"`[]');
+        }
+
+        $actual = array_keys(columns($pdo, $table));
+        if ($actual === []) {
+            $missingByTable[$table] = ['(the table itself)'];
+            continue;
+        }
+
+        $missing = array_values(array_diff($expected, $actual));
+        if ($missing !== []) {
+            $missingByTable[$table] = $missing;
+        }
+    }
+
+    if ($missingByTable === []) {
+        ok(sprintf('all %d mapped tables have every column their mapping declares', count($matches)));
+    } else {
+        foreach ($missingByTable as $table => $missing) {
+            bad(sprintf('%s is missing %s', $table, implode(', ', $missing)));
+        }
+    }
+}
+
+heading('Do the mappings agree with the schema they produced?');
+// --skip-sync, and the reason has CHANGED — the old note said the flag could come off once 26
+// tables of pre-existing index-name and ON UPDATE drift were cleaned up. It cannot, and cleaning up
+// the drift would not help. The database half of schema:validate INTROSPECTS, so on any migrated
+// database it now dies before it compares anything:
+//
+//     doctrine:schema:validate  ->  [OK] The mapping files are correct.
+//                               ->  In Index.php line 200:
+//                                   Doctrine\DBAL\Schema\Index::_addColumn(): Argument #1 ($column)
+//                                   must be of type string, null given
+//
+// Same cause as step 1's check and the same expression index — see
+// App\Doctrine\SqliteMigrationIntrospection. Verified against a fully migrated database, 2026-09-12:
+// exit 255. `doctrine:schema:update --dump-sql` is unusable on dev and production for the identical
+// reason. So the flag stays on until DBAL can introspect an expression index (upstream: Index's
+// string-typed _addColumn), and the drift is the lesser half of why.
+[$code, $output] = console($databaseFile, 'doctrine:schema:validate', '--skip-sync');
+if ($code === 0) {
+    ok('mapping files are correct');
+} else {
+    echo $output;
+    bad('doctrine:schema:validate --skip-sync failed');
+}
+
+echo "\n";
+
+if ($failures !== []) {
+    printf("\033[31m\033[1mFAILED\033[0m — %d problem(s):\n", \count($failures));
+    foreach ($failures as $failure) {
+        printf("  • %s\n", $failure);
+    }
+    printf("\nThe database is left at %s for inspection.\n", $databaseFile);
+    exit(1);
+}
+
+printf("\033[32m\033[1mOK\033[0m — the chain replays from empty and the data survives it.\n");
+@unlink($databaseFile);
+exit(0);

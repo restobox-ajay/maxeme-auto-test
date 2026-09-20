@@ -1,0 +1,63 @@
+{#
+    The tax-province explanatory paragraph, shared by PurchaseOrder's and VendorBill's VIEW screens
+    (`purchase_order_detail.html.twig`'s `#po-delivery-province` and `bill_detail.html.twig`'s
+    `#bill-receiving-warehouse`). The caller keeps its own wrapping `<div id="...">` — this partial
+    renders only the branching text inside it.
+
+    The two screens' current wording is NOT identical even for the shared cases — PurchaseOrder
+    states "an order with taxable goods and no province cannot be issued" only inside the Draft
+    remedy block, while VendorBill states its equivalent unconditionally, right after the headline.
+    That is an existing, real difference between what each screen currently says, not a fact this
+    partial invents an opinion about: `cannotFreezeHere` / `cannotFreezeInDraftBlock` let each
+    caller keep placing its own sentence exactly where it already did. Forcing the two placements to
+    match would be a wording change dressed up as a template one, and several Cests
+    (`PurchaseOrderProvinceSentenceReEvaluatesCest`, `BillEditProvinceSentenceReEvaluatesCest` and
+    their `WarehouseAddressDerives*` siblings) assert on the exact current copy.
+
+    VendorBill's own Disputed-status remedy ("Return this bill to draft...") is NOT part of this
+    partial — PurchaseOrder has no Disputed status, so `bill_detail.html.twig` appends it itself,
+    directly after including this partial, as the one real exception this move keeps separate.
+
+    Parameters
+    ----------
+    documentNoun              required  'order' | 'bill'
+    hasProvince               required  Whether the document carries a frozen province.
+    provinceDisplay            optional  The frozen value's display text (both screens show the
+                                        bare code). Only read when `hasProvince`.
+    provinceTail                optional  The rest of the "Tax province: X, ..." sentence — see the
+                                        docblock note above on why the two screens' wording differs
+                                        here. Only read when `hasProvince`.
+    warehouse                  optional  The document's warehouse (PurchaseOrder's is effectively
+                                        always set; VendorBill's can be null).
+    showWarehouseClause        optional  Whether to append a "— warehouse has no province" clause
+                                        to the "No tax province recorded" headline. Default false.
+    warehouseClauseText         optional  That clause's text — PurchaseOrder names the warehouse,
+                                        VendorBill's current copy does not (an existing difference,
+                                        not one this move introduces).
+    cannotFreezeSentence         optional  "An order with taxable goods and no province cannot be
+                                        issued." / "A bill with taxable goods and no province cannot
+                                        be approved."
+    cannotFreezeHere            optional  Print `cannotFreezeSentence` right after the headline
+                                        (VendorBill's placement). Default false.
+    cannotFreezeInDraftBlock    optional  Print it at the end of the Draft remedy block instead
+                                        (PurchaseOrder's placement). Default false.
+    showDraftRemedy             optional  Whether to show the "now records" / "record the address"
+                                        remedy block — each caller folds its own extra guard (a
+                                        warehouse actually being named, for VendorBill) into this
+                                        one boolean rather than the partial re-deriving it.
+#}
+{% set warehouse = warehouse|default(null) %}
+{% if hasProvince %}
+    Tax province <strong>{{ provinceDisplay|default('') }}</strong>, {{ provinceTail|default('') }}
+{% else %}
+    <strong>No tax province recorded on this {{ documentNoun }}</strong>{% if showWarehouseClause|default(false) %} — {{ warehouseClauseText|default('') }}{% endif %}, so nothing here computed provincial tax.
+    {% if cannotFreezeHere|default(false) %} {{ cannotFreezeSentence|default('') }}{% endif %}
+    {% if showDraftRemedy|default(false) %}
+        {% if warehouse and warehouse.province %}
+            <strong>{{ warehouse.name }} now records {{ warehouse.province }}</strong> — this {{ documentNoun }} was entered before that, and the province is taken from the warehouse each time the draft is saved. Save this draft again to freeze it onto the {{ documentNoun }}.
+        {% else %}
+            Record the address under Config &rsaquo; Warehouses, then save this draft again.
+        {% endif %}
+        {% if cannotFreezeInDraftBlock|default(false) %} {{ cannotFreezeSentence|default('') }}{% endif %}
+    {% endif %}
+{% endif %}

@@ -1,0 +1,43 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Guest Fulfillment Regions | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Guest Fulfillment Regions</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" action="{{ path('admin_guest_fulfillment_regions') }}">
+            {{ csrf_field() }}
+            <div class="fulfillment-region-checklist-rows">
+                {% for row in rows %}
+                    <div class="fulfillment-region-row">
+                        <label class="check-row fulfillment-region-check">
+                            <input type="hidden" name="regions[{{ row.id }}][guest_visible]" value="0">
+                            <input type="checkbox" name="regions[{{ row.id }}][guest_visible]" value="1" {{ row.guestVisible ? 'checked' : '' }}>
+                            {{ row.name }}
+                        </label>
+                        <select name="regions[{{ row.id }}][guest_price_list_id]" aria-label="Guest price list for {{ row.name }}">
+                            <option value="">Select Price List</option>
+                            {% for priceList in priceLists %}
+                                <option value="{{ priceList.id }}" {{ row.guestPriceListId == priceList.id ? 'selected' : '' }}>{{ priceList.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% else %}
+                    <p class="muted">No fulfillment regions configured yet.</p>
+                {% endfor %}
+            </div>
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

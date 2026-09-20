@@ -1,0 +1,15 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Your Account Is Active{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Your account is now active</h2>
+    <p>Hello <strong>{{ user_email|default('User') }}</strong>,</p>
+    <p>Your company registration has been approved and your account is now active.</p>
+
+    <p>You can now log in to view the catalog, manage your company details, and place orders.</p>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="{{ login_url|default('#') }}" class="button">Log In to Your Account</a>
+    </div>
+{% endblock %}

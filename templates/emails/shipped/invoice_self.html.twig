@@ -1,0 +1,29 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Internal: Invoice #{{ invoice.documentNumber }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Internal Invoice Copy</h2>
+    <p>This is an internal copy of invoice <span class="highlight">#{{ invoice.documentNumber }}</span>.</p>
+
+    <div class="order-summary-box">
+        <div class="summary-row">
+            <span>Company:</span>
+            <strong>{{ invoice.company.name }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Invoice #:</span>
+            <strong>{{ invoice.documentNumber }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Total Amount:</span>
+            <strong>${{ invoice.total|default(0)|amount }}</strong>
+        </div>
+    </div>
+
+    <p>The PDF attachment is identical to the version sent to the customer.</p>
+
+    <div style="text-align: center;">
+        <a href="{{ admin_url|default('#') }}" class="button">Review Invoice</a>
+    </div>
+{% endblock %}

@@ -1,0 +1,46 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Number1CategoryProductPageBundle\:
+        resource: '../src/'
+
+    Number1CategoryProductPageBundle\Bundle\Number1CategoryProductPageBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    Number1CategoryProductPageBundle\Menu\CategoryProductPageMenuItem:
+        tags: ['app.injection_point_menu_item']
+
+    Number1CategoryProductPageBundle\Menu\TireFrontendMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    Number1CategoryProductPageBundle\Menu\WheelFrontendMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    Number1CategoryProductPageBundle\Menu\AccessoriesFrontendMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    Number1CategoryProductPageBundle\TemplateOverride\TireCatalogTemplateOverrideProvider:
+        tags: ['app.template_override']
+
+    Number1CategoryProductPageBundle\TemplateOverride\WheelCatalogTemplateOverrideProvider:
+        tags: ['app.template_override']
+
+    Number1CategoryProductPageBundle\TemplateOverride\AccessoriesCatalogTemplateOverrideProvider:
+        tags: ['app.template_override']
+
+    Number1CategoryProductPageBundle\CatalogFacet\WheelCatalogFacetProvider:
+        tags: ['app.catalog_facet_provider']
+
+    Number1CategoryProductPageBundle\CatalogListColumn\WheelCatalogListColumnProvider:
+        tags: ['app.catalog_list_column_provider']
+
+    Number1CategoryProductPageBundle\CatalogViewConfig\TireCatalogViewConfigProvider:
+        tags: ['app.catalog_view_config_provider']
+
+    Number1CategoryProductPageBundle\CatalogViewConfig\WheelCatalogViewConfigProvider:
+        tags: ['app.catalog_view_config_provider']
+
+    Number1CategoryProductPageBundle\CatalogViewConfig\AccessoriesCatalogViewConfigProvider:
+        tags: ['app.catalog_view_config_provider']

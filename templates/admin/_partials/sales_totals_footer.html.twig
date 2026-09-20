@@ -1,0 +1,78 @@
+{# The totals box a sell-side document's create/edit screen shows below its line-items table —
+   Subtotal, before-tax fees, tax lines, Total Tax, after-tax fees, Grand Total, each with a
+   js-{hookPrefix}-total-* class so app.js's recalc functions can update it live as the admin
+   edits. Built from Order's own totals box (`order/form.html.twig`), shared outward per the
+   owner's ruling 2026-09-13: "apply the common shared blocks, and where there is differences,
+   add/adjust for exceptions. NOT start with different template and find shared blocks."
+
+   Order's box is ALWAYS this one structure — the same markup whether the document is brand new
+   (figures start at $0.00/blank) or already exists (figures start at their stored value): the JS
+   hook classes are present either way, and recalcOrderTotals() keeps them current as lines and
+   charges change, with the server figure as the honest starting point. Invoice's own "Computed on
+   save" placeholder is replaced by rendering through this same file, computing a real starting
+   figure the identical way.
+
+   Quote is wired through this file too (#full-parity, 2026-09-13: "Quote total box should just be
+   the same as SO" — default is the shared structure, exceptions are raised as needed, not assumed).
+   Its one real difference is the TBD business rule (#254 — a quote may be saved before every line
+   is priced or shipping is resolved): any of the three display parameters below may be the literal
+   string 'TBD' instead of a number, which prints as-is with no leading $. Order and Invoice never
+   pass that, so nothing changes for them. Quote folds shipping into the same single Subtotal figure
+   Order does — there is no separate Shipping row — so the honest answer while shipping is still
+   unresolved is the same 'TBD' on Subtotal that an unpriced line already puts there.
+
+   What is NOT shared here either way: the CHARGE-ROW EDITORS (the shipping/tax/fee rows an admin
+   types into). Different documents bind different JS container classes to them for live
+   client-side insertion, so moving those into this file would require rewriting that wiring —
+   out of scope for a totals-DISPLAY unification. Each caller renders its own charge-row editors
+   and hands the finished markup in through the three slots below.
+
+   Parameters
+   ----------
+   hookPrefix           required  'order' | 'invoice' | 'estimate' — used for every
+                                   js-{hookPrefix}-total-* class, so app.js's own recalc functions
+                                   keep finding them.
+   subtotalDisplay      required  pre-formatted string, e.g. "130.50" or "0.00" (no $ — the
+                                   template adds it), or the literal string 'TBD'.
+   beforeTaxFeeLines    optional  list of {label, amount} shown between Subtotal and the tax lines
+                                   — main-line fees not already folded into Subtotal.
+   taxLines             optional  list of {label, rate, amount} — the document's own tax breakdown.
+   taxLinesTotalDisplay required  pre-formatted string (no $), or 'TBD', for "Total Tax".
+   afterTaxFeeLines     optional  list of {label, amount} shown after Total Tax, before Grand Total.
+   grandTotalDisplay    required  pre-formatted string (no $), or 'TBD', for "Grand Total".
+   beforeSubtotalSlot   optional  pre-rendered HTML (marked |raw by the caller) for charge-row
+                                   editors that belong ABOVE Subtotal (shipping + main-line fees).
+   afterTaxFeeSlot      optional  pre-rendered HTML for after-tax-fee charge-row editors, kept
+                                   separate so they land where their own total line does.
+   taxSlot              optional  pre-rendered HTML for tax-type charge-row editors.
+   pendingSlot          optional  pre-rendered HTML shown right after Subtotal — Quote's own
+                                   "Lines not yet priced" counter, which Order and Invoice have no
+                                   use for and so never pass.
+   afterGrandTotalSlot  optional  pre-rendered HTML shown after Grand Total — Invoice's own Payment
+                                   and Owed Balance rows (#full-parity, 2026-09-13), which Order and
+                                   Quote have no use for and so never pass.
+#}
+{% macro totals_footer(hookPrefix, subtotalDisplay, beforeTaxFeeLines, taxLines, taxLinesTotalDisplay, afterTaxFeeLines, grandTotalDisplay, beforeSubtotalSlot, afterTaxFeeSlot, taxSlot, pendingSlot, afterGrandTotalSlot) %}
+    <div class="order-total-box">
+        {% if beforeSubtotalSlot is not empty %}{{ beforeSubtotalSlot|raw }}{% endif %}
+        <div><span>Subtotal:</span><strong class="js-{{ hookPrefix }}-total-before-tax">{{ subtotalDisplay == 'TBD' ? 'TBD' : '$' ~ subtotalDisplay }}</strong></div>
+        {% if pendingSlot is not empty %}{{ pendingSlot|raw }}{% endif %}
+        {% set _taxLinesWrapClass = 'js-' ~ hookPrefix ~ '-tax-lines-wrap' %}
+        <div class="{{ _taxLinesWrapClass }}" style="display:contents;">
+            {% for feeLine in beforeTaxFeeLines|default([]) %}
+                <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+            {% endfor %}
+            {% for taxLine in taxLines|default([]) %}
+                <div><span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span><strong>${{ taxLine.amount|amount }}</strong></div>
+            {% endfor %}
+        </div>
+        <div><span>Total Tax:</span><strong class="js-{{ hookPrefix }}-total-tax">{{ taxLinesTotalDisplay == 'TBD' ? 'TBD' : '$' ~ taxLinesTotalDisplay }}</strong></div>
+        {% for feeLine in afterTaxFeeLines|default([]) %}
+            <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+        {% endfor %}
+        {% if afterTaxFeeSlot is not empty %}{{ afterTaxFeeSlot|raw }}{% endif %}
+        {% if taxSlot is not empty %}{{ taxSlot|raw }}{% endif %}
+        <div><span>Grand Total:</span><strong class="js-{{ hookPrefix }}-total-grand">{{ grandTotalDisplay == 'TBD' ? 'TBD' : '$' ~ grandTotalDisplay }}</strong></div>
+        {% if afterGrandTotalSlot is not empty %}{{ afterGrandTotalSlot|raw }}{% endif %}
+    </div>
+{% endmacro %}

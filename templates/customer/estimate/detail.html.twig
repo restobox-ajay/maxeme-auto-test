@@ -1,0 +1,222 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% set statusValue = estimate.status %}
+{% block title %}View Quote: {{ estimate.documentNumber }} | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    {% set ship = estimate.effectiveShippingAddress %}
+    {% set bill = estimate.effectiveBillingAddress %}
+    {% set region = estimate.fulfillmentRegion ?: (ship and ship.city ? ship.city : '-') %}
+    {% set statusHint = statusValue == 'Submitted' ? 'We\'re preparing pricing for this request and will follow up shortly. Use Cancel Request above if you no longer need it.' : (statusValue == 'Priced' ? 'Pricing is ready below. Accept to place the order, or decline if you no longer need it.' : (statusValue == 'Rejected' ? 'This quote request was declined.' : '')) %}
+
+    <section class="customer-view-order-head">
+        <div class="customer-view-order-head__main">
+            <div class="customer-view-order-head__title">
+                <h1>VIEW QUOTE: {{ estimate.documentNumber }}</h1>
+            </div>
+            <div class="customer-view-order-head__actions">
+                <a class="button primary" href="{{ path('customer_estimates') }}">&larr; Back to my quotes</a>
+                <a class="button dark customer-invoice-btn" href="{{ path('customer_estimate_quote', {id: estimate.id}) }}">Download Quote</a>
+                {% if statusValue == 'Priced' and estimate.isFullyPriced %}
+                    <form method="post" action="{{ path('customer_estimate_accept', {id: estimate.id}) }}" style="display:inline;">
+                        {{ csrf_field() }}
+                        <button class="button primary" type="submit">Accept</button>
+                    </form>
+                {% endif %}
+                {% if statusValue == 'Priced' %}
+                    <form method="post" action="{{ path('customer_estimate_reject', {id: estimate.id}) }}" style="display:inline;">
+                        {{ csrf_field() }}
+                        <button class="button outline danger" type="submit">Decline</button>
+                    </form>
+                {% endif %}
+                {% if statusValue == 'Submitted' %}
+                    <form method="post" action="{{ path('customer_estimate_cancel', {id: estimate.id}) }}" style="display:inline;">
+                        {{ csrf_field() }}
+                        <button class="button outline danger" type="submit">Cancel Request</button>
+                    </form>
+                {% endif %}
+                {% if estimate.convertedOrder %}
+                    <a class="button dark customer-invoice-btn" href="{{ path('customer_order_detail', {id: estimate.convertedOrder.id}) }}">View Order</a>
+                {% endif %}
+            </div>
+        </div>
+        <nav class="customer-view-order-head__crumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span>&rsaquo;</span>
+            <a href="{{ path('customer_estimates') }}">Quote Requests</a>
+        </nav>
+    </section>
+
+    {% if statusHint %}
+        <p class="customer-view-order-note" style="margin-bottom:18px;">{{ statusHint }}</p>
+    {% endif %}
+
+    <section class="order-detail-grid customer-view-order-info-grid">
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Quote Info</h2>
+                <div class="customer-view-order-card__meta">
+                    <span>{{ estimate.createdAt|date('Y-m-d h:i A') }}</span>
+                    <span class="badge {{ statusValue == 'Rejected' ? 'danger' : (statusValue == 'Submitted' ? 'warn' : (statusValue == 'Accepted' ? 'success' : 'info')) }}">{{ statusValue }}</span>
+                </div>
+            </header>
+            <div class="customer-view-order-info">
+                {% if estimate.convertedOrder %}
+                    <div><label>Order:</label><span><a href="{{ path('customer_order_detail', {id: estimate.convertedOrder.id}) }}">{{ estimate.convertedOrder.orderNumber }}</a></span></div>
+                {% endif %}
+                <div><label>Company Name:</label><span>{{ estimate.companyIdentity.name }}</span></div>
+                <div><label>Company Email:</label><span>{{ estimate.companyIdentity.email ?: '-' }}</span></div>
+                <div><label>Company Phone:</label><span>{{ estimate.companyIdentity.phone ?: '-' }}</span></div>
+                <div><label>Expected Delivery Time:</label><span>{{ expectedDelivery ?: '-' }}</span></div>
+                <div><label>PO #:</label><span>{{ estimate.poNumber ?: '-' }}</span></div>
+                <div><label>Special Instructions:</label><span>{{ specialInstructions }}</span></div>
+                <div><label>Fulfillment Region:</label><span>{{ region ?: '-' }}</span></div>
+            </div>
+        </article>
+
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Billing Detail</h2>
+            </header>
+            <div class="customer-view-order-address">
+                <div><label>First Name</label><span>{{ bill ? (bill.firstName ?: '-') : '-' }}</span></div>
+                <div><label>Last Name</label><span>{{ bill ? (bill.lastName ?: '-') : '-' }}</span></div>
+                <div><label>Phone Number</label><span>{{ bill ? (bill.phone ?: estimate.companyIdentity.phone ?: '-') : (estimate.companyIdentity.phone ?: '-') }}</span></div>
+                <div><label>Street Address</label><span>{{ bill ? (bill.addressLine1 ?: '-') : '-' }}</span></div>
+                <div><label>Address 2</label><span>{{ bill ? (bill.addressLine2 ?: '-') : '-' }}</span></div>
+                <div><label>City</label><span>{{ bill ? (bill.city ?: '-') : '-' }}</span></div>
+                <div><label>Province</label><span>{{ bill ? (bill.province ?: '-') : '-' }}</span></div>
+                <div><label>Country</label><span>{{ bill ? (bill.country ?: 'Canada') : 'Canada' }}</span></div>
+                <div><label>Postal Code</label><span>{{ bill ? (bill.postalCode ?: '-') : '-' }}</span></div>
+            </div>
+        </article>
+
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Shipping Detail</h2>
+            </header>
+            <div class="customer-view-order-address">
+                <div><label>Name</label><span>{{ ship ? (((ship.firstName ?: '') ~ ' ' ~ (ship.lastName ?: ''))|trim ?: (estimate.shippingName ?: '-')) : (estimate.shippingName ?: '-') }}</span></div>
+                <div><label>Phone Number</label><span>{{ ship ? (ship.phone ?: '-') : '-' }}</span></div>
+                <div><label>Street Address</label><span>{{ ship ? (ship.addressLine1 ?: '-') : '-' }}</span></div>
+                <div><label>Address 2</label><span>{{ ship ? (ship.addressLine2 ?: '-') : '-' }}</span></div>
+                <div><label>City</label><span>{{ ship ? (ship.city ?: '-') : '-' }}</span></div>
+                <div><label>Province</label><span>{{ ship ? (ship.province ?: '-') : '-' }}</span></div>
+                <div><label>Country</label><span>{{ ship ? (ship.country ?: 'Canada') : 'Canada' }}</span></div>
+                <div><label>Postal Code</label><span>{{ ship ? (ship.postalCode ?: '-') : '-' }}</span></div>
+                <div><label>Method</label><span>{{ estimate.shippingMethod ?: 'TBD' }}</span></div>
+            </div>
+        </article>
+    </section>
+
+    {# Shipping rows are fee rows too, but they are named on their own line in the summary rather
+       than listed as products, so the main_line totals and loops here leave them out — the same
+       rule every other document page follows. #}
+    {% set feeLines = estimate.feeLines|default('')|json_decode %}
+    {% set feeTotalsMainLine = 0 %}
+    {% for feeLine in feeLines %}
+        {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+            {% set feeTotalsMainLine = feeTotalsMainLine + feeLine.amount %}
+        {% endif %}
+    {% endfor %}
+
+    <section class="table-card no-search no-paginate customer-view-order-products">
+        <div class="table-header">
+            <h2>Products</h2>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="order-list-table customer-order-items-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>U/M</th>
+                        <th>SKU</th>
+                        <th>Weight</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                        <th>Tax Code</th>
+                        <th>Tax $</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in estimate.lines %}
+                        <tr>
+                            <td data-label="Name">{{ line.name }}</td>
+                            <td data-label="U/M">{{ line.displayUnitLabel }}</td>
+                            <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                            <td data-label="Weight">{{ line.weight|default('-') }}</td>
+                            <td data-label="Quantity" id="customer-line-qty-{{ line.id }}">{{ line.quantityEntered|qty }}</td>
+                            <td data-label="Price" id="customer-line-price-{{ line.id }}">{{ line.displayUnitPrice is not null ? '$' ~ line.displayUnitPrice|price : 'TBD' }}</td>
+                            <td data-label="Subtotal">{{ line.subtotal is not null ? '$' ~ line.subtotal|amount : 'TBD' }}</td>
+                            <td data-label="Tax Code">{{ perLineTaxLabel[loop.index0]|default('No tax') }}</td>
+                            {# An unpriced line's tax is TBD, not $0.00 — OrderTaxBreakdownService
+                               leaves it null rather than pretending the line is free (#255). #}
+                            <td data-label="Tax $">{{ (perLineTax[loop.index0] ?? null) is not null ? '$' ~ perLineTax[loop.index0]|amount : 'TBD' }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9" class="empty-table-cell"><span>No items found.</span></td></tr>
+                    {% endfor %}
+                    {% for feeLine in feeLines %}
+                        {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+                            <tr class="fee-line-row">
+                                <td data-label="Name">{{ feeLine.label }}</td>
+                                <td data-label="U/M">&mdash;</td>
+                                <td data-label="SKU">&mdash;</td>
+                                <td data-label="Weight">&mdash;</td>
+                                <td data-label="Quantity">&mdash;</td>
+                                <td data-label="Price">&mdash;</td>
+                                <td data-label="Subtotal">${{ feeLine.amount|amount }}</td>
+                                <td data-label="Tax Code">&mdash;</td>
+                                <td data-label="Tax $">&mdash;</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="customer-view-order-totals-row">
+        <div class="customer-view-order-totals-col">
+            <div class="customer-view-order-summary customer-view-order-summary--boxed">
+                <div><span>Subtotal:</span><strong>{{ estimate.subtotal is not null ? '$' ~ (estimate.subtotal + feeTotalsMainLine)|amount : 'TBD' }}</strong></div>
+                {# No shipping row at all is TBD on an estimate — the one figure it may leave
+                   unstated; a quote that ships for nothing says so with a $0 row. #}
+                {% if estimate.shippingLines is empty %}
+                    <div><span>Shipping Fee ({{ estimate.shippingMethod ?: 'TBD' }}):</span><strong>TBD</strong></div>
+                {% endif %}
+                {% for shippingLine in estimate.shippingLines %}
+                    <div><span>{{ shippingLine.label }}:</span><strong>${{ shippingLine.amount|amount }}</strong></div>
+                {% endfor %}
+                {% if estimate.tax is null %}
+                    <div><span>Tax:</span><strong>TBD</strong></div>
+                {% else %}
+                    {% for feeLine in feeLines %}
+                        {% if feeLine.placement|default('main_line') == 'before_tax_line' %}
+                            <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+                        {% endif %}
+                    {% endfor %}
+                    {% for taxLine in taxLines|default([]) %}
+                        <div><span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span><strong>${{ taxLine.amount|amount }}</strong></div>
+                    {% endfor %}
+                {% endif %}
+                {% for feeLine in feeLines %}
+                    {% if feeLine.placement|default('main_line') == 'after_tax_line' %}
+                        <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+                    {% endif %}
+                {% endfor %}
+                <div class="is-total"><span>Grand Total:</span><strong>{{ estimate.total is not null ? '$' ~ estimate.total|amount : 'TBD' }}</strong></div>
+            </div>
+            {# "us" is the seller, so this is the seller's own address from Settings — companyIdentity
+               is the *buyer's* snapshot, which asked the buyer to email themselves, and its fallback
+               was the literal support@example.com. Blank drops the whole note (#351). #}
+            {% set _sellerEmail = app_setting('sales_email', '') ?: app_setting('app_email', '') %}
+            {% if _sellerEmail %}
+                <div class="customer-view-order-note customer-view-order-note--boxed">
+                    If you'd like to make changes to this quote, please contact us or email us at {{ _sellerEmail }}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+{% endblock %}

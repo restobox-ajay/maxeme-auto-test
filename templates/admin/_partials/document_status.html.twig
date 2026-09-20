@@ -1,0 +1,51 @@
+{#
+    A document's status, for the title row of a detail screen and for the Status cell of a list
+    (queue item 41, ruled 2026-09-11: "dont hide status. status shoudl be in tables and on the
+    detail page, big and loud").
+
+    One partial rather than a span written out thirty times, because the whole point of the ruling
+    is that a status looks the SAME wherever it is read. The classes are the grid's own — the
+    `.order-status` pill plus the `.order-status-<slug>` modifier that `/admin/order`,
+    `/admin/invoice` and the vendor bill grid already put on their Status cells — so the colour is
+    decided in exactly one place (`app.css`, `.site-admin .order-status-*`) for both the list and
+    the page. `.document-status` adds the size and the ring, and nothing else.
+
+    `status` is the human string, not the enum. Callers on the status seam — SalesOrder and Estimate
+    — hand in `x.status` directly; the documents still holding an enum hand in `x.status.value`. The
+    day the last of them joins the seam, every caller passes the plain string. The slug is lowercased with spaces hyphened
+    so "Partially Invoiced" reaches `.order-status-partially-invoiced`, which is how every grid in
+    the app builds the same class.
+
+    ## Two sizes, one badge — the list half of the same ruling
+
+    The ruling has two halves and they want different sizes. A table cell rendering the 34px ringed
+    badge is a row half again as tall as its neighbours, on a grid whose job is to be scanned. So
+    the size is the ONE thing a caller chooses, and it is the only thing:
+
+      - **loud** (the default, and what every detail screen gets by passing nothing) — the ringed
+        `.document-status` pill app.css sizes for a title row;
+      - **`loud: false`** — the grid's own `.order-status` pill, which is exactly the markup each
+        Status cell carried before it was gathered up into here.
+
+    Both carry `.order-status-<slug>`, so a Void bill is the same red in its row as on its page and
+    there is no second table of colours anywhere. `is defined` rather than `default()` because
+    `strict_variables` is on and `only` means an unpassed name does not exist at all — the same
+    reason `@Procurement/_nav.html.twig` tests its optional names that way.
+
+    ## The two anchors are deliberately different words
+
+    `data-document-status` marks the LOUD one only. It reads as "the status of the document this
+    page IS about", and a detail screen that also lists documents — the RFQ's replies, a vendor's
+    documents, a customer's orders — would otherwise carry a dozen of them, so every assertion
+    against that selector would quietly become ambiguous the day a list landed on a detail page.
+
+    `data-status-cell` marks the quiet one, and it is how a test says "this cell came through the
+    shared partial" rather than merely "this cell looks like it did". Hand-rolled markup can copy a
+    class; this attribute is written in exactly ONE file in the repository, which is a rule a test
+    can assert and a template cannot accidentally satisfy.
+
+    Either way #627 forbids asserting the bare word: "Draft" is also in the filter dropdown of the
+    very grid under test, so an assertion names the element it is about.
+#}
+{% set statusIsLoud = loud is not defined or loud %}
+<span class="order-status{{ statusIsLoud ? ' document-status' : '' }} order-status-{{ status|lower|replace({' ': '-'}) }}"{% if statusIsLoud %} data-document-status{% else %} data-status-cell{% endif %}>{{ status }}</span>

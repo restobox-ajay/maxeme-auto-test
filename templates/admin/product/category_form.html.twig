@@ -1,0 +1,62 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Category | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Product category</p>
+                <h1>{{ mode }}{% if category.name %}: {{ category.name }}{% endif %}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_category_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="form-card">
+        <form class="form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Name <span class="req">*</span>
+                <input type="text" name="name" value="{{ category.name }}" placeholder="Category name" required>
+            </label>
+            <label>
+                Parent category
+                <select name="parent_id">
+                    <option value="" {{ category.parent == '(none)' ? 'selected' : '' }}>(none)</option>
+                    {% for parent in categories %}
+                        {% if parent.id != category.id %}
+                            <option value="{{ parent.id }}" {{ category.parentId == parent.id ? 'selected' : '' }}>{{ parent.label }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Status
+                <select name="status">
+                    <option {{ category.status == 'Visible' ? 'selected' : '' }}>Visible</option>
+                    <option {{ category.status == 'Hidden' ? 'selected' : '' }}>Hidden</option>
+                </select>
+                <small>Hidden categories are removed from the client catalog.</small>
+            </label>
+            {% if customFieldFragment is defined and customFieldFragment %}
+                <div class="custom-fields-section">
+                    <p class="section-label">Custom Fields</p>
+                    {{ customFieldFragment|raw }}
+                </div>
+            {% endif %}
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

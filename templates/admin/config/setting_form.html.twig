@@ -1,0 +1,102 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Setting | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>{{ mode }} Setting</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            <label>
+                Name <span class="req">*</span>
+                <input type="text" name="name" value="{{ setting.name }}" placeholder="e.g. Base Currency" required>
+            </label>
+            <label>
+                Key
+                <input type="text" name="setting_key" value="{{ setting.key }}" placeholder="base_currency" {% if key_locked|default(false) %}readonly{% endif %}>
+            </label>
+            <label class="span-2">
+                Value
+                <textarea name="setting_value" rows="5" placeholder="Enter configuration value...">{{ setting.value }}</textarea>
+            </label>
+
+            <div class="span-2">
+                <label>
+                    Insert ENV variable
+                    <input type="text" class="js-env-var" list="env-vars" placeholder="e.g. MAILER_DSN">
+                    <datalist id="env-vars">
+                        {% for v in env_vars|default([]) %}
+                            <option value="{{ v }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </label>
+                <div class="form-actions" style="justify-content:flex-start; gap:8px; padding:0; margin-top:8px;">
+                    <button class="button" type="button" data-insert-mode="braces">Insert ${VAR}</button>
+                    <button class="button" type="button" data-insert-mode="symfony">Insert %env(VAR)%</button>
+                </div>
+                <p class="help-text" style="margin-top:8px; opacity:.8;">
+                    Tip: leaving a setting value blank allows `APP_SETTING_&lt;KEY&gt;` env override (for matching keys).
+                </p>
+            </div>
+            <label class="span-2">
+                Description
+                <textarea name="description" rows="3" placeholder="Optional description of what this setting controls.">{{ setting.description }}</textarea>
+            </label>
+            <label>
+                Category
+                <input type="text" name="category" value="{{ setting.category|default('') }}" placeholder="e.g. General" list="setting-categories">
+                <datalist id="setting-categories">
+                    {% for cat in categories|default([]) %}
+                        <option value="{{ cat }}"></option>
+                    {% endfor %}
+                </datalist>
+                <small>
+                    Controls which tab this setting appears under on the Settings page (<a href="{{ path('admin_settings') }}">see tabs</a>).
+                    Type an existing category name to add this setting to that tab, or a new name to create a new tab.
+                    Leave blank to keep it in the default "General" tab.
+                </small>
+            </label>
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }} Config</button>
+            </div>
+        </form>
+    </section>
+
+    <script>
+        (function () {
+            const envInput = document.querySelector('.js-env-var');
+            const valueEl = document.querySelector('textarea[name="setting_value"]');
+            if (!envInput || !valueEl) return;
+
+            function insertText(text) {
+                const start = valueEl.selectionStart ?? valueEl.value.length;
+                const end = valueEl.selectionEnd ?? valueEl.value.length;
+                valueEl.value = valueEl.value.slice(0, start) + text + valueEl.value.slice(end);
+                const pos = start + text.length;
+                valueEl.focus();
+                try { valueEl.setSelectionRange(pos, pos); } catch (e) {}
+            }
+
+            document.querySelectorAll('button[data-insert-mode]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const v = (envInput.value || '').trim();
+                    if (!v) return;
+                    const mode = btn.getAttribute('data-insert-mode');
+                    if (mode === 'symfony') insertText('%env(' + v + ')%');
+                    else insertText('${' + v + '}');
+                });
+            });
+        })();
+    </script>
+
+{% endblock %}

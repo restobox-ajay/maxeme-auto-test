@@ -1,0 +1,30 @@
+{# The Message box above a purchase document's Activity Log — copied from
+   admin/_partials/sales_detail_add_message.html.twig and adapted (#full-parity, 2026-09-13): a
+   real `<form>` submit instead of the sell side's `.js-add-log` AJAX button (this document's whole
+   convention is that every control besides the batch cell is a plain post-and-redirect), and "For
+   Client" reads "For Vendor" since this is a message about a vendor, not a customer.
+
+   Parameters
+   ----------
+   addUrl  required  where the form posts — the document's own log-add endpoint. #}
+
+<section class="table-card no-search no-paginate detail-page-card" style="margin-top:30px; padding:20px;">
+    <div class="table-header" style="border-bottom:none; padding-bottom:10px; margin-bottom:20px;">
+        <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Message</h2>
+    </div>
+    <form method="post" action="{{ addUrl }}" style="display:grid; grid-template-columns:1fr 220px auto; gap:16px; align-items:flex-end;">
+        {{ csrf_field() }}
+        <textarea name="message" class="form-control" style="min-height:45px; border-radius:8px; border:1px solid #e2e8f0; padding:10px 12px; font-size:0.875rem; background:#f8fafc;" placeholder="Type your message here…"></textarea>
+        <div class="form-group" style="margin:0;">
+            <select name="type" class="form-control" style="height:45px; border-radius:8px; border:1px solid #e2e8f0; font-size:0.875rem; width:100%;">
+                <option value="For Internal" selected>For Internal</option>
+                <option value="For Vendor">For Vendor</option>
+            </select>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; margin-top:8px; cursor:pointer; color:#64748b; font-weight:500;">
+                <input type="checkbox" name="notify_vendor" value="1">
+                Send e-mail notification to vendor
+            </label>
+        </div>
+        <button class="button primary" type="submit">Send Message</button>
+    </form>
+</section>

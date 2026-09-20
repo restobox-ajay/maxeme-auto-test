@@ -1,0 +1,81 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Prices | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_prices',
+        heading: vendor ? 'Prices from ' ~ vendor.name : 'Vendor Prices',
+        lead: 'What a vendor charges for a product, so a purchase order line prices itself instead of being typed from memory. One current row per vendor and product.',
+        createPath: path('admin_bundle_procurement_vendor_price_new', vendor ? {vendor_id: vendor.id} : {}),
+        createLabel: 'Add a price'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="vendor-price-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-header">
+                <div class="table-tools">
+                    <select name="filters[vendor_id]" onchange="this.form.submit()">
+                        <option value="">&mdash; every vendor &mdash;</option>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}"{{ vendor and vendor.id == v.id ? ' selected' : '' }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="search" name="filters[q]" value="{{ filters.q|default('') }}" placeholder="Search product, SKU or vendor SKU...">
+                    <button class="button" type="submit">Search</button>
+                    <a class="button" href="{{ path('admin_bundle_procurement_vendor_prices') }}">Reset</a>
+                </div>
+            </div>
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Product</th>
+                        <th>Vendor SKU</th>
+                        <th>Unit cost</th>
+                        <th>Order multiple</th>
+                        <th>Vendor stock</th>
+                        <th>Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for price in prices %}
+                        <tr>
+                            <td data-label="Vendor">{{ price.vendor.name }}</td>
+                            <td data-label="Product">{{ price.product.sku }} &mdash; {{ price.product.name }}</td>
+                            <td data-label="Vendor SKU">{{ price.vendorSku|default('-') }}</td>
+                            <td data-label="Unit cost">{{ price.currency }} {{ price.unitCost|price }}</td>
+                            <td data-label="Order multiple">{{ price.orderMultiple }}</td>
+                            <td data-label="Vendor stock">{{ price.availableQuantity|default('-') }}</td>
+                            <td data-label="Active">{{ price.active ? 'Yes' : 'No' }}</td>
+                            <td data-label="Actions" class="row-actions">
+                                <div class="row-action-menu">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open vendor price actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_bundle_procurement_vendor_price_edit', {id: price.id}) }}">Edit</a>
+                                        <button type="submit" class="table-action danger" form="delete-vendor-price-{{ price.id }}">Delete</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell"><span>No vendor prices recorded yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with { count: prices|length, total: total, currentPage: page, perPage: limit } only %}
+            </div>
+        </form>
+        {% for price in prices %}
+            {# POST rather than a link, sitting after the outer filter form's own closing tag — a
+               <form> nested inside another <form> is invalid HTML and the inner one gets silently
+               dropped/reparented, same problem the bill/purchase order grids solve the same way. #}
+            <form method="post" id="delete-vendor-price-{{ price.id }}" hidden
+                  action="{{ path('admin_bundle_procurement_vendor_price_delete', {id: price.id}) }}"
+                  onsubmit="return confirm('Remove this price?')">
+                {{ csrf_field() }}
+            </form>
+        {% endfor %}
+    </section>
+{% endblock %}

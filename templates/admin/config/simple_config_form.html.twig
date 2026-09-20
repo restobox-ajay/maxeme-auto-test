@@ -1,0 +1,99 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} {{ meta.title }} | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Configuration</p>
+                <h1>{{ mode }} {{ meta.title }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path(meta.indexRoute) }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post">
+            {{ csrf_field() }}
+            {% if 'name' in meta.fields %}
+                <label>
+                    Name <span class="req">*</span>
+                    <input type="text" name="name" value="{{ row.name|default('') }}" required>
+                </label>
+            {% endif %}
+
+            {% if 'province_name' in meta.fields %}
+                {% set isBundleOwned = row.source is defined and row.source %}
+                {% if isBundleOwned %}
+                    <p class="span-2 field-hint">This rate is managed by the <strong>{{ row.source }}</strong> bundle. Only Status can be changed here &mdash; edit the rate on the bundle's own config page.</p>
+                {% endif %}
+                <label>
+                    Province Name <span class="req">*</span>
+                    <input type="text" name="province_name" value="{{ row.province_name|default('') }}" placeholder="e.g. British Columbia" required {{ isBundleOwned ? 'readonly' : '' }}>
+                </label>
+                <label>
+                    Abbreviation <span class="req">*</span>
+                    <input type="text" name="abbreviation" value="{{ row.abbreviation|default('') }}" placeholder="BC" required {{ isBundleOwned ? 'readonly' : '' }}>
+                </label>
+                <label>
+                    Tax Type <span class="req">*</span>
+                    <input type="text" name="tax_type" value="{{ row.tax_type|default('') }}" placeholder="GST" required {{ isBundleOwned ? 'readonly' : '' }}>
+                </label>
+                <label>
+                    Rate
+                    <input type="number" step="0.001" min="0" name="rate" value="{{ row.rate|default('0.00') }}" {{ isBundleOwned ? 'readonly' : '' }}>
+                </label>
+            {% endif %}
+
+            {% if 'area_name' in meta.fields %}
+                <label>
+                    Area Name <span class="req">*</span>
+                    <input type="text" name="area_name" value="{{ row.area_name|default('') }}" placeholder="e.g. Vancouver" required>
+                </label>
+                <label>
+                    Delivery Days
+                    <input type="text" name="delivery_days" value="{{ row.delivery_days|default('') }}" placeholder="e.g. 1-2 days">
+                </label>
+                <label>
+                    Free Shipping Minimum
+                    <input type="number" step="0.01" min="0" name="free_shipping_minimum" value="{{ row.free_shipping_minimum|default('0.00') }}">
+                </label>
+                <label>
+                    Delivery Fee
+                    <input type="number" step="0.01" min="0" name="delivery_fee" value="{{ row.delivery_fee|default('0.00') }}">
+                </label>
+            {% endif %}
+
+            {% if 'description' in meta.fields %}
+                <label class="span-2">
+                    Description
+                    <textarea name="description" rows="4">{{ row.description|default('') }}</textarea>
+                </label>
+            {% endif %}
+
+            {% if 'sort_order' in meta.fields %}
+                <label>
+                    Sort Order
+                    <input type="number" step="1" min="0" name="sort_order" value="{{ row.sort_order|default('0') }}">
+                </label>
+            {% endif %}
+
+            {% if 'status' in meta.fields %}
+                <label>
+                    Status
+                    <select name="status">
+                        {% for status in meta.statuses %}
+                            <option value="{{ status }}" {{ row.status|default(meta.statuses[0]) == status ? 'selected' : '' }}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ mode }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+

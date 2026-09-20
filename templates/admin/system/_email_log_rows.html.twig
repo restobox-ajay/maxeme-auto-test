@@ -1,0 +1,27 @@
+{% for log in logs %}
+    <tr>
+        <td data-label="Date" class="log-date">{{ log.sentAt|date('d-m-Y g:i A') }}</td>
+        <td data-label="Module">{{ log.module }}</td>
+        <td data-label="To Address"><span class="log-recipients">{{ log.toAddress }}</span></td>
+        <td data-label="Subject">{{ log.subject }}</td>
+        <td data-label="Body" class="log-body">
+            {% if log.body|default('') %}
+                <div class="log-body-frame-shell">
+                    <iframe class="log-body-frame" sandbox="allow-same-origin" scrolling="no" loading="lazy" srcdoc="{{ log.body|e('html_attr') }}" title="Email body preview"></iframe>
+                </div>
+            {% else %}
+                <span class="muted">-</span>
+            {% endif %}
+        </td>
+        <td data-label="Status">
+            <span class="badge {{ log.status == 'Failed' ? 'danger-soft' : (log.status == 'Queued' ? 'warn' : '') }}">{{ log.status }}</span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="6" class="empty-table-cell">
+            <strong>No email records found.</strong>
+            <span>Outbound emails will appear here once the system sends them.</span>
+        </td>
+    </tr>
+{% endfor %}

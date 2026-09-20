@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Number1GuestCoverPageBundle\:
+        resource: '../src/'
+
+    Number1GuestCoverPageBundle\TemplateOverride\CustomerLoginTemplateOverrideProvider:
+        tags: ['app.template_override']
+
+    Number1GuestCoverPageBundle\Bundle\Number1GuestCoverPageBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    Number1GuestCoverPageBundle\Menu\GuestCoverPageMenuItem:
+        tags: ['app.injection_point_menu_item']

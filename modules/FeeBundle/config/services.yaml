@@ -1,0 +1,12 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeBundle\:
+        resource: '../src/'
+
+    FeeBundle\Fee\FeeCalculatorResolver:
+        arguments:
+            $calculators: !tagged_iterator app.fee_calculator
+            $menuItems: !tagged_iterator app.fee_menu_item

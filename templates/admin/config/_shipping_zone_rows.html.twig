@@ -1,0 +1,27 @@
+{% for row in rows %}
+    <tr class="js-sortable-row" data-config-id="{{ row.id }}">
+        <td class="sort-handle-cell" data-label="Move">
+            <button class="drag-handle js-drag-handle" type="button" draggable="true" aria-label="Drag {{ row.area_name }} to reorder">☰</button>
+        </td>
+        <td data-label="Area Name"><strong>{{ row.area_name }}</strong></td>
+        <td data-label="Delivery Days">{{ row.delivery_days|default('-') ?: '-' }}</td>
+        <td data-label="Free Shipping Minimum">${{ row.free_shipping_minimum|amount }}</td>
+        <td data-label="Delivery Fee">${{ row.delivery_fee|amount }}</td>
+        <td data-label="Status">
+            <span class="badge {{ row.status|lower in ['inactive', 'disabled'] ? 'danger-soft' : 'success' }}">{{ row.status|default('Active') }}</span>
+        </td>
+        <td data-label="Actions">
+            <div class="row-actions">
+                <a class="table-action" href="{{ path('admin_shipping_zone_update', {id: row.id}) }}">Update</a>
+                <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_shipping_zone_delete', {id: row.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ row.area_name }} shipping zone">Delete</button>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="7" class="empty-table-cell">
+            <strong>No shipping zones found.</strong>
+            <span>Add delivery zones or import them from XML when ready.</span>
+        </td>
+    </tr>
+{% endfor %}

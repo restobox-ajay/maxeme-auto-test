@@ -1,0 +1,305 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Stock — {{ product.sku }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'stock',
+        heading: 'Stock: ' ~ (product.sku ?: product.name),
+        lead: 'Everything behind this product: availability, lots and serials, and recent activity.'
+    } only %}
+
+    {# Two-column shape ported verbatim from Company/Vendor's own detail screens — see
+       docs/plans/2026-09-15-product-inventory-hub.md. Main column: the detail behind the sidebar's
+       summary numbers, then activity, then the reconciliation check (demoted from its old headline
+       spot — still useful, just not the first thing on the page any more). Side column: the "at a
+       glance" cards, read first. #}
+    <section class="company-detail-layout">
+        <div class="company-detail-main">
+            <section class="table-card company-detail-card no-paginate">
+                <div class="table-header"><h2>Where It Is</h2></div>
+                <form method="get" class="table-filters" id="stock-by-product-filters">
+                    <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                        <thead>
+                            <tr>
+                                <th>Warehouse</th><th>Bin</th><th>Lot (code and expiry)</th><th>Serial</th><th>Status</th><th>Quantity</th><th>Updated</th>
+                            </tr>
+                            <tr class="filter-row">
+                                <th>
+                                    <select name="filters[warehouse]" form="stock-by-product-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                        <option value="">All</option>
+                                        {% for w in warehouses %}
+                                            <option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </th>
+                                <th><input type="text" name="filters[bin]" form="stock-by-product-filters" value="{{ filters.bin }}" placeholder="Bin code" aria-label="Filter bin"></th>
+                                <th><input type="text" name="filters[lot]" form="stock-by-product-filters" value="{{ filters.lot }}" placeholder="Lot code" aria-label="Filter lot"></th>
+                                <th><input type="text" name="filters[serial]" form="stock-by-product-filters" value="{{ filters.serial }}" placeholder="Serial" aria-label="Filter serial"></th>
+                                <th>
+                                    <select name="filters[status]" form="stock-by-product-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                        <option value="">All</option>
+                                        {% for s in statuses %}
+                                            <option value="{{ s }}"{{ filters.status == s ? ' selected' : '' }}>{{ s }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </th>
+                                <th></th>
+                                <th>
+                                    <button class="button" type="submit">Filter</button>
+                                    <a class="button" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">Reset</a>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in rows %}
+                            <tr class="data-item-row{{ row.status == 'available' ? '' : ' inventory-readonly-cell' }}">
+                                <td data-label="Warehouse">{{ row.warehouse.name }}</td>
+                                <td data-label="Bin">{{ row.location ? row.location.code : '—' }}</td>
+                                {# Code AND expiry, always together: the code alone does not identify a batch. A
+                                   lot-less row can still carry its own expiry (#795), so it gets an "exp" label
+                                   here rather than reading as untracked. #}
+                                <td data-label="Lot">{{ row.lot ? row.lot.label : (row.expiry ? 'exp ' ~ row.expiry|date('Y-m-d') : '—') }}</td>
+                                <td data-label="Serial">{{ row.serial ?: '—' }}</td>
+                                <td data-label="Status">{{ row.status }}</td>
+                                <td data-label="Quantity"><strong>{{ row.quantity }}</strong></td>
+                                <td data-label="Updated">{{ row.updatedAt|date('Y-m-d H:i') }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="empty-table-cell">
+                                <strong>Nothing matches.</strong>
+                                <span>Stock enters through Stock Adjustment until receiving exists.</span>
+                            </td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table></div></div>
+                    {# A real submit button, so the filter row applies with JavaScript off. #}
+                    <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+                    <div class="table-footer">
+                        {% include 'admin/_table_count.html.twig' with {count: rows|length, total: rows|length, currentPage: 1, perPage: max(1, rows|length), label: 'stock rows'} only %}
+                        <a class="button primary" href="{{ path('admin_bundle_inventory_depth_adjust', {product: product.id}) }}">Adjust stock</a>
+                    </div>
+                </form>
+            </section>
+
+            {% if lotSerial is not null %}
+                <section class="table-card company-detail-card no-search">
+                    <div class="table-header"><h2>{{ lotSerial.type == 'lot' ? 'Lots' : 'Serials' }}</h2></div>
+                    {% if lotSerial.pendingCount > 0 %}
+                        {# A row here carries a placeholder (a lot/serial nobody has identified yet,
+                           or a NULL identity with no code or serial to show a row for at all) with a
+                           promise to fix it later — TrackingWorklistController is where that promise
+                           gets kept, one row at a time. #}
+                        <p class="lead is-oversold" style="margin: 0 16px 12px;">
+                            {{ lotSerial.pendingCount }} unit{{ lotSerial.pendingCount != 1 ? 's' : '' }} still need{{ lotSerial.pendingCount == 1 ? 's' : '' }} identification —
+                            <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist', {filters: {product: product.sku}}) }}">see Tracking Worklist</a>.
+                        </p>
+                    {% endif %}
+                    {% if lotSerial.type == 'lot' %}
+                        <div class="wide-table-wrap"><table class="admin-grid-table">
+                            <thead><tr><th>Lot</th><th>Expiry</th><th>Available</th></tr></thead>
+                            <tbody>
+                            {% for row in lotSerial.rows %}
+                                <tr class="data-item-row{{ row.expired ? ' is-oversold' : '' }}">
+                                    <td data-label="Lot">{{ row.lot.label }}{% if row.pending %} <span class="badge warn">Needs ID</span>{% endif %}</td>
+                                    <td data-label="Expiry">{{ row.lot.expiry ? row.lot.expiry|date('Y-m-d') : 'Does not expire' }}</td>
+                                    <td data-label="Available"><strong>{{ row.quantity }}</strong></td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="3" class="empty-table-cell">No lots with stock.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table></div>
+                    {% else %}
+                        <div class="wide-table-wrap"><table class="admin-grid-table">
+                            <thead><tr><th>Serial</th><th>Warehouse</th></tr></thead>
+                            <tbody>
+                            {% for row in lotSerial.rows %}
+                                <tr class="data-item-row">
+                                    <td data-label="Serial">{{ row.serial }}{% if row.pending %} <span class="badge warn">Needs ID</span>{% endif %}</td>
+                                    <td data-label="Warehouse">{{ row.warehouse.name }}</td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="2" class="empty-table-cell">No serials with stock.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table></div>
+                    {% endif %}
+                </section>
+            {% endif %}
+
+            <section class="table-card company-detail-card no-search">
+                <div class="table-header">
+                    <h2>Recent Activity</h2>
+                    <nav class="company-action-links" aria-label="Filter recent activity by type">
+                        <a class="button{{ activity == '' ? ' is-current' : '' }}" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">All</a>
+                        {% for type in activityTypes %}
+                            <a class="button{{ activity == type ? ' is-current' : '' }}" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id, activity: type}) }}">
+                                {{ type == 'creditmemo' ? 'Credit Memo' : type|capitalize }}
+                            </a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                <div class="wide-table-wrap"><table class="admin-grid-table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Activity</th><th>Quantity</th></tr></thead>
+                    <tbody>
+                    {% for row in activityRows %}
+                        <tr class="data-item-row">
+                            <td data-label="Date">{{ row.date }}</td>
+                            <td data-label="Type"><span class="badge">{{ row.type == 'creditmemo' ? 'Credit Memo' : row.type|capitalize }}</span></td>
+                            <td data-label="Activity">{% if row.url %}<a href="{{ row.url }}">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
+                            <td data-label="Quantity">{{ row.quantity }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="empty-table-cell">No recent activity{{ activity ? ' of this type' : '' }}.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+            </section>
+
+            {# The reconciliation is shown, not assumed — but demoted to the bottom now that the page
+               leads with the numbers the invariant explains, not the invariant itself. #}
+            <section class="table-card company-detail-card no-search">
+                <div class="table-header"><h2>Reconciliation</h2></div>
+                <div class="wide-table-wrap"><table class="admin-grid-table">
+                    <thead><tr>
+                        <th>Warehouse</th><th>Held (quantity + received + transfers − write-offs − quarantine − sold)</th><th>Sum of available detail</th><th>Agrees</th><th>Available to sell</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for line in reconciliation %}
+                        <tr class="data-item-row{{ line.agrees ? '' : ' is-oversold' }}">
+                            <td data-label="Warehouse">{{ line.warehouse.name }}</td>
+                            {# Through |qty since the inventory columns became decimals: printed raw they read
+                               "0.0000" where a person expects "0", and "12.3460" where the store keeps three
+                               places. App\Service\DisplayNumber owns what a quantity looks like. #}
+                            <td data-label="Held"><strong>{{ line.held|qty }}</strong></td>
+                            <td data-label="Sum of available detail"><strong>{{ line.detailAvailable|qty }}</strong></td>
+                            <td data-label="Agrees">{{ line.agrees ? 'yes' : 'NO' }}</td>
+                            <td data-label="Available to sell">{{ line.available|qty }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell"><strong>No stock rows for this product yet.</strong></td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+            </section>
+        </div>
+
+        <aside class="company-detail-side">
+            <article class="card company-summary-card">
+                <h2>{{ product.sku ?: product.name }}</h2>
+                <div class="company-summary-body">
+                    <p><strong>Name:</strong> {{ product.name }}</p>
+                    <p><strong>Category:</strong> {{ product.category ? product.category.name : '—' }}</p>
+                    <p><strong>Status:</strong> {{ product.status }}</p>
+                    <p><strong>Inventory Mode:</strong> <span class="badge">{{ product.inventoryMode|capitalize }}</span></p>
+                    {% set trackingPolicy = product.trackingPolicy %}
+                    {% if trackingPolicy and not trackingPolicy.inert %}
+                        <p><strong>Dimension:</strong> {{ trackingPolicy.mode == 'lot' ? 'Batch' : 'Serial' }}{{ trackingPolicy.requiresExpiry ? ' + Expiry' : '' }}</p>
+                        <p><strong>Required:</strong> {{ trackingPolicy.trackIn and trackingPolicy.trackOut ? 'In & Out' : (trackingPolicy.trackIn ? 'In Only' : 'Out Only') }}</p>
+                    {% else %}
+                        <p><strong>Tracking:</strong> None</p>
+                    {% endif %}
+                    <p><strong>Vendors:</strong> {{ vendorNames is empty ? '—' : vendorNames|join(', ') }}</p>
+                </div>
+            </article>
+
+            <article class="card company-summary-card">
+                <h2>Availability &amp; Value</h2>
+                <div class="company-summary-body">
+                    <p><strong>On hand:</strong> {{ availability.onHand|qty }}</p>
+                    <p><strong>Available:</strong> {{ availability.available|qty }}</p>
+                    <p><strong>Held/committed:</strong> {{ availability.held|qty }}</p>
+                    <p><strong>Value:</strong> {{ availability.value is not null ? '$' ~ availability.value|amount : '—' }}</p>
+                </div>
+            </article>
+
+            {% if reorderRows is not empty %}
+                <article class="table-card company-detail-card no-search">
+                    <div class="table-header"><h2>Reorder Status</h2></div>
+                    <table class="admin-grid-table">
+                        <tbody>
+                        {% for row in reorderRows %}
+                            <tr>
+                                <td data-label="Warehouse">{{ row.warehouse.name }}</td>
+                                <td data-label="Status"><span class="badge{{ row.assessment.short ? ' warn' : '' }}">{{ row.assessment.status }}</span></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </article>
+            {% endif %}
+
+            <article class="card company-summary-card">
+                <h2>Sales — Last {{ salesSnapshot.days }} Days</h2>
+                <div class="company-summary-body">
+                    <p><strong>Units sold:</strong> {{ salesSnapshot.units }}</p>
+                </div>
+            </article>
+
+            {# Dated, authored notes (docs/plans/2026-09-15-product-inventory-hub.md decision #2) —
+               same ProductNote-backed log as Company/Vendor's own Notes card, same markup and the
+               same shared JS (app.js's "Company notes" block; it is generic over .note-* classes
+               and the modal's own data-create-action/data-update-action, not company-specific). #}
+            <article class="notes-card panel">
+                <div class="notes-card-head">
+                    <div>
+                        <h2>Notes</h2>
+                        <p>Only admin can see these.</p>
+                    </div>
+                    <button class="button primary js-note-modal-open" type="button">Add Note</button>
+                </div>
+                <div class="notes-list" data-product-id="{{ product.id }}">
+                    {% if notes is not empty %}
+                        {% for entry in notes %}
+                            <div class="note-entry" data-id="{{ entry.id }}" data-note="{{ entry.note|e('html_attr') }}">
+                                <div class="note-entry-body">
+                                    <span class="note-entry-text">{{ entry.note|nl2br }}</span>
+                                    <span class="note-entry-date">{{ entry.date }}{% if entry.author %} — {{ entry.author }}{% endif %}</span>
+                                </div>
+                                <div class="note-entry-actions">
+                                    <button class="table-action js-note-edit" type="button">Edit</button>
+                                    <button class="table-action danger js-note-delete" type="button"
+                                        data-url="{{ path('admin_bundle_inventory_depth_stock_by_product_note_delete', {id: product.id}) }}"
+                                        data-id="{{ entry.id }}">Delete</button>
+                                </div>
+                                <button class="note-delete js-note-delete" type="button"
+                                    data-url="{{ path('admin_bundle_inventory_depth_stock_by_product_note_delete', {id: product.id}) }}"
+                                    data-id="{{ entry.id }}"
+                                    aria-label="Delete note">×</button>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="notes-empty">No notes yet.</p>
+                    {% endif %}
+                </div>
+                <div class="notes-add">
+                    <p class="notes-add-label">Add Note</p>
+                    <form class="notes-form" method="post" action="{{ path('admin_bundle_inventory_depth_stock_by_product_note_add', {id: product.id}) }}">
+                        {{ csrf_field() }}
+                        <input type="text" name="note" placeholder="Type a note…" autocomplete="off" required>
+                        <button class="button primary" type="submit">Save</button>
+                    </form>
+                </div>
+            </article>
+        </aside>
+    </section>
+
+    <div class="modal-backdrop note-modal" hidden>
+        <form class="modal-card note-modal-card" method="post"
+              action="{{ path('admin_bundle_inventory_depth_stock_by_product_note_add', {id: product.id}) }}"
+              data-create-action="{{ path('admin_bundle_inventory_depth_stock_by_product_note_add', {id: product.id}) }}"
+              data-update-action="{{ path('admin_bundle_inventory_depth_stock_by_product_note_update', {id: product.id}) }}"
+              role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+            {{ csrf_field() }}
+            <h2 id="note-modal-title" data-create-title="{{ product.sku }} - Create Note" data-edit-title="{{ product.sku }} - Edit Note">{{ product.sku }} - Create Note</h2>
+            <input class="note-modal-id" type="hidden" name="id" value="">
+            <label class="note-modal-field">
+                <span>Note</span>
+                <textarea class="note-modal-input" name="note" rows="5" required></textarea>
+            </label>
+            <div class="modal-actions">
+                <button class="button primary js-note-save" type="submit" data-create-label="Create" data-edit-label="Save">Create</button>
+                <button class="button outline js-note-modal-close" type="button">Close</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

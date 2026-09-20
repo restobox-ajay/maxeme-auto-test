@@ -1,0 +1,120 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Pick Lists | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'picks',
+        heading: 'Pick Lists',
+        lead: 'The lines of one or more orders, compiled into the order a picker walks them. Nothing is reserved at compile time — allocation happens when the pick is confirmed, because stock moves.',
+        createPath: path('admin_bundle_warehouse_ops_pick_list_new'),
+        createLabel: 'Compile a round'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="pick-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_warehouse_ops_pick_lists', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Number</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'warehouse' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_warehouse_ops_pick_lists', {filters: filters, limit: limit, page: 1, sort: 'warehouse', dir: currentSort == 'warehouse' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Warehouse</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_warehouse_ops_pick_lists', {filters: filters, limit: limit, page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Status</a>
+                        </th>
+                        <th>Orders</th>
+                        <th>Requested</th>
+                        <th>Picked</th>
+                        <th>Assigned</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[number]" form="pick-filters" value="{{ filters.number }}" placeholder="PL-" aria-label="Filter number"></th>
+                        <th>
+                            <select name="filters[warehouse]" form="pick-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for w in warehouses %}<option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[status]" form="pick-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for s in statuses %}<option value="{{ s }}"{{ filters.status == s ? ' selected' : '' }}>{{ s }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th colspan="3"></th>
+                        <th><input type="text" name="filters[assigned]" form="pick-filters" value="{{ filters.assigned }}" placeholder="Picker" aria-label="Filter picker"></th>
+                        <th></th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_warehouse_ops_pick_lists') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr class="data-item-row">
+                            <td data-label="Number"><a href="{{ path('admin_bundle_warehouse_ops_pick_list', {id: row.id}) }}">{{ row.number }}</a></td>
+                            <td data-label="Warehouse">{{ row.warehouse.name }}</td>
+                            <td data-label="Status">{{ row.status }}</td>
+                            <td data-label="Orders">{{ row.orderCount }}</td>
+                            <td data-label="Requested">{{ row.requestedUnits|qty }}</td>
+                            <td data-label="Picked">{{ row.pickedUnits|qty }}</td>
+                            <td data-label="Assigned">{{ row.assignedTo ?? '—' }}</td>
+                            <td data-label="Created">{{ row.createdAt|date('Y-m-d H:i') }}</td>
+                            <td data-label="Actions" class="row-actions">
+                                <a class="table-action" href="{{ path('admin_bundle_warehouse_ops_pick_list', {id: row.id}) }}">View</a>
+                                {# A compiled round has no fields to type over: what it holds is the tasks
+                                   the compiler produced. Editing one is confirming it on the detail
+                                   screen, which is where the picker and the staging bin are. #}
+                                <a class="table-action" href="{{ path('admin_bundle_warehouse_ops_pick_list', {id: row.id}) }}">{{ row.isOpen ? 'Edit' : 'Detail' }}</a>
+                                <a class="table-action" href="{{ path('admin_bundle_warehouse_ops_pick_list_print', {id: row.id}) }}">Print</a>
+                                {% if not row.isOpen and row.pickedUnits == 0 %}
+                                    {# The form is below the table: a <form> inside the filter <form> is
+                                       invalid HTML and every parser drops the inner one (#613). #}
+                                    <button type="submit" class="table-action danger" form="delete-pick-{{ row.id }}">Delete</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9" class="empty-table-cell">
+                            <strong>No pick lists yet.</strong>
+                            <span>Compile a round from the orders that still owe goods.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. Without one the
+               two text boxes above could never be applied at all: a form with more than one text
+               input has implicit submission disabled. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'pick lists'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="pick-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_warehouse_ops_pick_lists',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        {% for row in rows %}
+            {% if not row.isOpen and row.pickedUnits == 0 %}
+                {# POST rather than a link, and no JavaScript in the path: the confirm is an onsubmit
+                   courtesy that simply does not run with scripting off, and the button still posts. #}
+                <form method="post" id="delete-pick-{{ row.id }}" hidden
+                      action="{{ path('admin_bundle_warehouse_ops_pick_list_delete', {id: row.id}) }}"
+                      onsubmit="return confirm('Delete {{ row.number|e('js') }}? Nothing was picked against it.')">
+                    {{ csrf_field() }}
+                </form>
+            {% endif %}
+        {% endfor %}
+    </section>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Custom Fields | Admin{% endblock %}
+{% block admin_body %}
+    {# A list screen and nothing else, since the conventions caught it (#621).
+
+       This page used to be five `.panel > table.data-table` blocks — Product, Customer, Order,
+       Invoice, Estimate — stacked down the frame. That is markup the list-screen conventions do not
+       reach, and being unreachable is exactly why the screen had no filter, no count and no
+       full-height clamp: `app.css:7800` clamps a `.content-frame` holding a top-level `.table-card`
+       to `calc(100vh - 3rem)` and hands the remaining height to that card, which is a model for ONE
+       grid per page. Five cards under that clamp would each be given a fifth of the viewport with a
+       220px scroll-region floor apiece — the overflow `admin/tracking_policy/index.html.twig`
+       measured — so the groups are a column and a filter here, which is what a group is.
+
+       See CustomFieldController::index() for the whole argument, including what the object-type bar
+       below keeps that the stacked empty tables used to say. #}
+    {% set filters = filters|default({}) %}
+    {% set activeObjectType = filters.objectType|default('') %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Settings</p>
+                <h1>Custom Fields</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_custom_field_create') }}">+ Add Custom Field</a>
+            </div>
+        </div>
+        {# All / Product / Customer / Order / Invoice / Estimate, with a count apiece — the roll call
+           the five stacked tables used to give by rendering an empty one per type. A type carrying
+           nothing still appears here, says so with a 0, and is one click from its own empty state.
+           The other filters are carried across a tab change: narrowing to Orders should not quietly
+           throw away the label somebody typed. #}
+        {% set carried = {} %}
+        {% for key, value in filters %}
+            {% if key != 'objectType' and value != '' %}{% set carried = carried|merge({(key): value}) %}{% endif %}
+        {% endfor %}
+        <nav class="order-status-tabs">
+            <a class="{{ activeObjectType == '' ? 'is-active' : '' }}"
+               href="{{ path('admin_custom_field_index', carried is empty ? {} : {filters: carried}) }}">All object types ({{ total }})</a>
+            {% for objectType, label in objectTypeLabels %}
+                <a class="{{ activeObjectType == objectType ? 'is-active' : '' }}"
+                   href="{{ path('admin_custom_field_index', {filters: carried|merge({objectType: objectType})}) }}">{{ label }} ({{ counts[objectType]|default(0) }})</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    {% for msg in app.flashes('success') %}<div class="flash flash-success">{{ msg }}</div>{% endfor %}
+    {% for msg in app.flashes('error') %}<div class="flash flash-error">{{ msg }}</div>{% endfor %}
+
+    {% include 'admin/_row_actions_no_js.html.twig' %}
+
+    {# Unpaged, and `no-paginate` says so to app.js:383 — which would otherwise append its own Per
+       page control and row count beneath the ones below. A definition is a field on a form, so an
+       installation holds tens of them and not thousands; the filter row is here because "which
+       object type is this slug already taken on" and "what did that bundle register" are questions
+       somebody puts to the list, not because the list is long. #}
+    <section class="table-card no-paginate">
+        {# Not wrapped around the table: each admin-owned row carries its own delete <form>, and
+           forms cannot nest — the browser would drop the inner one and the Delete button would
+           submit this filter instead. The controls in the table point at this form by id, the way
+           admin/unit_of_measure/index.html.twig does. #}
+        <form id="custom-field-filters" method="get" action="{{ path('admin_custom_field_index') }}"></form>
+        <div class="table-header">
+            <h2>Definitions</h2>
+        </div>
+        <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="admin-grid-table">
+                    <thead>
+                        <tr>
+                            <th>Label</th>
+                            <th>Slug</th>
+                            <th>Object Type</th>
+                            <th>Field Type</th>
+                            <th>Add</th>
+                            <th>Edit</th>
+                            <th>Listing</th>
+                            <th>Searchable</th>
+                            <th>Source</th>
+                            <th>Actions</th>
+                        </tr>
+                        {# Five filters over ten columns. Add / Edit / Listing / Searchable carry
+                           none deliberately: each is a tick or a dash, the whole column is legible
+                           at a glance on a grid this size, and a yes/no box over it would be four
+                           more controls answering a question nobody puts to the screen. #}
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[label]" value="{{ filters.label|default('') }}" form="custom-field-filters" aria-label="Filter label"></th>
+                            <th><input type="text" name="filters[slug]" value="{{ filters.slug|default('') }}" form="custom-field-filters" aria-label="Filter slug"></th>
+                            <th>
+                                <select name="filters[objectType]" form="custom-field-filters" aria-label="Filter object type">
+                                    <option value=""></option>
+                                    {% for objectType, label in objectTypeLabels %}
+                                        <option value="{{ objectType }}"{{ activeObjectType == objectType ? ' selected' : '' }}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th>
+                                <select name="filters[fieldType]" form="custom-field-filters" aria-label="Filter field type">
+                                    <option value=""></option>
+                                    {% for fieldType, label in fieldTypeLabels %}
+                                        <option value="{{ fieldType }}"{{ filters.fieldType|default('') == fieldType ? ' selected' : '' }}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th><input type="text" name="filters[source]" value="{{ filters.source|default('') }}" form="custom-field-filters" aria-label="Filter source" placeholder="Admin, or a bundle"></th>
+                            <th><button class="table-action" type="submit" form="custom-field-filters">Filter</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/custom_field/_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="table-footer">
+            <button class="table-action" type="submit" form="custom-field-filters">Apply</button>
+            <a class="button outline" href="{{ path('admin_custom_field_index') }}">Reset</a>
+            {% include 'admin/_table_count.html.twig' with {
+                count: rows|length,
+                total: rows|length,
+                currentPage: 1,
+                perPage: rows|length,
+                label: 'custom fields'
+            } only %}
+        </div>
+    </section>
+{% endblock %}

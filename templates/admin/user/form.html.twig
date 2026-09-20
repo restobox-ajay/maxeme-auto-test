@@ -1,0 +1,206 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% set selectedCompany = selectedCompany|default(null) %}
+{% set mode = mode|default('Create') %}
+{% set userGroup = userGroup|default('all') %}
+{% set roleOptions = roleOptions|default(userGroup == 'staff' ? ['Admin','Super Admin','Plant Staff','Sales Rep','Tech Support'] : ['Owner','Company Staff']) %}
+{% set user = user|default({id: '', email: '', firstName: '', lastName: '', phoneNumber: '', status: 'Active', companyId: '', role: (userGroup == 'staff' ? 'Admin' : 'Company Staff'), type: ''}) %}
+{% set roleEditable = roleEditable|default(mode != 'Update') %}
+{% block title %}{{ mode }} User | Admin{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block admin_body %}
+
+    <section class="panel compact-panel user-form-hero">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">User manager</p>
+                <h1>
+                    {% if userGroup == 'staff' %}
+                        {{ mode == 'Update' ? 'Update Staff User' : 'Create Staff User' }}
+                    {% elseif userGroup == 'customer' %}
+                        {{ mode == 'Update' ? 'Update Customer User' : 'Create Customer User' }}
+                    {% else %}
+                        {{ mode == 'Update' ? 'Update User' : 'Create User' }}
+                    {% endif %}
+                    {% if selectedCompany %}: {{ selectedCompany.name }}{% endif %}
+                </h1>
+            </div>
+            <div class="panel-actions">
+                {% if mode == 'Update' %}
+                    {% if userGroup == 'staff' %}
+                        <a class="button back-button" href="{{ path('admin_user_staff_index') }}">Back</a>
+                    {% elseif userGroup == 'customer' %}
+                        <a class="button back-button" href="{{ path('admin_user_customer_index') }}">Back</a>
+                    {% else %}
+                        <a class="button back-button" href="{{ selectedCompany ? path('admin_company_detail_by_id', {id: selectedCompany.id}) : path('admin_user_index') }}">Back</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card admin-record-form user-form-card">
+        <form class="form-grid admin-record-grid js-admin-user-form" method="post">
+            {{ csrf_field() }}
+            <div class="user-form-section span-2">
+                <h2>Account</h2>
+            </div>
+
+            <label>
+                First Name
+                <input type="text" name="first_name" value="{{ user.firstName }}" autocomplete="given-name">
+            </label>
+            <label>
+                Last Name
+                <input type="text" name="last_name" value="{{ user.lastName }}" autocomplete="family-name">
+            </label>
+            <label>
+                Phone Number
+                <input type="tel" name="phone_number" value="{{ user.phoneNumber }}" autocomplete="tel">
+            </label>
+            <label>
+                {# No required marker on the staff branch: nothing is submitted, so nothing can be
+                   missing. Claiming otherwise next to an uneditable value is just noise. #}
+                Email {% if not (mode == 'Update' and userGroup != 'customer') %}<span class="req">*</span>{% endif %}
+                {% if mode == 'Update' and userGroup == 'customer' %}
+                    <input type="email" name="email" value="{{ user.email }}" autocomplete="email" required data-original-email="{{ user.email }}">
+                {% elseif mode == 'Update' %}
+                    {# A staff email is the login identifier and is not editable here, so the form does
+                       not carry it at all — not even disabled. A disabled input submits nothing, which
+                       is why this used to be paired with a hidden field, and that hidden field was
+                       fully client-controlled: editing it repointed the account. The server ignores and
+                       does not validate a submitted email on this route (see UserController::update),
+                       so the form must not offer something it will not honour.
+
+                       detail-value is the existing class for read-only values in admin templates. #}
+                    <span class="detail-value">{{ user.email }}</span>
+                {% else %}
+                    <input type="email" name="email" value="{{ user.email }}" autocomplete="email" required>
+                {% endif %}
+            </label>
+
+            {% if mode == 'Update' and userGroup == 'customer' %}
+                <fieldset class="span-2 company-email-fieldset js-notify-email-change-fieldset">
+                    <legend>If the email address is changed, notify the previous email address?</legend>
+                    <div class="radio-choice-group">
+                        <label class="radio-choice">
+                            <input type="radio" name="notify_email_change" value="yes" checked>
+                            <span class="radio-control" aria-hidden="true"></span>
+                            <span>Yes</span>
+                        </label>
+                        <label class="radio-choice">
+                            <input type="radio" name="notify_email_change" value="no">
+                            <span class="radio-control" aria-hidden="true"></span>
+                            <span>No</span>
+                        </label>
+                    </div>
+                </fieldset>
+            {% endif %}
+
+            {% if mode != 'Update' %}
+                <fieldset class="span-2 company-email-fieldset">
+                    <legend>Send user a new account email with password link ?</legend>
+                    <div class="radio-choice-group">
+                        <label class="radio-choice">
+                            <input type="radio" name="send_account_email" value="yes" checked>
+                            <span class="radio-control" aria-hidden="true"></span>
+                            <span>Yes</span>
+                        </label>
+                        <label class="radio-choice">
+                            <input type="radio" name="send_account_email" value="no">
+                            <span class="radio-control" aria-hidden="true"></span>
+                            <span>No</span>
+                        </label>
+                    </div>
+                </fieldset>
+            {% endif %}
+
+            <label>
+                Role
+                <select name="role" {{ roleEditable ? '' : 'disabled' }}>
+                    {% for role in roleOptions %}
+                        <option {{ user.role == role ? 'selected' : '' }}>{{ role }}</option>
+                    {% endfor %}
+                </select>
+                {% if not roleEditable %}
+                    <input type="hidden" name="role" value="{{ user.role }}">
+                {% endif %}
+            </label>
+
+            {% if userGroup != 'staff' %}
+                <label>
+                    Customer <span class="req">*</span>
+                    <select name="company" class="js-searchable-select" data-placeholder="Select customer" required>
+                        <option value="" disabled {{ user.companyId ? '' : 'selected' }}>Select customer</option>
+                        {% for company in companies %}
+                            <option value="{{ company.id|default(company.name) }}" {{ (selectedCompany and company.name == selectedCompany.name) or user.companyId == company.id ? 'selected' : '' }}>{{ company.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+
+            <label>
+                Status
+                <select name="status">
+                    {% for status in ['Active', 'Invited', 'Inactive'] %}
+                        <option {{ user.status == status ? 'selected' : '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {# Scopes who the Customer form's Sales Rep picker offers (#718) — orthogonal to Role
+               above: what this account may DO on the console vs. whether it may be the person a
+               customer's account is assigned to. Staff only; a customer account is never a rep.
+               The Sales Rep role grants this automatically (AdminUser::isSalesRepEligible()), so
+               this box shows checked for one without a separate flip — it's here for the Admin/
+               Plant Staff member who is also, individually, eligible. #}
+            {% if userGroup == 'staff' %}
+                <label class="check-row">
+                    <input type="checkbox" name="sales_rep_eligible" value="1" {{ user.salesRepEligible|default(false) ? 'checked' : '' }}>
+                    Eligible to be assigned as a customer's Sales Rep
+                </label>
+            {% endif %}
+            {# Per-user API gate (#521), customers only — staff admins do not use the customer API.
+               Ticking this lets the user generate their own key from their profile; it does not
+               create one, and no admin ever sees or holds it. Their company must be enabled too,
+               which is why the state of that gate is spelled out rather than left to guess at. #}
+            {% if user.type|default('Customer') == 'Customer' %}
+                <label class="check-row">
+                    <input type="checkbox" name="api_enabled" value="1" {{ user.apiEnabled|default(false) ? 'checked' : '' }}>
+                    Allow API access for this user
+                </label>
+                {% if user.apiEnabled|default(false) and not user.companyApiEnabled|default(false) %}
+                    <p class="muted">
+                        This user is enabled, but their customer is not — so the key will be refused
+                        until API access is switched on for the customer too.
+                    </p>
+                {% endif %}
+                {# Said here because this checkbox is no longer solely an admin's (#532): the
+                   company's own owner sets the same field from their Manage API Access page, so an
+                   admin who unticks it can be overruled. The company gate is the one that cannot
+                   be. Better to say so on the control than to let someone discover it. #}
+                <p class="muted">
+                    This customer's owner can also set this for their own staff. To stop API access
+                    customer-wide, switch it off on the customer instead.
+                </p>
+            {% endif %}
+            <div class="form-actions">
+                {% if userGroup == 'staff' %}
+                    <a class="button back-button" href="{{ path('admin_user_staff_index') }}">Back</a>
+                {% elseif userGroup == 'customer' %}
+                    <a class="button back-button" href="{{ path('admin_user_customer_index') }}">Back</a>
+                {% else %}
+                    <a class="button back-button" href="{{ selectedCompany ? path('admin_company_detail_by_id', {id: selectedCompany.id}) : path('admin_user_index') }}">Back</a>
+                {% endif %}
+                <button class="button primary" type="submit">{{ mode == 'Update' ? 'Save Changes' : 'Create' }}</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}WooCommerce Bulk Resync | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WooCommerce/_nav.html.twig' with {
+        current: 'bulk_resync',
+        heading: 'Bulk Resync',
+        lead: 'A blunt, full re-check of every mapped product on a store — not what runs on every stock change (that\'s the Push Queue), the backstop that catches anything the event-driven path ever missed. Runs automatically every night; "Run now" does the same thing on demand.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <form method="post" action="{{ path('admin_bundle_woocommerce_bulk_resync_run') }}" class="form-grid">
+            {{ csrf_field() }}
+            <label>Store
+                <select name="connection_id">
+                    <option value="0">Every store</option>
+                    {% for connection in connections %}
+                        <option value="{{ connection.id }}">{{ connection.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="form-actions">
+                <button class="button primary" type="submit">Run now</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table>
+            <thead>
+                <tr>
+                    <th>Store</th>
+                    <th>Queued</th>
+                    <th>Triggered by</th>
+                    <th>Started</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                    <tr>
+                        <td data-label="Store">{{ run.connection ? run.connection.name : 'Every store' }}</td>
+                        <td data-label="Queued">{{ run.queuedCount }}</td>
+                        <td data-label="Triggered by">{{ run.triggeredBy }}</td>
+                        <td data-label="Started">{{ run.startedAt|date('Y-m-d H:i') }}</td>
+                        <td data-label="Actions"><a class="table-action" href="{{ path('admin_bundle_woocommerce_bulk_resync_detail', {id: run.id}) }}">Details</a></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell"><span>No resync runs yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div></div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with { count: runs|length, label: 'runs' } only %}
+        </div>
+    </section>
+{% endblock %}

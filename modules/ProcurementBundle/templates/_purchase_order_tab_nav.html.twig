@@ -1,0 +1,123 @@
+{#
+    PurchaseOrder's own `actionBarTemplate` for `commercial_document_view.html.twig` — the buy-side
+    twin of `admin/order/_tab_nav.html.twig`.
+
+    A prior version of this file (`@Procurement/_document_action_bar.html.twig`) claimed PurchaseOrder
+    "has only one GET route" and rendered flash messages in place of a tab bar. That was false: this
+    document has the same three real GET routes Order's own tab bar is built from — detail (this
+    page), edit, and a PDF — `purchase_order/edit.html.twig`'s own tab_nav block already links all
+    three. Corrected here rather than left standing (#full-parity, 2026-09-15).
+
+    Not built on `sales_document_action_bar.html.twig`: that shared partial also requires
+    `cloneUrl`, and PurchaseOrder still has no Clone route — genuinely absent, not a difference this
+    file invents an opinion about. A small, PO-specific bar with the same markup/class/id
+    conventions is the honest fit.
+
+    Lock/Unlock joined this bar with #759, in the same markup `sales_document_action_bar.html.twig`
+    uses for the sell side — `document_is_locked()`/`document_lock()` now answer for a PurchaseOrder
+    too, through `LockableDocumentCatalogue`.
+
+    Expects: `order`. Edit is withheld where `PurchaseOrderController::edit()` would refuse the
+    route anyway — `PurchaseOrder::canEditOnStatus()` (the status rule, `HasStatus`) carries the same
+    reasoning `OrderController::isOrderLockedForEditing()` does for a frozen order — AND where a lock
+    (the separate, deliberate-act rule) would refuse it too. The two never merge; both are asked.
+
+    The "…" disclosure sits in the SAME left-aligned cluster as View/Edit/PDF, not pushed to the far
+    right — `sales_document_action_bar.html.twig`'s own docblock says why: a bar with only two or
+    three tabs used to leave a wide dead gap before a right-pushed menu. Print/Edit are left out of
+    the menu itself: they are already the PDF/Edit tabs immediately to the left, and a document does
+    not need the same action reachable twice in one bar.
+
+    It is a real `<details>` overflow disclosure — `no-js-row-actions--overlay`, the same shell
+    `sales_document_action_bar.html.twig` uses for its own "…" More menu — not a flat row of
+    buttons. A `style="display: flex"` span here (an earlier version of this file) defeats that
+    shell entirely and dumps every secondary action, plus the Lock reason text box, side by side in
+    the bar itself: exactly the "row of buttons" #full-parity's own #3 rule (one row-action-menu,
+    not flat controls) exists to rule out, on the one screen with the most secondary actions to
+    hide.
+#}
+{% include 'admin/_row_actions_no_js.html.twig' %}
+{% set poLocked = document_is_locked(order) %}
+{% set poLockRow = poLocked ? document_lock(order) : null %}
+<nav class="company-action-links order-tab-nav" aria-label="Purchase order detail actions">
+    <a id="po-action-view" class="button is-current" href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">View</a>
+    {% if order.canEditOnStatus() and not poLocked %}
+        <a id="po-action-edit" class="button" href="{{ path('admin_bundle_procurement_purchase_order_edit', {id: order.id}) }}">Edit</a>
+    {% endif %}
+    <a id="po-action-pdf" class="button" href="{{ path('admin_bundle_procurement_purchase_order_print', {id: order.id}) }}">Purchase Order PDF</a>
+    <details class="row-action-menu no-js-row-actions no-js-row-actions--overlay">
+        <summary id="po-action-more" class="mini-action" aria-label="More purchase order actions">&hellip;</summary>
+        <div class="row-action-dropdown company-action-dropdown">
+            {% if order.statusEnum.acceptsReceipts %}
+                <a href="{{ path('admin_bundle_procurement_receive', {po: order.id}) }}">Receive against this</a>
+                <a href="{{ path('admin_bundle_procurement_receive_scan') }}">Scan against this</a>
+            {% endif %}
+            <a href="{{ path('admin_bundle_procurement_bill_new', {po: order.id}) }}">Enter a bill</a>
+            {% if order.status == 'Draft' %}
+                <form id="po-action-issue-form" method="post" action="{{ path('admin_bundle_procurement_purchase_order_issue', {id: order.id}) }}" style="display: contents;">
+                    {{ csrf_field() }}
+                    <button id="po-action-issue" type="submit">Issue to vendor</button>
+                </form>
+            {% else %}
+                <form id="po-action-send-form" method="post" action="{{ path('admin_bundle_procurement_purchase_order_send', {id: order.id}) }}" style="display: contents;">
+                    {{ csrf_field() }}
+                    <button id="po-action-send" type="submit">Send to vendor</button>
+                </form>
+            {% endif %}
+            {% if order.statusEnum.acceptsReceipts and order.quantityOutstanding > 0 %}
+                {# Close it short only offers itself while there is something outstanding TO close
+                   short on — a fully received order has nothing left to write off, which is a
+                   different fact from merely "not final" (matching the condition the pre-existing
+                   purchase_order_detail.html.twig used: `status in [Issued, Partially Received,
+                   Received] and quantityOutstanding > 0`). #}
+                <form id="po-action-close-form" method="post" action="{{ path('admin_bundle_procurement_purchase_order_close', {id: order.id}) }}" style="display: contents;">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="reason" value="Closed short from the detail screen.">
+                    <button id="po-action-close" type="submit">Close it short</button>
+                </form>
+            {% endif %}
+            {% if not order.statusEnum.isFinal %}
+                <form id="po-action-cancel-form" method="post" action="{{ path('admin_bundle_procurement_purchase_order_cancel', {id: order.id}) }}" style="display: contents;">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="reason" value="Cancelled from the detail screen.">
+                    <button id="po-action-cancel" class="danger" type="submit">Cancel</button>
+                </form>
+            {% endif %}
+            {% if poLocked %}
+                <span id="po-action-lock-state">Locked by {{ poLockRow.locked_by }}{% if poLockRow.reason %} — {{ poLockRow.reason }}{% endif %}</span>
+                {% if is_granted('ROLE_SUPER_ADMIN') %}
+                    <form id="po-action-unlock-form" method="post" action="{{ path('admin_bundle_procurement_purchase_order_unlock', {id: order.id}) }}" style="display: contents;">
+                        {{ csrf_field() }}
+                        <button id="po-action-unlock" type="submit">Unlock Purchase Order</button>
+                    </form>
+                {% else %}
+                    <span id="po-action-unlock-denied">Only a super admin can unlock this purchase order.</span>
+                {% endif %}
+            {% else %}
+                {# The reason field used to sit inline in the dropdown/bar. A real
+                   <form method="post"> in a hidden `.modal-backdrop` — the same shell
+                   `admin/company/detail.html.twig`'s note modal uses (app.css:12932) — is a plain
+                   POST a no-JS browser or a test can still submit directly; only the JS-driven
+                   open/close is new (app.js, `.js-lock-modal-open`/`-close`). #}
+                <button id="po-action-lock" type="button" class="js-lock-modal-open">Lock Purchase Order</button>
+            {% endif %}
+        </div>
+    </details>
+</nav>
+{% if not poLocked %}
+    <div class="modal-backdrop lock-modal" hidden>
+        <form class="modal-card" method="post" id="po-action-lock-form" action="{{ path('admin_bundle_procurement_purchase_order_lock', {id: order.id}) }}" role="dialog" aria-modal="true" aria-labelledby="po-lock-modal-title">
+            {{ csrf_field() }}
+            <h2 id="po-lock-modal-title">Lock Purchase Order</h2>
+            <label class="note-modal-field">
+                Reason (optional)
+                <input id="po-action-lock-reason" type="text" name="reason" maxlength="255" aria-label="Reason this purchase order is locked">
+            </label>
+            <div class="modal-actions">
+                <button class="button outline js-lock-modal-close" type="button">Cancel</button>
+                <button class="button primary" type="submit">Lock Purchase Order</button>
+            </div>
+        </form>
+    </div>
+{% endif %}
+{% include '@Procurement/_purchase_flash_messages.html.twig' %}

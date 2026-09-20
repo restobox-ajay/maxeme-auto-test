@@ -1,0 +1,254 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ transfer.number }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'transfers',
+        heading: transfer.number,
+        lead: 'Two movements, never one. Dispatch moves stock to in transit owned by the source warehouse; receipt moves it to available at the destination. Nothing falls into the gap between them.'
+    } only %}
+
+    {% set editable = transfer.isEditable %}
+    {% set dispatched = transfer.status == 'dispatched' %}
+    {# Header cells, so the entry row, the empty state and the body all count the same. #}
+    {% set columns = 7 + (dispatched ? 2 : 0) + (editable ? 1 : 0) %}
+
+    <section class="panel compact-panel">
+        <p><strong>{{ transfer.fromWarehouse.name }} → {{ transfer.toWarehouse.name }}</strong>
+            · {{ transfer.status }}
+            {% if transfer.inTransitUnits > 0 %}· {{ transfer.inTransitUnits }} unit(s) on the road{% endif %}</p>
+        {% if transfer.notes %}<p class="lead">{{ transfer.notes }}</p>{% endif %}
+    </section>
+
+    {# `id="line-form"` is where the transfers list's Edit link lands. Editing a transfer IS editing
+       its lines, and the lines are now the form, so the anchor points at the table itself. #}
+    <section class="panel" id="line-form">
+        <h2>Lines</h2>
+
+        {# #626: the per-line hint below says "N available" on the row it belongs to, which is
+           invisible on a long transfer unless you happen to read that row. Dynamics states it on the
+           document, so this does too — naming the products, because a count tells you there is a
+           problem and not where it is.
+
+           Deliberately not phrased as an error and deliberately not blocking Dispatch: a draft is a
+           plan and the stock may well arrive before it is dispatched. dispatch() already refuses and
+           is the single enforcement point; a second gate here would be a second place to be wrong. #}
+        {% if shortLines is not empty %}
+            <p class="alert warn">
+                {{ shortLines|length }} line{{ shortLines|length > 1 ? 's ask' : ' asks' }} for more than
+                {{ transfer.fromWarehouse.name }} holds today:
+                {% for short in shortLines|slice(0, 5) %}
+                    <strong>{{ short.product }}</strong>{% if short.lot %} · lot {{ short.lot }}{% endif %}{% if short.serial %} · s/n {{ short.serial }}{% endif %}
+                    needs {{ short.requested|qty }}, {{ short.available|qty }} available (short {{ short.shortBy|qty }}){{ loop.last and shortLines|length <= 5 ? '.' : ';' }}
+                {% endfor %}
+                {% if shortLines|length > 5 %}and {{ shortLines|length - 5 }} more.{% endif %}
+                Stock may arrive before you dispatch — this does not stop you saving the draft.
+            </p>
+        {% endif %}
+
+        {% if editable %}
+            <p class="field-hint">
+                Fill the bottom row and press <strong>Add line</strong>: the line is saved and this page comes back with
+                it in the table and a fresh blank row underneath. Every Lot and Serial dropdown lists only what
+                {{ transfer.fromWarehouse.name }} actually holds, with the quantity beside it. The box under each
+                dropdown takes a typed pattern instead — <code>SEA-26*</code> — matched on the server.
+            </p>
+        {% endif %}
+
+        <div class="wide-table-wrap"><table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>SKU</th><th>Item</th><th>Lot</th><th>Serial</th><th>Requested</th><th>Dispatched</th><th>Received</th>
+                    {% if dispatched %}<th>Arriving</th><th>Into bin</th>{% endif %}
+                    {% if editable %}<th>Actions</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in transfer.lines %}
+                    {% set stock = lineStock[line.id]|default(null) %}
+                    <tr id="line-{{ line.id }}">
+                        <td data-label="SKU">{{ line.sku ?? '—' }}</td>
+                        <td data-label="Item">{{ line.name }}</td>
+                        {% if editable %}
+                            {# The row's own controls. They live in the table and belong to the update
+                               form emitted below it, joined by `form=` — a <form> inside the table
+                               would be a <form> inside a <form> once the receive form exists, which
+                               is invalid HTML and silently dropped (#613). #}
+                            <td data-label="Lot">
+                                <select name="lot_id" form="line-form-{{ line.id }}" class="js-searchable-select"
+                                        data-placeholder="Auto — longest-dated" aria-label="Lot for line {{ line.id }}">
+                                    <option value="0">— auto: the longest-dated batch —</option>
+                                    {% for choice in stock ? stock.lots : [] %}
+                                        <option value="{{ choice.id }}"{{ line.lot and line.lot.id == choice.id ? ' selected' : '' }}>{{ choice.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td data-label="Serial">
+                                <select name="serial" form="line-form-{{ line.id }}" class="js-searchable-select"
+                                        data-placeholder="No serial" aria-label="Serial for line {{ line.id }}">
+                                    <option value="">— no serial: loose units —</option>
+                                    {% for choice in stock ? stock.serials : [] %}
+                                        <option value="{{ choice.serial }}"{{ line.serial == choice.serial ? ' selected' : '' }}>{{ choice.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td data-label="Requested">
+                                <input type="number" name="quantity" form="line-form-{{ line.id }}" min="1"
+                                       value="{{ line.quantityRequested|qty }}" required aria-label="Quantity for line {{ line.id }}">
+                                {# The preview the owner asked for, server-rendered so it is there with
+                                   scripting off: what the source holds on the pair this row names. #}
+                                {% if stock %}
+                                    <small class="line-stock-hint{{ line.quantityRequested > stock.available ? ' line-stock-hint-over' : '' }}">
+                                        {{ stock.available|qty }} available at {{ transfer.fromWarehouse.name }}
+                                    </small>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <td data-label="Lot">{{ line.lot ? line.lot.label : '—' }}</td>
+                            <td data-label="Serial">{{ line.serial ?? '—' }}</td>
+                            <td data-label="Requested">{{ line.quantityRequested }}</td>
+                        {% endif %}
+                        <td data-label="Dispatched">{{ line.quantityDispatched }}</td>
+                        <td data-label="Received">{{ line.quantityReceived }}</td>
+                        {% if dispatched %}
+                            <td data-label="Arriving"><input type="number" name="received[{{ line.id }}]" form="transfer-receive" min="0" max="{{ line.outstandingInTransit }}" value="{{ line.outstandingInTransit }}"></td>
+                            <td data-label="Into bin">
+                                <select name="bin[{{ line.id }}]" form="transfer-receive">
+                                    <option value="0">— put away later —</option>
+                                    {% for bin in destinationBins %}<option value="{{ bin.id }}">{{ bin.code }}</option>{% endfor %}
+                                </select>
+                            </td>
+                        {% endif %}
+                        {% if editable %}
+                            <td data-label="Actions" class="row-actions">
+                                <button type="submit" class="table-action" form="line-form-{{ line.id }}">Save</button>
+                                <button type="submit" class="table-action danger" form="delete-line-{{ line.id }}">Delete</button>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="{{ columns }}" class="empty-table-cell">
+                        <strong>No lines yet.</strong>
+                        <span>A transfer with no lines has nothing to dispatch.{% if editable %} The row below is where the first one goes.{% endif %}</span>
+                    </td></tr>
+                {% endfor %}
+
+                {% if editable %}
+                    {# THE blank row. Filling it and pressing Add line posts to the create route and
+                       comes back with the row appended and a fresh blank one here — the whole
+                       add-a-row mechanism, with no script in it. #}
+                    <tr class="transfer-line-entry" id="new-line">
+                        <td data-label="Product" colspan="2">
+                            <select name="product_id" form="transfer-add-line" class="js-searchable-select"
+                                    data-placeholder="Search products…" required aria-label="Product for the new line">
+                                <option value=""></option>
+                                {% for p in products %}<option value="{{ p.id }}">{{ p.sku }} — {{ p.name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td data-label="Lot">
+                            <select name="lot_id" form="transfer-add-line" class="js-searchable-select"
+                                    data-placeholder="Auto — longest-dated" aria-label="Lot for the new line">
+                                <option value="0">— auto: the longest-dated batch —</option>
+                                {% for choice in entryLots %}
+                                    <option value="{{ choice.id }}">{{ choice.sku }} · {{ choice.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="lot_code" form="transfer-add-line" maxlength="120"
+                                   placeholder="or match a code — SEA-26*" aria-label="Match a lot code">
+                            {% if entryLotsTruncated %}
+                                <small class="line-stock-hint">Only the first {{ entryLots|length }} batches are listed — type a pattern instead.</small>
+                            {% endif %}
+                        </td>
+                        <td data-label="Serial">
+                            <select name="serial" form="transfer-add-line" class="js-searchable-select"
+                                    data-placeholder="No serial" aria-label="Serial for the new line">
+                                <option value="">— no serial: loose units —</option>
+                                {% for choice in entrySerials %}
+                                    <option value="{{ choice.serial }}">{{ choice.sku }} · {{ choice.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="serial_match" form="transfer-add-line" maxlength="120"
+                                   placeholder="or match — SN-77*" aria-label="Match a serial">
+                            {% if entrySerialsTruncated %}
+                                <small class="line-stock-hint">Only the first {{ entrySerials|length }} serials are listed — type a pattern instead.</small>
+                            {% endif %}
+                        </td>
+                        <td data-label="Requested">
+                            <input type="number" name="quantity" form="transfer-add-line" min="1" value="1" required aria-label="Quantity for the new line">
+                        </td>
+                        <td colspan="2">—</td>
+                        <td data-label="Actions" class="row-actions">
+                            <button class="button primary" type="submit" form="transfer-add-line">Add line</button>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table></div>
+
+        {% if dispatched %}
+            <p class="lead">Enter what actually arrived. Anything short stays on the in-transit row until written off.</p>
+            <div class="form-actions"><button class="button primary" type="submit" form="transfer-receive">Receive</button></div>
+        {% endif %}
+
+        {# Every form the table's controls belong to, emitted OUTSIDE the table and joined to it by
+           the buttons' and fields' `form=` attributes. One <form> may not contain another, and a
+           browser drops the inner one without saying so — which is why the receive form, the add
+           form and each line's update form are siblings here rather than wrappers up there. #}
+        {% if editable %}
+            <form method="post" id="transfer-add-line" hidden
+                  action="{{ path('admin_bundle_warehouse_ops_transfer_add_line', {id: transfer.id}) }}">
+                {{ csrf_field() }}
+            </form>
+            {% for line in transfer.lines %}
+                <form method="post" id="line-form-{{ line.id }}" hidden
+                      action="{{ path('admin_bundle_warehouse_ops_transfer_update_line', {id: transfer.id}) }}">
+                    {{ csrf_field() }}
+                    {# What names the row this save updates, exactly as the lots form's hidden id does.
+                       An id that resolves to nothing is refused rather than falling through to
+                       create — a stale row must not mint a second line (#613). A line's PRODUCT is
+                       not among the editable fields: the lot on it was chosen for that product, and
+                       swapping one while keeping the other is how a line names a batch of something
+                       else. Getting the product wrong is Delete then Add. #}
+                    <input type="hidden" name="line_id" value="{{ line.id }}">
+                </form>
+                <form method="post" id="delete-line-{{ line.id }}" hidden
+                      action="{{ path('admin_bundle_warehouse_ops_transfer_delete_line', {id: transfer.id, line: line.id}) }}"
+                      onsubmit="return confirm('Remove {{ line.quantityRequested }} × {{ (line.sku ?: line.name)|e('js') }} from this draft?')">
+                    {{ csrf_field() }}
+                </form>
+            {% endfor %}
+        {% endif %}
+        {% if dispatched %}
+            <form method="post" id="transfer-receive" hidden
+                  action="{{ path('admin_bundle_warehouse_ops_transfer_receive', {id: transfer.id}) }}">
+                {{ csrf_field() }}
+            </form>
+        {% endif %}
+    </section>
+
+    {% if transfer.status == 'draft' %}
+        <section class="panel">
+            <h2>Dispatch</h2>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_transfer_dispatch', {id: transfer.id}) }}">
+                {{ csrf_field() }}
+                <div class="form-actions"><button class="button primary" type="submit">Dispatch to {{ transfer.toWarehouse.name }}</button></div>
+            </form>
+
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_transfer_cancel', {id: transfer.id}) }}">
+                {{ csrf_field() }}
+                <div class="form-actions"><button class="button" type="submit">Cancel this draft</button></div>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if transfer.status in ['draft', 'cancelled'] %}
+        <section class="panel">
+            <h2>Delete</h2>
+            <p class="lead">Refused once anything has been dispatched. Cancelling keeps the number and the record; deleting is for a draft that should never have existed.</p>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_transfer_delete', {id: transfer.id}) }}"
+                  onsubmit="return confirm('Delete {{ transfer.number|e('js') }} and its lines?')">
+                {{ csrf_field() }}
+                <div class="form-actions"><button class="button danger" type="submit">Delete {{ transfer.number }}</button></div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeCouponBundle\:
+        resource: '../src/'
+
+    FeeCouponBundle\Fee\CouponFeeCalculator:
+        tags: ['app.fee_calculator']
+
+    FeeCouponBundle\Bundle\FeeCouponBundleDescriptor:
+        tags: ['app.bundle_descriptor']

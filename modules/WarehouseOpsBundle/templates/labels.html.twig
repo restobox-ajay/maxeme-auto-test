@@ -1,0 +1,97 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Labels | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'labels',
+        heading: 'Labels',
+        lead: 'Code 128 or QR on PDF sized for the label stock, not a browser print of a web page. Printing writes nothing at all — reprints are free and unlimited, because a smudged label is why anyone opens this screen.'
+    } only %}
+
+    <section class="panel">
+        <h2>What each label carries</h2>
+        <table class="compact">
+            <thead><tr><th>Target</th><th>Encodes</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>Product</td><td>its <a href="{{ path('admin_bundle_barcodes') }}">primary barcode</a>, or the <code>SKU</code> when it has none</td><td>scan to identify what you are holding</td></tr>
+                <tr><td>Bin</td><td><code>bin code</code></td><td>scan to say where you are</td></tr>
+                <tr><td>Lot</td><td><code>LOT-{id}</code>, with code and expiry printed</td><td>a batch code alone is ambiguous — vendors reuse them with different expiry dates</td></tr>
+                <tr><td>Serial</td><td>the serial itself</td><td>scan to commit one specific unit</td></tr>
+            </tbody>
+        </table>
+        <p class="lead">
+            A product with a real UPC, EAN or case GTIN prints that instead of its SKU.
+            <a href="{{ path('admin_bundle_barcodes') }}">Barcodes</a> is where one gets added.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>Print</h2>
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_labels_print') }}" class="form-grid" target="_blank">
+            {{ csrf_field() }}
+
+            <label>What
+                <select name="kind">
+                    {% for value, label in kinds %}<option value="{{ value }}"{{ filters.kind == value ? ' selected' : '' }}>{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+
+            <label>Warehouse
+                <select name="warehouse_id">
+                    <option value="0">—</option>
+                    {% for w in warehouses %}<option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
+                </select>
+                <small>For bin labels. Leave it unset to print the whole warehouse.</small>
+            </label>
+
+            <label>Product
+                <select name="product_id">
+                    <option value="0">—</option>
+                    {% for p in products %}<option value="{{ p.id }}"{{ filters.product == p.id ~ '' ? ' selected' : '' }}>{{ p.sku }} — {{ p.name }}</option>{% endfor %}
+                </select>
+                <small>For product, lot and serial labels.</small>
+            </label>
+
+            <label>Label stock
+                <select name="template">
+                    {% for key, t in templates %}<option value="{{ key }}">{{ t.name }}</option>{% endfor %}
+                    <option value="custom">Custom — use the boxes below</option>
+                </select>
+            </label>
+
+            <label>Symbology
+                <select name="symbology">
+                    {% for value, label in symbologies %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+                <small>Code 128 is the default and is what a keyboard-wedge scanner on a receiving line reads fastest. A QR is square, so a long value costs area instead of width, it reads at any rotation, and its error correction survives a crease.</small>
+            </label>
+
+            <label>Copies of each <input type="number" name="copies" min="1" max="200" value="1"></label>
+
+            <fieldset class="span-2">
+                <legend>Custom geometry, in millimetres</legend>
+                <p class="lead">Only read when the stock above is set to Custom. A continuous roll is a grid of one column and one row whose page is the size of the label.</p>
+                <div class="form-grid">
+                    <label>Page width <input type="number" step="0.1" name="page_width" value="210"></label>
+                    <label>Page height <input type="number" step="0.1" name="page_height" value="297"></label>
+                    <label>Top margin <input type="number" step="0.1" name="margin_top" value="0"></label>
+                    <label>Left margin <input type="number" step="0.1" name="margin_left" value="0"></label>
+                    <label>Columns <input type="number" name="columns" min="1" max="20" value="1"></label>
+                    <label>Rows <input type="number" name="rows" min="1" max="40" value="1"></label>
+                    <label>Label width <input type="number" step="0.1" name="label_width" value="100"></label>
+                    <label>Label height <input type="number" step="0.1" name="label_height" value="50"></label>
+                    <label>Gap between columns <input type="number" step="0.1" name="column_gap" value="0"></label>
+                    <label>Gap between rows <input type="number" step="0.1" name="row_gap" value="0"></label>
+                </div>
+            </fieldset>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Print PDF</button>
+                <button class="button" type="submit" name="preview" value="1">Preview as HTML</button>
+            </div>
+        </form>
+        <p class="lead">
+            The preview is rendered from the same HTML the PDF is made from, deliberately — a preview built by
+            different code is a preview that lies.
+        </p>
+    </section>
+{% endblock %}

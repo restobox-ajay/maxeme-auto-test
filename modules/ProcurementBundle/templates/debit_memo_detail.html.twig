@@ -1,0 +1,183 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ memo.documentNumber }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'debit_memos',
+        heading: memo.documentNumber,
+        status: memo.status.value,
+        lead: memo.vendorName
+            ~ (memo.vendorReturn ? ' · credits vendor return ' ~ memo.vendorReturn.documentNumber : '')
+            ~ (memo.vendorBill ? ' · raised from bill ' ~ memo.vendorBill.billNumber : '')
+            ~ (memo.vendorReturn or memo.vendorBill ? '' : ' · standalone')
+    } only %}
+
+    <section class="form-card">
+        <div class="form-grid">
+            <div><p class="eyebrow">Total</p><p><strong>{{ memo.currency }} {{ memo.total|amount }}</strong></p></div>
+            <div><p class="eyebrow">Applied</p><p><strong>{{ memo.currency }} {{ memo.amountApplied|amount }}</strong></p></div>
+            <div><p class="eyebrow">Refunded</p><p><strong>{{ memo.currency }} {{ memo.amountRefunded|amount }}</strong></p></div>
+            <div><p class="eyebrow">Balance</p><p><strong>{{ memo.currency }} {{ memo.balance|amount }}</strong></p></div>
+        </div>
+        {% if memo.reason %}<p class="field-hint">{{ memo.reason }}</p>{% endif %}
+        {# The flag used to be invisible once saved: the form took the tick, the column stored it and
+           no screen ever said so again. It now says so, and says what it means for issuing. #}
+        {% if memo.restock %}
+            <p class="field-hint">
+                <strong>The goods physically went back.</strong>
+                {% if memo.status.value == 'Draft' %}
+                    Issuing this memo takes the units named below out of the warehouse you choose and writes
+                    them off to the vendor, exactly as shipping a vendor return does.
+                {% else %}
+                    The units named below were taken out of stock and written off to the vendor when this
+                    memo was issued.
+                {% endif %}
+            </p>
+        {% endif %}
+        {# What became of the goods, on the memo itself. A person looking at a voided restock memo
+           should not have to go and find the product in the inventory ledger to learn whether the
+           units came back, came back broken, or never came back at all. #}
+        {% if voidGroup %}
+            <p class="field-hint"><strong>Voided.</strong> {{ voidGroup.reason }}
+                {% if voidGroup.actor %}Recorded by {{ voidGroup.actor }}{% endif %}
+                on {{ voidGroup.occurredAt|date('Y-m-d H:i') }}.</p>
+        {% endif %}
+    </section>
+
+    <section class="table-card">
+        <div class="table-header"><h2>Lines</h2></div>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Item</th><th>SKU</th><th>Qty</th><th>Unit cost</th><th>Subtotal</th><th>Against bill line</th></tr></thead>
+            <tbody>
+                {% for line in memo.lines %}
+                    <tr>
+                        <td data-label="Item">{{ line.name }}</td>
+                        <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                        <td data-label="Qty">{{ line.quantity }}</td>
+                        <td data-label="Unit cost">{{ memo.currency }} {{ line.unitCost|price }}</td>
+                        <td data-label="Subtotal">{{ memo.currency }} {{ line.subtotal|amount }}</td>
+                        <td data-label="Against bill line">{{ line.vendorBillLine ? line.vendorBillLine.name : '-' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell"><span>No lines on this memo.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            {% if memo.status.value == 'Draft' %}
+                <a class="button" href="{{ path('admin_bundle_procurement_debit_memo_edit', {id: memo.id}) }}">Edit</a>
+                <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_action', {id: memo.id, action: 'issue'}) }}" style="display:inline">
+                    {{ csrf_field() }}
+                    {# A restock memo needs the building the goods left, for the reason a vendor
+                       return's ship form asks for one: "the goods left" and "they left from here"
+                       are one fact, and nothing else on a money document can supply the second half. #}
+                    {% if memo.restock %}
+                        <label>
+                            Shipped from
+                            <select name="warehouse_id" required>
+                                {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    {% endif %}
+                    <button class="button primary" type="submit">Issue</button>
+                </form>
+            {% endif %}
+            {% if memo.status.value != 'Void' %}
+                {% if movedStock %}
+                    {# Issuing this memo took stock out, so voiding it has to say what became of the
+                       goods. The confirmation states the real effect of each answer before anything
+                       is written; a bare Void button here would be a one-click guess. #}
+                    <a class="button danger" href="{{ path('admin_bundle_procurement_debit_memo_void_confirm', {id: memo.id}) }}">Void&hellip;</a>
+                {% else %}
+                    <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_action', {id: memo.id, action: 'void'}) }}" style="display:inline">
+                        {{ csrf_field() }}
+                        <button class="button danger" type="submit">Void</button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </section>
+
+    {% if memo.status.value == 'Open' %}
+        <section class="panel">
+            <h2>Apply to a bill</h2>
+            <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_apply', {id: memo.id}) }}">
+                {{ csrf_field() }}
+                <select name="vendor_bill_id" required>
+                    {% for bill in openBills %}
+                        <option value="{{ bill.id }}">{{ bill.billNumber }} — balance {{ bill.balance }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="amount" inputmode="decimal" placeholder="Amount" required>
+                <button class="button primary" type="submit">Apply</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Record a refund</h2>
+            <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_refund', {id: memo.id}) }}">
+                {{ csrf_field() }}
+                <select name="method" required>
+                    {% for method in methods %}<option value="{{ method }}">{{ method }}</option>{% endfor %}
+                </select>
+                <input type="text" name="amount" inputmode="decimal" placeholder="Amount" required>
+                <input type="date" name="refunded_at" value="{{ 'now'|date('Y-m-d') }}">
+                <input type="text" name="comment" placeholder="Comment">
+                <button class="button primary" type="submit">Record refund</button>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if memo.applications|length > 0 %}
+        <section class="table-card">
+            <div class="table-header"><h2>Applications</h2></div>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Bill</th><th>Amount</th><th>Applied</th><th></th></tr></thead>
+                <tbody>
+                    {% for application in memo.applications %}
+                        <tr>
+                            <td data-label="Bill">{{ application.vendorBill.billNumber }}</td>
+                            <td data-label="Amount">{{ memo.currency }} {{ application.amount|amount }}</td>
+                            <td data-label="Applied">{{ application.appliedAt|date('Y-m-d') }}</td>
+                            <td>
+                                <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_application_withdraw', {id: memo.id, applicationId: application.id}) }}">
+                                    {{ csrf_field() }}
+                                    <button class="table-action" type="submit">Withdraw</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+    {% endif %}
+
+    {% if memo.refunds|length > 0 %}
+        <section class="table-card">
+            <div class="table-header"><h2>Refunds</h2></div>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Method</th><th>Amount</th><th>Refunded</th><th>Comment</th><th></th></tr></thead>
+                <tbody>
+                    {% for refund in memo.refunds %}
+                        <tr>
+                            <td data-label="Method">{{ refund.method }}</td>
+                            <td data-label="Amount">{{ memo.currency }} {{ refund.amount|amount }}</td>
+                            <td data-label="Refunded">{{ refund.refundedAt|date('Y-m-d') }}</td>
+                            <td data-label="Comment">{{ refund.comment|default('-') }}</td>
+                            <td>
+                                <form method="post" action="{{ path('admin_bundle_procurement_debit_memo_refund_delete', {id: memo.id, refundId: refund.id}) }}">
+                                    {{ csrf_field() }}
+                                    <button class="table-action" type="submit">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+    {% endif %}
+{% endblock %}

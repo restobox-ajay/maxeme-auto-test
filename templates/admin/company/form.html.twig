@@ -1,0 +1,354 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Customer | Admin{% endblock %}
+
+    {% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .ss-field-label {
+            display: block;
+            margin-bottom: 7px;
+            color: #374151;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .fulfillment-region-checklist-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .fulfillment-region-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .fulfillment-region-check {
+            min-width: 180px;
+        }
+        .fulfillment-region-row select {
+            flex: 1 1 220px;
+        }
+    </style>
+{% endblock %}
+
+{% block admin_body %}
+    {% set returnTo = returnTo|default('company_index') %}
+    {% set backUrl = backUrl|default(path('admin_company_index')) %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Customer</p>
+                {% if mode == 'Update' %}
+                    <h1>{{ mode|upper }}{% if company.name %}: {{ company.name|upper }}{% endif %}</h1>
+                {% else %}
+                    <h1>{{ mode }}{% if company.name %}: {{ company.name }}{% endif %}</h1>
+                {% endif %}
+                <p class="lead">Customer records anchor customer users, price-list assignment, account terms, and private catalog visibility.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ backUrl }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% if mode == 'Update' and company.id is defined and company.id %}
+        <nav class="company-action-links" aria-label="Customer detail actions">
+            <a class="button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">View</a>
+            <a class="button is-current" href="{{ path('admin_company_update', {id: company.id}) }}">Edit Profile</a>
+            <a class="button" href="{{ path('admin_company_address_book', {id: company.id}) }}">Address Book</a>
+            <a class="button" href="{{ path('admin_company_payment_methods_by_id', {id: company.id}) }}">Payment Methods</a>
+            <a class="button" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+            <span class="company-action-more row-action-menu">
+                <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More customer actions"></button>
+                <span class="row-action-dropdown company-action-dropdown">
+                    <a href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">View Orders</a>
+                    <a href="{{ path('admin_order_create', {OrderSearch: {company_id: company.id}}) }}">Create Order</a>
+                </span>
+            </span>
+        </nav>
+    {% endif %}
+
+    <section class="form-card company-form-card">
+        <form class="form-grid company-form-grid" method="post">
+            {{ csrf_field() }}
+            <input type="hidden" name="return_to" value="{{ returnTo }}">
+            <label class="span-2">
+                Customer Name <span class="req">*</span>
+                <input id="admin-company-name" type="text" name="name" value="{{ company.name }}" placeholder="Customer name" required>
+            </label>
+            <label class="span-2">
+                Primary Email
+                <input type="email" name="primary_email" value="{{ company.email|default('') }}" placeholder="primary@example.com">
+            </label>
+            <label class="span-2">
+                Phone Number
+                <input type="tel" name="phone_number" value="{{ company.phoneNumber|default('') }}">
+            </label>
+            <label class="span-2">
+                DBA/Tradename
+                <input type="text" name="trade_name" value="{{ company.tradeName|default('') }}">
+            </label>
+            <label class="span-2">
+                Account Type
+                <select name="account_type">
+                    <option {{ company.accountType|default('Business') == 'Business' ? 'selected' : '' }}>Business</option>
+                    <option {{ company.accountType|default('Business') == 'Non-business' ? 'selected' : '' }}>Non-business</option>
+                </select>
+            </label>
+            <div class="span-2 fulfillment-region-checklist">
+                <span class="ss-field-label">Fulfillment Regions</span>
+                <div class="fulfillment-region-checklist-rows">
+                    {% for region in fulfillmentRegions|default([]) %}
+                        <div class="fulfillment-region-row">
+                            <label class="check-row fulfillment-region-check">
+                                <input type="hidden" name="regions[{{ region.id }}][active]" value="0">
+                                <input type="checkbox" name="regions[{{ region.id }}][active]" value="1" {{ region.active ? 'checked' : '' }}>
+                                {{ region.name }}
+                            </label>
+                            <select name="regions[{{ region.id }}][price_list_id]" aria-label="Price list for {{ region.name }}">
+                                <option value="">Select Price List</option>
+                                {% for priceList in priceLists %}
+                                    <option value="{{ priceList.id }}" {{ region.priceListId == priceList.id ? 'selected' : '' }}>{{ priceList.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% else %}
+                        <p class="muted">No fulfillment regions configured yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% if mode != 'Update' %}
+                <label>
+                    First Name
+                    <input type="text" name="first_name" value="{{ company.firstName|default('') }}">
+                </label>
+                <label>
+                    Last Name
+                    <input type="text" name="last_name" value="{{ company.lastName|default('') }}">
+                </label>
+            {% else %}
+                <input type="hidden" name="first_name" value="{{ company.firstName|default('') }}">
+                <input type="hidden" name="last_name" value="{{ company.lastName|default('') }}">
+            {% endif %}
+            <label class="span-2">
+                Status
+                <select name="status">
+                    <option {{ company.status == 'Active' ? 'selected' : '' }}>Active</option>
+                    <option {{ company.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                </select>
+            </label>
+            {# Company-level API gate (#521). This permits the company to have API users at all; it
+               does not give anyone a key. Each user is then enabled individually on their own admin
+               record, and generates their own key from their profile. #}
+            <label class="span-2 check-row">
+                <input type="checkbox" name="api_enabled" value="1" {{ company.apiEnabled|default(false) ? 'checked' : '' }}>
+                Allow API access for this customer
+            </label>
+            <label>
+                External ID
+                <input type="text" name="code" value="{{ company.code|default('') }}" placeholder="External ID / customer code (optional)">
+            </label>
+            <label>
+                Sales Rep
+                <select name="sales_rep_user_id">
+                    <option value="">Unassigned</option>
+                    {% for rep in salesRepOptions|default([]) %}
+                        <option value="{{ rep.id }}" {{ company.salesRepUserId|default('') == rep.id ? 'selected' : '' }}>{{ rep.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if company.salesRepNote|default('') %}
+                    <span class="muted" style="display: block; margin-top: 4px; font-size: 0.8125rem;">Entered at registration: "{{ company.salesRepNote }}"</span>
+                {% endif %}
+            </label>
+            <div>
+                <span class="ss-field-label">Payment Term</span>
+                <div class="ss-wrap" id="ss-payment-term">
+                    <button type="button" class="ss-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        {%- set selectedTermLabel = 'Select Payment Term' -%}
+                        {%- for term in paymentTerms -%}
+                            {%- if company.paymentTermId is defined and company.paymentTermId == term.id -%}{%- set selectedTermLabel = term.name -%}{%- endif -%}
+                        {%- endfor -%}
+                        {{ selectedTermLabel }}
+                    </button>
+                    <div class="ss-panel" role="listbox">
+                        <div class="ss-search-wrap">
+                            <input class="ss-search" type="text" placeholder="Search..." autocomplete="off">
+                        </div>
+                        <ul class="ss-list">
+                            <li class="ss-item{{ (company.paymentTermId is not defined or company.paymentTermId == '' or company.paymentTermId is null) ? ' is-selected' : '' }}" data-value="" role="option">Select Payment Term</li>
+                            {% for term in paymentTerms %}
+                                <li class="ss-item{{ company.paymentTermId is defined and company.paymentTermId == term.id ? ' is-selected' : '' }}" data-value="{{ term.id }}" role="option">{{ term.name }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="ss-empty" hidden>No results found.</p>
+                    </div>
+                    <input type="hidden" name="payment_term_id" value="{{ company.paymentTermId|default('') }}">
+                </div>
+            </div>
+            <label>
+                Credit Limit
+                <input type="number" name="credit_limit" min="0" step="0.01" value="{{ company.creditLimit|default('') }}" placeholder="No limit">
+                {% if mode == 'Update' and creditExposure is defined %}
+                    <span class="muted" style="display: block; margin-top: 4px; font-size: 0.8125rem;">
+                        Current outstanding balance: ${{ creditExposure|amount }}
+                    </span>
+                {% endif %}
+            </label>
+            {% if customFieldFragment is defined and customFieldFragment %}
+                <div class="span-2 custom-fields-section">
+                    <p class="section-label">Custom Fields</p>
+                    {{ customFieldFragment|raw }}
+                </div>
+            {% endif %}
+
+            {% if mode != 'Update' %}
+                <fieldset class="span-2 company-email-fieldset">
+                    <legend>Send user a new account email with password link ?</legend>
+                    <div class="radio-choice-group">
+                    <label class="radio-choice">
+                        <input type="radio" name="send_account_email" value="yes">
+                        <span class="radio-control" aria-hidden="true"></span>
+                        <span>Yes</span>
+                    </label>
+                    <label class="radio-choice">
+                        <input type="radio" name="send_account_email" value="no" checked>
+                        <span class="radio-control" aria-hidden="true"></span>
+                        <span>No</span>
+                    </label>
+                    </div>
+                </fieldset>
+            {% else %}
+                <input type="hidden" name="send_account_email" value="no">
+            {% endif %}
+            {% if mode == 'Update' and company.id is defined and company.id %}
+                <div class="span-2" style="display: flex; justify-content: flex-end; gap: 10px;">
+                    {% if company.status == 'Inactive' %}
+                        <button class="button primary js-company-status" type="button"
+                                data-action="activate"
+                                data-url="{{ path('admin_company_activate', {id: company.id}) }}"
+                                data-redirect="{{ path('admin_company_index') }}"
+                                data-item="{{ company.name }}">Activate</button>
+                    {% else %}
+                        <button class="button danger js-company-status" type="button"
+                                data-action="deactivate"
+                                data-url="{{ path('admin_company_deactivate', {id: company.id}) }}"
+                                data-redirect="{{ path('admin_company_index') }}"
+                                data-item="{{ company.name }}">Deactivate</button>
+                    {% endif %}
+                </div>
+            {% endif %}
+            
+            <div class="form-actions">
+                <button class="button primary" type="submit" id="admin-company-submit">{{ mode == 'Create' ? 'Create' : 'Save' }}</button>
+            </div>
+        </form>
+    </section>
+
+    {% if mode == 'Update' and company.id is defined and company.id %}
+        {% include 'admin/_shared/_audit_history_panel.html.twig' with {logs: auditHistory|default([])} only %}
+    {% endif %}
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function ($) {
+    'use strict';
+
+    $('.ss-wrap').each(function () {
+        var $wrap    = $(this);
+        var $trigger = $wrap.find('.ss-trigger');
+        var $search  = $wrap.find('.ss-search');
+        var $list    = $wrap.find('.ss-list');
+        var $empty   = $wrap.find('.ss-empty');
+        var $hidden  = $wrap.find('input[type="hidden"]');
+
+        function open() {
+            $wrap.addClass('is-open');
+            $trigger.attr('aria-expanded', 'true');
+            $search.val('').trigger('input').focus();
+        }
+
+        function close() {
+            $wrap.removeClass('is-open');
+            $trigger.attr('aria-expanded', 'false');
+        }
+
+        $trigger.on('click', function (e) {
+            e.stopPropagation();
+            $wrap.hasClass('is-open') ? close() : open();
+        });
+
+        $search.on('input', function () {
+            var q = $(this).val().toLowerCase().trim();
+            var anyVisible = false;
+            $list.find('.ss-item').each(function () {
+                var match = $(this).text().toLowerCase().indexOf(q) !== -1;
+                $(this).toggleClass('is-hidden', !match);
+                if (match) { anyVisible = true; }
+            });
+            $empty.prop('hidden', anyVisible);
+        });
+
+        $list.on('click', '.ss-item:not(.is-hidden)', function () {
+            var $item = $(this);
+            var val   = $item.data('value');
+            var label = $item.text().trim();
+
+            $list.find('.ss-item').removeClass('is-selected');
+            $item.addClass('is-selected');
+            $hidden.val(val);
+            $trigger.text(label || '-');
+            close();
+        });
+
+        $(document).on('click.ss', function (e) {
+            if (!$wrap.is(e.target) && !$wrap.has(e.target).length) {
+                close();
+            }
+        });
+
+        $search.on('keydown', function (e) {
+            if (e.key === 'Escape') { close(); $trigger.focus(); }
+        });
+    });
+}(jQuery));
+
+// document.addEventListener('DOMContentLoaded', function () {
+
+//     document.querySelectorAll('.form-grid').forEach(function (form) {
+
+//         form.addEventListener('submit', function (e) {
+
+//             if (!form.checkValidity()) {
+
+//                 e.preventDefault();
+//                 e.stopPropagation();
+
+//                 const invalid = form.querySelector(':invalid');
+
+//                 if (invalid) {
+
+//                     invalid.scrollIntoView({
+//                         behavior: 'smooth',
+//                         block: 'center'
+//                     });
+
+//                     setTimeout(function () {
+//                         invalid.focus();
+//                         form.reportValidity();
+//                     }, 100);
+//                 }
+
+//                 return false;
+//             }
+
+//         }, true);
+
+//     });
+
+// });
+</script>
+{% endblock %}

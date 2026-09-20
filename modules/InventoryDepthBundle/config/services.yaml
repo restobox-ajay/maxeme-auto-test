@@ -1,0 +1,84 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    InventoryDepthBundle\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Movement/DetailKey.php'
+            - '../src/Movement/MovementRequest.php'
+            - '../src/Movement/InsufficientStockException.php'
+            - '../src/Movement/PackConversionRefusal.php'
+            - '../src/Shipment/ShipmentRequest.php'
+            - '../src/Shipment/ShipmentException.php'
+            # Static decimal arithmetic, not a service — same reason as PackCost below.
+            - '../src/Shipment/ShipmentQuantity.php'
+            # A value class of static arithmetic, not a service — see PackCost's docblock.
+            - '../src/Movement/PackCost.php'
+            - '../src/Reorder/ReorderAssessment.php'
+            - '../src/InventoryDepthBundle.php'
+
+    InventoryDepthBundle\Bundle\InventoryDepthBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    # The sidebar. This bundle's ten screens used to be ten `app.injection_point_menu_item`
+    # services here, appending flat lines under an "Inventory" heading at the bottom of the Apps
+    # group. They now come from one provider on core's admin-menu seam (#439/#440), which makes
+    # Inventory a REAL top-level group with the screens as children — see
+    # InventoryDepthBundle\Menu\InventoryDepthMenuOverrideProvider for the labels, routes and
+    # order (the negated old tag priorities).
+    InventoryDepthBundle\Menu\InventoryDepthMenuOverrideProvider:
+        tags: ['app.admin_menu_override_provider']
+
+    InventoryDepthBundle\Inventory\DimensionalInventoryProvider:
+        tags: ['app.dimensional_inventory_provider']
+
+    # 2026-09-14 lot/serial/expiry plan: the ledger half of "how much of this lot is left".
+    InventoryDepthBundle\Inventory\LotAvailabilityProvider:
+        tags: ['app.lot_availability_provider']
+
+    # Item 38: the ledger half of voiding a restocking credit note. Core owns the note and the
+    # screen that asks what became of the goods; the movements are this bundle's.
+    InventoryDepthBundle\CreditMemo\CreditMemoRestockLedger:
+        tags: ['app.credit_memo_restock_ledger']
+
+    # Not wired into a controller or listener yet (`docs/plans/2026-09-14-shipment-dispatch.md`
+    # build order: the void service, the Completed-transition listener and the controller are
+    # still to come). Public so ShipmentServiceTest can fetch it directly — without this,
+    # RemoveUnusedDefinitionsPass drops the definition outright before the test container's
+    # private-service locator is built, since nothing else references it yet. Safe to drop once a
+    # real caller exists to keep it alive by reference instead.
+    InventoryDepthBundle\Shipment\ShipmentService:
+        public: true
+
+    InventoryDepthBundle\Shipment\ShipmentVoidService:
+        public: true
+
+    # Same reason as ShipmentService above: not consumed by ShipmentController yet.
+    InventoryDepthBundle\Shipment\ShipmentAllocationPlanner:
+        public: true
+
+    # docs/plans/2026-09-14-shipment-dispatch.md's deferred injection-point panel, built now that
+    # the Shipment screens exist. Core's invoice detail page calls
+    # injection_point('admin_invoice_detail_after_totals', ...) unconditionally; this is simply one
+    # more tagged answer to it, discovered and filtered (bundle Active/Inactive) by
+    # App\Twig\InjectionPointExtension — core still has zero compile-time knowledge of this bundle.
+    InventoryDepthBundle\Hook\InvoiceShipmentsPanelProvider:
+        tags: ['app.injection_point']
+
+    # The list half of the same seam the panel above serves on the detail page: core's
+    # App\Service\InvoiceShippingStatusDeriver sums every active app.shipped_quantity provider to
+    # decide invoice.shipping_status, and this is our answer for it. Core names no bundle — the tag
+    # is the whole contract, and BundleStatusRepository::isActiveForInstance() filters it, so
+    # switching this bundle Inactive takes the Partially Shipped answer away and leaves the grid
+    # working on core facts alone.
+    InventoryDepthBundle\Inventory\ShippedQuantityProvider:
+        tags: ['app.shipped_quantity']
+
+    InventoryDepthBundle\Import\DimensionalImportProvider:
+        arguments:
+            $sentinelBin: '[PENDING]'
+            $sentinelLot: '[PENDING]'
+        tags: ['app.dimensional_import_provider']

@@ -1,0 +1,93 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}AP Aging | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'bills',
+        heading: 'AP Aging',
+        lead: 'What we owe each vendor, by how overdue it is. Read-only: this screen reports the balances the bills themselves carry and changes nothing.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <h2>{{ bills }} open bill(s) aged as at {{ filters.asOf }}</h2>
+                <p class="lead">A bill with no due date recorded is treated as due immediately and ages from its own date.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_bills') }}">Back to bills</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card no-paginate">
+        <form method="get" id="aging-filters">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Currency</th>
+                        {% for key, label in buckets %}
+                            <th>{{ label }}</th>
+                        {% endfor %}
+                        <th>Total owed</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th>
+                            <select name="filters[vendor]" form="aging-filters" aria-label="Filter vendor" onchange="this.form.submit()">
+                                <option value="">Any vendor</option>
+                                {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ? ' selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        {# Spans the bucket columns AND the total column, so the filter row is the
+                           same width as the header above it — a row that is one cell short is what
+                           #621 asserts against. #}
+                        <th colspan="{{ buckets|length + 1 }}">
+                            <label class="checkbox-label">As at
+                                <input type="date" name="filters[asOf]" form="aging-filters" value="{{ filters.asOf }}" aria-label="Age as at this date">
+                            </label>
+                        </th>
+                        <th>
+                            <button class="button" type="submit">Apply</button>
+                            <a class="button" href="{{ path('admin_bundle_procurement_bill_aging') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        {# data-vendor/data-currency identify the row so a reader — a person or a test —
+                           can say WHICH cell a figure is in. A pivot is nothing but numbers, and a
+                           figure nobody can locate is a figure nobody can check. #}
+                        <tr class="data-item-row" data-vendor="{{ row.vendorId }}" data-currency="{{ row.currency }}">
+                            <td data-label="Vendor"><a href="{{ path('admin_bundle_procurement_vendor', {id: row.vendorId}) }}">{{ row.vendor }}</a></td>
+                            <td data-label="Currency">{{ row.currency }}</td>
+                            {% for key, label in buckets %}
+                                <td data-label="{{ label }}">{{ row.currency }} {{ row.buckets[key]|amount }}</td>
+                            {% endfor %}
+                            <td data-label="Total owed"><strong>{{ row.currency }} {{ row.total|amount }}</strong></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ buckets|length + 3 }}" class="empty-table-cell">
+                            <strong>Nothing is owed.</strong>
+                            <span>Every bill on file is either settled, a draft, or voided.</span>
+                        </td></tr>
+                    {% endfor %}
+                    {% for currency, totalRow in totals %}
+                        <tr class="data-item-row" data-vendor="all" data-currency="{{ currency }}">
+                            <td data-label="Vendor"><strong>All vendors</strong></td>
+                            <td data-label="Currency">{{ currency }}</td>
+                            {% for key, label in buckets %}
+                                <td data-label="{{ label }}"><strong>{{ currency }} {{ totalRow.buckets[key]|amount }}</strong></td>
+                            {% endfor %}
+                            <td data-label="Total owed"><strong>{{ currency }} {{ totalRow.total|amount }}</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filters apply with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        </form>
+        <p class="lead">Currencies are grouped and never converted. A vendor billing in two currencies has a row for each.</p>
+    </section>
+{% endblock %}

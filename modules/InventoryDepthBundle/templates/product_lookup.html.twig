@@ -1,0 +1,37 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Product Lookup | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'product_lookup',
+        heading: 'Product Lookup',
+        lead: 'Type a SKU or name to jump straight to that product\'s inventory hub — availability, lots and serials, reorder status, and recent activity, all in one place.'
+    } only %}
+
+    <section class="panel">
+        {# GET, so a looked-up query is a copyable URL like every other screen here. #}
+        <form method="get" class="form-grid">
+            <label>SKU or name <input type="text" name="q" value="{{ q }}" maxlength="120" autofocus placeholder="e.g. WIDGET-1" autocomplete="off" class="js-product-lookup-suggest" data-suggest-url="{{ path('admin_bundle_inventory_depth_product_lookup_suggest') }}"></label>
+            <div class="form-actions"><button class="button primary" type="submit">Find</button></div>
+        </form>
+    </section>
+
+    {% if q != '' %}
+        <section class="table-card no-paginate">
+            <h2>Results</h2>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>SKU</th><th>Name</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for product in results %}
+                    <tr class="data-item-row">
+                        <td data-label="SKU"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">{{ product.sku ?: '—' }}</a></td>
+                        <td data-label="Name"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">{{ product.name }}</a></td>
+                        <td data-label="Status">{{ product.status }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="3" class="empty-table-cell"><strong>No product matches "{{ q }}".</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+    {% endif %}
+{% endblock %}

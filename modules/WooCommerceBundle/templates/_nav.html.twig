@@ -1,0 +1,29 @@
+{# The bundle's own page header and tab strip, included by every WooCommerce screen — same shape
+   as @Barcode/_nav.html.twig, so this reads as part of the same application. #}
+<section class="panel compact-panel">
+    <div class="panel-title-row">
+        <div>
+            <p class="eyebrow">Connectors › WooCommerce</p>
+            <h1>{{ heading }}</h1>
+        </div>
+        {% if createPath is defined and createPath %}
+            <div class="panel-actions">
+                <a class="button primary" href="{{ createPath }}">{{ createLabel is defined ? createLabel : 'Create' }}</a>
+            </div>
+        {% endif %}
+    </div>
+    <nav class="detail-tabs" role="tablist" aria-label="WooCommerce sections">
+        <a class="{{ current == 'connections' ? 'is-active' : '' }}" role="tab" href="{{ path('admin_bundle_woocommerce_connections') }}">Connections</a>
+        <a class="{{ current == 'orders' ? 'is-active' : '' }}" role="tab" href="{{ path('admin_bundle_woocommerce_orders') }}">Orders</a>
+        <a class="{{ current == 'reconciliation' ? 'is-active' : '' }}" role="tab" href="{{ path('admin_bundle_woocommerce_reconciliation') }}">Reconciliation</a>
+        <a class="{{ current == 'push_queue' ? 'is-active' : '' }}" role="tab" href="{{ path('admin_bundle_woocommerce_push_queue') }}">Push Queue</a>
+        <a class="{{ current == 'bulk_resync' ? 'is-active' : '' }}" role="tab" href="{{ path('admin_bundle_woocommerce_bulk_resync') }}">Bulk Resync</a>
+    </nav>
+</section>
+
+{% for msg in app.flashes('success') %}
+    <div class="flash flash-success">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('error') %}
+    <div class="flash flash-error">{{ msg }}</div>
+{% endfor %}

@@ -1,0 +1,25 @@
+{# The ORDER's own entry at the TOP of the shared bar's ⋯ overflow — the `overflowTemplate` slot
+   `admin/_partials/sales_document_action_bar.html.twig` documents and no document filled before
+   now. Expects: `document`, the SalesOrder; `isOrderLocked`, passed through `overflowContext` by
+   `_tab_nav.html.twig`.
+
+   Void was reachable only through the "Update Order Status" modal (detail.html.twig,
+   summary_info_status / page_end blocks) — a `<select>` offering Approved and Void that posts XHR
+   to this SAME `admin_order_update_status` route, the same verb, the same `status` value. This is
+   that endpoint again, as a plain form so it works with scripting off, exactly the way Clone right
+   below it already does.
+
+   The guard is the modal's own trigger guard, word for word: `not isOrderLocked` (Closed or Void).
+   OrderController::updateStatus() refuses BOTH Approve and Void once the order is in either state
+   (isOrderLockedForEditing()), so this does not offer a control the route would only turn away —
+   and it does not additionally ask `document_is_locked()` because the modal's trigger never did
+   either; an explicitly locked-but-not-Closed-or-Void order still shows this button today the same
+   way it still shows the modal's own pencil, and the route's own `assertWritable()` is what answers
+   that case. #}
+{% if not isOrderLocked %}
+    <form id="order-action-void-form" method="post" action="{{ path('admin_order_update_status', {id: document.id}) }}" style="display: contents;">
+        {{ csrf_field() }}
+        <input type="hidden" name="status" value="Void">
+        <button id="order-action-void" class="danger" type="submit">Void Order</button>
+    </form>
+{% endif %}

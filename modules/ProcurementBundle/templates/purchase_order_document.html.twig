@@ -1,0 +1,211 @@
+{% extends is_pdf|default(false) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}Purchase Order: {{ order.poNumber }} | Admin{% endblock %}
+
+{#
+    The purchase order, printed — the document that goes to the vendor (#555's Screens list).
+
+    Laid out from templates/admin/invoice/invoice.html.twig, deliberately: same pdf_layout, same
+    slim header bar, same meta/address/lines/totals rhythm, same dompdf constraints (one sans
+    family, only normal/bold weights — see pdf_layout.html.twig for why 800/900 silently fall back
+    to Times). Continuing the sell-side conventions #555 mirrored everywhere else beats inventing a
+    second document look.
+
+    What it must NOT copy is the half of an invoice that is about being owed money. A purchase
+    order is a buy-side document: it says what WE are ordering, from WHOM, at what price, and where
+    it is to be delivered. It is not a demand for payment, so there is deliberately
+
+      - no AMOUNT DUE and no amount received — nothing is owed on a PO; the vendor's bill is what
+        creates a payable, and that is VendorBill's document, not this one;
+      - no payment status — a PO has no payment state to report, and printing one would invite
+        somebody to pay against the order rather than against the invoice;
+      - no remit-to block — remit-to says "send the money here", which on a document we are SENDING
+        to a supplier would be telling them to pay us for goods we are buying.
+
+    The two address boxes point the other way round from an invoice, and that is the whole shape of
+    the document: "Order From" is the vendor (snapshotted onto the PO at issue, never joined live —
+    renaming a vendor must not rewrite a three-year-old order), and "Deliver To" is our own
+    warehouse and company identity.
+#}
+
+{% block admin_body %}
+    {% if not is_pdf|default(false) %}
+    <section class="panel compact-panel no-print" style="margin-bottom:0;">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Purchase order document</p>
+                <h1>{{ order.poNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_purchase_order', {id: order.id}) }}">Back</a>
+                <a class="button" href="{{ path('admin_bundle_procurement_purchase_order_print', {id: order.id, pdf: 1}) }}">Download PDF</a>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="po-page-container">
+        <div class="po-document">
+
+            {# Slim title bar, text only — the lines table has to start high on page 1. #}
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#0f172a;border-collapse:collapse;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                <tr>
+                    <td width="65%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                        <span style="font-size:13px;font-weight:bold;color:#ffffff;">{{ site_name() }}</span>
+                    </td>
+                    <td width="35%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;text-align:right;font-size:16px;font-weight:bold;color:#ffffff;letter-spacing:-0.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">PURCHASE ORDER</td>
+                </tr>
+            </table>
+
+            <div class="po-body">
+
+                <table class="po-meta-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="po-meta-col">
+                            <p><strong>PO number:</strong> <span style="color:#408dfb;">{{ order.poNumber }}</span></p>
+                            <p><strong>PO date:</strong> {{ order.documentDate ?: '-' }}</p>
+                            <p><strong>Expected delivery:</strong> {{ order.expectedDate ?: '-' }}</p>
+                            <p><strong>Payment terms:</strong> {{ order.paymentTerm|default('-') }}</p>
+                            <p><strong>Currency:</strong> {{ order.currency }}</p>
+                            {# Their number for us, not ours for them: it is what the vendor's own
+                               system files this order under. #}
+                            <p><strong>Our account with you:</strong> {{ order.vendor.accountNumber|default('-') }}</p>
+                            <p><strong>Status:</strong> {{ order.status }}</p>
+                        </td>
+                        {# The buyer's identity — us. Every line is an admin setting
+                           (Settings → Company Information) and defaults are intentionally blank:
+                           never fall back to some other company's name. #}
+                        <td class="po-meta-col">
+                            {% if app_setting('company_name', '') %}<p><strong>{{ app_setting('company_name', '') }}</strong></p>{% endif %}
+                            {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                            {% set _cityLine = [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', ''))]|filter(v => v)|join(', ') %}
+                            {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                            {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                        </td>
+                        <td class="po-meta-col" style="text-align:right;">
+                            {% set _buyerPhone = app_setting('company_phone', '') %}
+                            {% set _buyerEmail = app_setting('app_email', '') %}
+                            {% if _buyerPhone %}<p><strong>Phone:</strong> {{ _buyerPhone }}</p>{% endif %}
+                            {% if _buyerEmail %}<p><strong>Email:</strong> {{ _buyerEmail }}</p>{% endif %}
+                            <p><strong>Website:</strong> {{ app_setting('website_url', app.request.schemeAndHttpHost) }}</p>
+                            <p><strong>GST Number:</strong> {{ app_setting('company_gst_number', '') ?: '-' }}</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="po-section-title">Order From / Deliver To</div>
+                <table class="po-addr-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="address-box">
+                            <h3>Order From (Vendor):</h3>
+                            <p><strong>{{ order.vendorName ?: order.vendor.name }}</strong></p>
+                            {# The snapshot taken at issue, printed line by line. A PO that has not
+                               been issued has none yet, so the vendor's current default address
+                               stands in rather than leaving the box blank. #}
+                            {% set _vendorAddress = order.vendorAddress ?: (order.vendor.defaultAddress ? order.vendor.defaultAddress.toSnapshot() : '') %}
+                            {% for addressLine in _vendorAddress|split("\n") %}
+                                {% if addressLine|trim %}<p>{{ addressLine }}</p>{% endif %}
+                            {% endfor %}
+                            {% if order.vendor.phone %}<p style="margin-top:10px;"><strong>Phone:</strong> {{ order.vendor.phone }}</p>{% endif %}
+                            {% if order.vendor.email %}<p><strong>Email:</strong> {{ order.vendor.email }}</p>{% endif %}
+                        </td>
+                        <td class="address-box">
+                            <h3>Deliver To:</h3>
+                            <p><strong>{{ order.warehouse.name }}</strong></p>
+                            {% if app_setting('company_name', '') %}<p>{{ app_setting('company_name', '') }}</p>{% endif %}
+                            {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                            {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                            {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                            {% if app_setting('company_country', '') %}<p>{{ country_name(app_setting('company_country', '')) }}</p>{% endif %}
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="po-section-title">Items Ordered</div>
+                <table class="po-table" style="width:100%;table-layout:fixed;">
+                    {# Column order: Description, Our SKU, Your part no., Quantity, Unit cost, Line
+                       total — quantity sits immediately left of Unit cost, matching the detail
+                       screen's own shape, not bunched at the far left ahead of everything else
+                       (#full-parity follow-up; same rule bill_document.html.twig now follows). #}
+                    <colgroup>
+                        <col style="width:36%;">
+                        <col style="width:15%;">
+                        <col style="width:15%;">
+                        <col style="width:10%;">
+                        <col style="width:12%;">
+                        <col style="width:12%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Our SKU</th>
+                            <th>Your part no.</th>
+                            <th>Quantity</th>
+                            <th style="text-align:right;">Unit cost</th>
+                            <th style="text-align:right;">Line total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in order.lines %}
+                            <tr>
+                                <td><strong>{{ line.name }}</strong></td>
+                                <td>{{ line.sku|default('-') }}</td>
+                                {# Their part number, printed because matching by hand against our
+                                   SKUs is where receiving errors come from (#555's plan). #}
+                                <td>{{ line.vendorSku|default('-') }}</td>
+                                <td>{{ line.quantityOrdered }}</td>
+                                <td style="text-align:right;">{{ line.unitCost|price }}</td>
+                                <td style="text-align:right;">{{ line.subtotal|amount }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6" class="empty-table-cell"><strong>This purchase order has no lines.</strong></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <table class="po-footer-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="footer-note">
+                            {% if order.notes %}
+                                <p class="footer-note-block"><strong>Notes:</strong> {{ order.notes }}</p>
+                            {% endif %}
+                            <p class="footer-note-block">
+                                Please quote purchase order <strong>{{ order.poNumber }}</strong> on your order
+                                confirmation, packing slips and invoice.
+                            </p>
+                        </td>
+                        <td class="footer-totals">
+                            {# Itemised since #655, so the vendor can check the figure against their
+                               own arithmetic rather than being asked to trust one number. Every row
+                               is stored: charges out of `charge_lines`, tax rows out of `tax_lines`,
+                               and PO TOTAL is the sum recalculateTotals() wrote from exactly these.
+
+                               There is still no AMOUNT DUE and no balance row. See the header
+                               comment: nothing is owed until the vendor bills us, and a payable
+                               belongs on the vendor bill. Itemising what is CHARGED does not make
+                               this a demand for payment. #}
+                            <table class="totals-inner" cellpadding="0" cellspacing="0">
+                                <tr><td>Subtotal:</td><td style="text-align:right;"><strong>{{ order.subtotal|amount }}</strong></td></tr>
+                                {% for charge in order.chargeLineRows %}
+                                    <tr><td>{{ charge.label }}:</td><td style="text-align:right;"><strong>{{ charge.amount|amount }}</strong></td></tr>
+                                {% endfor %}
+                                {% for taxLine in taxLines|default([]) %}
+                                    <tr><td>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|round(3) }}%{% endif %}:</td><td style="text-align:right;"><strong>{{ taxLine.amount|amount }}</strong></td></tr>
+                                {% endfor %}
+                                <tr><td>Total tax:</td><td style="text-align:right;"><strong>{{ order.tax|amount }}</strong></td></tr>
+                                <tr class="grand-total-row"><td><strong>PO TOTAL ({{ order.currency }}):</strong></td><td style="text-align:right;"><strong>{{ order.total|amount }}</strong></td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="po-global-footer-note">
+                    This is a purchase order, not an invoice. No payment is due against this document.
+                </p>
+
+            </div>{# /po-body #}
+        </div>{# /po-document #}
+    </div>
+
+    {# The shared buy-side printed-document layout, used by this template and the vendor bill's. #}
+    {% include '@Procurement/_purchase_document_styles.html.twig' %}
+{% endblock %}

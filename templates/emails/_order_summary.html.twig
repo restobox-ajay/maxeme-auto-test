@@ -1,0 +1,130 @@
+{% set billing = order.effectiveBillingAddress %}
+{% set shipping = order.effectiveShippingAddress %}
+{# Shipping rows are fee rows, but they are named on their own line in the totals below, so the
+   main_line total and the item loop both leave them out. #}
+{% set feeLinesMainTotal = 0 %}
+{% for feeLine in fee_lines %}
+    {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+        {% set feeLinesMainTotal = feeLinesMainTotal + feeLine.amount %}
+    {% endif %}
+{% endfor %}
+
+<p class="detail-heading">Company Details</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="detail-table">
+    <tr><td class="detail-label">Company Name</td><td class="detail-value">{{ order.companyIdentity.name|default('-') }}</td></tr>
+    {% if order.companyIdentity.tradeName %}<tr><td class="detail-label">DBA/Tradename</td><td class="detail-value">{{ order.companyIdentity.tradeName }}</td></tr>{% endif %}
+    {% if order.companyIdentity.email %}<tr><td class="detail-label">Email</td><td class="detail-value">{{ order.companyIdentity.email }}</td></tr>{% endif %}
+    {% if order.companyIdentity.phone %}<tr><td class="detail-label">Phone number</td><td class="detail-value">{{ order.companyIdentity.phone }}</td></tr>{% endif %}
+    {% set contactName = ((order.company.firstName ?: '') ~ ' ' ~ (order.company.lastName ?: ''))|trim %}
+    {% if contactName %}<tr><td class="detail-label">Contact Person</td><td class="detail-value">{{ contactName }}</td></tr>{% endif %}
+</table>
+
+{#
+    border-collapse/width/margin and the billing column's padding-right are duplicated as inline
+    styles below, not just the addr-table/addr-box-left classes in layout.html.twig — same Gmail
+    webmail caching issue documented in _quote_summary.html.twig (#412).
+#}
+<table role="presentation" cellpadding="0" cellspacing="0" class="addr-table" style="border-collapse: collapse; width: 100%; margin: 0 0 22px;">
+    <tr>
+        <td class="addr-box addr-box-left" style="padding-right: 12px;">
+            <h4>Billing Address</h4>
+            {% if billing %}
+                <p class="addr-name">{{ ((billing.firstName ?: '') ~ ' ' ~ (billing.lastName ?: ''))|trim ?: (order.billingName ?: order.companyIdentity.name) }}</p>
+                {% if billing.addressLine1 %}<p>{{ billing.addressLine1 }}</p>{% endif %}
+                {% if billing.addressLine2 %}<p>{{ billing.addressLine2 }}</p>{% endif %}
+                <p>{{ billing.city ?: '' }}{% if billing.province %}, {{ billing_province_name }}{% endif %}</p>
+                <p>{{ billing.country ?: '' }}{% if billing.postalCode %}, {{ billing.postalCode }}{% endif %}</p>
+            {% else %}
+                <p class="addr-name">{{ order.billingName ?: order.companyIdentity.name }}</p>
+            {% endif %}
+        </td>
+        <td class="addr-box">
+            {% if is_pickup %}
+                <h4>Pickup</h4>
+                <p class="addr-name">Customer will pick up this order.</p>
+                {% if order.fulfillmentRegion %}<p>Fulfillment Region: {{ order.fulfillmentRegion }}</p>{% endif %}
+            {% else %}
+                <h4>Shipping Address</h4>
+                {% if shipping %}
+                    <p class="addr-name">{{ ((shipping.firstName ?: '') ~ ' ' ~ (shipping.lastName ?: ''))|trim ?: (order.shippingName ?: order.companyIdentity.name) }}</p>
+                    {% if shipping.addressLine1 %}<p>{{ shipping.addressLine1 }}</p>{% endif %}
+                    {% if shipping.addressLine2 %}<p>{{ shipping.addressLine2 }}</p>{% endif %}
+                    <p>{{ shipping.city ?: '' }}{% if shipping.province %}, {{ shipping_province_name }}{% endif %}</p>
+                    <p>{{ shipping.country ?: '' }}{% if shipping.postalCode %}, {{ shipping.postalCode }}{% endif %}</p>
+                {% else %}
+                    <p class="addr-name">{{ order.shippingName ?: order.companyIdentity.name }}</p>
+                {% endif %}
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" class="detail-table">
+    <tr><td class="detail-label">Expected Delivery Time</td><td class="detail-value">{{ expected_delivery ?: '-' }}</td></tr>
+    <tr><td class="detail-label">PO #</td><td class="detail-value">{{ order.poNumber ?: '-' }}</td></tr>
+    <tr><td class="detail-label">Special Instructions</td><td class="detail-value">{{ special_instructions ?: '-' }}</td></tr>
+    {% if order.companyIdentity.phone %}<tr><td class="detail-label">Company Phone</td><td class="detail-value">{{ order.companyIdentity.phone }}</td></tr>{% endif %}
+    {% if order.fulfillmentRegion %}<tr><td class="detail-label">Fulfillment Region</td><td class="detail-value">{{ order.fulfillmentRegion }}</td></tr>{% endif %}
+</table>
+
+<p class="detail-heading">Products</p>
+{# QTY/Amount alignment and padding inlined for the same Gmail :not()-stripping reason documented
+   in _quote_summary.html.twig (#386, #412). #}
+<table role="presentation" cellpadding="0" cellspacing="0" class="line-table">
+    <thead>
+        <tr>
+            <th>Product Details</th>
+            <th style="text-align: right; padding-left: 16px;">QTY</th>
+            <th style="text-align: right; padding-left: 16px;">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in order.lines %}
+            <tr>
+                {# The line as the document prints it (#644): the quantity in the unit it was
+                   entered in, and that unit with its frozen pack size. A line entered in base units
+                   is unchanged, since quantityEntered falls back to the base figure. #}
+                <td>{{ line.name }}{% if line.sku %} ({{ line.sku }}){% endif %}{% if line.unitOfMeasure or line.unit %}, {{ line.displayUnitLabel }}{% endif %}</td>
+                <td id="email-line-qty-{{ line.id }}" style="text-align: right; padding-left: 16px;">x {{ line.quantityEntered|qty }}</td>
+                <td style="text-align: right; padding-left: 16px;"{% if line.subtotal is null %} class="tbd-text"{% endif %}>{{ line.subtotal is not null ? '$' ~ line.subtotal|amount : 'TBD' }}</td>
+            </tr>
+        {% endfor %}
+        {% for feeLine in fee_lines %}
+            {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+                <tr>
+                    <td>{{ feeLine.label }}</td>
+                    <td style="text-align: right; padding-left: 16px;">&mdash;</td>
+                    <td style="text-align: right; padding-left: 16px;">${{ feeLine.amount|amount }}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+
+{# Same :last-child alignment problem as the line-table above — inlined for the same reason
+   documented in _quote_summary.html.twig. #}
+{% set amountStyle = 'text-align: right; font-weight: 700; color: #1e293b;' %}
+{% set amountStyleTbd = 'text-align: right;' %}
+{% set grandAmountStyle = 'text-align: right; border-top: 2px solid #1d4ed8; padding-top: 12px; font-size: 16px; font-weight: 800; color: #1e3a8a;' %}
+<table role="presentation" cellpadding="0" cellspacing="0" class="totals-table" style="margin-top: 14px;">
+    <tr><td>Subtotal</td><td style="{{ order.subtotal is null ? amountStyleTbd : amountStyle }}"{% if order.subtotal is null %} class="tbd-text"{% endif %}>{{ order.subtotal is not null ? '$' ~ (order.subtotal + feeLinesMainTotal)|amount : 'TBD' }}</td></tr>
+    {% if order.shippingLines is empty %}
+        <tr><td>Shipping Fee</td><td style="{{ amountStyleTbd }}" class="tbd-text">TBD</td></tr>
+    {% endif %}
+    {% for shippingLine in order.shippingLines %}
+        <tr><td>{{ shippingLine.label }}</td><td style="{{ amountStyle }}">${{ shippingLine.amount|amount }}</td></tr>
+    {% endfor %}
+    {% if tax_lines is not empty %}
+        {% for taxLine in tax_lines %}
+            <tr><td>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(3) }}%{% endif %}</td><td style="{{ amountStyle }}">${{ taxLine.amount|amount }}</td></tr>
+        {% endfor %}
+    {% else %}
+        <tr><td>Tax</td><td style="{{ order.tax is null ? amountStyleTbd : amountStyle }}"{% if order.tax is null %} class="tbd-text"{% endif %}>{{ order.tax is not null ? '$' ~ order.tax|amount : 'TBD' }}</td></tr>
+    {% endif %}
+    {% for feeLine in fee_lines %}
+        {% if feeLine.placement|default('main_line') == 'after_tax_line' %}
+            <tr><td>{{ feeLine.label }}</td><td style="{{ amountStyle }}">${{ feeLine.amount|amount }}</td></tr>
+        {% endif %}
+    {% endfor %}
+    <tr class="grand-row"><td>Grand Total</td><td style="{{ grandAmountStyle }}{% if order.total is null %} color: #94a3b8; font-style: italic;{% endif %}">{{ order.total is not null ? '$' ~ order.total|amount : 'TBD' }}</td></tr>
+</table>

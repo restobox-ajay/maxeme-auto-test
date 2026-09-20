@@ -1,0 +1,62 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Serial Lookup | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'serial',
+        heading: 'Serial Lookup',
+        lead: 'Where is this serial now, and everything that ever happened to it — received when, put away where, shipped on which order.'
+    } only %}
+
+    <section class="panel">
+        {# GET, so a looked-up serial is a copyable URL like every other list here. #}
+        <form method="get" class="form-grid">
+            <label>Serial <input type="text" name="serial" value="{{ serial }}" maxlength="120" autofocus></label>
+            <div class="form-actions"><button class="button primary" type="submit">Find</button></div>
+        </form>
+    </section>
+
+    {% if serial != '' %}
+        <section class="panel">
+            <h2>Now</h2>
+            {% if current %}
+                <p>
+                    <strong>{{ current.product.sku ?: current.product.name }}</strong> —
+                    {{ current.warehouse.name }} /
+                    {{ current.location ? current.location.code : 'bin unspecified' }}
+                    {% if current.lot %} / {{ current.lot.label }}{% endif %}
+                    — <strong>{{ current.status }}</strong>, quantity {{ current.quantity }}
+                </p>
+            {% else %}
+                <p>
+                    Nothing holds this serial. Either it has never been received, or it has left the system —
+                    the history below says which.
+                </p>
+            {% endif %}
+        </section>
+
+        <section class="table-card no-paginate">
+            <h2>History</h2>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>When</th><th>Type</th><th>From</th><th>To</th><th>Qty</th><th>Reason</th><th>Reference</th><th>Actor</th></tr></thead>
+                <tbody>
+                {% for m in history %}
+                    <tr class="data-item-row">
+                        <td data-label="When">{{ m.group.occurredAt|date('Y-m-d H:i') }}</td>
+                        <td data-label="Type">{{ m.group.type }}</td>
+                        <td data-label="From">{{ m.fromDetail ? m.fromDetail.label : 'outside the system' }}</td>
+                        <td data-label="To">{{ m.toDetail ? m.toDetail.label : 'outside the system' }}</td>
+                        <td data-label="Qty">{{ m.quantity }}</td>
+                        <td data-label="Reason">{{ m.group.reason ?: '—' }}</td>
+                        {# The reference is the ONLY thing that answers "to whom" — a terminal sold row is
+                           shared by every shipment of that lot from that warehouse. #}
+                        <td data-label="Reference">{{ m.group.reference ?: '—' }}</td>
+                        <td data-label="Actor">{{ m.group.actor ?: '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="empty-table-cell"><strong>No movement has ever named this serial.</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+    {% endif %}
+{% endblock %}

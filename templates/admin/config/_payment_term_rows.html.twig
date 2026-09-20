@@ -1,0 +1,23 @@
+{% for row in rows %}
+    <tr>
+        <td data-label="Order">{{ row.sort_order|default(loop.index) }}</td>
+        <td data-label="Name"><strong>{{ row.name }}</strong></td>
+        <td data-label="Description">{{ row.description|default('-') ?: '-' }}</td>
+        <td data-label="Status">
+            <span class="badge {{ row.status|lower in ['inactive', 'disabled'] ? 'danger-soft' : 'success' }}">{{ row.status|default('Active') }}</span>
+        </td>
+        <td data-label="Actions">
+            <div class="row-actions">
+                <a class="table-action" href="{{ path('admin_payment_term_update', {id: row.id}) }}">Edit</a>
+                <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_payment_term_delete', {id: row.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ row.name }} payment term">Delete</button>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="5" class="empty-table-cell">
+            <strong>No payment terms found.</strong>
+            <span>Add terms such as Net 7, Net 15, or Due on fulfillment.</span>
+        </td>
+    </tr>
+{% endfor %}

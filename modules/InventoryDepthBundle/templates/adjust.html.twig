@@ -1,0 +1,298 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Stock Adjustment | Admin{% endblock %}
+{% block admin_body %}
+    <style>
+        /* The reason list is a stack of radio rows, not the right-aligned check row the shared
+           class lays out by default. Kept here rather than in a style attribute per row. */
+        .reason-row { justify-content: flex-start; gap: 10px; align-items: flex-start; }
+    </style>
+
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'adjust',
+        heading: 'Stock Adjustment',
+        lead: 'Say what happened and the movement follows from it. Every submission writes one movement group, so the reason, the actor and the date are on the record.'
+    } only %}
+
+    {# Product first, and by GET, because everything below depends on which product it is — a lot
+       belongs to exactly one, and which fields exist at all depends on that product's tracking
+       policy. Same shape as the cycle count's bin picker. #}
+    <section class="panel">
+        <h2>Which product</h2>
+        <form method="get" class="form-grid">
+            <label>
+                Product
+                <select name="product" onchange="this.form.submit()" required>
+                    <option value="">Choose a product…</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}"{{ product and product.id == p.id ? ' selected' : '' }}>{{ p.sku ?: p.name }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <input type="hidden" name="warehouse" value="{{ warehouseId }}">
+            <div class="form-actions"><button class="button" type="submit">Choose</button></div>
+        </form>
+    </section>
+
+    {% if product %}
+        {# STEP 1 — what happened. A controlled list, single select, and the ONLY thing the operator
+           decides about the shape of the movement. The from/to statuses are on the reason row; the
+           bucket effect underneath each one is a consequence recomputed from the detail rows, shown
+           here because "stock found" and "reverse a write-off" have the same physical trigger and
+           opposite effects on the books. #}
+        <section class="panel">
+            <h2>1. What happened?</h2>
+            <form method="get" class="form-grid">
+                <input type="hidden" name="product" value="{{ product.id }}">
+                <input type="hidden" name="warehouse" value="{{ warehouseId }}">
+                <div class="span-2">
+                    {% for r in reasons %}
+                        <label class="check-row reason-row">
+                            <input type="radio" name="reason" value="{{ r.code }}"{{ reason and reason.code == r.code ? ' checked' : '' }}>
+                            <span>
+                                <strong>{{ r.label }}</strong>
+                                <span class="badge info">{{ r.bucketEffect }}</span>
+                                {% if r.help %}<br><span class="lead">{{ r.help }}</span>{% endif %}
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <div class="form-actions span-2"><button class="button" type="submit">Continue</button></div>
+            </form>
+        </section>
+    {% endif %}
+
+    {% if product and reason %}
+    <section class="panel">
+        <h2>{{ reason.label }}</h2>
+        <p class="lead">{{ reason.help }}</p>
+
+        <form method="post" action="{{ path('admin_bundle_inventory_depth_adjust_submit') }}" class="form-grid">
+            {{ csrf_field() }}
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            {# The reason travels with the submission, not just in the URL. It is what derives the
+               movement type and both statuses, so a POST without it has not said what happened. #}
+            <input type="hidden" name="reason" value="{{ reason.code }}">
+
+            <p class="section-label span-2">2. Which goods</p>
+
+            {% if reason.reversal %}
+                {# Reversing ties to the ORIGINAL ENTRY, the way Dynamics ties a reversal to the item
+                   ledger entry it undoes. Bin, lot and serial all come back from that entry, so
+                   nothing is retyped — and "remaining" is what stops the same units being put back
+                   twice. #}
+                {% if reversible is empty %}
+                    <p class="span-2">Nothing has been written off for this product that still has units left to put back. If stock has turned up that was never written off, record it as <strong>Stock found</strong> instead — that is the difference between the two reasons.</p>
+                {% else %}
+                    <div class="span-2">
+                        <table class="wide-price-table">
+                            <thead>
+                                <tr><th></th><th>When</th><th>Wrote off</th><th>From</th><th>Written off</th><th>Already reversed</th><th>Can still come back</th></tr>
+                            </thead>
+                            <tbody>
+                            {% for candidate in reversible %}
+                                {% set m = candidate.movement %}
+                                <tr>
+                                    <td><input type="radio" name="original_movement_id" value="{{ m.id }}"{{ loop.first ? ' checked' : '' }} required></td>
+                                    <td>{{ m.group.occurredAt|date('Y-m-d') }}</td>
+                                    <td>{{ m.toDetail.status|replace({'_': ' '}) }}</td>
+                                    <td>
+                                        {{ m.fromDetail.warehouse.name }} /
+                                        {{ m.fromDetail.location ? m.fromDetail.location.code : '(no bin)' }}
+                                        {% if m.fromDetail.lot %} / {{ m.fromDetail.lot.label }}{% endif %}
+                                        {% if m.fromDetail.serial %} / S/N {{ m.fromDetail.serial }}{% endif %}
+                                    </td>
+                                    <td>{{ m.quantity }}</td>
+                                    <td>{{ candidate.reversed }}</td>
+                                    <td><strong>{{ candidate.remaining }}</strong></td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="lead">The quantity below cannot exceed what is left on the entry you pick. If more has turned up than that, the rest was never written off — record it as stock found.</p>
+                    </div>
+                {% endif %}
+
+            {% elseif reason.inbound %}
+                <label>
+                    Warehouse
+                    <select name="warehouse_id" required>
+                        {% for w in warehouses %}
+                            <option value="{{ w.id }}"{{ warehouseId == w.id ? ' selected' : '' }}>{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <label>
+                    Bin
+                    <select name="location_id">
+                        <option value="0">Unspecified</option>
+                        {% for b in bins %}
+                            <option value="{{ b.id }}">{{ b.warehouse.name }} — {{ b.code }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                {% if asksInboundLot %}
+                    {# PICK-OR-CREATE, not a dropdown of existing lots only: a found box carries a
+                       batch code that may never have been in this system. Code and expiry are shown
+                       together everywhere, because vendors reuse batch codes across production runs
+                       and the code alone does not identify a batch. #}
+                    <label>
+                        Batch — pick one
+                        <select name="lot_id">
+                            <option value="0">…or type a new one below</option>
+                            {% for l in lots %}
+                                <option value="{{ l.id }}">{{ l.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        …or a new batch code
+                        <input type="text" name="new_lot_code" maxlength="64" placeholder="Printed on the box">
+                    </label>
+                    <label>
+                        New batch expiry{{ expiryRequired ? ' (required)' : '' }}
+                        <input type="date" name="new_lot_expiry">
+                    </label>
+                    <p class="lead span-2">
+                        Leave both blank if the box carries no code you can read. The row is then stamped with the
+                        placeholder and flagged on the
+                        <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist') }}">tracking worklist</a>
+                        for somebody to complete — tracking never blocks a movement.
+                    </p>
+                {% endif %}
+
+                {% if asksInboundSerials %}
+                    {# One row per unit, because a serial identifies one unit and a serial row is
+                       therefore quantity 1. The row count IS the quantity. #}
+                    <div class="span-2">
+                        <p class="section-label">Serial numbers — one per unit</p>
+                        {% for i in 1..rowCount %}
+                            <input type="text" name="serials[]" maxlength="120" placeholder="Unit {{ i }}" aria-label="Serial for unit {{ i }}">
+                        {% endfor %}
+                        <p class="lead">
+                            Fill in exactly as many as the quantity below. Leave them all blank to record the units as
+                            not yet identified — they are then flagged on the
+                            <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist') }}">tracking worklist</a>.
+                            <a href="{{ path('admin_bundle_inventory_depth_adjust', {product: product.id, reason: reason.code, warehouse: warehouseId, rows: rowCount + 10}) }}">Add ten more rows</a>.
+                        </p>
+                    </div>
+                {% endif %}
+
+                {% if asksInboundExpiry %}
+                    {# Expiry is its own Yes/No, independent of lot, serial and direction (#795) — this
+                       product carries no batch for the date to ride on, so it lives on the row itself. #}
+                    <label>
+                        Expiry (required)
+                        <input type="date" name="new_detail_expiry" required>
+                    </label>
+                {% endif %}
+
+                {% if stampsSentinel %}
+                    <p class="lead span-2">
+                        This product carries {{ policy.mode == 'lot' ? 'batch codes' : 'serial numbers' }}, and policy
+                        “{{ policy.name }}” does not capture them on the way in. The row is stamped with the placeholder
+                        and flagged on the
+                        <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist') }}">tracking worklist</a>
+                        so somebody can put a real identity on it later.
+                    </p>
+                {% endif %}
+
+            {% elseif asksNamedSource %}
+                {# The operator names which rows the stock comes off: either because the policy
+                   tracks identity outbound, or because a hold is always against particular goods. #}
+                {% if sourceRows is empty %}
+                    <p class="span-2">There is no {{ reason.fromStatus|replace({'_': ' '}) }} stock of this product to take.</p>
+                {% elseif asksSerialSources %}
+                    <div class="span-2">
+                        <p class="section-label">Which units — one row per unit</p>
+                        {% for i in 1..rowCount %}
+                            <select name="source_detail_ids[]">
+                                <option value="0">Unit {{ i }} — not used</option>
+                                {% for row in sourceRows %}
+                                    <option value="{{ row.id }}">
+                                        {% if row.serial %}S/N {{ row.serial }} — {% endif %}
+                                        {{ row.warehouse.name }} / {{ row.location ? row.location.code : '(no bin)' }}
+                                        {%- if row.lot %} / {{ row.lot.label }}{% endif %} ({{ row.quantity }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% endfor %}
+                        <p class="lead">
+                            Choose exactly as many rows as the quantity below.
+                            <a href="{{ path('admin_bundle_inventory_depth_adjust', {product: product.id, reason: reason.code, warehouse: warehouseId, rows: rowCount + 10}) }}">Add ten more rows</a>.
+                        </p>
+                    </div>
+                {% else %}
+                    <label class="span-2">
+                        Which {{ reason.fromStatus|replace({'_': ' '}) }} stock
+                        {# Earliest expiry first, then lowest bin sort key — so the row an operator
+                           most likely means is the first one they see. #}
+                        <select name="source_detail_id" required>
+                            {% for row in sourceRows %}
+                                {% set expiry = row.lot ? row.lot.expiry : row.expiry %}
+                                {% set past = expiry and expiry|date('Y-m-d') <= today %}
+                                <option value="{{ row.id }}">
+                                    {{ row.warehouse.name }} / {{ row.location ? row.location.code : '(no bin)' }}
+                                    {%- if row.lot %} / {{ row.lot.label }}{% elseif row.expiry %} / exp {{ row.expiry|date('Y-m-d') }}{% endif %}
+                                    {%- if past %} — AT OR PAST EXPIRY{% endif %}
+                                    {%- if row.serial %} / S/N {{ row.serial }}{% endif %}
+                                    — {{ row.quantity }} unit(s)
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% if prefersExpiredLots %}
+                        <p class="lead span-2">Batches at or past their last usable day are marked. That is what this reason is for — the nightly sweep would have caught them eventually, and this is a person catching them first.</p>
+                    {% endif %}
+                {% endif %}
+
+            {% else %}
+                {# Nothing to ask. The product's policy does not track identity outbound, so
+                   AutomaticSourcePicker chooses: earliest expiry first, then lowest bin sort key. #}
+                <label>
+                    Warehouse
+                    <select name="warehouse_id" required>
+                        {% for w in warehouses %}
+                            <option value="{{ w.id }}"{{ warehouseId == w.id ? ' selected' : '' }}>{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <p class="lead span-2">
+                    This product does not carry a batch or serial on the way out, so the rows are chosen for you:
+                    <strong>earliest expiry first, then lowest bin sort key</strong>. Nothing to pick.
+                </p>
+            {% endif %}
+
+            <p class="section-label span-2">3. How many</p>
+            <label>
+                Quantity
+                {# Always positive. The reason expresses the direction; a negative quantity would put
+                   "which way" back into the number, which is the shape this screen replaced. #}
+                <input type="number" name="quantity" min="1" step="1" value="1" required>
+            </label>
+
+            <p class="section-label span-2">4. Paperwork</p>
+            <label>
+                Reference
+                <input type="text" name="reference" maxlength="160" placeholder="Count sheet, incident number, supplier claim">
+            </label>
+            <label>
+                Note
+                <input type="text" name="note" maxlength="255" placeholder="Anything the next reader should know">
+            </label>
+            <label>
+                When it happened
+                {# Stock found on Friday and entered on Monday belongs on Friday. Without this the
+                   real date ends up in the note, where nothing can read it. #}
+                <input type="date" name="occurred_at" value="{{ today }}">
+            </label>
+
+            <div class="form-actions span-2">
+                <button type="submit" class="button primary">Record it</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
+
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Fulfillment Regions | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default((total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Fulfillment Regions</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_fulfillment_region_create') }}">Add Region</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentSort = currentSort|default('') %}
+    {% set currentDir = currentDir|default('asc') %}
+    <section class="table-card fulfillment-region-grid no-paginate">
+        <form id="fulfillment-region-filters" method="get" action="{{ path('admin_fulfillment_region') }}" class="js-auto-submit-form">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="fulfillment-region-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_fulfillment_region', {sort: 'name', dir: currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Name</a></th>
+                        <th class="is-sortable{% if currentSort == 'defaultForNewCompany' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="defaultForNewCompany"><a href="{{ path('admin_fulfillment_region', {sort: 'defaultForNewCompany', dir: currentSort == 'defaultForNewCompany' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Default On For New Customer</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_fulfillment_region', {sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc', limit: limit, page: 1, filters: filters|default({})}) }}">Status</a></th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" aria-label="Filter name"></th>
+                        <th>
+                            <select name="filters[defaultForNewCompany]" aria-label="Filter default on for new customer">
+                                <option value=""></option>
+                                <option value="Yes" {{ filters.defaultForNewCompany|default('') == 'Yes' ? 'selected' : '' }}>Yes</option>
+                                <option value="No" {{ filters.defaultForNewCompany|default('') == 'No' ? 'selected' : '' }}>No</option>
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[status]" aria-label="Filter status">
+                                <option value=""></option>
+                                <option value="Active" {{ filters.status|default('') == 'Active' ? 'selected' : '' }}>Active</option>
+                                <option value="Inactive" {{ filters.status|default('') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/config/_fulfillment_region_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: regions|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_fulfillment_region',
+                routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+        </form>
+    </section>
+
+{% endblock %}

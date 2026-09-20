@@ -1,0 +1,49 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Canada Post — Shipping Bundle | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Shipping</p>
+                <h1>Canada Post</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Rate Formulas</h2>
+        <p>Rates are calculated per order based on total item quantity.</p>
+        <table class="admin-grid-table data-table" style="max-width:560px;margin-top:1rem">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Formula</th>
+                    <th>Delivery</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Ground</td>
+                    <td>${{ groundBase|amount }} + ${{ groundPerUnit|amount }} × qty</td>
+                    <td>{{ groundDays }} days</td>
+                </tr>
+                <tr>
+                    <td>Express</td>
+                    <td>${{ expressBase|amount }} + ${{ expressPerUnit|amount }} × qty</td>
+                    <td>{{ expressDays }} days</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="margin-top:1rem;color:var(--text-muted,#6b7280);font-size:0.875rem">
+            Rates are set in code (<code>CanadaPostShippingCalculator</code>). Contact your developer to adjust them.
+        </p>
+    </section>
+
+    <section class="panel">
+        <h2>Eligibility</h2>
+        <p>Canada Post is available for all orders that do <strong>not</strong> contain any bulk-class products.</p>
+    </section>
+{% endblock %}

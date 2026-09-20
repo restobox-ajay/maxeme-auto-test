@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    FeeUserDefinedBundle\:
+        resource: '../src/'
+
+    FeeUserDefinedBundle\Fee\UserDefinedFeeCalculator:
+        tags: ['app.fee_calculator', 'app.fee_field_provider']
+
+    FeeUserDefinedBundle\Menu\UserDefinedFeeMenuItem:
+        tags: ['app.fee_menu_item']
+
+    FeeUserDefinedBundle\Bundle\FeeUserDefinedBundleDescriptor:
+        tags: ['app.bundle_descriptor']

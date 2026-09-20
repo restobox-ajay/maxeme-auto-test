@@ -1,0 +1,29 @@
+{# The Actions cell of a purchase document line row — the buy-side twin of
+   admin/order/_line_actions.html.twig and admin/invoice/_line_actions.html.twig, collapsed into ONE
+   file rather than one per document because `prefix` (passed through) is enough to build whichever
+   hook class each row actually needs — `js-po-add-after` or `js-bill-add-after` — so one file can
+   still serve both even now that the batch button needs a real, document-specific JS hook.
+
+   The batch/lot "+" appends a BATCH SUB-ROW to this line — not another line — mirroring
+   admin/order/_line_actions.html.twig's own button exactly (#full-parity, 2026-09-13). Hidden unless
+   this row's product tracks lot/serial inbound, or the line already carries a batch value — see the
+   same test in _purchase_line_row.html.twig's batch column.
+
+   Rendered with {index, kind, showRemove, line, column, prefix}.
+#}
+<td class="order-line-controls">
+    <button class="mini-action success js-{{ prefix }}-add-after js-batch-toggle js-only" type="button" aria-label="Add batch/lot row"{% if not (kind == 'product' and (line.tracksBatch|default(false) or (line.batch|default('')) != '')) %} hidden{% endif %}>+</button>
+    {% if kind == 'product' %}
+    <a class="mini-action info"
+        {% if line.productId|default('') %}href="{{ path('admin_product_inventory_update', {id: line.productId}) }}"{% else %}hidden{% endif %}
+        target="_blank" rel="noopener" aria-label="Open product in a new tab">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <circle cx="8.5" cy="8.5" r="5.2"></circle>
+            <path d="M12.3 12.3 17 17"></path>
+        </svg>
+    </a>
+    {% endif %}
+    {% if showRemove %}
+        <button class="mini-action danger" type="submit" name="remove_line" value="{{ index }}" aria-label="Delete line">x</button>
+    {% endif %}
+</td>

@@ -1,0 +1,110 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Settings | Admin{% endblock %}
+{% block admin_body %}
+    {% set filters = app.request.query.all('filters') %}
+    {% if filters is not iterable %}
+        {% set filters = {} %}
+    {% endif %}
+    {% set currentSort = app.request.query.get('sort', 'id') %}
+    {% set currentDir = app.request.query.get('dir', 'asc')|lower == 'desc' ? 'desc' : 'asc' %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(10) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {% set firstPageUrl = path('admin_settings', {sort: currentSort, dir: currentDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) %}
+    {% set prevPageUrl = path('admin_settings', {sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage > 1 ? currentPage - 1 : 1, filters: filters, tab: activeTab|default('All')}) %}
+    {% set nextPageUrl = path('admin_settings', {sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage < pageCount ? currentPage + 1 : pageCount, filters: filters, tab: activeTab|default('All')}) %}
+    {% set lastPageUrl = path('admin_settings', {sort: currentSort, dir: currentDir, limit: currentLimit, page: pageCount, filters: filters, tab: activeTab|default('All')}) %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Settings</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_setting_create') }}">Add Config</a>
+            </div>
+        </div>
+    </section>
+
+    {% if tabs|default([])|length > 1 %}
+        <nav class="detail-tabs" role="tablist" aria-label="Settings categories" style="margin: 0 0 16px;">
+            {% for tab in tabs %}
+                <a class="{{ tab == activeTab|default('All') ? 'is-active' : '' }}" role="tab" href="{{ path('admin_settings', {tab: tab}) }}">{{ tab }}</a>
+            {% endfor %}
+        </nav>
+    {% endif %}
+
+    <section class="table-card settings-admin-grid no-paginate">
+        <form method="get" action="{{ path('admin_settings') }}" class="js-auto-submit-form">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="tab" value="{{ activeTab|default('All') }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-header">
+                <h2>Settings{% if activeTab|default('All') != 'All' %} &ndash; {{ activeTab }}{% endif %}</h2>
+            </div>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="settings-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="id"><a href="{{ path('admin_settings', {sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) }}">#</a></th>
+                            {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_settings', {sort: 'name', dir: nextDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) }}">Name</a></th>
+                            {% set nextDir = currentSort == 'settingKey' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'settingKey' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="settingKey"><a href="{{ path('admin_settings', {sort: 'settingKey', dir: nextDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) }}">Key</a></th>
+                            {% set nextDir = currentSort == 'value' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'value' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="value"><a href="{{ path('admin_settings', {sort: 'value', dir: nextDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) }}">Value</a></th>
+                            {% set nextDir = currentSort == 'description' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'description' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="description"><a href="{{ path('admin_settings', {sort: 'description', dir: nextDir, limit: currentLimit, page: 1, filters: filters, tab: activeTab|default('All')}) }}">Description</a></th>
+                            <th>Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" data-filter-field="id" aria-label="Filter ID"></th>
+                            <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" data-filter-field="name" aria-label="Filter name"></th>
+                            <th><input type="text" name="filters[settingKey]" value="{{ filters.settingKey|default('') }}" data-filter-field="settingKey" aria-label="Filter key"></th>
+                            <th><input type="text" name="filters[value]" value="{{ filters.value|default('') }}" data-filter-field="value" aria-label="Filter value"></th>
+                            <th><input type="text" name="filters[description]" value="{{ filters.description|default('') }}" data-filter-field="description" aria-label="Filter description"></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/config/_settings_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: settings|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_settings',
+                    routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters, tab: activeTab|default('All')},
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

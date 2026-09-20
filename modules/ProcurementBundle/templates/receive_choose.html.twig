@@ -1,0 +1,58 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Receive goods | Admin{% endblock %}
+{% block admin_body %}
+    {#
+      Choose PO (#792, mockup/receive-flow-7 `#choose`): the front door of the receive flow. A
+      searchable list of the orders this delivery could be against, and the no-PO path beside it —
+      the same two things the mockup's screen 1 offers, as a plain GET filter and a plain link
+      rather than the mockup's client-side search, because this screen has to work with scripting
+      off. `?q=` is a URL a receiver can search from twice, which a JS-only listbox never is.
+    #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'receipts',
+        heading: 'Receive goods',
+        lead: 'Pick the purchase order this delivery is for.'
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the list it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    <section class="panel">
+        <form method="get" action="{{ path('admin_bundle_procurement_receive') }}" class="po-search-form">
+            <label class="sr-only" for="po-search">Search purchase order number or vendor</label>
+            <input type="text" id="po-search" class="po-search-input" name="q" value="{{ q }}"
+                   placeholder="Search PO number or vendor…" autocomplete="off">
+            <button class="button" type="submit">Search</button>
+            {% if q %}<a class="button outline" href="{{ path('admin_bundle_procurement_receive') }}">Clear</a>{% endif %}
+        </form>
+
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead>
+                <tr><th>Purchase order</th><th>Vendor</th><th style="text-align:right;">Outstanding</th><th>Due</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for open in openOrders %}
+                    <tr>
+                        <td><strong>{{ open.poNumber }}</strong></td>
+                        <td>{{ open.vendorName }}</td>
+                        <td style="text-align:right;">{{ open.quantityOutstanding|qty }}</td>
+                        <td>{{ open.expectedDate ? open.expectedDate|date('Y-m-d') : 'no date' }}</td>
+                        <td><a class="button primary" href="{{ path('admin_bundle_procurement_receive', {po: open.id}) }}">Receive</a></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="empty-table-cell">
+                        <span>{% if q %}No open purchase order matches “{{ q }}”.{% else %}No purchase order is open for receiving.{% endif %}</span>
+                    </td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="panel compact-panel">
+        <p>
+            No purchase order? Samples, warranty replacements and phone-call deliveries are still receivable.
+            <a class="button outline" href="{{ path('admin_bundle_procurement_receive', {nopo: 1}) }}">Receive without a purchase order</a>
+        </p>
+    </section>
+{% endblock %}

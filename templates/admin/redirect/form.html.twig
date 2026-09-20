@@ -1,0 +1,122 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ mode }} Redirect | Admin{% endblock %}
+{% block admin_body %}
+    {% set isCreate = mode == 'Create' %}
+    {% set currentDestinationType = formData.destination_type ?? (redirect ? redirect.destinationType : 'url') %}
+    {% set currentRedirectType = formData.redirect_type ?? (redirect ? redirect.redirectType : 301) %}
+    {% set currentQueryHandling = formData.query_handling ?? (redirect ? redirect.queryHandling : 'pass') %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Settings › Redirection</p>
+                <h1>{{ mode }} Redirect</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_redirect_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-create-form-panel">
+        <form method="post" class="form-grid" id="redirect-form">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                Source URL <span class="req">*</span>
+                <input type="text" name="source_path" value="{{ formData.source_path ?? (redirect ? redirect.sourcePath : '') }}" placeholder="/old-page" required>
+                <span class="field-hint">No domain, just the path, starting with "/". Client side only — never matches admin URLs.</span>
+            </label>
+
+            <fieldset class="span-2">
+                <legend>Destination</legend>
+                <label class="check-row">
+                    <input type="radio" name="destination_type" value="url" data-destination-toggle {{ currentDestinationType == 'url' ? 'checked' : '' }}>
+                    A URL (relative or absolute)
+                </label>
+                <label class="check-row">
+                    <input type="radio" name="destination_type" value="category" data-destination-toggle {{ currentDestinationType == 'category' ? 'checked' : '' }}>
+                    A product category page
+                </label>
+            </fieldset>
+
+            <label class="span-2" data-destination-panel="url">
+                Destination URL <span class="req">*</span>
+                <input type="text" name="destination_url" value="{{ formData.destination_url ?? (redirect ? redirect.destinationUrl : '') }}" placeholder="/new-page or https://example.com/page">
+                <span class="field-hint">Relative (e.g. "/new-page") or absolute (e.g. "https://example.com/page").</span>
+            </label>
+
+            <label class="span-2" data-destination-panel="category">
+                Destination Category <span class="req">*</span>
+                <select name="destination_category_id">
+                    <option value="">-- Select a category --</option>
+                    {% set currentCategoryId = formData.destination_category_id ?? (redirect and redirect.destinationCategory ? redirect.destinationCategory.id : '') %}
+                    {% for category in categoryOptions %}
+                        <option value="{{ category.id }}" {{ currentCategoryId|default('') == category.id ? 'selected' : '' }}>{{ category.label }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-hint">The destination URL is generated at runtime, so it always points at the category's current page.</span>
+            </label>
+
+            <label>
+                Type
+                <select name="redirect_type">
+                    <option value="301" {{ currentRedirectType|default(301) == 301 ? 'selected' : '' }}>301 (Permanent)</option>
+                    <option value="302" {{ currentRedirectType|default(301) == 302 ? 'selected' : '' }}>302 (Temporary)</option>
+                </select>
+            </label>
+
+            <fieldset class="span-2">
+                <legend>How to treat query parameters?</legend>
+                <label class="check-row">
+                    <input type="radio" name="query_handling" value="pass" {{ currentQueryHandling == 'pass' ? 'checked' : '' }}>
+                    Ignore, redirect and pass to destination URL
+                </label>
+                <label class="check-row">
+                    <input type="radio" name="query_handling" value="match" {{ currentQueryHandling == 'match' ? 'checked' : '' }}>
+                    Must match source URL query parameters
+                </label>
+                <label class="check-row">
+                    <input type="radio" name="query_handling" value="strip" {{ currentQueryHandling == 'strip' ? 'checked' : '' }}>
+                    Ignore, redirect and strip out, do not pass to destination URL
+                </label>
+            </fieldset>
+
+            <div class="form-actions">
+                <button type="submit" class="button primary">{{ isCreate ? 'Save Redirect' : 'Update Redirect' }}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+    (function () {
+        var form = document.getElementById('redirect-form');
+        if (!form) { return; }
+
+        var toggles = form.querySelectorAll('[data-destination-toggle]');
+        var panels = {
+            url: form.querySelector('[data-destination-panel="url"]'),
+            category: form.querySelector('[data-destination-panel="category"]')
+        };
+
+        function sync() {
+            var selected = form.querySelector('[data-destination-toggle]:checked');
+            var type = selected ? selected.value : 'url';
+            Object.keys(panels).forEach(function (key) {
+                if (panels[key]) {
+                    panels[key].style.display = key === type ? '' : 'none';
+                }
+            });
+        }
+
+        toggles.forEach(function (toggle) {
+            toggle.addEventListener('change', sync);
+        });
+
+        sync();
+    })();
+    </script>
+{% endblock %}

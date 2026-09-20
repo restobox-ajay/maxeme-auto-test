@@ -1,0 +1,28 @@
+{# The add-line controls above a sell-side document's line table: Add Product / Add Blank Line,
+   plus the charge-type picker (sales_add_line_bar.html.twig). Renders nothing when `hook` isn't
+   passed — the order-linked invoice screen has no line-row JS at all, so it never fills the table
+   this way.
+
+   Parameters
+   ----------
+   hook               required to render anything. 'order' | 'estimate' | 'invoice'.
+   shippingOptions, shippingOptionsUrl, categoryFilter, sentinel
+                      passed straight to sales_add_line_bar.html.twig.
+#}
+{% if hook|default('') %}
+    <div class="order-lines-toolbar">
+        <div class="order-line-actions js-only">
+            <button class="button primary js-{{ hook }}-add-product" type="button">Add Product</button>
+            <button class="button primary js-{{ hook }}-add-blank" type="button">Add Blank Line</button>
+        </div>
+        {{ include('admin/_partials/sales_add_line_bar.html.twig', {
+            hook: hook,
+            shippingOptions: shippingOptions|default([]),
+            shippingOptionsUrl: shippingOptionsUrl|default(''),
+            submitLabel: 'Add Line & Save',
+            submitClass: 'button primary no-js-inline',
+            sentinel: sentinel|default(false),
+            categoryFilter: categoryFilter|default(false),
+        }, with_context = false) }}
+    </div>
+{% endif %}

@@ -1,0 +1,6 @@
+# Invokes App\Routing\BundleControllerLoader (tagged routing.loader in config/services.yaml),
+# which discovers every module's admin/customer controllers by globbing modules/*/src/Controller.
+# New bundles never need a routes.yaml entry — see the loader class for why.
+bundle_controllers:
+    resource: .
+    type: bundle_controllers

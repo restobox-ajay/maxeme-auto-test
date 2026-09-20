@@ -1,0 +1,114 @@
+{# The totals box beside a sell-side document's line table: subtotal, shipping, charges, tax,
+   total. The order's and the quote's, which were the same sixty lines twice.
+
+   NOT the invoice's. An invoice carries its money as a <tfoot> of the line table itself — with
+   rows a document appends after the total — the invoice's Amount Paid and Balance Due — because an
+   order is never paid, its invoices are — so it is the invoice, and a
+   different shape. Three implementations of one arithmetic is still the finding; this closes two
+   of them. The third closes when the arithmetic moves to a DocumentTotals view-model built in the
+   controller, which is what the row shape below is already written to accept:
+
+       {subtotal, shippingRows[], beforeTaxRows[], taxRows[], totalTax, afterTaxRows[], total}
+
+   with every amount nullable and null meaning TBD. Two things in this file are the reason that
+   view-model is not simply this file's parameter list yet, and both are real: the invoice's
+   charge labels carry a `× quantity` span INSIDE the label, and its Total Tax row shows
+   unconditionally — BOTH are now this box's behaviour, so the invoice uses it too. Whoever builds
+   the view-model has to decide both, and neither decision belongs in a template.
+
+   The OUTER wrapper div stays with each caller. The two disagree about its inline style by a
+   trailing semicolon, and a parameter existing only to carry one character of CSS punctuation is
+   drift with extra steps.
+
+   Parameters
+   ----------
+   subtotal       required  the document's subtotal ALREADY carrying its main-line charges, or
+                            null when unstated. Subtotal is the sum of what the table above lists,
+                            or the figures below stop adding up to the Total.
+   shippingLines  required  one row per shipping line, labelled exactly as it was entered — a
+                            document can carry a carrier charge, a fuel surcharge and a
+                            residential fee, and each is its own row. Pass [] for none, and a
+                            stand-in row is printed rather than nothing: a shipping-free order
+                            still has to say so.
+   beforeTaxRows  required  charge rows placed above the tax rows, each {label, amount}. Pass [].
+   afterTaxRows   required  charge rows placed below Total Tax, each {label, amount}. Pass [].
+                            Ad-hoc tax an admin typed is a TAX line and is already listed with the
+                            calculated ones, not hanging below Total Tax unexplained.
+   taxLines       required  the calculated tax rows, each {label, rate, amount} with a nullable
+                            rate and an optional slug. Pass [] for none.
+   tax            required  the document's total tax, or null when unstated.
+   total          required  the document's total, or null when unstated.
+   allowUnstated  optional  true on a quote. Wherever an amount is null it reads TBD rather than
+                            $0.00, and the shipping stand-in reads TBD too: shipping is the one
+                            figure a quote may leave unstated, and a stated $0.00 would tell the
+                            customer it ships free (#254/#255). An order is priced by definition,
+                            so its stand-in is a real $0.00. Defaults to false.
+   taxRowIds      optional  true to key each tax row `tax-line-<the calculator's own slug>`, so a
+                            specific row can be pointed at. The order carries them; the quote
+                            never has. Defaults to false.
+
+   `shipping-fee-row` is the hook the quote PDF has carried since #254 and the one the order
+   screen, the quote screen, the invoice screen and the invoice PDF all carry now, so the row is
+   addressable by the same name wherever a sell-side document renders it. A semantic hook with no
+   styling, like `fee-line-row` in the table above. #}
+
+{% set unstated = allowUnstated|default(false) %}
+{% set rowStyle = 'display:flex; justify-content:space-between; padding:8px 0; font-size:0.88rem; border-bottom:1px solid var(--line-light);' %}
+
+<div style="width:380px; background:#fff; border:1px solid var(--line-light); border-top:0; border-radius:0 0 var(--radius-md) var(--radius-md); padding:20px 24px; box-shadow:var(--shadow-sm);">
+    <div style="{{ rowStyle }}">
+        <span style="color:#64748b; font-weight:600;">Subtotal:</span>
+        <strong style="color:#334155;">{{ subtotal is not null ? '$' ~ subtotal|amount : 'TBD' }}</strong>
+    </div>
+    {% if shippingLines is empty %}
+        <div class="shipping-fee-row" style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">Shipping Fee:</span>
+            <strong style="color:#334155;">{{ unstated ? 'TBD' : '$0.00' }}</strong>
+        </div>
+    {% endif %}
+    {% for shippingLine in shippingLines %}
+        <div class="shipping-fee-row" style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ shippingLine.label }}:</span>
+            <strong style="color:#334155;">${{ shippingLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    {% for feeLine in beforeTaxRows %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ feeLine.label }}{% if feeLine.quantity|default(1) != 1 %} <span style="font-weight:400; color:#64748b;">&times; {{ feeLine.quantity|qty }}</span>{% endif %}:</span>
+            <strong style="color:#334155;">${{ feeLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    {% for taxLine in taxLines %}
+        <div{% if taxRowIds|default(false) %} id="tax-line-{{ taxLine.slug|default('unslugged') }}"{% endif %} style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span>
+            <strong style="color:#334155;">${{ taxLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    {# Always shown, including a genuine $0.00. It used to hide at zero here while the invoice
+       showed it unconditionally, which is the difference that kept the invoice on its own totals
+       template. Ruled 2026-09-12: show it, and the three converge. A null tax is TBD rather than a
+       hidden row, same as Subtotal and Total Amount (#254). #}
+    <div style="{{ rowStyle }}">
+        <span style="color:#64748b; font-weight:800;">Total Tax:</span>
+        <strong style="color:#334155;">{{ tax is not null ? '$' ~ tax|amount : 'TBD' }}</strong>
+    </div>
+    {% for feeLine in afterTaxRows %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ feeLine.label }}{% if feeLine.quantity|default(1) != 1 %} <span style="font-weight:400; color:#64748b;">&times; {{ feeLine.quantity|qty }}</span>{% endif %}:</span>
+            <strong style="color:#334155;">${{ feeLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    <div style="display:flex; justify-content:space-between; padding:14px 0 4px; font-size:1.05rem;">
+        <span style="font-weight:800; color:var(--ink);">Total Amount:</span>
+        <strong style="font-weight:800; color:var(--admin-blue-hover);">{{ total is not null ? '$' ~ total|amount : 'TBD' }}</strong>
+    </div>
+    {# Rows a document adds after the total. Generic on purpose: this box does not know that an
+       invoice is paid and an order is not — it is handed rows and prints them. The invoice passes
+       Amount Paid and Balance Due; the other two pass nothing. #}
+    {% for row in afterTotalRows|default([]) %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:{{ row.strong|default(false) ? 800 : 600 }};">{{ row.label }}:</span>
+            <strong style="color:#334155;">${{ row.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+</div>

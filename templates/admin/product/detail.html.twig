@@ -1,0 +1,234 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Product Detail Grid | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products detail overview</p>
+                <div class="title-with-action">
+                    <h1>Product Detail</h1>
+                    <button type="button" class="button outline js-choose-columns-toggle" aria-haspopup="dialog" aria-controls="column-chooser">Choose Columns</button>
+                </div>
+                <p class="lead">Products are managed across three areas: core details, pricing, and inventory — see the dedicated Inventory page for per-region quantities. Private SKUs are only visible to assigned customers.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                {% include 'admin/_product_grid_nav.html.twig' with {
+                    addProductRedirect: 'admin_product_detail_index',
+                    currentSort: currentSort,
+                    currentDir: currentDir,
+                    currentLimit: currentLimit,
+                    currentPage: currentPage,
+                    filters: filters
+                } only %}
+            </div>
+        </div>
+    </section>
+
+    {# Columns the admin has deselected are hidden server-side, so the correct set shows even without
+       JS. `!important` is needed here: app.css forces `display: table-cell` on the sort-header row
+       (`.wide-product-table thead tr:nth-child(2) th`) with higher specificity than a plain
+       `.col-{{ key }}` selector, so without it the header cell would stay visible while its matching
+       `<td>`s in the body vanish — shifting every header to the right of a hidden column one slot out
+       of alignment with the data underneath it. The colspans on the grouped header row above are
+       computed from the same visible-column set (see columnGroupCounts), so that row stays aligned
+       too. #}
+    <style>
+        {% for key, meta in columnRegistry %}
+            {% if key not in visibleColumns %}.wide-product-table .col-{{ key }} { display: none !important; }{% endif %}
+        {% endfor %}
+    </style>
+
+    {# The chooser is rendered in-page and hidden; the button above just unhides it, so no network
+       round-trip and it degrades to "columns already applied" when JS is off. Issue #120.5. #}
+    <div class="column-chooser" id="column-chooser" role="dialog" aria-label="Choose columns" hidden>
+        <form method="post" action="{{ path('admin_product_detail_columns_save') }}">
+            {{ csrf_field() }}
+            <div class="column-chooser-head">
+                <strong>Choose columns</strong>
+                <button type="button" class="column-chooser-close js-choose-columns-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="column-chooser-list">
+                {% for key, meta in columnRegistry %}
+                    <label class="column-chooser-item"><input type="checkbox" name="columns[]" value="{{ key }}"{{ key in visibleColumns ? ' checked' : '' }}> {{ meta.0 }}</label>
+                {% endfor %}
+            </div>
+            {% if canOverrideColumnsForAll %}
+                <label class="column-chooser-item column-chooser-all"><input type="checkbox" name="apply_all" value="1"> Apply as the default for all users</label>
+            {% endif %}
+            <div class="column-chooser-actions">
+                <button type="submit" class="button primary">Save</button>
+                <button type="button" class="button outline js-choose-columns-close">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <section class="table-card product-admin-grid no-search no-paginate">
+        <form method="get" action="{{ path('admin_product_detail_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort|default('id') }}">
+            <input type="hidden" name="dir" value="{{ currentDir|default('asc') }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="wide-product-table">
+                <thead>
+                    <tr class="column-groups">
+                        {% if columnGroupCounts.core > 0 %}<th colspan="{{ columnGroupCounts.core }}">Product core</th>{% endif %}
+                        {% if columnGroupCounts.catalog > 0 %}<th colspan="{{ columnGroupCounts.catalog }}">Catalog controls</th>{% endif %}
+                        {% if columnGroupCounts.pricing > 0 %}<th colspan="{{ columnGroupCounts.pricing }}">Product pricing</th>{% endif %}
+                        <th rowspan="2">Actions</th>
+                    </tr>
+                    <tr>
+                        {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %} col-id"  data-sort-field="id"><a href="{{ path('admin_product_detail_index', {sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">ID</a></th>
+                        {# Not sortable and not filterable — there is nothing meaningful to order or
+                           match a thumbnail on. Same shape as the Custom Fields header below. #}
+                        <th class="col-image">Image</th>
+                        {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %} col-name"  data-sort-field="name"><a href="{{ path('admin_product_detail_index', {sort: 'name', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Product name</a></th>
+                        {% set nextDir = currentSort == 'sku' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'sku' %} is-sorted-{{ currentDir }}{% endif %} col-sku"  data-sort-field="sku"><a href="{{ path('admin_product_detail_index', {sort: 'sku', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">SKU</a></th>
+                        {% set nextDir = currentSort == 'category' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'category' %} is-sorted-{{ currentDir }}{% endif %} col-category"  data-sort-field="category"><a href="{{ path('admin_product_detail_index', {sort: 'category', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Category</a></th>
+                        {% set nextDir = currentSort == 'type' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'type' %} is-sorted-{{ currentDir }}{% endif %} col-type"  data-sort-field="type"><a href="{{ path('admin_product_detail_index', {sort: 'type', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Type</a></th>
+                        {% set nextDir = currentSort == 'unit' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'unit' %} is-sorted-{{ currentDir }}{% endif %} col-unit"  data-sort-field="unit"><a href="{{ path('admin_product_detail_index', {sort: 'unit', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">U/M</a></th>
+                        {% set nextDir = currentSort == 'weight' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'weight' %} is-sorted-{{ currentDir }}{% endif %} col-weight"  data-sort-field="weight"><a href="{{ path('admin_product_detail_index', {sort: 'weight', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Weight</a></th>
+                        {% set nextDir = currentSort == 'visible' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'visible' %} is-sorted-{{ currentDir }}{% endif %} col-visible"  data-sort-field="visible"><a href="{{ path('admin_product_detail_index', {sort: 'visible', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Visible</a></th>
+                        {% set nextDir = currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %} col-status"  data-sort-field="status"><a href="{{ path('admin_product_detail_index', {sort: 'status', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Status</a></th>
+                        {% set nextDir = currentSort == 'sales_tax_code' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'sales_tax_code' %} is-sorted-{{ currentDir }}{% endif %} col-sales_tax_code"  data-sort-field="sales_tax_code"><a href="{{ path('admin_product_detail_index', {sort: 'sales_tax_code', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Tax Class</a></th>
+                        {% set nextDir = currentSort == 'shipping_class' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'shipping_class' %} is-sorted-{{ currentDir }}{% endif %} col-shipping_class"  data-sort-field="shipping_class"><a href="{{ path('admin_product_detail_index', {sort: 'shipping_class', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Shipping Class</a></th>
+                        {% set nextDir = currentSort == 'sync_source' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'sync_source' %} is-sorted-{{ currentDir }}{% endif %} col-sync_source"  data-sort-field="sync_source"><a href="{{ path('admin_product_detail_index', {sort: 'sync_source', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Source</a></th>
+                        {% set nextDir = currentSort == 'remarks' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'remarks' %} is-sorted-{{ currentDir }}{% endif %} col-remarks"  data-sort-field="remarks"><a href="{{ path('admin_product_detail_index', {sort: 'remarks', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Remarks</a></th>
+                        {% set nextDir = currentSort == 'short' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'short' %} is-sorted-{{ currentDir }}{% endif %} col-short"  data-sort-field="short"><a href="{{ path('admin_product_detail_index', {sort: 'short', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Short description</a></th>
+                        {% set nextDir = currentSort == 'long' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'long' %} is-sorted-{{ currentDir }}{% endif %} col-long"  data-sort-field="long"><a href="{{ path('admin_product_detail_index', {sort: 'long', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Long description</a></th>
+                        {% set nextDir = currentSort == 'privacy' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'privacy' %} is-sorted-{{ currentDir }}{% endif %} col-privacy"  data-sort-field="privacy"><a href="{{ path('admin_product_detail_index', {sort: 'privacy', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Private</a></th>
+                        <th class="col-custom_fields">Custom Fields</th>
+                        {% set nextDir = currentSort == 'cost' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'cost' %} is-sorted-{{ currentDir }}{% endif %} col-cost"  data-sort-field="cost"><a href="{{ path('admin_product_detail_index', {sort: 'cost', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Cost price</a></th>
+                        {% set nextDir = currentSort == 'original' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'original' %} is-sorted-{{ currentDir }}{% endif %} col-original"  data-sort-field="original"><a href="{{ path('admin_product_detail_index', {sort: 'original', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Original price</a></th>
+                        {% set nextDir = currentSort == 'price' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'price' %} is-sorted-{{ currentDir }}{% endif %} col-price"  data-sort-field="price"><a href="{{ path('admin_product_detail_index', {sort: 'price', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Sale price</a></th>
+                        {% set nextDir = currentSort == 'deposit' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th class="is-sortable{% if currentSort == 'deposit' %} is-sorted-{{ currentDir }}{% endif %} col-deposit"  data-sort-field="deposit"><a href="{{ path('admin_product_detail_index', {sort: 'deposit', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Deposit</a></th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th class="col-id"><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" aria-label="Filter by id"></th>
+                        <th class="col-image"></th>
+                        <th class="col-name"><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" aria-label="Filter by product name"></th>
+                        <th class="col-sku"><input type="text" name="filters[sku]" value="{{ filters.sku|default('') }}" aria-label="Filter by sku"></th>
+                        <th class="col-category">
+                            {# See prices.html.twig: a real <select> of ids (issue #424) replaces the
+                               old <input>+<datalist>, so the name-as-value workaround and the
+                               backend's name-LIKE branch are both gone. #}
+                            <select name="filters[category]" class="js-searchable-select" data-placeholder="All categories" onchange="this.form.submit()" aria-label="Filter by category">
+                                <option value="">All categories</option>
+                                {% for category in categories|default([]) %}
+                                    <option value="{{ category.id }}" {{ filters.category|default('') == category.id ? 'selected' : '' }}>{{ category.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th class="col-type"><input type="text" name="filters[type]" value="{{ filters.type|default('') }}" aria-label="Filter by type"></th>
+                        <th class="col-unit"><input type="text" name="filters[unit]" value="{{ filters.unit|default('') }}" aria-label="Filter by unit"></th>
+                        <th class="col-weight"><input type="text" name="filters[weight]" value="{{ filters.weight|default('') }}" aria-label="Filter by weight"></th>
+                        <th class="col-visible">
+                            <input type="text" name="filters[visible]" value="{{ filters.visible|default('') }}" list="product-visible-options" aria-label="Filter by visible">
+                            <datalist id="product-visible-options">
+                                <option value="Yes"></option>
+                                <option value="No"></option>
+                            </datalist>
+                        </th>
+                        <th class="col-status">
+                            <input type="text" name="filters[status]" value="{{ filters.status|default('') }}" list="product-status-options" aria-label="Filter by status">
+                            {# Enumerated from ProductStatus rather than hand-kept: this list said
+                               Active/Inactive only, and a filter offering fewer values than the
+                               column can hold is how Draft would have stayed invisible here. #}
+                            <datalist id="product-status-options">
+                                {% for status in enum_cases('App\\Enum\\ProductStatus') %}
+                                    <option value="{{ status.value }}"></option>
+                                {% endfor %}
+                            </datalist>
+                        </th>
+                        <th class="col-sales_tax_code"><input type="text" name="filters[sales_tax_code]" value="{{ filters.sales_tax_code|default('') }}" aria-label="Filter by tax class"></th>
+                        <th class="col-shipping_class"><input type="text" name="filters[shipping_class]" value="{{ filters.shipping_class|default('') }}" aria-label="Filter by shipping class"></th>
+                        <th class="col-sync_source">
+                            {# The datalist is the whole point of surfacing this: the stamped values are a
+                               closed set an admin has no way to guess, and "-" is how the grid prints a
+                               product whose provenance predates the stamping (see issue #477). #}
+                            <input type="text" name="filters[sync_source]" value="{{ filters.sync_source|default('') }}" list="product-sync-source-options" aria-label="Filter by source">
+                            <datalist id="product-sync-source-options">
+                                <option value="manual"></option>
+                                <option value="number1-product-csv-import"></option>
+                                <option value="number1-rim-api"></option>
+                                <option value="core-admin-product-import"></option>
+                                <option value="-"></option>
+                            </datalist>
+                        </th>
+                        <th class="col-remarks"><input type="text" name="filters[remarks]" value="{{ filters.remarks|default('') }}" aria-label="Filter by remarks"></th>
+                        <th class="col-short"><input type="text" name="filters[short]" value="{{ filters.short|default('') }}" aria-label="Filter by short description"></th>
+                        <th class="col-long"><input type="text" name="filters[long]" value="{{ filters.long|default('') }}" aria-label="Filter by long description"></th>
+                        <th class="col-privacy">
+                            <input type="text" name="filters[privacy]" value="{{ filters.privacy|default('') }}" list="product-privacy-options" aria-label="Filter by private/public">
+                            <datalist id="product-privacy-options">
+                                <option value="Public"></option>
+                                <option value="Private"></option>
+                            </datalist>
+                        </th>
+                        <th class="col-custom_fields"></th>
+                        <th class="col-cost"><input type="text" name="filters[cost]" value="{{ filters.cost|default('') }}" aria-label="Filter by cost price"></th>
+                        <th class="col-original"><input type="text" name="filters[original]" value="{{ filters.original|default('') }}" aria-label="Filter by original price"></th>
+                        <th class="col-price"><input type="text" name="filters[price]" value="{{ filters.price|default('') }}" aria-label="Filter by sale price"></th>
+                        <th class="col-deposit"><input type="text" name="filters[deposit]" value="{{ filters.deposit|default('') }}" aria-label="Filter by deposit"></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/product/_detail_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            <label class="per-page-label">
+                Per page
+                <select name="limit" onchange="this.form.submit()">
+                    {% for size in [20, 100, 200, 500] %}
+                        <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: products|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_product_detail_index',
+                routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+        </form>
+    </section>
+{% endblock %}

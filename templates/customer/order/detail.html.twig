@@ -1,0 +1,411 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Order Detail | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    {# Rolled up from this order's invoices by the controller (#539 stage 4) — the order itself holds
+       no payment status any more. #}
+    {% set isPaid = paymentLabel == 'Paid' %}
+    {% set normalizedOrderStatus = (order.status ?: '')|lower %}
+    {# Void and Closed are #539 stage 2's successors to Cancelled and Completed — kept in step with
+       Customer\OrderController::canMakePayment() and canCustomerCancelOrder(), which are the gates
+       this only renders. #}
+    {% set canMakePayment = not isPaid and normalizedOrderStatus not in ['draft', 'void'] %}
+    {% set canCancelOrder = not isPaid and normalizedOrderStatus not in ['draft', 'void', 'closed'] %}
+    {% set orderStatusLabel = order.status ?: '-' %}
+    {% set ship = order.effectiveShippingAddress %}
+    {% set bill = order.effectiveBillingAddress %}
+    {% set stripeDetails = '' %}
+    {% if order.specialInstructions and 'Stripe PaymentIntent:' in order.specialInstructions %}
+        {% set stripeDetails = order.specialInstructions|split('Stripe PaymentIntent:')|last|trim %}
+    {% endif %}
+
+    <section class="customer-view-order-head">
+        <div class="customer-view-order-head__main">
+            <div class="customer-view-order-head__title">
+            <h1>VIEW ORDER: {{ order.orderNumber ?: ('#' ~ order.id) }}</h1>
+            </div>
+            <div class="customer-view-order-head__actions">
+                <a class="button primary" href="{{ path('customer_orders') }}">&larr; Back to my orders</a>
+                {% if canMakePayment %}
+                    <a class="button primary customer-order-payment" href="{{ path('customer_order_detail', {id: order.id, payment: 1}) }}#order-payment-card">Make Payment</a>
+                {% endif %}
+                {% if canCancelOrder %}
+                    <form method="post" action="{{ path('customer_order_cancel', {id: order.id}) }}" style="display:inline;">
+                        {{ csrf_field() }}
+                        <button class="button outline danger" type="submit">Cancel</button>
+                    </form>
+                {% endif %}
+                {# Both documents, per the client's decision on #539 stage 6: "Yes. The whole thing is
+                   so clean we can hide one of them later but for now just show SO and Invoice." The
+                   sales order is one file and is always there; the invoices are one file each and
+                   are listed in their own card below, because an order billed in parts has several
+                   and a single button here could only ever offer one of them. #}
+                <a class="button dark customer-invoice-btn" href="{{ path('customer_order_document', {id: order.id}) }}">Download Sales Order</a>
+                {# Posts the order id and nothing else. The server has the order; handing it back its
+                   own lines is what let anyone POST any SKU at any quantity to /cart/reorder (#230). #}
+                <form class="reorder-form" method="post" action="{{ path('customer_cart_reorder') }}" style="display:inline;">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="order" value="{{ order.id }}">
+                    <button class="button outline" type="submit">
+                        <span class="reorder-icon" aria-hidden="true">&#10227;</span> Reorder
+                    </button>
+                </form>
+            </div>
+        </div>
+        <nav class="customer-view-order-head__crumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span>&rsaquo;</span>
+            <a href="{{ path('customer_orders') }}">Order Lists</a>
+        </nav>
+    </section>
+
+    <section class="order-detail-grid customer-view-order-info-grid">
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Order Info</h2>
+                <div class="customer-view-order-card__meta">
+                    <span>{{ order.createdAt|date('Y-m-d h:i A') }}</span>
+                    <span class="badge {{ orderStatusLabel|lower in ['draft', 'approved', 'partially invoiced'] ? 'warn' : (orderStatusLabel|lower == 'void' ? 'danger' : 'info') }}">{{ orderStatusLabel }}</span>
+                </div>
+            </header>
+            <div class="customer-view-order-info">
+                {% if sourceEstimate %}
+                    <div><label>Quote:</label><span><a href="{{ path('customer_estimate_detail', {id: sourceEstimate.id}) }}">{{ sourceEstimate.documentNumber }}</a></span></div>
+                {% endif %}
+                <div><label>Company Name:</label><span>{{ order.shippingCompanyName ?: order.companyIdentity.name }}</span></div>
+                <div><label>Company Email:</label><span>{{ order.companyIdentity.email ?: '-' }}</span></div>
+                <div><label>Company Phone:</label><span>{{ orderPhone ?: '-' }}</span></div>
+                <div><label>Expected Delivery Time:</label><span>{{ expectedDelivery ?: '' }}</span></div>
+                <div><label>PO #:</label><span>{{ order.poNumber ?: '-' }}</span></div>
+                <div><label>Special Instructions #:</label><span>{{ specialInstructions }}</span></div>
+                <div><label>Fulfillment Region:</label><span>{{ order.fulfillmentRegion ?: '-' }}</span></div>
+                <div><label>Payment Status:</label><span><span class="badge {{ isPaid ? 'success' : 'warn' }}">{{ paymentLabel }}</span></span></div>
+                <div><label>Payment method:</label><span>{{ order.paymentMethod ?: '-' }}</span></div>
+                {% if stripeDetails %}
+                    <div><label>Stripe Details:</label><span>Stripe Confirmation {{ stripeDetails|slice(0, 6) ~ '****************' ~ stripeDetails|slice(-4) }}</span></div>
+                {% endif %}
+                {{ injection_point('customer_order_detail_info', {order: order}) }}
+            </div>
+        </article>
+
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Billing Detail</h2>
+            </header>
+            <div class="customer-view-order-address">
+                <div><label>First Name</label><span>{{ bill ? (bill.firstName ?: '-') : '-' }}</span></div>
+                <div><label>Last Name</label><span>{{ bill ? (bill.lastName ?: '-') : '-' }}</span></div>
+                <div><label>Phone Number</label><span>{{ bill ? (bill.phone ?: '-') : '-' }}</span></div>
+                <div><label>Street Address</label><span>{{ bill ? (bill.addressLine1 ?: '-') : '-' }}</span></div>
+                <div><label>Address 2</label><span>{{ bill ? (bill.addressLine2 ?: '-') : '-' }}</span></div>
+                <div><label>City</label><span>{{ bill ? (bill.city ?: '-') : '-' }}</span></div>
+                <div><label>Province</label><span>{{ bill and bill.province ? province_name(bill.country, bill.province) : '-' }}</span></div>
+                <div><label>Country</label><span>{{ bill ? (bill.country ?: '-') : '-' }}</span></div>
+                <div><label>Postal Code</label><span>{{ bill ? (bill.postalCode ?: '-') : '-' }}</span></div>
+            </div>
+        </article>
+
+        <article class="customer-view-order-card">
+            <header class="customer-view-order-card__head">
+                <h2>Shipping Detail</h2>
+            </header>
+            <div class="customer-view-order-address">
+                <div><label>Name</label><span>{{ ship ? (((ship.firstName ?: '') ~ ' ' ~ (ship.lastName ?: ''))|trim ?: (order.shippingName ?: '-')) : (order.shippingName ?: '-') }}</span></div>
+                <div><label>Phone Number</label><span>{{ ship ? (ship.phone ?: '-') : '-' }}</span></div>
+                <div><label>Street Address</label><span>{{ ship ? (ship.addressLine1 ?: '-') : '-' }}</span></div>
+                <div><label>Address 2</label><span>{{ ship ? (ship.addressLine2 ?: '-') : '-' }}</span></div>
+                <div><label>City</label><span>{{ ship ? (ship.city ?: '-') : '-' }}</span></div>
+                <div><label>Province</label><span>{{ ship and ship.province ? province_name(ship.country, ship.province) : '-' }}</span></div>
+                {% if ship and ship.deliveryInstructions %}<div><label>Delivery instructions</label><span>{{ ship.deliveryInstructions }}</span></div>{% endif %}
+                <div><label>Country</label><span>{{ ship ? (ship.country ?: '-') : '-' }}</span></div>
+                <div><label>Postal Code</label><span>{{ ship ? (ship.postalCode ?: '-') : '-' }}</span></div>
+            </div>
+        </article>
+    </section>
+
+    {# ── Invoices (#539 stage 6) ──────────────────────────────────────────────
+       The customer's half of the SO↔Invoice cross-link. The order says what was ordered; these say
+       what has been billed, and each one is a document the buyer can download.
+
+       Draft invoices are left out on purpose. A draft has not been issued to anybody — it holds no
+       stock and does not draw down the order — so from the customer's side it does not exist yet,
+       which is the same rule customer_order_invoice_pdf enforces at the route. #}
+    {% set issuedInvoices = order.invoices|filter(i => i.status != 'Draft') %}
+    <section class="table-card no-search no-paginate customer-view-order-products">
+        <div class="table-header">
+            <h2>Invoices</h2>
+        </div>
+        <div class="wide-table-wrap">
+            {# Same classes the Products table below carries, so the two cards on this page are one
+               table style rather than a styled one and a bare one. #}
+            <table class="order-list-table customer-order-items-table">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                        <th style="text-align:right;">Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in issuedInvoices %}
+                        <tr>
+                            <td data-label="Invoice">{{ invoice.documentNumber }}</td>
+                            <td data-label="Date">{{ invoice.invoiceDate ?: invoice.documentDate ?: '-' }}</td>
+                            <td data-label="Status"><span class="badge {{ invoice.status == 'Completed' ? 'success' : (invoice.status == 'Cancelled' ? 'danger' : 'info') }}">{{ invoice.status }}</span></td>
+                            <td data-label="Payment"><span class="badge {{ invoice.paymentStatus.value == 'Paid' ? 'success' : 'warn' }}">{{ invoice.paymentStatus.value }}</span></td>
+                            <td data-label="Total" style="text-align:right;">${{ invoice.total|amount }}</td>
+                            <td data-label="Document"><a class="button outline" href="{{ path('customer_order_invoice_pdf', {id: invoice.id}) }}">Download Invoice</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell"><span>No invoice has been issued for this order yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {# Shipping rows are fee rows too, but they are named on their own line in the summary rather
+       than listed as products, so the main_line totals and loops here leave them out. #}
+    {% set feeLines = order.feeLines|default('')|json_decode %}
+    {% set feeTotalsMainLine = 0 %}
+    {% for feeLine in feeLines %}
+        {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+            {% set feeTotalsMainLine = feeTotalsMainLine + feeLine.amount %}
+        {% endif %}
+    {% endfor %}
+
+    <section class="table-card no-search no-paginate customer-view-order-products">
+        <div class="table-header">
+            <h2>Products</h2>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="order-list-table customer-order-items-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>U/M</th>
+                        <th>SKU</th>
+                        <th>Weight</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                        <th>Tax Code</th>
+                        <th>Tax $</th>
+                        <th>Batch</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in order.lines %}
+                        <tr>
+                            <td data-label="Name">{{ line.name }}</td>
+                            <td data-label="U/M">{{ line.displayUnitLabel }}</td>
+                            <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                            <td data-label="Weight">{{ line.weight|default('-') }}</td>
+                            <td data-label="Quantity" id="customer-line-qty-{{ line.id }}">
+                                {# The figure in the unit the cell beside it names (#644, #659). It
+                                   read `line.quantity` — the BASE figure — while the U/M cell read
+                                   the line's own term and the Price cell read the rate per that
+                                   term, so a line of 40 BOX-12 at $6.00 printed as 480 BOX-12 at
+                                   $6.00 against a subtotal of $240.00: three cells, two
+                                   denominations, no way for a customer to tell which. Every other
+                                   surface that prints this line — the admin order detail and
+                                   document, the customer estimate detail, the quote PDF and both
+                                   email summaries — already printed quantityEntered. #}
+                                {{ line.quantityEntered|qty }}
+                                {# Read-only, and only when part of the line is actually waiting on
+                                   stock (#548) — a customer whose order is fully in stock sees the
+                                   quantity cell exactly as before. #}
+                                {% if line.backorderedUnits > 0 %}
+                                    <br><small class="order-line-backorder">{{ line.backorderedUnits }} on backorder{% if line.restockEta %} &mdash; expected {{ line.restockEta|date('Y-m-d') }}{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td data-label="Price" id="customer-line-price-{{ line.id }}">${{ line.displayUnitPrice|price }}</td>
+                            <td data-label="Subtotal">${{ line.subtotal|amount }}</td>
+                            <td data-label="Tax Code">{{ perLineTaxLabel[loop.index0]|default('No tax') }}</td>
+                            <td data-label="Tax $">${{ perLineTax[loop.index0]|default(0)|amount }}</td>
+                            <td data-label="Batch">{{ line.batch|default('-') }}</td>
+                            <td data-label="Actions">
+                                <form class="reorder-form" method="post" action="{{ path('customer_cart_reorder') }}" style="display:inline;">
+                                    {{ csrf_field() }}
+                                    <input type="hidden" name="order" value="{{ order.id }}">
+                                    <input type="hidden" name="line" value="{{ line.id }}">
+                                    <button class="button outline customer-view-order-line-reorder" type="submit">
+                                        <span class="reorder-icon" aria-hidden="true">&#10227;</span>REORDER
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="11" class="empty-table-cell"><span>No items found.</span></td></tr>
+                    {% endfor %}
+                    {% for feeLine in feeLines %}
+                        {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+                            <tr class="fee-line-row">
+                                <td data-label="Name">{{ feeLine.label }}</td>
+                                <td data-label="U/M">&mdash;</td>
+                                <td data-label="SKU">&mdash;</td>
+                                <td data-label="Weight">&mdash;</td>
+                                <td data-label="Quantity">&mdash;</td>
+                                <td data-label="Price">&mdash;</td>
+                                <td data-label="Subtotal">${{ feeLine.amount|amount }}</td>
+                                <td data-label="Tax Code">&mdash;</td>
+                                <td data-label="Tax $">&mdash;</td>
+                                <td data-label="Batch">&mdash;</td>
+                                <td data-label="Actions">&mdash;</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="customer-view-order-totals-row">
+        <div class="customer-view-order-totals-col">
+            <div id="payment-summary" class="customer-view-order-summary customer-view-order-summary--boxed">
+                <div><span>Subtotal:</span><strong class="js-checkout-subtotal">${{ (order.subtotal + feeTotalsMainLine)|amount }}</strong></div>
+                <div class="js-checkout-discount-row" hidden><span>Coupon Discount:</span><strong class="js-checkout-discount">-$0.00</strong></div>
+                {% if order.shippingLines is empty %}
+                    <div><span>Shipping Fee:</span><strong>$0.00</strong></div>
+                {% endif %}
+                {% for shippingLine in order.shippingLines %}
+                    <div><span>{{ shippingLine.label }}:</span><strong>${{ shippingLine.amount|amount }}</strong></div>
+                {% endfor %}
+                {% for feeLine in feeLines %}
+                    {% if feeLine.placement|default('main_line') == 'before_tax_line' %}
+                        <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+                    {% endif %}
+                {% endfor %}
+                {% for taxLine in taxLines|default([]) %}
+                    <div><span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span><strong>${{ taxLine.amount|amount }}</strong></div>
+                {% endfor %}
+                {% for feeLine in feeLines %}
+                    {% if feeLine.placement|default('main_line') == 'after_tax_line' %}
+                        <div><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+                    {% endif %}
+                {% endfor %}
+                <div class="is-total"><span>Grand Total:</span><strong class="js-checkout-total">${{ order.total|amount }}</strong></div>
+            </div>
+            {% if showPayment and canMakePayment and couponsEnabled|default(false) and (order.total + 0) > 0 %}
+                <div class="customer-order-payment-coupon">
+                    <label for="order-coupon-code">Coupon Code:</label>
+                    <input id="order-coupon-code" class="form-control js-checkout-coupon-input" type="text" placeholder="Enter coupon code">
+                    <button class="button primary js-checkout-coupon-apply" type="button">Apply</button>
+                </div>
+                <p class="checkout-coupon-feedback js-checkout-coupon-feedback"></p>
+            {% endif %}
+            {# "us" is the seller, so this is the seller's own address from Settings — companyIdentity
+               is the *buyer's* snapshot, which asked the buyer to email themselves, and its fallback
+               was the literal support@example.com. Blank drops the whole note (#351). #}
+            {% set _sellerEmail = app_setting('sales_email', '') ?: app_setting('app_email', '') %}
+            {% if _sellerEmail %}
+                <div class="customer-view-order-note customer-view-order-note--boxed">
+                    If you'd like to make changes to this order, please contact us or email us at {{ _sellerEmail }}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if showPayment and canMakePayment %}
+        <div class="customer-view-order-totals-row">
+            <div class="customer-view-order-totals-col">
+                <aside id="order-payment-card" class="checkout-card checkout-payment-card customer-order-payment-card">
+                    <form id="checkout-form"
+                          class="customer-order-payment-form js-checkout-form"
+                          method="post"
+                          action="{{ path('customer_order_payment', {id: order.id}) }}"
+                          data-order-payment="1"
+                          data-order-id="{{ order.id }}"
+                          data-order-subtotal="{{ order.subtotal + 0 }}"
+                          data-order-shipping="{{ order.shippingTotal ?? 0 }}"
+                          data-order-fee-total="{{ orderPaymentTotals.feeTotal|default(0) }}"
+                          data-order-tax-rate="{{ orderPaymentTotals.taxRatePercent|default(0) }}"
+                          data-checkout-config="{{ checkoutConfig|json_encode|e('html_attr') }}"
+                          data-stripe-enabled="{{ stripeEnabled ? '1' : '0' }}"
+                          data-stripe-publishable-key="{{ stripePublishableKey|default('') }}"
+                          data-stripe-intent-url="{{ path('customer_order_payment_stripe_intent', {id: order.id}) }}"
+                          data-stripe-method-name="{{ stripeCardMethodName|default('') }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="payment_method" value="{{ stripeCardMethodName }}">
+                        <input type="hidden" name="payment_intent_id" value="">
+                        <input type="hidden" name="coupon_code" value="">
+                        <input type="hidden" name="bill_first_name" value="{{ bill ? bill.firstName : '' }}">
+                        <input type="hidden" name="bill_last_name" value="{{ bill ? bill.lastName : '' }}">
+                        <input type="hidden" name="bill_phone" value="{{ bill ? bill.phone : '' }}">
+                        <input type="hidden" name="bill_address1" value="{{ bill ? bill.addressLine1 : '' }}">
+                        <input type="hidden" name="bill_address2" value="{{ bill ? bill.addressLine2 : '' }}">
+                        <input type="hidden" name="bill_city" value="{{ bill ? bill.city : '' }}">
+                        <input type="hidden" name="bill_province" value="{{ bill ? bill.province : '' }}">
+                        <input type="hidden" name="bill_postal_code" value="{{ bill ? bill.postalCode : '' }}">
+                        <input type="hidden" name="bill_country" value="{{ bill ? bill.country : '' }}">
+
+                        <h2>Payment Method</h2>
+                        <div class="checkout-card-body">
+                        {% if (order.total + 0) <= 0 %}
+                            <div class="checkout-payment-fallback">
+                                <p class="checkout-payment-copy">This order total is $0.00, so there is no card payment to collect. Please update the order total from admin if payment is required.</p>
+                            </div>
+                        {% elseif stripeEnabled %}
+                                <div class="checkout-payment-heading">
+                                    <span class="checkout-payment-bullet" aria-hidden="true"></span>
+                                    <strong>{{ stripeCardMethodName }}</strong>
+                                </div>
+                                <section class="checkout-stripe-panel" data-stripe-panel>
+                                    <div class="payment-logos">
+                                        <span>mastercard</span>
+                                        <span>VISA</span>
+                                    </div>
+                                    <div class="payment-test-card">
+                                        {% if stripeTestMode|default(false) %}
+                                            <p>
+                                                Stripe is currently in TEST mode. Please use credit card
+                                                <strong>4242 4242 4242 4242</strong> and any future date for expiry.
+                                            </p>
+                                        {% endif %}
+                                        <h3>Credit Card</h3>
+                                        <div class="checkout-stripe-fields">
+                                            <label class="checkout-stripe-field checkout-stripe-field-full">
+                                                <span>Card Number<span aria-hidden="true">*</span></span>
+                                                <div class="checkout-stripe-element" id="stripe-card-number"></div>
+                                            </label>
+                                            <label class="checkout-stripe-field">
+                                                <span>Expiry Date<span aria-hidden="true">*</span></span>
+                                                <div class="checkout-stripe-element" id="stripe-card-expiry"></div>
+                                            </label>
+                                            <label class="checkout-stripe-field">
+                                                <span>Card Code(CVV)<span aria-hidden="true">*</span></span>
+                                                <div class="checkout-stripe-element" id="stripe-card-cvc"></div>
+                                            </label>
+                                        </div>
+                                        <p class="checkout-stripe-error" data-stripe-error hidden></p>
+                                    </div>
+                                </section>
+                            {% else %}
+                                <div class="checkout-payment-fallback">
+                                    <p class="checkout-payment-copy">Card checkout is not configured yet. Please contact the seller to complete payment.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if (order.total + 0) > 0 %}
+                            <button class="button primary full-width checkout-confirm js-checkout-submit" type="submit" {{ stripeEnabled ? '' : 'disabled' }}>
+                                Confirm Checkout
+                            </button>
+                        {% endif %}
+                    </form>
+                </aside>
+            </div>
+        </div>
+    {% endif %}
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {% if showPayment and stripeEnabled %}
+        <script src="https://js.stripe.com/v3/"></script>
+    {% endif %}
+{% endblock %}

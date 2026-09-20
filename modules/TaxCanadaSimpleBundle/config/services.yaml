@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    TaxCanadaSimpleBundle\:
+        resource: '../src/'
+
+    TaxCanadaSimpleBundle\Tax\CanadaSimpleTaxCalculator:
+        tags: ['app.tax_calculator']
+
+    TaxCanadaSimpleBundle\Menu\CanadaSimpleTaxMenuItem:
+        tags: ['app.tax_menu_item']
+
+    TaxCanadaSimpleBundle\Bundle\TaxCanadaSimpleBundleDescriptor:
+        tags: ['app.bundle_descriptor']

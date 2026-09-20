@@ -1,0 +1,322 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+# See also https://symfony.com/doc/current/service_container/import.html
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+imports:
+    - { resource: '../modules/*/config/services.yaml' }
+
+parameters:
+    app.admin_host: '%env(ADMIN_HOST)%'
+    app.customer_host: '%env(CUSTOMER_HOST)%'
+    # PRAGMA synchronous level for every SQLite connection. FULL (fsync per commit) everywhere
+    # real data is at stake; config/packages/test/doctrine.yaml drops it to OFF for the
+    # throwaway test database. See App\Doctrine\SqliteWalMiddleware.
+    app.sqlite_synchronous: 'FULL'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+
+    App\Routing\BundleControllerLoader:
+        tags: ['routing.loader']
+
+    # ImportRunner is built by hand, once per import type, by that import's own service (its
+    # ImportDefinitionInterface/ImportValidatorInterface/ImportRowExecutorInterface are all
+    # implementation-specific) — never resolved from the container, so it must not be autowired:
+    # with zero implementations of those interfaces registered yet, AutowirePass would otherwise
+    # fail at compile time trying to resolve them for this one unused service definition. See
+    # docs/plans/2026-09-18-unified-import-framework.md.
+    App\Service\Import\ImportRunner:
+        autowire: false
+
+    # Resolves ImportRun::$importType to the ImportRunner that runs it. Empty (and correctly so)
+    # until some import registers a factory under this tag — e.g.
+    # VendorSheetImportRunnerFactory: tags: ['app.import_runner_factory'] in a module's own
+    # services.yaml, the same way App\Service\Document\CoreDocumentPrefixProvider tags itself
+    # above rather than via an _instanceof block (this codebase's established convention).
+    App\Service\Import\ImportRunnerRegistry:
+        arguments:
+            $factories: !tagged_iterator app.import_runner_factory
+
+    App\Service\Import\ImportQueueSpawner:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            $debug: '%kernel.debug%'
+
+    # Core's own product importer, brought fully into the unified framework — see
+    # docs/plans/2026-09-18-unified-import-framework.md. Number1ProductImportBundle and
+    # Number1RimImportBundle still call ProductImportService::import() directly, unaffected.
+    App\Service\ProductImport\ProductImportRunnerFactory:
+        tags: ['app.import_runner_factory']
+
+    App\Doctrine\SqliteWalMiddleware:
+        arguments:
+            $synchronous: '%app.sqlite_synchronous%'
+
+    # Provisions and garbage-collects the per-agent e2e databases (var/db_{name}.sqlite).
+    # Registered unconditionally, unlike the connection factory in services_dev.yaml: both
+    # commands refuse to run outside dev themselves, and a command that exists but says no is
+    # easier to understand than one that is silently absent.
+    App\Command\TestInstanceProvisionCommand:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+            # The same key the connection factory reads, so provisioning can refuse up front. The
+            # command used to have no opinion on it, and with the key unset the factory ignored
+            # TEST_INSTANCE while the command seeded the shared dev database and reported an
+            # instance file it had never created.
+            $instanceKey: '%env(default::TEST_INSTANCE_KEY)%'
+
+    # No key argument here on purpose: the gc command never opens a database. It only unlinks
+    # files matching var/db_*.sqlite, and the shared dev database is var/data_dev.db, which the
+    # glob cannot match and PROTECTED_NAMES names anyway. Refusing without a key would make it
+    # unable to clear up exactly the debris an unusable key leaves behind.
+    App\Command\TestInstanceGcCommand:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $environment: '%kernel.environment%'
+
+    App\EventSubscriber\AdminHostSubscriber:
+        arguments:
+            $adminHost: '%app.admin_host%'
+
+    App\EventSubscriber\ForceHttpsSubscriber:
+        arguments:
+            $environment: '%kernel.environment%'
+
+    App\EventSubscriber\CsrfProtectionSubscriber:
+        arguments:
+            # security.firewall.map is private; injected so the subscriber can ask whether the
+            # matched firewall is stateless (API) and therefore CSRF-exempt.
+            $firewallMap: '@security.firewall.map'
+
+    App\EventSubscriber\RedirectSubscriber:
+        arguments:
+            $adminHost: '%app.admin_host%'
+
+    App\Service\CustomerUrlGenerator:
+        arguments:
+            $customerHost: '%app.customer_host%'
+
+    App\Service\AdminUrlGenerator:
+        arguments:
+            $adminHost: '%app.admin_host%'
+
+    App\Twig\InjectionPointExtension:
+        arguments:
+            $providers: !tagged_iterator app.injection_point
+
+    # Registering SandboxExtension compiles a security check into every Twig template. It is
+    # NOT sandboxed globally: repository templates render normally, and SandboxedTemplateRenderer
+    # switches the sandbox on only while compiling admin-authored sources from the database.
+    # Note this means the Twig cache must be rebuilt on deploy for the checks to be present.
+    Twig\Extension\SandboxExtension:
+        arguments:
+            $policy: '@App\Twig\Sandbox\UserTemplateSecurityPolicy'
+            $sandboxed: false
+        tags: ['twig.extension']
+
+    App\Service\TemplateOverrideResolver:
+        arguments:
+            $providers: !tagged_iterator app.template_override
+
+    # Whoever can honour product_core.inventory_mode = 'dimensional' (#550). Empty when no depth
+    # bundle is installed or it is switched Inactive, which is the correct answer then: every
+    # product reads as 'simple' and every quantity field goes back to being editable.
+    # Bundles contribute to the shipped email catalogue through this (#563). Core's own 22 come
+    # from the static ShippedEmailTemplates; providers are gated on their bundle being Active.
+    App\Service\Email\ShippedEmailTemplateCatalogue:
+        arguments:
+            $providers: !tagged_iterator app.shipped_email_template_provider
+
+    # Whoever owns a document type contributes its number prefix through this (#615), so the
+    # Document Prefixes screen renders whatever registered instead of three hard-coded fields.
+    # Core registers its own five the same way; providers are gated on their bundle being Active.
+    App\Service\Document\DocumentPrefixCatalogue:
+        arguments:
+            $providers: !tagged_iterator app.document_prefix_provider
+
+    App\Service\Document\CoreDocumentPrefixProvider:
+        tags: ['app.document_prefix_provider']
+
+    # Whoever owns an entity makes it a custom-field target through this (#745), so
+    # CustomFieldValueRepository and the admin screen both work off a collected list instead of a
+    # hardcoded MAP/OBJECT_TYPES pair. Core registers its own seven the same way.
+    App\Service\CustomField\CustomFieldObjectTypeCatalogue:
+        arguments:
+            $providers: !tagged_iterator app.custom_field_object_type_provider
+
+    App\Service\CustomField\CoreCustomFieldObjectTypeProvider:
+        tags: ['app.custom_field_object_type_provider']
+
+    # Whoever owns a document makes it lockable through this (#759), replacing
+    # DocumentLockService's old hardcoded TYPES/OWNERS pair. Core registers its own three the same
+    # way; providers are gated on their bundle being Active.
+    App\Service\Document\LockableDocumentCatalogue:
+        arguments:
+            $providers: !tagged_iterator app.lockable_document_provider
+
+    App\Service\Document\CoreLockableDocumentProvider:
+        tags: ['app.lockable_document_provider']
+
+    # #565: who implements the advanced (bin/lot/serial/expiry) import, if anyone. Absent or
+    # Inactive means the advanced mode does not exist and a file carrying those columns has them
+    # ignored rather than rejected.
+    App\Service\Inventory\DimensionalImportResolver:
+        arguments:
+            $providers: !tagged_iterator app.dimensional_import_provider
+
+    App\Service\Inventory\InventoryModeResolver:
+        arguments:
+            $providers: !tagged_iterator app.dimensional_inventory_provider
+
+    # 2026-09-14 lot/serial/expiry plan: who can say how much of a specific InventoryLot is actually
+    # available. Absent or Inactive means every lot-scoped question answers null and
+    # AdminOrderStockValidator falls back to its existing aggregate check alone.
+    App\Service\Inventory\LotAvailabilityResolver:
+        arguments:
+            $providers: !tagged_iterator app.lot_availability_provider
+
+    # Product Inventory Hub (docs/plans/2026-09-15-product-inventory-hub.md): the one core service
+    # that holds the tagged iterator, so InventoryDepthBundle's hub page can ask a sibling module
+    # (ProcurementBundle, for purchase orders/receipts) for Recent Activity rows without a
+    # compile-time reference to that module's classes. Absent or Inactive providers simply
+    # contribute nothing.
+    App\Service\Inventory\ProductActivityFeedResolver:
+        arguments:
+            $providers: !tagged_iterator app.product_activity_provider
+
+    # Same seam, same reason, for the hub's "which vendor(s)" identity-card line.
+    App\Service\Inventory\ProductVendorResolver:
+        arguments:
+            $providers: !tagged_iterator app.product_vendor_provider
+
+    # #706: the reorder engine's missing term — how much of a product is already dispatched toward
+    # a warehouse on a transfer but not yet received. WarehouseOpsBundle owns transfer data;
+    # InventoryDepthBundle may not hold a compile-time reference to it. Absent or Inactive answers
+    # 0, same as "nothing in transit".
+    App\Service\Inventory\InboundTransferResolver:
+        arguments:
+            $providers: !tagged_iterator app.inbound_transfer_provider
+
+    # #741: every connector type (WooCommerce, and whatever bundle registers next) for the core
+    # Connectors directory. A connector bundle deleted or switched Inactive just means its row is
+    # absent from the directory — the same "absent means nothing to show" contract as every other
+    # seam above, never an error.
+    App\Service\Connector\ConnectorRegistry:
+        arguments:
+            $providers: !tagged_iterator app.connector_type_provider
+
+    # #707: which products a search term names by barcode (UPC/EAN/GTIN/vendor or customer part
+    # number), for App\Service\Product\ProductPicker::searchPage() to fold in alongside its own
+    # name/SKU match. BarcodeBundle owns product_barcode; core may not hold a compile-time reference
+    # to it. Absent or Inactive answers [] for every term, same as before this seam existed.
+    App\Service\Product\ProductBarcodeSearchResolver:
+        arguments:
+            $providers: !tagged_iterator app.product_barcode_search_provider
+
+    # Item 38: who can say what a restocking credit note's issuing actually moved, and record what
+    # became of it when the note is voided. Absent or Inactive means nothing ever wrote a `returned`
+    # row, so a note voids on one post exactly as it always did.
+    App\Service\Inventory\CreditMemoRestockResolver:
+        arguments:
+            $providers: !tagged_iterator app.credit_memo_restock_ledger
+
+    App\Service\CatalogFacetResolver:
+        arguments:
+            $providers: !tagged_iterator app.catalog_facet_provider
+
+    App\Service\CatalogViewConfigResolver:
+        arguments:
+            $providers: !tagged_iterator app.catalog_view_config_provider
+
+    App\Service\CatalogListColumnResolver:
+        arguments:
+            $providers: !tagged_iterator app.catalog_list_column_provider
+
+    App\Service\CartInfoFieldResolver:
+        arguments:
+            $providers: !tagged_iterator app.cart_info_field
+
+    # Whoever knows what a cart is already holding against stock, so a cart is not blocked by its
+    # own hold (issue #214). Empty when no hold bundle is active, which is the correct answer then.
+    App\Service\CartService:
+        arguments:
+            $heldQuantityProviders: !tagged_iterator app.cart_held_quantity
+
+    # Whoever knows how much of an invoice line has physically left. Core bills goods and records
+    # that an invoice reached Completed; it owns no shipment table, so "Partially Shipped" is a word
+    # only a provider has evidence for. Empty when no shipment bundle is active, and the deriver
+    # then answers from the invoice's own status — which is what the column meant before any of this
+    # existed. See App\Contract\Inventory\ShippedQuantityProviderInterface.
+    App\Service\InvoiceShippingStatusDeriver:
+        arguments:
+            $shippedQuantityProviders: !tagged_iterator app.shipped_quantity
+
+    # Core storefront nav entries — registered so admins can toggle/reorder them in
+    # Frontend Menu Management just like any bundle-contributed item.
+    App\Menu\Core\MyOrdersMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    App\Menu\Core\MyQuotesMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    App\Menu\Core\FaqMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    App\Menu\Core\ContactMenuItem:
+        tags: ['app.frontend_menu_item']
+
+    # The status seam (queue item 64). One loader, many contributors: core declares the
+    # vocabularies for the documents core owns, and a bundle declares its own in its own
+    # services.yaml — the same hand-tagged shape as app.document_prefix_provider and the other
+    # twenty app.* collections. The loader throws in its constructor if two providers claim one
+    # key, and StatusVocabularyWarmer makes that throw land at cache warm rather than on a
+    # live request.
+    App\Status\CoreStatusVocabularyProvider:
+        tags: ['app.status_vocabulary_provider']
+
+    App\Status\StatusVocabularyLoader:
+        arguments:
+            $providers: !tagged_iterator app.status_vocabulary_provider
+
+    App\Contract\Status\StatusVocabularyLoaderInterface: '@App\Status\StatusVocabularyLoader'
+
+    App\Status\StatusVocabularyWarmer:
+        tags: ['kernel.cache_warmer']
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
+
+when@test:
+    services:
+        # No bundle implements FrontendMenuItemInterface yet — this fixture gives
+        # FrontendMenuManagementCest and the admin listing an extra tagged item to exercise.
+        App\Tests\Support\Fixtures\TestFrontendMenuItem:
+            tags: ['app.frontend_menu_item']
+
+        # Proves a bundle whose seeder throws costs the admin nothing: login still succeeds, the
+        # other seeders still run, and this one stays unmarked so it is retried. Inert unless a test
+        # switches it on — see the class, and note that a test that does MUST switch it back off.
+        App\Tests\Support\Fixtures\ThrowingReferenceDataSeeder:
+            tags: ['app.reference_data_seeder']
+
+        # No real import (VendorSheet, etc.) is wired to the unified import framework yet — this
+        # fixture gives AdminImportLogCest a real registered import type so it can drive queueing,
+        # import:process, the flock, and the kill button end-to-end against real processes instead
+        # of only unit-testing ImportRunner in isolation (see tests/Service/Import/ImportRunnerTest).
+        App\Tests\Support\Fixtures\TestImportRunnerFactory:
+            autowire: true
+            tags: ['app.import_runner_factory']

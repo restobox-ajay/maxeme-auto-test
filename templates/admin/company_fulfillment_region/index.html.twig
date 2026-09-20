@@ -1,0 +1,166 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Customer Fulfillment Regions | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default((total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {% set filters = filters|default({}) %}
+    {% set currentSort = currentSort|default('company') %}
+    {% set currentDir = currentDir|default('asc') %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Customer</p>
+                <h1>Customer Fulfillment Regions</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="table-card company-fulfillment-region-grid no-paginate"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        {# Not wrapped around the table: per-row Save actions below are their own <form>s, and
+           forms cannot nest. Filter/sort controls in the table reference this by id instead. #}
+        <form id="company-fulfillment-region-filters" method="get" action="{{ path('admin_company_fulfillment_region_index') }}" class="js-auto-submit-form">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        </form>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="company-fulfillment-region-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="company"><a href="{{ path('admin_company_fulfillment_region_index', {sort: 'company', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Customer</a></th>
+                            {% set nextDir = currentSort == 'region' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'region' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="region"><a href="{{ path('admin_company_fulfillment_region_index', {sort: 'region', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Region</a></th>
+                            {% set nextDir = currentSort == 'priceList' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'priceList' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="priceList"><a href="{{ path('admin_company_fulfillment_region_index', {sort: 'priceList', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Price Group</a></th>
+                            {% set nextDir = currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_company_fulfillment_region_index', {sort: 'status', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Status</a></th>
+                            <th>Action</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[company]" value="{{ filters.company|default('') }}" form="company-fulfillment-region-filters" data-filter-field="company" aria-label="Filter customer"></th>
+                            <th><input type="text" name="filters[region]" value="{{ filters.region|default('') }}" form="company-fulfillment-region-filters" data-filter-field="region" aria-label="Filter region"></th>
+                            <th><input type="text" name="filters[priceList]" value="{{ filters.priceList|default('') }}" form="company-fulfillment-region-filters" data-filter-field="priceList" aria-label="Filter price group"></th>
+                            <th>
+                                <select name="filters[status]" form="company-fulfillment-region-filters" data-filter-field="status" aria-label="Filter status">
+                                    <option value=""></option>
+                                    <option value="Active" {{ filters.status|default('') == 'Active' ? 'selected' : '' }}>Active</option>
+                                    <option value="Inactive" {{ filters.status|default('') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/company_fulfillment_region/_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" form="company-fulfillment-region-filters" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: rows|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_company_fulfillment_region_index',
+                    routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters},
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+    </section>
+
+    <script>
+    (function () {
+        function showToast(msg, type) {
+            var toast = document.querySelector('.toast');
+            if (!toast) return;
+            if (toast._timer) { clearTimeout(toast._timer); }
+            toast.classList.remove('is-success', 'is-error');
+            toast.textContent = msg;
+            if (type) { toast.classList.add('is-' + type); }
+            toast.classList.add('is-visible');
+            toast._timer = setTimeout(function () {
+                toast.classList.remove('is-visible', 'is-success', 'is-error');
+            }, 2200);
+        }
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-cfr-save');
+            if (!btn) { return; }
+
+            // The button is a real submit button (form="cfr-form-{id}") so the row still
+            // works with JS disabled. When JS is available, save via fetch instead.
+            e.preventDefault();
+
+            var row = btn.closest('tr');
+            var statusSelect = row.querySelector('.js-cfr-status');
+            var priceListSelect = row.querySelector('.js-cfr-price-list');
+            var tokenField = row.querySelector('.js-cfr-token');
+
+            btn.disabled = true;
+
+            fetch(btn.getAttribute('data-url'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    status: statusSelect.value,
+                    price_list_id: priceListSelect.value,
+                    _token: tokenField.value
+                })
+            })
+                .then(function (response) {
+                    return response.json().catch(function () { return {}; });
+                })
+                .then(function (data) {
+                    btn.disabled = false;
+                    if (data && data.ok) {
+                        showToast(data.message || 'Saved.', 'success');
+                    } else {
+                        showToast((data && data.message) || 'Could not save. Please try again.', 'error');
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    showToast('Could not save. Please try again.', 'error');
+                });
+        });
+    })();
+    </script>
+{% endblock %}

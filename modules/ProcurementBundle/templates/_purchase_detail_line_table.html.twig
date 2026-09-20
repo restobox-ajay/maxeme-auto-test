@@ -1,0 +1,133 @@
+{# The line table on a purchase document's VIEW screen — the buy-side twin of
+   sales_detail_line_table.html.twig, and the fix for the same defect that file records: PO's
+   "Lines" table and VendorBill's "Lines" table were two independently hand-rolled tables of
+   almost the same columns, reading almost the same accessors, and this is the one file both now
+   render through.
+
+   Unlike the sell side's three line entities, PurchaseOrderLine and VendorBillLine do not share a
+   common interface — but they share enough accessor NAMES (getName/getSku/getVendorSku/
+   getUnitCost/getSubtotal/getTaxCode, and now getWeight/getBatch/getDisplayUnitLabel/
+   getDisplayUnitCost/getBaseUnitLabel/getQuantityEntered/getUnitOfMeasure — #full-parity,
+   2026-09-13) that this partial reads real entities directly, exactly as
+   sales_detail_line_table.html.twig does, and needs no flat-hash normalisation step. The one place
+   they genuinely differ is quantity: PurchaseOrderLine states Ordered/Received/Outstanding (a
+   fulfillment history), VendorBillLine a single Quantity (what was charged). That is handled the
+   same way `showBatch` handles the sell side's one real column difference — a boolean, not a
+   branch on which document this is. Batch and U/M/Weight are NOT such a difference here: both
+   PurchaseOrderLine and VendorBillLine carry all three identically, so unlike the sell side's
+   `showBatch` flag those columns are simply always rendered.
+
+   What is NOT here, same reasons as the sell side's file:
+
+     The <section>, its heading and its padding — each screen keeps its own chrome.
+
+     The totals. VendorBill carries them as this table's own <tfoot> (mirroring Invoice); PurchaseOrder
+     carries a box beside the table (mirroring Order). `footTemplate` is a path, not parameters,
+     for the same reason: a dozen conditional money rows is not a value.
+
+   Parameters
+   ----------
+   lines            required  the document's line ENTITIES, in sortOrder.
+   perLineTax       required  per-line tax amounts, positional. Pass [] for none.
+   perLineTaxLabel  required  per-line tax code LABELS, positional. Pass [] for none.
+   emptyMessage     required  what the empty row says. Each document names itself.
+   tableStyle       required  the <table> element's inline style — VendorBill collapses its
+                              borders because it carries a foot; PurchaseOrder does not.
+   feeRows          optional  the MAIN-LINE freight/fee rows to list beside the products, already
+                              filtered by the caller, each {label, amount}. Defaults to [].
+   showFulfillment  optional  true to carry Ordered/Received/Outstanding instead of a single
+                              Quantity column — PurchaseOrder passes it, VendorBill does not.
+                              Defaults to false.
+   currency         optional  prefixed onto every money cell, e.g. "CAD 12.34". Empty renders a
+                              bare `$`.
+   footTemplate     optional  a <tfoot> to render inside this table, as a template path — only
+                              VendorBill has one. `columns` is added to its context automatically.
+   footContext      optional  what `footTemplate` is rendered with.
+#}
+{% set fulfillment = showFulfillment|default(false) %}
+{% set money = currency|default('') ? currency ~ ' ' : '$' %}
+{% set columns = [
+    {label: 'Description'},
+    {label: 'Our SKU'},
+    {label: 'Their Part No.'},
+    {label: 'Weight'},
+    {label: 'U/M'},
+]|merge(fulfillment ? [
+    {label: 'Ordered', align: 'right'},
+    {label: 'Received', align: 'right'},
+    {label: 'Outstanding', align: 'right'},
+] : [
+    {label: 'Quantity', align: 'center'},
+])|merge([
+    {label: 'Unit Cost', align: 'right'},
+    {label: 'Subtotal', align: 'right'},
+    {label: 'Tax Code'},
+    {label: 'Tax $', align: 'right'},
+    {label: 'Batch'},
+]) %}
+
+<div class="wide-table-wrap">
+    <table class="admin-grid-table" style="{{ tableStyle }}">
+        <thead>
+            <tr>
+                {% for column in columns %}
+                    <th{% if column.align is defined %} style="text-align:{{ column.align }};"{% endif %}>{{ column.label }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in lines %}
+                <tr>
+                    <td>{{ line.name }}</td>
+                    <td>{{ line.sku|default('') ?: '—' }}</td>
+                    <td>{{ line.vendorSku|default('') ?: '—' }}</td>
+                    <td>{{ line.weight|default('') ?: '—' }}</td>
+                    <td>{{ line.displayUnitLabel }}</td>
+                    {% if fulfillment %}
+                        {# Ordered/Received/Outstanding are all base-unit figures — receiving and the
+                           outstanding balance are inherently counted in the base unit — so the
+                           entered-unit expression is a hint under Ordered rather than the primary
+                           figure, the inverse of the plain Quantity column below (#full-parity,
+                           2026-09-13). #}
+                        <td style="text-align:right;">{{ line.quantityOrdered|qty }}{% if line.unitOfMeasure %}<br><small style="color:#94a3b8;">= {{ line.quantityEntered|qty }} {{ line.displayUnitLabel }}</small>{% endif %}</td>
+                        <td style="text-align:right;">{{ line.quantityReceived|qty }}{% if line.overReceived %} <strong>(over)</strong>{% endif %}</td>
+                        <td style="text-align:right;">{{ line.quantityOutstanding|qty }}</td>
+                    {% else %}
+                        <td style="text-align:center;">{{ line.quantityEntered|qty }}{% if line.unitOfMeasure %}<br><small style="color:#94a3b8;">= {{ line.quantity|qty }} {{ line.baseUnitLabel }}</small>{% endif %}</td>
+                    {% endif %}
+                    <td style="text-align:right;">{{ money }}{{ line.displayUnitCost|price }}</td>
+                    <td class="po-line-subtotal" style="text-align:right;"><strong>{{ money }}{{ line.subtotal|amount }}</strong></td>
+                    <td>{{ perLineTaxLabel[loop.index0]|default((line.taxCode|default('')) ?: 'E') }}</td>
+                    <td class="po-line-tax" style="text-align:right;">{{ money }}{{ perLineTax[loop.index0]|default(0)|amount }}</td>
+                    <td class="po-batch-cell">{{ line.batch|default('') ?: '—' }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="{{ columns|length }}" class="empty-table-cell"><span>{{ emptyMessage }}</span></td></tr>
+            {% endfor %}
+            {# A main-line freight/fee charge is a LINE ITEM by design, so it is a row of this
+               table beside the products — the buy-side mirror of the sell side's own fee rows. #}
+            {% for feeRow in feeRows|default([]) %}
+                <tr class="fee-line-row">
+                    <td><strong>{{ feeRow.label }}</strong></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    {% if fulfillment %}
+                        <td>—</td><td>—</td><td>—</td>
+                    {% else %}
+                        <td style="text-align:center;">—</td>
+                    {% endif %}
+                    <td>—</td>
+                    <td style="text-align:right;"><strong>{{ money }}{{ feeRow.amount|amount }}</strong></td>
+                    <td>{{ feeRow.taxClass|default('') ?: '—' }}</td>
+                    <td style="text-align:right;">{{ feeRow.tax is defined ? money ~ feeRow.tax|amount : '—' }}</td>
+                    <td>—</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+        {% if footTemplate is defined and footTemplate is not null %}
+            {% include footTemplate with footContext|default({})|merge({columns: columns|length}) only %}
+        {% endif %}
+    </table>
+</div>

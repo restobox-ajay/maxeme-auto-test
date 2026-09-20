@@ -1,0 +1,34 @@
+{# Injected onto the invoice detail page by InvoiceShipmentsPanelProvider — not extended anywhere,
+   this partial is not this bundle's own screen shell (@InventoryDepth/_nav.html.twig et al), just a
+   self-contained box dropped into core's page. #}
+<section class="panel">
+    <h2>Shipments</h2>
+    {% if lines is empty %}
+        <p class="lead">Nothing recorded yet.</p>
+    {% else %}
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Shipment</th><th>Shipped</th><th>Product</th><th>SKU</th><th>Quantity</th><th>State</th></tr></thead>
+            <tbody>
+            {% for line in lines %}
+                <tr class="data-item-row{{ line.shipment.voided ? ' is-oversold' : '' }}">
+                    <td data-label="Shipment">
+                        <a href="{{ path('admin_bundle_inventory_depth_shipment_show', {id: line.shipment.id}) }}">{{ line.shipment.shipmentNumber }}</a>
+                    </td>
+                    <td data-label="Shipped">{{ line.shipment.shippedAt ? line.shipment.shippedAt|date('Y-m-d') : '—' }}</td>
+                    <td data-label="Product">{{ line.name }}</td>
+                    <td data-label="SKU">{{ line.sku ?: '—' }}</td>
+                    <td data-label="Quantity">{{ line.quantity }}</td>
+                    <td data-label="State">
+                        {% if line.shipment.voided %}Voided
+                        {% elseif line.movementApplied %}available → sold
+                        {% else %}Paperwork only{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table></div></div>
+    {% endif %}
+    <p class="panel-actions">
+        <a class="button" href="{{ path('admin_bundle_inventory_depth_shipment_new', {invoice: [invoice.id]}) }}">Record a shipment</a>
+    </p>
+</section>

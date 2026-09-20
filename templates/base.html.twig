@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#1d4ed8">
+        <title>{% block title %}{{ site_name() }}{% endblock %}</title>
+        {% set faviconUrl = app_setting('favicon_url', '') %}
+        {% if faviconUrl %}<link rel="icon" href="{{ faviconUrl }}">{% endif %}
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+        {% block stylesheets %}
+            <link rel="stylesheet" href="/assets/css/app.css?v=150-inventory-region-cards">
+        {% endblock %}
+        {# Read by the AJAX helper in app.js to set X-CSRF-TOKEN on the admin's JS-only
+           endpoints. Ordinary forms never need it - they carry {{ csrf_field() }} server-side. #}
+        <meta name="csrf-token" content="{{ csrf_token_value() }}">
+        {% block head_extra %}{% endblock %}
+    </head>
+    <body class="{% block body_class %}site{% endblock %}">
+        <a class="skip-link" href="#main-content">Skip to main content</a>
+        <div class="app-shell">
+            {% block site_header %}
+                <header class="topbar">
+                    <a class="brand" href="{% block home_path %}/{% endblock %}" aria-label="{{ site_name() }} home">
+                        {% set logoUrl = app_setting('logo_url', '') %}
+                        {# header_logo_only only means anything when there is a logo to stand in for the
+                           name. With no logo it used to leave the brand link holding just the "WC" tile,
+                           so it is ignored until one is uploaded and the name carries the slot. #}
+                        {% set logoOnly = logoUrl and app_setting('header_logo_only', 'No') == 'Yes' %}
+                        {# The tile renders only for an uploaded logo now. It used to fall back to a
+                           hardcoded "WC" — one store's initials baked into a multi-store app, with
+                           nothing to derive a per-store equivalent from, same reasoning as the email
+                           header (#351). With no logo the store name stands alone. #}
+                        {% if logoUrl %}
+                            <span class="brand-mark brand-mark-logo{{ logoOnly ? ' brand-mark-logo-only' : '' }}">
+                                <img src="{{ logoUrl }}" alt="">
+                            </span>
+                        {% endif %}
+                        {% if not logoOnly %}
+                            <span class="brand-copy">
+                                {{ site_name() }}
+                                <small>{% block area_label %}{{ site_name() }}{% endblock %}</small>
+                            </span>
+                        {% endif %}
+                    </a>
+                    {% block topbar_actions %}{% endblock %}
+                    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Toggle navigation">
+                        <span class="nav-toggle-bars" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                        </span>
+                        Menu
+                    </button>
+                    <nav id="primary-navigation" class="nav" aria-label="Primary navigation">
+                        {% block navigation %}{% endblock %}
+                    </nav>
+                    {% block sidebar_footer %}{% endblock %}
+                </header>
+            {% endblock %}
+            <main id="main-content" class="content-frame">
+                {% block content_header %}{% endblock %}
+                {% block body %}{% endblock %}
+            </main>
+            <footer class="site-footer">
+                <span>&copy; {{ "now"|date("Y") }} {{ site_name() }}</span>
+                <span class="footer-powered">Powered by <a href="https://restobox.com" target="_blank" rel="noopener">Restobox</a></span>
+            </footer>
+        </div>
+        <div class="toast" role="status" aria-live="polite"></div>
+        <div class="delete-modal-overlay" id="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+            <div class="delete-modal">
+                <div class="delete-modal-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                </div>
+                <h2 class="delete-modal-title" id="delete-modal-title">Delete Confirmation</h2>
+                <p class="delete-modal-body">Are you sure you want to delete <strong id="delete-modal-item"></strong>? This action cannot be undone.</p>
+                <div class="delete-modal-actions">
+                    <button class="button outline delete-modal-cancel" type="button">Cancel</button>
+                    <button class="button delete-modal-confirm" type="button">OK</button>
+                </div>
+            </div>
+        </div>
+        <div class="flash-messages" hidden>
+            {# SalesDocumentLineWarnings::FLASH_QTY_ROWS and FLASH_PRICE_ROWS are the row numbers the
+               order/quote form paints red, not sentences — they ride the flash bag to reach the
+               page after a save's redirect. Their companion FLASH_MESSAGES ('line_warning') IS a
+               sentence and is left in, so a save that lands somewhere other than the form still
+               announces itself. #}
+            {% for type, messages in app.flashes %}
+                {% if type not in ['line_warning_qty_rows', 'line_warning_price_rows'] %}
+                    {% for message in messages %}
+                        <span class="flash-message" data-type="{{ type }}">{{ message }}</span>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% block javascripts %}
+            <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+            <script src="/assets/js/app.js?v=157-lock-modal-all-docs"></script>
+        {% endblock %}
+        {% block body_end %}{% endblock %}
+    </body>
+</html>
+
+
+
+
+
+
+
+
+
+

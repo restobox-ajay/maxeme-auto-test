@@ -1,0 +1,88 @@
+{#
+    The bar under a purchase document's line table: a [charge type] select plus an Add Line
+    control — the buy-side twin of sales_add_line_bar.html.twig. Include it rather than copying it.
+
+    It does not add PRODUCT rows. It adds a CHARGE row — freight, tax or a one-off fee — which the
+    document posts back as charge_lines[] and PurchaseDocumentChargeLines turns into that
+    document's freight lines, manual tax lines and manual fee lines. It is the only way to set
+    freight at all, the same way the sell side's bar is the only way to set shipping.
+
+    Shared by purchase_order_edit.html.twig and bill_edit.html.twig, which is the fix for
+    VendorBillController's own charge model having drifted onto a completely different shape
+    (`charges[]` plus a bolted-on manual-tax box) — see _purchase_charge_row.html.twig's own
+    docblock. One definition cannot drift.
+
+    No `shippingOptions` the sell side's bar takes: there is no live carrier-rate lookup on the
+    buy side to offer a rate choice from, so every shipping/fee/tax row here is typed, same as
+    PurchaseOrder's form already did before this rewrite. `categoryFilter` IS taken (#full-parity,
+    2026-09-15, corrected — it was wrongly grouped with `shippingOptions` above as though both
+    needed live rate data; the filter is pure client-side option-hiding over the static list below,
+    the same as the sell side's, and PO's earlier lack of it was an omission, not a difference):
+    a JS-only Shipping/Tax/Fee picker in front of the full select, same wording as the sell side's
+    — no divergent buy-side label. The underlying charge type key stays `freight` (see
+    PurchaseChargeLine::TYPE_FREIGHT and `chargeTypeCategory()` in app.js, which files it under
+    the shared 'shipping' filter category) — that is a backend/data enum name, not user-visible
+    text, and renaming it is a separate, larger change (touches persisted charge_line rows).
+
+    `hook: 'po'` (#full-parity, 2026-09-15) adds the JS "Add Line" button app.js's
+    addSellDocChargeRow('po') binds to, plus the class the select needs for it to read the chosen
+    type — the same pair the sell side's own bar renders under `hook`. The submit stays exactly
+    where it was: this document's whole "no <noscript> wrapper" convention was that the server-
+    rendered controls simply ARE what shows, and that is still true for the submit here — a JS
+    admin never sees it because `.no-js-inline` hides it once the JS button beside it works, same
+    as the sell side's does. `hook: ''` (default, VendorBill's current state) renders exactly as
+    before: no JS button, no hook classes, the submit is simply the control.
+
+    Parameters
+    ----------
+    submitLabel     required  the text on the submit that adds a row server-side.
+    hook            optional  'po' for the live JS "Add Line" button, '' (default) for the original
+                              submit-only bar.
+    sentinel        optional  defaults to false. Emits the charge_lines_present hidden input — see
+                              the note below on why a create screen with nothing stored yet omits it.
+    categoryFilter  optional  defaults to false. Adds the JS-only Freight/Tax/Fee category picker
+                              in front of the full select — see the note above.
+
+    ## charge_lines_present, and why a brand-new document does not carry it
+
+    A document that is REBUILT from what its form posts cannot tell "the admin removed every
+    charge row" from "this post was never shown the charge rows" — both arrive as no
+    charge_lines[] — and guessing wrong wipes a stored document's freight, tax adjustments and
+    manual fees on the first innocent save. So a form editing a STORED document renders this
+    marker beside the control that shows the rows, and only a post carrying it is allowed to clear
+    charges. PurchaseOrderController and VendorBillController both read it that way. A brand-new
+    document has nothing stored to protect, so its create screen passes `sentinel: false`.
+#}
+{% set _hook = hook|default('') %}
+<div class="purchase-charge-bar">
+    {% if categoryFilter|default(false) and _hook %}
+        <select class="js-{{ _hook }}-charge-category js-only" aria-label="Filter line type by category">
+            <option value="">All types</option>
+            <option value="shipping">Shipping</option>
+            <option value="tax">Tax</option>
+            <option value="fee">Fee</option>
+        </select>
+    {% endif %}
+    <select{% if _hook %} class="js-{{ _hook }}-charge-type"{% endif %} name="charge_line_type" aria-label="Select line type to add">
+        <option value=""></option>
+        <option value="freight:Shipping">Shipping</option>
+        <option value="fee:Brokerage">Brokerage</option>
+        <option value="fee:Duty">Duty</option>
+        <option value="fee:Fuel Surcharge">Fuel Surcharge</option>
+        <option value="empty-freight:">Empty Freight Line (Type Anything)</option>
+        <option value="empty-tax:">Empty Tax Line (Type Anything)</option>
+        <option value="empty-fee:">Empty Fee Line (Type Anything)</option>
+    </select>
+    {% if _hook %}
+        <select class="js-{{ _hook }}-charge-placement-choice js-only" aria-label="Fee placement" hidden>
+            <option value="main_line">Main Line</option>
+            <option value="before_tax_line">Before Tax</option>
+            <option value="after_tax_line">After Tax</option>
+        </select>
+        <button class="button primary js-{{ _hook }}-bottom-add" type="button">Add Line</button>
+    {% endif %}
+    <button class="button primary{% if _hook %} no-js-inline{% endif %}" type="submit" name="add_charge_line" value="1">{{ submitLabel }}</button>
+</div>
+{% if sentinel|default(false) %}
+    <input type="hidden" name="charge_lines_present" value="1">
+{% endif %}

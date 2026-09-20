@@ -1,0 +1,142 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Error Log Detail: {{ error.id }} | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System > Error Logs</p>
+                <h1>ERROR LOG DETAIL: {{ error.id }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button info" href="{{ path('admin_error_log') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <div class="detail-grid">
+            <div class="detail-row">
+                <div class="detail-label">ID</div>
+                <div class="detail-value">{{ error.id }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Created At</div>
+                <div class="detail-value">{{ error.createdAt|date('Y-m-d H:i A') }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Method</div>
+                <div class="detail-value"><span class="error-method">{{ error.method }}</span></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Summary</div>
+                <div class="detail-value">{{ error.summary }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Error Description</div>
+                <div class="detail-value">
+                    <div class="error-desc-cell" style="padding: 0;">
+                        <span class="error-file"><strong>File:</strong> {{ error.file|default('N/A') }}</span>
+                        {% if error.line %}<span class="error-line"><strong>Line:</strong> {{ error.line }}</span>{% endif %}
+                        {% if error.message %}<span class="error-message"><strong>Message:</strong> {{ error.message }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">IP</div>
+                <div class="detail-value">{{ error.ipAddress|default('') ?: 'N/A' }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">User</div>
+                <div class="detail-value">
+                    <span class="badge">{{ error.userType|default('guest') }}</span>
+                    {% if error.userEmail %}
+                        {{ error.userEmail }}{% if error.userId %} (#{{ error.userId }}){% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Referring Page</div>
+                <div class="detail-value">{{ error.referrer|default('') ?: 'N/A' }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Trace String</div>
+                <div class="detail-value">
+                    {% if error.trace %}
+                        <pre class="error-trace-block">{{ error.trace }}</pre>
+                    {% else %}
+                        <span class="text-muted">No stack trace available.</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Meta Data</div>
+                <div class="detail-value">
+                    <pre class="error-meta-preview" style="max-height: none;">{{ error.metaData }}</pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <style>
+        .detail-grid {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--line-light);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .detail-row {
+            display: flex;
+            border-bottom: 1px solid var(--line-light);
+            min-height: 48px;
+        }
+        .detail-row:last-child {
+            border-bottom: 0;
+        }
+        .detail-label {
+            width: 180px;
+            background: #f8fafc;
+            padding: 14px 20px;
+            font-weight: 700;
+            color: var(--slate-800);
+            font-size: 0.85rem;
+            text-transform: capitalize;
+            border-right: 1px solid var(--line-light);
+            flex-shrink: 0;
+        }
+        .detail-value {
+            flex-grow: 1;
+            padding: 14px 20px;
+            font-size: 0.85rem;
+            color: var(--slate-700);
+            line-height: 1.5;
+            background: #fff;
+        }
+        .error-trace-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Cascadia Code', 'Source Code Pro', monospace;
+            font-size: 0.78rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+        }
+        .error-meta-preview {
+            margin: 0;
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        .detail-row:nth-child(even) .detail-value {
+            background: #fdfdfd;
+        }
+    </style>
+
+{% endblock %}

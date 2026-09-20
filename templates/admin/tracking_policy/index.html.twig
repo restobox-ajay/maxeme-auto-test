@@ -1,0 +1,79 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Tracking Policies | Admin{% endblock %}
+{% block admin_body %}
+    {# A list screen and nothing else.
+
+       It used to carry the create form above the grid and edit by reloading itself with
+       `?edit={id}`. `app.css:7764` clamps a `.content-frame` holding a top-level `.table-card` to
+       `calc(100vh - 3rem)` — the model that gives every grid in this app its sticky header and one
+       scroll region — and that clamp assumes the grid IS the page. With a 693px form inside the
+       clamped frame ahead of it the card was left 44px of 852, the scroll region's 220px floor
+       overflowed a card that is `overflow: hidden`, and not one data row reached the screen. The
+       policies were all in the HTML and none of them was visible.
+
+       So there is no form on this page. Create is `admin_tracking_policy_new`, edit is
+       `admin_tracking_policy_edit`, and the grid gets the whole frame. #}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products</p>
+                <h1>Tracking Policies</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_product_detail_index') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_tracking_policy_new') }}">Add a policy</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}<div class="flash flash-success">{{ msg }}</div>{% endfor %}
+    {% for msg in app.flashes('error') %}<div class="flash flash-error">{{ msg }}</div>{% endfor %}
+
+    {% include 'admin/_row_actions_no_js.html.twig' %}
+
+    {# No filter row and no search box, deliberately.
+
+       A tracking policy is a named rule, not a record: the whole argument for the table is that a
+       change is made in one place instead of on twenty thousand products, so an installation holds a
+       handful of rows and they all fit on the screen at once. A per-column filter row would add
+       eight cells of chrome above a table nobody has to look for anything in, and a mode filter over
+       three values on five rows narrows nothing. The one question this grid genuinely cannot answer
+       by eye — WHICH products are on a policy — is not a filter over this table but a jump to the
+       product list, and the product list has no tracking-policy filter to jump into. When it gets
+       one, the Products count here becomes the link to it. #}
+    <section class="table-card no-paginate">
+        <div class="table-header">
+            <h2>Policies</h2>
+        </div>
+        <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="admin-grid-table">
+                    <thead>
+                        <tr>
+                            <th>Policy</th>
+                            <th>Identity</th>
+                            <th>In</th>
+                            <th>Out</th>
+                            <th>Expiry</th>
+                            <th>Sentinels</th>
+                            <th>Products</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/tracking_policy/_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: rows|length,
+                total: rows|length,
+                currentPage: 1,
+                perPage: rows|length,
+                label: 'policies'
+            } only %}
+        </div>
+    </section>
+{% endblock %}

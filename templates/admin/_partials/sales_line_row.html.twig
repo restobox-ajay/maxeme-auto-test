@@ -1,0 +1,689 @@
+{# ONE editable line row of a sell-side document's line table — the order form's, the quote form's
+   and the standalone invoice create form's, which carried three copies of it.
+
+   Three copies of the row a document is BUILT from is how one screen quietly stops posting a
+   column: the markup still renders, the cell still looks right, and the field simply never arrives
+   at the save. That had already happened twice in these three files by the time they were counted.
+
+   ## It takes parameters. It never asks which document it is
+
+   There is no `{% if document == 'estimate' %}` here and there must never be one: the moment this
+   branches on which document it is rendering it is three templates in one file and worse than the
+   three it replaced. Everything a document differs by is an argument, and the two things that
+   could not be made into a sensible argument — the Actions cell, and the per-document column list
+   — are NOT in here: the Actions cell is delegated whole to `actionsTemplate`, and the columns are
+   handed in.
+
+   ## The column list
+
+   `columns` is the table's columns IN ORDER, and this row renders one `<td>` per entry, in that
+   order, keyed by `key`. The three documents genuinely have different columns — an order has 14, a
+   quote 13, a standalone invoice 10 — so the caller is the only thing that can say which. It is
+   the same list the header (`sales_line_head.html.twig`), the colgroup and the shared fee row
+   (`sales_fee_line_row.html.twig`) are built from, which is the point: a header and a row that
+   disagree about columns is the defect one list exists to prevent.
+
+   A column this row does not know the key of renders an EMPTY cell rather than nothing, so a
+   mistyped key shows up as a hole in the table instead of a row silently one cell short of its
+   header.
+
+   Column keys (internal identifiers; nothing outside these templates depends on them):
+
+     product         the product picker, or — when `nameInProductCell` — the free-text custom name
+                     on a blank row instead, or — when `productLocked` — the line's name as plain
+                     text
+     description     the free-text custom name as its OWN column (the standalone invoice, which
+                     shows the picker and the description side by side rather than one or the other)
+     location        the stock location select
+     sku
+     qty             the quantity box, plus every hint that belongs beside it: the resolved base
+                     figure, the stock ceiling, and the backorder/restock-ETA pair
+     ordered         display only — how much the line being billed was written for. Only a row that
+                     draws down another document's line has one
+     remaining       display only — how much of that line is still undrawn, with the base figure
+                     under it where the line is packaged. Its twin: same caller, same reason
+     weight
+     unit            U/M — the line's denomination (#601/#644/#659)
+     tax_code
+     tax_amount      computed, display only
+     cost
+     original_price  computed, display only
+     price
+     subtotal        computed, display only
+     batch           order-only: SalesOrderLine is the only line entity with a batch
+     actions         delegated to `actionsTemplate`
+
+   `batch` is simply a key the quote and the invoice do not pass, which is what an order-only cell
+   looks like when the column list is a parameter. The backorder pair inside `qty` is order-only
+   the same way — it renders when the row carries a `backordered` figure and no other document
+   puts one there.
+
+   ## An include, not a macro
+
+   Same reason sales_add_line_bar.html.twig is one: three callers with three different parameter
+   sets, one of which passes no JS hook at all. As a macro this would be a thirty-argument
+   positional signature whose call sites read `null, null, null, null` — the estimate form's
+   thirteen-argument macro was already at that point. `with_context = false` makes every caller
+   state what it wants in full.
+
+   Parameters
+   ----------
+   columns            required  the table's columns in order — a list of {key, label} (see above).
+                                `label` is the cell's data-label when `labelled`.
+   index              required  this row's key in the posted `lines[{index}][field]` group, and the
+                                no-JS Remove submit's value. LOAD-BEARING: two rows sharing an index
+                                overwrite each other, silently.
+   line               required  the row's values, as a FLAT hash — never an entity, never a document.
+                                Every caller normalises into the same keys, which is what stops this
+                                partial from having to know that a quote line calls its product
+                                `line.product` and an order row calls it `line.productId`. Keys, all
+                                optional: id, productId, name, location, sku, qty, qtyRendered,
+                                qtyMin, qtyMax, weight, unit, unitId, units, baseUnitLabel,
+                                baseQuantity, ordered, remaining, remainingBase, available,
+                                backordered, fulfillmentStatus, restockEta, taxCode, cost,
+                                originalPrice, price, priceRendered, subtotal, batch, unitLabel,
+                                baseUnitPrice, resolvedLineTotal, stockOverrideReason.
+                                PRESENCE IS THE SWITCH for the optional blocks: a row renders its
+                                hidden `id` only if `line.id` is defined, its `qty_rendered` only if
+                                `line.qtyRendered` is defined, its base-quantity hint only if
+                                `line.baseQuantity` is defined, its quantity box's `min` and `max`
+                                only if `line.qtyMin`/`line.qtyMax` are defined, the base figure
+                                under the remaining cell only if `line.remainingBase` is defined,
+                                and its backorder pair only if `line.backordered` is defined. A
+                                caller that does not want a block omits the key rather than passing
+                                a flag to suppress it.
+   products           required  the catalog for the picker, as rows (id, sku, name, weight, unit,
+                                taxCode, cost, originalPrice, price)
+   locations          required  the stock locations for the location select
+   kind               required  'product' or 'blank' — what this ROW is. It decides the U/M cell
+                                (a product DECLARES its unit, so a product row never gets a text
+                                box — see the U/M cell below), the catalog-fill hooks, and, where
+                                `nameInProductCell`, which control the product cell holds.
+   lineClass          required  the document's own row class — 'order-line-row',
+                                'estimate-line-row', 'invoice-line-row'. Each document's CSS and
+                                each suite's assertions key on it.
+   actionsTemplate    required  the template rendering the `actions` cell. See "The Actions cell".
+   controlClass       optional  the class every input/select in the row carries besides its hooks —
+                                'form-control' on the quote and the invoice, '' on the order, which
+                                has never used it anywhere in its line table.
+   hook               optional  'order' or 'estimate' — what app.js keys its per-row handlers off,
+                                as .js-<hook>-qty, .js-<hook>-price and the rest. Pass '' (or omit)
+                                for a document with no line-row JavaScript: every hook class is then
+                                simply absent, rather than naming a handler that does not exist.
+
+                                THE QUOTE DOES NOT REUSE ORDER'S HOOK NAMES HERE. app.js binds a
+                                full parallel set — .js-estimate-qty, .js-estimate-price,
+                                .js-estimate-product-select and eleven more — so the quote passes
+                                'estimate' and gets its own. (That is the opposite of
+                                sales_address_cards.html.twig, where the quote DOES reuse order's
+                                names because app.js binds those document-wide and there is no
+                                js-estimate-* twin. The two facts are both true and neither is
+                                drift; check app.js before assuming either.)
+   labelled           optional  true to put data-label on every cell, for the responsive
+                                stacked-table CSS that reads it. The quote and the invoice do; the
+                                order does not, anywhere in its line table.
+   rowClass           optional  an extra class on the <tr> — 'no-js-row' marks the spare rows that
+                                only exist without JavaScript.
+   productLocked      optional  true where this row bills a line that ALREADY EXISTS on another
+                                document — the invoice-from-order screen, whose rows are that
+                                order's uninvoiced remainders. The row's IDENTITY is then that
+                                line's and is not editable here, so the three cells carrying it —
+                                `product`, `sku` and `unit` — render as plain text instead of as
+                                controls, and post nothing. One fact, three cells: which product,
+                                under which SKU, counted in which denomination, are all settled by
+                                the line being drawn down, and a box offering to change any of them
+                                would be offering an edit this screen's save does not read. The
+                                hidden `lines[N][id]` still renders, because naming that line is
+                                the whole of what such a row posts besides its two figures.
+                                Defaults to false, so every other caller is untouched.
+
+                                Orthogonal to `kind`, not a third value of it: a locked row is
+                                still a product row or a blank one, and the U/M it prints is
+                                `line.unitLabel` either way.
+   nameInProductCell  optional  true where the product cell holds EITHER the picker (product row)
+                                or the free-text name (blank row) — the order and the quote. False
+                                where the picker is always shown and the name has its own
+                                `description` column — the standalone invoice, whose rows are one
+                                kind rather than two because it has no "Add Blank Line" button to
+                                choose between them.
+   namePlaceholder    optional  placeholder on the free-text name input
+   nameHook           optional  an extra class on that input. The quote's copy carries
+                                js-estimate-name; nothing binds it, and it is preserved here rather
+                                than dropped in a refactor that is meant to change nothing.
+   catalogHooks       optional  true to put the catalog-fill hooks (.js-<hook>-sku, -weight, -cost)
+                                on a BLANK row too. The order puts them on product rows only — a
+                                blank row has no picker to copy a catalog into it; the quote puts
+                                them everywhere. Drift, preserved deliberately; see the report.
+   productSelectClass optional  the document's own CSS hook on the picker
+                                ('order-line-product-select' and its twins), whose searchable-select
+                                overrides are tuned to that table's column widths.
+   productSearchPath  optional  where the picker fetches the catalog past the inline limit, and the
+                                path the <noscript> id box points at
+   productsRemote     optional  whether the catalog is past that document's
+                                PRODUCT_SELECT_INLINE_LIMIT (#399). Past it the picker holds only
+                                what is already on the line, so it is hidden without scripting and
+                                the <noscript> id box is the way in.
+   showsWarnings      optional  true where the document reports a coerced figure back on the line
+                                (SalesDocumentLineWarnings): the qty and price cells then carry the
+                                class attribute the red-cell CSS needs. The invoice has no such
+                                mechanism and its cells carry no class at all.
+   qtyWarning         optional  paint this row's quantity cell red — the save stored a 0 where a
+                                negative number was typed
+   priceWarning       optional  the same for price, where what was typed could not be read as a
+                                number
+   qtyStep            optional  the quantity box's step, defaults to '1'
+   taxAmount          optional  the computed tax for this line, always money
+   taxCodeBlankLabel  optional  the text on the tax select's empty option. The invoice says "From
+                                product" because that is what an empty one means on a screen that
+                                snapshots the catalog at save; the order and the quote leave it
+                                blank.
+   costType           optional  'number' (the order and the quote, which validate it) or 'text'
+   priceType          optional  'number' or 'text'. THE QUOTE MUST STAY 'text': a BLANK price is
+                                legitimate on a quote and means "No pricing" (#254/#255), which a
+                                number input with a step cannot express. The invoice is text for a
+                                weaker reason — its placeholder names a fallback, not a rule.
+   pricePlaceholder   optional  'TBD' on a quote, naming that rule. Empty on an order.
+   priceInputMode     optional  'decimal' on the quote's text box, so a phone keyboard offers digits
+   hintHooks          optional  true to put .js-<hook>-base-qty and .js-<hook>-resolved-price on the
+                                two conversion hints. The order does and two Cests read them by
+                                those names; the quote renders the same hints unhooked.
+   subtotalFallback   optional  what the subtotal cell says when there is no subtotal — 'TBD' on a
+                                quote, which is the same "No pricing" state the price box names. An
+                                order always has one.
+   showRemove         optional  render the no-JS Remove submit. Handed to `actionsTemplate`.
+   available          optional  stock on hand for this line's product in its region, or null where
+                                there is nothing meaningful to state (no product, or a region that
+                                does not resolve).
+   showsStockOverride optional  true where THIS DOCUMENT'S SAVE reads a per-line override reason —
+                                the order form and the standalone invoice create screen, which both
+                                measure the shortfall on the post and refuse only while it has no
+                                reason against it (#326). The quantity cell then ends with
+                                `admin/_stock_override_reason.html.twig`, posting
+                                `lines[{index}][stock_override_reason]` under this row's own index.
+                                Omitted everywhere else, so no screen renders a box whose save would
+                                not read it: the quote form measures no stock, and the
+                                invoice-from-order screen bills an order's already-reserved lines.
+                                The text that comes back in the box on a refused save is
+                                `line.stockOverrideReason`.
+
+   ## Quantities and money
+
+   MONEY renders through the app's own filters in every display cell — `App\Service\DisplayNumber`,
+   as `|amount` for a money TOTAL (the line's tax and its subtotal: always exactly two places) and
+   `|price` for a UNIT price (the original price: two to six, sub-cent kept). One place owns those
+   three rules, which is what stopped one stored figure printing three different ways on three
+   screens; `MoneyAndQuantityAreFormattedByTheFilterTest` is what stops the next hand-rolled one.
+
+   The `$` stays here in the template, and so does the subtotal's `is not null` guard: the filters
+   render null as the EMPTY STRING and never as `0.00`, deliberately, so an unpriced quote line
+   keeps saying what it says instead of claiming to be free.
+
+   The one exception is deliberate and is not money in this sense: the resolved BASE UNIT RATE in
+   the price hint is the stored six-place figure passed through untouched, because `$10.00` a case
+   of twelve is `$0.833333` an each and rounding that to `$0.83` is how the line total stops adding
+   up (#601/#644).
+
+   QUANTITIES ARE PASSED THROUGH UNTOUCHED, and that is load-bearing rather than an omission.
+
+   An order and an invoice are SNAPSHOTS: what was stored is stored. The hidden `qty_rendered` and
+   `price_rendered` fields beside the visible boxes exist so the next save can tell "this box was
+   never touched" from "the admin retyped the same number" — LineDenomination::boxUntouched() is
+   that comparison — so the value rendered INTO an input, and the value carried in its hidden twin,
+   have to be exactly what they have always been and exactly each other. Reformatting either one
+   turns a round trip that should change nothing into a rewrite of a stored figure: 479 eaches shown
+   as 39.9167 cases and multiplied back is 479.0004, which the next save refuses as more than
+   remains.
+
+   So no filter, no `+ 0`, no `|number_format`, no `|qty`, `|price` or `|amount` on anything inside
+   an input, an option value, a hidden field or a data attribute. The display-only quantity hints are left alone for the same
+   reason this whole change is: it is a no-op, and conforming quantity DISPLAY to the app's
+   "six places, none when whole" rule is a separate change with its own evidence. See the report —
+   what these cells render today depends on whether the figure has been round-tripped through SQLite
+   or is still the in-memory NUMERIC(14,4) string, which is a real inconsistency and not this
+   change's to fix.
+
+   ## The Actions cell
+
+   Not here, on purpose, and this is the one place the governing rule bit. The three documents'
+   Actions cells differ in eight independent ways at once — whether the controls sit directly in
+   the `<td>` or inside a wrapper div, which class that carries, whether there is a per-row "+",
+   whether the scripted Remove is always rendered or only when the row is removable, whether there
+   is a no-JS submit twin, whether the glyph is `x` or `✕`, and whether the label says "Delete" or
+   "Remove". Eight parameters for one cell of fourteen, every one of them pure drift, is a partial
+   that is worse than the three copies it replaced. So the cell is delegated whole: the caller names
+   a template and keeps its own markup, beside the JavaScript that binds it.
+
+   `actionsTemplate` is rendered with {index, kind, showRemove, line, column, labelled}. #}
+{# ## Repainting a refused save
+   When a save is refused the screen re-renders, and what a person typed must come back — owner
+   ruling: "if rejected should print back all users inputs plus rejected reason". The caller hands
+   the posted `lines` array in as `submitted` and every box below reads the typed value instead of
+   the stored one. Nothing else in this row changes, and a caller that passes no `submitted` (every
+   ordinary GET) renders exactly as before.
+
+   The posted names and the `line` keys are the same words, snake_case against camelCase, so this
+   is one merge rather than a condition per box.
+
+   **The typed bytes are echoed back UNCHANGED, deliberately.** `qty_rendered` and `price_rendered`
+   are compared byte for byte by `LineDenomination::boxUntouched()` to decide whether a box was
+   edited. Reformat a repainted value — 50.5 coming back as 50.5000 — and that comparison reads an
+   untouched box as edited, which lets the next round trip rewrite a stored figure. So no filter,
+   no number_format, no recomputation is applied to anything below. #}
+{%- if submitted is defined and submitted[index] is defined -%}
+    {%- set typed = submitted[index] -%}
+    {%- set line = line|default({})|merge({
+        id: typed.id|default(line.id|default(null)),
+        productId: typed.product_id|default(line.productId|default('')),
+        name: typed.name|default(line.name|default('')),
+        sku: typed.sku|default(line.sku|default('')),
+        location: typed.location|default(line.location|default('')),
+        qty: typed.qty|default(line.qty|default('')),
+        qtyRendered: typed.qty_rendered|default(line.qtyRendered|default('')),
+        price: typed.price|default(line.price|default('')),
+        priceRendered: typed.price_rendered|default(line.priceRendered|default('')),
+        cost: typed.cost|default(line.cost|default('')),
+        weight: typed.weight|default(line.weight|default('')),
+        unit: typed.unit|default(line.unit|default('')),
+        unitId: typed.unit_id|default(line.unitId|default('')),
+        taxCode: typed.tax_code|default(line.taxCode|default('')),
+        batch: typed.batch|default(line.batch|default('')),
+        restockEta: typed.restock_eta|default(line.restockEta|default('')),
+        stockOverrideReason: typed.stock_override_reason|default(line.stockOverrideReason|default('')),
+    }) -%}
+    {%- if line.id is same as(null) %}{% set line = line|filter((v, k) => k != 'id') %}{% endif -%}
+{%- endif -%}
+{%- set hookPrefix = (hook|default('')) ? 'js-' ~ hook ~ '-' : '' -%}
+{%- set controlClass = controlClass|default('') -%}
+{%- set catalogHook = (kind == 'product' or catalogHooks|default(false)) ? hookPrefix : '' -%}
+<tr class="{{ lineClass }} {{ rowClass|default('') }}">
+{%- for column in columns %}
+    {%- set label = labelled|default(false) ? ' data-label="' ~ column.label|default('') ~ '"' : '' %}
+
+    {%- if column.key == 'product' %}
+        <td{{ label|raw }}>
+            {# The row's identity, so the next save updates THIS line rather than deleting it and
+               creating a replacement — which churned the line primary keys and wrote a
+               deleted+created pair per line into the audit log on every save (#267). A row with no
+               id is a NEW line, which is exactly what the spare no-JS rows and the rows app.js
+               builds from the <template>s are. #}
+            {%- if line.id is defined %}<input type="hidden" name="lines[{{ index }}][id]" value="{{ line.id }}">{% endif %}
+            {%- if productLocked|default(false) %}
+                {# Billing a line that already exists: which product is settled by the line the
+                   hidden id above names, so this cell states it and offers nothing to change it. #}
+                {{ line.name|default('') }}
+            {%- elseif nameInProductCell|default(false) and kind != 'product' %}
+                {# A blank line has no product, just whatever the admin types. No matching filler on
+                   the product branch: rows are grouped under their own index, so a product row
+                   simply omits the key and the save reads that as the '' it always meant. #}
+                <input type="text"{% if controlClass or nameHook|default('') %} class="{{ [controlClass, nameHook|default('')]|filter(v => v)|join(' ') }}"{% endif %} name="lines[{{ index }}][name]" value="{{ line.name|default('') }}"{% if namePlaceholder|default('') %} placeholder="{{ namePlaceholder }}"{% endif %}>
+            {%- else %}
+                {# The product field core shares with every other admin screen —
+                   templates/admin/_partials/product_field.html.twig — which is where all three
+                   tiers of #399 live: the plain select under the inline limit, the js-only seeded
+                   select plus data-search-url past it, and the <noscript> id box that is the only
+                   way in past the limit with scripting off. This cell had its own copy of all
+                   three; the partial's own first line asks callers not to keep one.
+
+                   Everything the sell side needs beyond what the other callers need is an
+                   ARGUMENT, never a branch inside the partial:
+
+                    - `optionData` is the eight-attribute payload the line JavaScript fills a row
+                      from on change. The other callers name the product and stop, so they take the
+                      default `{sku: 'sku'}` and are untouched. A missed attribute here is silent —
+                      nothing errors, the row simply stops filling in — which is why
+                      SellSideProductFieldCest asserts all eight individually, by name and value,
+                      off the rendered page. `tracksBatch` is a key only the ORDER's product rows
+                      carry; the partial renders a missing key as the empty string the quote and the
+                      invoice have always rendered there.
+                    - `optionText` is the bare product name. A sell-side row shows the SKU in its
+                      own column one cell along, so repeating it in the dropdown is noise; a
+                      purchase or inventory screen has no SKU column and needs both.
+                    - `label: false` keeps this select's accessible name where it has always been,
+                      off the control. (An aria-label would be an improvement and is not this
+                      change's to make: this refactor is display-identical on purpose.)
+                    - `selectedId`, because a line row holds `line.productId` and not the entity.
+                    - `selectClass` carries the document's own js- hook and CSS class through.
+                    - `tracking-mode` (2026-09-14 lot/serial/expiry plan): which of the two boxes
+                      below the legacy batch box applies for the picked product — see
+                      productTrackingMode(). #}
+                {{- include('admin/_partials/product_field.html.twig', {
+                    field: 'lines[' ~ index ~ '][product_id]',
+                    products: products,
+                    remote: productsRemote|default(false),
+                    selectedId: line.productId|default(null),
+                    searchUrl: productSearchPath|default(null),
+                    placeholder: 'Select a product...',
+                    label: false,
+                    selectClass: [hookPrefix ? hookPrefix ~ 'product-select' : '', productSelectClass|default('')]|filter(v => v)|join(' '),
+                    optionData: {
+                        'sku': 'sku',
+                        'weight': 'weight',
+                        'unit': 'unit',
+                        'tax-code': 'taxCode',
+                        'cost': 'cost',
+                        'original-price': 'originalPrice',
+                        'price': 'price',
+                        'tracks-batch': 'tracksBatch',
+                        'tracking-mode': 'trackingMode',
+                    },
+                    optionText: ['name'],
+                }, with_context = false) -}}
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'description' %}
+        <td{{ label|raw }}>
+            <input type="text"{% if controlClass %} class="{{ controlClass }}"{% endif %} name="lines[{{ index }}][name]" value="{{ line.name|default('') }}"{% if namePlaceholder|default('') %} placeholder="{{ namePlaceholder }}"{% endif %}>
+        </td>
+
+    {%- elseif column.key == 'location' %}
+        {# locationAllowsNone (#669, order-only — see the note at order_line_row's include call in
+           form.html.twig): true on the order form, where a location genuinely isn't mandatory
+           (nothing downstream requires one), so the picker offers a real blank/"None" option
+           instead of forcing one. False everywhere else.
+
+           documentFulfillmentRegion is the header default (#full-parity follow-up): a line that did
+           not exist before this render — no `line.id` — starts on the document's own fulfillment
+           region rather than a blank or a hard-coded guess, the same "header sets it, the box
+           overrides it" rule the controllers apply server-side. An EXISTING line's own stored value
+           (including a deliberate blank on the order form) is never displaced by it — this is a
+           starting point for a NEW row, not a live re-sync of old ones. Falls back to 'Main' only
+           when there is no header region to default to at all (documentFulfillmentRegion blank),
+           which is the historical behavior every screen had before this parameter existed. #}
+        {%- set _isNewRow = (line.id|default('')) == '' -%}
+        {%- set _headerDefault = documentFulfillmentRegion|default('') -%}
+        {%- set _selectedLocation = line.location|default('') -%}
+        {%- if _selectedLocation == '' and _isNewRow -%}
+            {%- set _selectedLocation = locationAllowsNone|default(false) ? _headerDefault : (_headerDefault ?: 'Main') -%}
+        {%- endif -%}
+        <td{{ label|raw }}>
+            <select{% if controlClass %} class="{{ controlClass }}"{% endif %} name="lines[{{ index }}][location]">
+                {%- if locationAllowsNone|default(false) %}
+                    <option value="" {{ _selectedLocation == '' ? 'selected' : '' }}>None</option>
+                {%- endif %}
+                {%- for location in locations %}
+                    <option {{ _selectedLocation == location ? 'selected' : '' }}>{{ location }}</option>
+                {%- endfor %}
+            </select>
+        </td>
+
+    {%- elseif column.key == 'sku' %}
+        {# An em dash and not a blank on the locked branch: a cell stating nothing has to be
+           distinguishable from a cell that failed to render, which is why the detail table dashes
+           an empty SKU too. #}
+        <td{{ label|raw }}>{% if productLocked|default(false) %}{{ line.sku|default('') ?: '—' }}{% else %}<input type="text" class="{{ [controlClass, catalogHook ? catalogHook ~ 'sku' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][sku]" value="{{ line.sku|default('') }}">{% endif %}</td>
+
+    {%- elseif column.key == 'qty' %}
+        {# No min, on purpose. A quantity of 0 is a real placeholder row, and a NEGATIVE one is not
+           refused either: the save stores 0 and SAYS SO, naming the line in the warning banner above
+           the table and painting this cell red (SalesDocumentLineWarnings). min="0" asked the browser
+           to refuse the one figure the server deliberately accepts-and-explains, putting that
+           explanation out of reach on any form whose native validation was on — which is how the
+           same typed number behaved two different ways on the order and the quote (#248).
+
+           A row DRAWING DOWN another document's line is the exception, and states its bounds
+           through `line.qtyMin`/`line.qtyMax`. There is no accept-and-explain there: the server
+           refuses a quantity past what is left to invoice outright, so the box shows the rule that
+           is already enforced rather than letting the browser wave it through for the save to turn
+           away. UI only. Nothing here is the guard — a post that never saw this screen meets
+           exactly the same refusal. #}
+        <td{{ label|raw }}{% if showsWarnings|default(false) %} class="{{ qtyWarning|default(false) ? 'line-cell-error' : '' }}"{% endif %}>
+            <input type="number" class="{{ [controlClass, hookPrefix ? hookPrefix ~ 'qty' : '', qtyWarning|default(false) ? 'line-input-error' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][qty]" value="{{ line.qty|default('') }}"{% if line.qtyMin is defined %} min="{{ line.qtyMin }}"{% endif %}{% if line.qtyMax is defined %} max="{{ line.qtyMax }}"{% endif %} step="{{ qtyStep|default('1') }}">
+            {# What the server put in the box, posted straight back (#644). The next save compares the
+               two: a box that came back unchanged means the LINE'S SIZE did not change, so switching
+               the U/M selector re-expresses 40 cases as 2 pallets instead of reading the 40 as pallets
+               and multiplying the document twenty-fold. See LineDenomination::boxUntouched(). #}
+            {%- if line.qtyRendered is defined %}
+                <input type="hidden" name="lines[{{ index }}][qty_rendered]" value="{{ line.qtyRendered }}">
+            {%- endif %}
+            {%- if line.salesOrderLineId|default('') %}
+                <input type="hidden" name="lines[{{ index }}][sales_order_line_id]" value="{{ line.salesOrderLineId }}">
+            {%- endif %}
+            {# The resolved base figure, beside the box that produced it — the whole point of the
+               one-selector design is that the conversion happens in front of a person (#601).
+               Rendered only on a line denominated in something other than its base unit; a base-unit
+               line would just be restating the box. #}
+            {%- if line.baseQuantity is defined %}
+                <small class="{{ ['field-hint', hintHooks|default(false) and hookPrefix ? hookPrefix ~ 'base-qty' : '']|filter(v => v)|join(' ') }}">= {{ line.baseQuantity }} {{ line.baseUnitLabel|default('') }}</small>
+            {%- endif %}
+            {# The stock ceiling, stated where the number is typed (#326/#327).
+
+               On an ORDER it is enforced: a non-draft save is refused when a line exceeds it, so
+               showing it here is the difference between an admin knowing before they type and finding
+               out from a rejected form. On a QUOTE it is information and nothing else — a quote can
+               promise more than exists and is never refused for it — but it is the SAME figure from
+               the SAME service, because this quantity becomes an order line the moment the quote is
+               accepted and that is where it will be enforced.
+
+               Server-rendered, so it is there with JavaScript off, and it already has this document's
+               own reservation added back: an order sitting in Pending for 5 units shows those 5 as
+               available to itself rather than as spoken for by someone else.
+
+               "available", not "in stock", on both. They were two wordings for one figure, and the
+               figure is availability with holds netted out — "in stock" overstates it. #}
+            {%- if available is defined and available is not null %}
+                <small class="line-stock-hint {{ (line.qty|default(0)) > available ? 'line-stock-hint-over' : '' }}">{{ available|qty }} available</small>
+            {%- endif %}
+            {# What the last save actually promised beyond stock (#548), and the one part of it an
+               admin types. How much of the line is backordered is decided by BackorderSplitResolver
+               at save time against the same numbers the save was validated on; this is read off the
+               line, never recomputed for display. Only one document has these fields at all —
+               SalesOrderLine — so only one document passes them. #}
+            {%- if line.backordered is defined and line.backordered > 0 %}
+                <small class="line-stock-hint line-stock-hint-backordered">{{ line.backordered|qty }} backordered &mdash; {{ line.fulfillmentStatus|default('') }}</small>
+                <label class="line-restock-eta">
+                    <span>Restock ETA</span>
+                    <input type="date" name="lines[{{ index }}][restock_eta]" value="{{ line.restockEta|default('') }}">
+                </label>
+            {%- endif %}
+            {# Why this line is being sold or billed past what the region can cover (#326).
+
+               LAST in the cell, under the figures it is about. The reason is a property of one LINE
+               — the server reads it as `lines[N][stock_override_reason]` and answers a shortfall
+               with whichever of that shortfall's own rows carries one — so the only place the box
+               can honestly live is the cell that already owns this row's N. Gathered anywhere else
+               it would have to be kept in step with the rows by hand, which is the mistake
+               StockShortfall::$lineIndexes exists to make impossible on the server side.
+
+               `showsStockOverride` and not a question about which document this is: the box belongs
+               on a row whose SAVE reads it, which is the order form and the standalone invoice
+               create screen. The quote form measures no stock and is refused for none — a quote's
+               shortfall is answered much later, at conversion, by holding the ORDER as a Draft — so
+               it passes nothing and no field appears. Nor does the invoice-from-order screen, whose
+               rows draw down an order's own reserved lines and are already capped by them. #}
+            {# Shown only where the line is actually short, or where we cannot tell — never on a row
+               that is provably within stock. `available` is the same figure line-stock-hint above
+               already computed the same comparison against (#326 follow-up): a known, sufficient
+               quantity needs no reason box cluttering every row that will never need one. Where
+               `available` is unknown (the standalone invoice screen computes no live figure at all —
+               see this partial's own docblock) the box still shows, because a screen with no signal
+               to compare against cannot safely assume "fine" — that is the one case an admin could
+               be typing an oversell with no warning and no way to explain it afterwards. #}
+            {%- if showsStockOverride|default(false) and (available is not defined or available is null or (line.qty|default(0)) > available) %}
+                {{- include('admin/_stock_override_reason.html.twig', {
+                    name: 'lines[' ~ index ~ '][stock_override_reason]',
+                    id: 'line-' ~ index ~ '-stock-override-reason',
+                    value: line.stockOverrideReason|default(''),
+                }, with_context = false) -}}
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'ordered' %}
+        {# Display only. What the line being drawn down was written for, in that line's own unit. #}
+        <td{{ label|raw }} style="text-align:right;">{{ line.ordered|default('') }}</td>
+
+    {%- elseif column.key == 'invoiced' %}
+        {# Display only. Already billed on OTHER invoices against this order line. #}
+        <td{{ label|raw }} style="text-align:right;">{{ line.invoiced|default('') }}</td>
+
+    {%- elseif column.key == 'remaining' %}
+        {# Display only, and the figure `line.qtyMax` puts on the box one cell along: how much of
+           that line is still undrawn. The base figure goes under it on a packaged line for the same
+           reason the qty cell's base hint exists — the conversion belongs in front of a person
+           (#601) — and is simply omitted where the line is already in base units. #}
+        <td{{ label|raw }} style="text-align:right;">
+            {{ line.remaining|default('') }}
+            {%- if line.remainingBase is defined %}
+                <small class="field-hint">= {{ line.remainingBase }} {{ line.baseUnitLabel|default('') }}</small>
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'weight' %}
+        <td{{ label|raw }}><input type="number" class="{{ [controlClass, catalogHook ? catalogHook ~ 'weight' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][weight]" value="{{ line.weight|default('') }}" min="0" step="0.001"></td>
+
+    {%- elseif column.key == 'unit' %}
+        {# U/M — ONE selector per line (#601, #644, #659). It is the LINE's unit: it decides what the
+           Qty box counts and what denomination the Price box asks for, and it is persisted, printed,
+           and carried onto whatever document this one becomes.
+
+           ## A PRODUCT row never offers a text box
+
+           The cell used to render two different FIELDS out of one column: a packaging <select> where
+           the product had a ladder, and a free-text `unit` box where it did not — one column, two
+           concepts, nothing on screen saying which one you were looking at. The text box was the
+           harmful half. LineDenomination::baseLabel() prefers a line's typed string OVER the
+           product's declared base unit, so a typed `12P` beat the product's `EA` and got PRINTED on
+           the customer document as the unit the base quantity is counted in. It does not corrupt the
+           numbers — the base quantity comes off the unit, never off this label — it corrupts what the
+           document says those correct numbers ARE. That precedence is right for a blank line and
+           wrong for a product line, and applying it uniformly was the defect.
+
+           So the branch is on the ROW KIND, not on whether the product happens to list any units:
+
+            - product -> one <select>, always. The base unit is its first option and the product's
+              available units follow it. A product that lists none shows exactly ONE option, its own
+              base unit — which is honest, and blank is allowed (#659), not a misconfiguration.
+            - blank   -> the free-text box, kept. A custom line describes something ad hoc with no
+              product behind it, so nothing declares its unit and free text is the honest answer.
+
+           Since #659 the options are plain unit CODES — `EA (base)`, then `BOX-12`, `PALLET-240`. A
+           term carries its own count, which is what makes `BOX-12` and `BOX-24` two terms, so there
+           is no pack size to compose beside the name.
+
+           A plain <select>, because this app works with JavaScript off. #}
+        <td{{ label|raw }}>
+            {%- if productLocked|default(false) %}
+                {# The denomination is the drawn-down line's and travels onto the document this row
+                   raises, so there is nothing to choose. `unitLabel` is the same term the price box
+                   asks in, which is why this cell states it and the price cell does not repeat it. #}
+                {{ line.unitLabel|default('') }}
+            {%- elseif kind == 'product' %}
+                {%- set baseUnitLabel = line.baseUnitLabel|default('') %}
+                <select{% if controlClass %} class="{{ controlClass }}"{% endif %} name="lines[{{ index }}][unit_id]" aria-label="Unit of measure">
+                    <option value="">{{ baseUnitLabel in ['', '-'] ? "The product's base unit" : baseUnitLabel ~ ' (base)' }}</option>
+                    {%- for unit in line.units|default([]) %}
+                        <option value="{{ unit.id }}" {{ line.unitId|default('') == unit.id ? 'selected' : '' }}>{{ unit.code }}</option>
+                    {%- endfor %}
+                </select>
+                {# The legacy free-text U/M snapshot still travels with the row so a save cannot null
+                   it, and it keeps the catalog-fill hook so the product-select handler goes on
+                   writing the catalog's unit into it exactly as before — the difference is that only
+                   the catalog can write it now, never a keyboard. #}
+                <input type="hidden"{% if hookPrefix %} class="{{ hookPrefix }}unit"{% endif %} name="lines[{{ index }}][unit]" value="{{ line.unit|default('') }}">
+            {%- else %}
+                {# No filler [unit_id] on this branch. A row with no selector used to have to post an
+                   empty one or the parallel line_unit_id[] array slipped a place whenever the two row
+                   kinds were mixed. Rows are grouped under their own index now, so a blank row simply
+                   omits the key, which every applyLines* already reads as "the product's base unit" —
+                   and a blank row has no product to have a unit of. #}
+                <input type="text"{% if controlClass %} class="{{ controlClass }}"{% endif %} name="lines[{{ index }}][unit]" value="{{ line.unit|default('') }}" aria-label="Unit of measure">
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'tax_code' %}
+        <td{{ label|raw }}>
+            <select class="{{ [controlClass, hookPrefix ? hookPrefix ~ 'tax' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][tax_code]">
+                <option value="">{{ taxCodeBlankLabel|default('') }}</option>
+                {%- for code in ['E', 'G', 'S'] %}
+                    <option value="{{ code }}" {{ line.taxCode|default('') == code ? 'selected' : '' }}>{{ code }}</option>
+                {%- endfor %}
+            </select>
+        </td>
+
+    {%- elseif column.key == 'tax_amount' %}
+        <td{{ label|raw }}><span{% if hookPrefix %} class="{{ hookPrefix }}line-tax"{% endif %}>${{ taxAmount|default(0)|amount }}</span></td>
+
+    {%- elseif column.key == 'cost' %}
+        <td{{ label|raw }}><input type="{{ costType|default('number') }}" class="{{ [controlClass, catalogHook ? catalogHook ~ 'cost' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][cost]" value="{{ line.cost|default('') }}"{% if costType|default('number') == 'number' %} min="0" step="0.01"{% endif %}></td>
+
+    {%- elseif column.key == 'original_price' %}
+        <td{{ label|raw }}><span{% if hookPrefix %} class="{{ hookPrefix }}original"{% endif %}>${{ line.originalPrice|default(0)|price }}</span></td>
+
+    {%- elseif column.key == 'price' %}
+        {# No min: a negative price is deliberate and the save stores it as typed, so the field must
+           not claim otherwise. A price that could not be READ is the one that is rewritten — saved
+           as 0, named in the banner above, and this cell painted red (#253).
+
+           Blank is "No pricing" on a quote (#254/#255) — the state the TBD placeholder names, and
+           the reason that document's box is type=text rather than type=number. Anything typed into
+           it that cannot be read as a number is still saved as 0 and reported; it used to be filed
+           as "No pricing" instead, so a pasted `1,234.56` silently unpriced the line. #}
+        <td{{ label|raw }}{% if showsWarnings|default(false) %} class="{{ priceWarning|default(false) ? 'line-cell-error' : '' }}"{% endif %}>
+            {# Per the unit the selector names — `$0.500000/EA` reads as `$6.00` per Case (#644). A
+               line in base units answers the stored figure untouched. #}
+            <input type="{{ priceType|default('number') }}" class="{{ [controlClass, hookPrefix ? hookPrefix ~ 'price' : '', priceWarning|default(false) ? 'line-input-error' : '']|filter(v => v)|join(' ') }}" name="lines[{{ index }}][price]" value="{{ line.price|default('') }}"{% if priceType|default('number') == 'number' %} step="0.01"{% endif %}{% if pricePlaceholder|default('') %} placeholder="{{ pricePlaceholder }}"{% endif %}{% if priceInputMode|default('') %} inputmode="{{ priceInputMode }}"{% endif %}>
+            {%- if line.priceRendered is defined %}
+                <input type="hidden" name="lines[{{ index }}][price_rendered]" value="{{ line.priceRendered }}">
+            {%- endif %}
+            {# THE figure this whole design exists to put in front of somebody (#601): the box asks
+               per Case, the column stores per EA, and $10.00 a case of 12 is $0.833333 an each and a
+               line total of $399.99 rather than $400.00. The admin sees that here, on the page, and
+               can accept it or nudge the price — instead of finding it on a document later with
+               nothing to explain it.
+
+               The rate is six places on purpose; see the money note at the top of this file.
+               Server-rendered, so it is there with scripting off. #}
+            {%- if line.baseUnitPrice is defined %}
+                <small class="{{ ['field-hint', hintHooks|default(false) and hookPrefix ? hookPrefix ~ 'resolved-price' : '']|filter(v => v)|join(' ') }}">per {{ line.unitLabel|default('') }} &middot; = ${{ line.baseUnitPrice }} / {{ line.baseUnitLabel|default('') }} &middot; line total ${{ line.resolvedLineTotal }}</small>
+            {%- endif %}
+        </td>
+
+    {%- elseif column.key == 'subtotal' %}
+        <td{{ label|raw }}><span{% if hookPrefix %} class="{{ hookPrefix }}subtotal"{% endif %}>{{ line.subtotal is defined and line.subtotal is not null ? '$' ~ line.subtotal|amount : subtotalFallback|default('') }}</span></td>
+
+    {%- elseif column.key == 'batch' %}
+        {# Order-only: SalesOrderLine is the only line entity with a batch column, because a lot is
+           allocated at fulfilment and neither a quote nor an invoice raised from nothing allocates
+           one. A data-model fact, not drift — which is why the other two documents simply leave the
+           key out of their column list.
+
+           Batch/lot (or serial) tracking is a per-PRODUCT attribute, not a line-row default (#670):
+           a blank row has no product to track anything for, and a product row only offers the
+           capture UI when its product's TrackingPolicy tracks lots or serials outbound. app.js
+           re-derives this same test from the picked option's data-tracks-batch whenever a row's
+           product changes (syncSellDocBatchVisibility() — no fallback there either, by design). #}
+        {%- set showBatchUi = kind == 'product' and line.tracksBatch|default(false) %}
+        {# The real lot/serial picker (2026-09-14 lot/serial/expiry plan), alongside the legacy
+           free-text batch box above rather than replacing it — that column stays untouched, exactly
+           as the plan's "explicitly out of scope" section says. `line.trackingMode` is 'lot',
+           'serial', or '' — which of the two boxes below applies, mirroring `line.tracksBatch`'s
+           own per-product derivation exactly (see productTrackingMode()). Both boxes start hidden
+           and app.js's syncSellDocLotPicker() reveals the right one — the same pattern
+           syncSellDocBatchVisibility() already uses for the box above. #}
+        {%- set trackingMode = line.trackingMode|default('') %}
+        <td{{ label|raw }} class="order-batch-cell">
+            <input type="hidden" name="lines[{{ index }}][batch]" class="js-batch-combined" value="{{ line.batch|default('') }}">
+            <div class="js-batch-rows"{% if not showBatchUi %} hidden{% endif %}></div>
+            <select name="lines[{{ index }}][lot_id]" class="js-lot-select" data-selected="{{ line.lotId|default('') }}"{% if trackingMode != 'lot' %} hidden{% endif %}>
+                <option value="">Select a lot&hellip;</option>
+            </select>
+            <input type="text" name="lines[{{ index }}][serial]" class="js-serial-input" placeholder="Serial" value="{{ line.serial|default('') }}"{% if trackingMode != 'serial' %} hidden{% endif %}>
+        </td>
+
+    {%- elseif column.key == 'actions' %}
+        {{- include(actionsTemplate, {
+            index: index,
+            kind: kind,
+            showRemove: showRemove|default(false),
+            line: line,
+            column: column,
+            labelled: labelled|default(false),
+        }, with_context = false) }}
+
+    {%- else %}
+        {# A key this row does not know. An empty cell rather than nothing, so a mistyped key is a
+           hole in the table instead of a row one cell short of its own header. #}
+        <td{{ label|raw }}></td>
+    {%- endif %}
+{%- endfor %}
+</tr>

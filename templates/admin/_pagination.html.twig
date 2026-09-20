@@ -1,0 +1,46 @@
+{% if pageCount > 1 %}
+    {% set startPage = max(1, currentPage - 2) %}
+    {% set endPage = min(pageCount, startPage + 4) %}
+    {% if endPage - startPage < 4 %}
+        {% set startPage = max(1, endPage - 4) %}
+    {% endif %}
+    <div class="table-pagination" data-server-pagination="true">
+        {% if currentPage <= 1 %}
+            <span class="page-btn is-disabled" aria-disabled="true">First</span>
+            <span class="page-btn is-disabled" aria-disabled="true">&lt;</span>
+        {% else %}
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: 1})) }}">First</a>
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: currentPage - 1})) }}">&lt;</a>
+        {% endif %}
+
+        {% if startPage > 1 %}
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: 1})) }}">1</a>
+            {% if startPage > 2 %}
+                <span class="page-btn is-disabled" aria-disabled="true">...</span>
+            {% endif %}
+        {% endif %}
+
+        {% for p in startPage..endPage %}
+            <a class="page-btn{{ p == currentPage ? ' is-active' : '' }}"
+               href="{{ path(routeName, routeQuery|merge({page: p})) }}"
+               {% if p == currentPage %}aria-current="page"{% endif %}>
+                {{ p }}
+            </a>
+        {% endfor %}
+
+        {% if endPage < pageCount %}
+            {% if endPage < pageCount - 1 %}
+                <span class="page-btn is-disabled" aria-disabled="true">...</span>
+            {% endif %}
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: pageCount})) }}">{{ pageCount }}</a>
+        {% endif %}
+
+        {% if currentPage >= pageCount %}
+            <span class="page-btn is-disabled" aria-disabled="true">&gt;</span>
+            <span class="page-btn is-disabled" aria-disabled="true">Last</span>
+        {% else %}
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: currentPage + 1})) }}">&gt;</a>
+            <a class="page-btn" href="{{ path(routeName, routeQuery|merge({page: pageCount})) }}">Last</a>
+        {% endif %}
+    </div>
+{% endif %}

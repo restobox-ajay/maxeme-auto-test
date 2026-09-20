@@ -1,0 +1,121 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Sign In | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+    <section class="gcp-cover">
+        <aside class="gcp-cover-panel">
+            <p class="gcp-eyebrow">{{ site_name() }}</p>
+            <h1>Welcome back.</h1>
+            {# "Existing customers and new customers" is deliberate: a wholesale buyer who has been
+               ordering by phone or email for years still has no portal login, and the old wording
+               ("New here?" alone) read as though registering were only for businesses new to us. #}
+            <p>Sign in to see company pricing, place orders, and manage your account. New here? Existing customers and new customers, please <a href="{{ path('customer_register') }}">register an account</a>.</p>
+        </aside>
+
+        <section class="gcp-cover-form">
+            <div class="auth-card">
+                <p class="eyebrow">Customer login</p>
+                <h1>Sign in</h1>
+
+                {% for message in app.flashes('success') %}
+                    <div class="alert success" style="margin-top: 14px;">{{ message }}</div>
+                {% endfor %}
+                {% for message in app.flashes('error') %}
+                    <div class="alert error" style="margin-top: 14px;">{{ message }}</div>
+                {% endfor %}
+
+                {% if error %}
+                    <div class="alert error" style="margin-top: 14px;">
+                        {{ login_error_message|default(error.messageKey|trans(error.messageData, 'security')) }}
+                    </div>
+                {% endif %}
+
+                <form class="form-grid" method="post" action="{{ path('customer_login') }}" style="margin-top: 14px;">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                    <label class="span-2">
+                        Email
+                        <input type="email" name="_username" value="{{ last_username|default('') }}" placeholder="buyer@example.test" required>
+                    </label>
+
+                    <label class="span-2">
+                        Password
+                        <input type="password" name="_password" placeholder="password" required>
+                    </label>
+
+                    <label class="check-row span-2">
+                        <input type="checkbox" name="_remember_me" value="on">
+                        Keep me signed in
+                    </label>
+
+                    <div class="span-2 auth-actions">
+                        <button class="button primary" type="submit">Login</button>
+                        <a class="button outline" href="{{ path('customer_password_reset') }}">Forgot password?</a>
+                    </div>
+                </form>
+
+                <p class="auth-foot">Do not have an account? <a href="{{ path('customer_register') }}">Register</a></p>
+            </div>
+
+            {{ injection_point('customer_login_after_card', {}) }}
+        </section>
+    </section>
+
+    <style>
+        .gcp-cover {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            min-height: 60vh;
+            gap: 0;
+        }
+
+        .gcp-cover-panel {
+            background: linear-gradient(135deg, #111827, #1f2937);
+            color: #f9fafb;
+            padding: 56px 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-radius: 12px 0 0 12px;
+        }
+
+        .gcp-cover-panel h1 {
+            color: #f9fafb;
+            font-size: 2.1rem;
+            margin: 8px 0 12px;
+        }
+
+        .gcp-cover-panel p {
+            color: #d1d5db;
+            max-width: 34ch;
+        }
+
+        .gcp-eyebrow {
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-size: .75rem;
+            color: #9ca3af;
+            margin: 0;
+        }
+
+        .gcp-cover-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            justify-content: center;
+            padding: 40px;
+            background: #fff;
+            border-radius: 0 12px 12px 0;
+        }
+
+        @media (max-width: 860px) {
+            .gcp-cover {
+                grid-template-columns: 1fr;
+            }
+
+            .gcp-cover-panel,
+            .gcp-cover-form {
+                border-radius: 0;
+            }
+        }
+    </style>
+{% endblock %}

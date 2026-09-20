@@ -1,0 +1,28 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Warehouse Operations | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'index',
+        heading: 'Warehouse Operations',
+        lead: 'Print a label, scan a bin, walk a pick round in shelf order, move a pallet between warehouses. Nothing here invents a new way to change stock — every screen is a faster front end on the movement layer underneath it.'
+    } only %}
+
+    <section class="panel">
+        <h2>Right now</h2>
+        <div class="stat-row">
+            <p><strong>{{ openLists }}</strong> open pick list(s)</p>
+            <p><strong>{{ closedLists }}</strong> closed</p>
+            <p><strong>{{ inTransit }}</strong> transfer(s) on the road</p>
+        </div>
+        <div class="stat-row">
+            <p><strong>{{ requestedUnits|qty }}</strong> unit(s) ever asked for on a round</p>
+            <p><strong>{{ missingUnits|qty }}</strong> not on the shelf</p>
+            <p><strong>{{ shortPickRate }}%</strong> short-pick rate</p>
+        </div>
+        <p class="lead">
+            A rising short-pick rate is what a wrong sort key, a mislabelled bin and a leaking process all look like
+            from the outside. The <a href="{{ path('admin_bundle_warehouse_ops_bin_map') }}">bin map</a> is where the
+            first of those becomes visible.
+        </p>
+    </section>
+{% endblock %}

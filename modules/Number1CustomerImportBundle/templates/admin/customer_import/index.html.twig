@@ -1,0 +1,94 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Number1 Customer CSV Import | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Bulk updates</p>
+                <h1>Number1 Customer CSV Import</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_bundle_customer_import_template') }}">Download CSV template</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <form method="post" enctype="multipart/form-data" class="form-grid">
+            {{ csrf_field() }}
+
+            <div class="span-2">
+                <label class="file-upload-label">
+                    CSV file <span class="req">*</span>
+                    <small>Column names are case-insensitive and spaces/dashes are normalized automatically.</small>
+                </label>
+                <input type="file" name="csv_file" accept=".csv,text/csv" required>
+            </div>
+
+            <label class="span-2 checkbox-label">
+                <input type="checkbox" name="send_invite" value="yes" {{ sendInvite ? 'checked' : '' }}>
+                Send an account-setup invite email to every newly created customer in this batch
+            </label>
+
+            <div class="span-2">
+                <article class="panel">
+                    <h2>Column format</h2>
+                    <div class="table-shell">
+                        <table class="admin-grid-table table">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Use</th>
+                                    <th>What it does</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>Main Email</code></td>
+                                    <td><span class="badge danger">Required</span></td>
+                                    <td>Matches an existing customer (updates it) or creates a new one. Must be a valid email address.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Company</code></td>
+                                    <td><span class="badge danger">Required</span></td>
+                                    <td>Matched against existing companies by name (case-insensitive). If no match is found, a new company is created automatically.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>First Name</code>, <code>Last Name</code>, <code>Main Phone</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Blank cells never overwrite an existing value on update.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Active Status</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Use <code>Active</code> or <code>Inactive</code>. New customers default to Inactive unless this is exactly "Active".</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Invoice To 1-5</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Contact name / street address / "City PROV" / postal code / extra — becomes the company's default billing address.</td>
+                                </tr>
+                                <tr>
+                                    <td><code>Ship To 1-5</code></td>
+                                    <td><span class="badge info">Optional</span></td>
+                                    <td>Same layout as Invoice To — becomes the company's default shipping address.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <ul>
+                        <li>Each row = one customer.</li>
+                        <li>Re-uploading the same file updates the same customer, company, and addresses in place — it does not create duplicates.</li>
+                        <li>Rows with a missing or invalid email, or a missing company name, are reported as errors and skipped; the rest of the file still processes.</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Import CSV</button>
+            </div>
+        </form>
+    </section>
+
+    {% include '@Number1CustomerImport/admin/customer_import/_import_results.html.twig' with {result: result} %}
+{% endblock %}

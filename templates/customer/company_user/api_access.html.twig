@@ -1,0 +1,136 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Manage API Access | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-company-users-header">
+        <h1>Manage API Access</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">&rsaquo;</span>
+            <a href="{{ path('customer_company_users') }}">My Company User</a>
+            <span aria-hidden="true">&rsaquo;</span>
+            <span>Manage API Access</span>
+        </nav>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert success" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert error" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+
+    <section class="table-card customer-company-users-card">
+        <div class="table-header customer-company-users-toolbar">
+            <h2>API Access</h2>
+            <div class="customer-company-users-actions">
+                <a class="button back-button" href="{{ path('customer_company_users') }}">Back</a>
+            </div>
+        </div>
+
+        <div class="customer-company-profile-body">
+            {% if not companyEnabled %}
+                {# The company gate is an administrator's decision, so there is nothing to offer here
+                   — not even a disabled control, which would read as "broken" rather than "not yours
+                   to set". Say who to ask instead. #}
+                <div class="alert info">
+                    <strong>API access is not enabled for your company.</strong>
+                    Please ask an administrator to activate API access for your company. Once they
+                    have, you can enable it here for yourself and for your staff.
+                </div>
+            {% else %}
+                <p>
+                    Choose who at your company may use the API. Enabling someone lets
+                    <strong>them</strong> create their own key from their own profile — it does not
+                    create one, and no key is ever shown here.
+                </p>
+                <p class="muted">
+                    Switching someone off is a pause, not a revocation: their key is kept, stops
+                    working immediately, and starts working again exactly as it was when you switch
+                    them back on. Nobody has to regenerate anything.
+                </p>
+            {% endif %}
+        </div>
+
+        <div class="wide-table-wrap">
+            <table class="order-list-table customer-company-users-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>API Access</th>
+                        <th>Key</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        {% set name = ((u.firstName ?: '') ~ ' ' ~ (u.lastName ?: ''))|trim ?: u.email %}
+                        {% set isOwner = 'ROLE_COMPANY_OWNER' in u.roles %}
+                        <tr>
+                            <td data-label="Name">
+                                {{ name }}
+                                {% if u.id == actorId %}<span class="badge">You</span>{% endif %}
+                            </td>
+                            <td data-label="Email">{{ u.email }}</td>
+                            <td data-label="Role">{{ isOwner ? 'Owner' : 'Company Staff' }}</td>
+                            <td data-label="API Access">
+                                {% if u.apiEnabled %}
+                                    <span class="badge success">Enabled</span>
+                                {% else %}
+                                    <span class="muted">Disabled</span>
+                                {% endif %}
+                            </td>
+                            {# Whether they have minted one yet, which is theirs to do. Deliberately
+                               not the key, not a "reset" and not a "view" — see #521. #}
+                            <td data-label="Key">
+                                {% if apiKeyFlags|default({})[u.id]|default(false) %}
+                                    <span class="badge success">Active</span>
+                                {% elseif u.apiEnabled %}
+                                    <span class="muted">Not created yet</span>
+                                {% else %}
+                                    <span class="muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Actions" class="ccu-row-actions">
+                                {% if companyEnabled %}
+                                    <form method="post" action="{{ path('customer_company_api_access_set', {id: u.id}) }}" class="ccu-inline-form">
+                                        {{ csrf_field() }}
+                                        <input type="hidden" name="enabled" value="{{ u.apiEnabled ? '0' : '1' }}">
+                                        {# Both states need a modifier. The base .button is a ghost
+                                           style — transparent background and transparent border —
+                                           so `class="button"` alone renders as plain grey text and
+                                           stops looking clickable, which is exactly what happened
+                                           to Disable the first time this page was used. #}
+                                        <button class="button {{ u.apiEnabled ? 'info' : 'primary' }}" type="submit">
+                                            {{ u.apiEnabled ? 'Disable' : 'Enable' }}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-table-cell">
+                                    <strong>No users found.</strong>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if companyEnabled %}
+            <div class="customer-company-profile-body">
+                <p class="muted" style="margin-bottom:0;">
+                    Lost a key? You can't look one up &mdash; nobody can, including us. Whoever owns
+                    it regenerates it themselves from <strong>My Profile &rsaquo; My API Key</strong>.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+{% endblock %}

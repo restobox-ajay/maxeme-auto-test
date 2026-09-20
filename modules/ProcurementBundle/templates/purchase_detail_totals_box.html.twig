@@ -1,0 +1,93 @@
+{# The totals box beside a purchase document's line table: subtotal, freight, charges, tax, total —
+   the buy-side carbon copy of admin/_partials/sales_detail_totals_box.html.twig (#full-parity,
+   2026-09-13), for PurchaseOrder's and VendorBill's own detail screens exactly the way that file
+   serves Order/Quote/Invoice. A copy and not a cross-bundle include, matching how every other
+   buy-side line partial in this rewrite was built (_purchase_detail_line_table.html.twig,
+   _purchase_line_row.html.twig, ...): the buy side owns its own copy to modify for its own needs
+   without touching the sell side's file, or a bundle ever including a template shape the sell side
+   is free to change out from under it.
+
+   Two things differ from the sell side's file, both internal names rather than anything a user
+   reads (#full-parity, 2026-09-15 — the "Freight" label this file used to show was corrected to
+   match the sell side's "Shipping Fee" wording exactly, no divergence left there): the
+   `shipping-fee-row` hook is `freight-row` (matching PurchaseDocumentChargeLines::toFreightLines()
+   and PurchaseChargeLine::TYPE_FREIGHT, the underlying data-model name), and a tax row's id (when
+   `taxRowIds` is set) is `po-tax-line-<slug>` rather than `tax-line-<slug>` — the same `po-` prefix
+   `_purchase_totals_footer.html.twig`'s own tax rows already use on the edit screen, so a test (or
+   a link) can point at either screen's copy of the same tax line with one selector. Everything
+   else — the row order, Total Tax always shown, the `× quantity` span, TBD-when-null — is
+   unchanged, verbatim.
+
+   Parameters
+   ----------
+   subtotal       required  the document's subtotal ALREADY carrying its main-line charges, or
+                            null when unstated.
+   shippingLines  required  one row per freight line, labelled exactly as it was entered. Pass []
+                            for none, and a stand-in row is printed rather than nothing: a
+                            freight-free order still has to say so.
+   beforeTaxRows  required  charge rows placed above the tax rows, each {label, amount}. Pass [].
+   afterTaxRows   required  charge rows placed below Total Tax, each {label, amount}. Pass [].
+   taxLines       required  the calculated tax rows, each {label, rate, amount} with a nullable
+                            rate and an optional slug. Pass [] for none.
+   tax            required  the document's total tax, or null when unstated.
+   total          required  the document's total, or null when unstated.
+   allowUnstated  optional  true wherever an amount may be TBD. Defaults to false — every buy-side
+                            document is priced by definition today, but the parameter exists so a
+                            future one need not fork this file to get it.
+   taxRowIds      optional  true to key each tax row `po-tax-line-<the calculator's own slug>`, so a
+                            specific row can be pointed at. Defaults to false.
+#}
+
+{% set unstated = allowUnstated|default(false) %}
+{% set rowStyle = 'display:flex; justify-content:space-between; padding:8px 0; font-size:0.88rem; border-bottom:1px solid var(--line-light);' %}
+
+<div style="width:380px; background:#fff; border:1px solid var(--line-light); border-top:0; border-radius:0 0 var(--radius-md) var(--radius-md); padding:20px 24px; box-shadow:var(--shadow-sm);">
+    <div style="{{ rowStyle }}">
+        <span style="color:#64748b; font-weight:600;">Subtotal:</span>
+        <strong style="color:#334155;">{{ subtotal is not null ? '$' ~ subtotal|amount : 'TBD' }}</strong>
+    </div>
+    {% if shippingLines is empty %}
+        <div class="freight-row" style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">Shipping Fee:</span>
+            <strong style="color:#334155;">{{ unstated ? 'TBD' : '$0.00' }}</strong>
+        </div>
+    {% endif %}
+    {% for shippingLine in shippingLines %}
+        <div class="freight-row" style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ shippingLine.label }}:</span>
+            <strong style="color:#334155;">${{ shippingLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    {% for feeLine in beforeTaxRows %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ feeLine.label }}{% if feeLine.quantity|default(1) != 1 %} <span style="font-weight:400; color:#64748b;">&times; {{ feeLine.quantity|qty }}</span>{% endif %}:</span>
+            <strong style="color:#334155;">${{ feeLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    {% for taxLine in taxLines %}
+        <div{% if taxRowIds|default(false) %} id="po-tax-line-{{ taxLine.slug|default('unslugged') }}"{% endif %} style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span>
+            <strong style="color:#334155;">${{ taxLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    <div style="{{ rowStyle }}">
+        <span style="color:#64748b; font-weight:800;">Total Tax:</span>
+        <strong style="color:#334155;">{{ tax is not null ? '$' ~ tax|amount : 'TBD' }}</strong>
+    </div>
+    {% for feeLine in afterTaxRows %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:600;">{{ feeLine.label }}{% if feeLine.quantity|default(1) != 1 %} <span style="font-weight:400; color:#64748b;">&times; {{ feeLine.quantity|qty }}</span>{% endif %}:</span>
+            <strong style="color:#334155;">${{ feeLine.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+    <div style="display:flex; justify-content:space-between; padding:14px 0 4px; font-size:1.05rem;">
+        <span style="font-weight:800; color:var(--ink);">Total Amount:</span>
+        <strong style="font-weight:800; color:var(--admin-blue-hover);">{{ total is not null ? '$' ~ total|amount : 'TBD' }}</strong>
+    </div>
+    {% for row in afterTotalRows|default([]) %}
+        <div style="{{ rowStyle }}">
+            <span style="color:#64748b; font-weight:{{ row.strong|default(false) ? 800 : 600 }};">{{ row.label }}:</span>
+            <strong style="color:#334155;">${{ row.amount|amount }}</strong>
+        </div>
+    {% endfor %}
+</div>

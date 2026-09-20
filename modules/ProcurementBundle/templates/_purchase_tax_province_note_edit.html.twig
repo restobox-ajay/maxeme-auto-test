@@ -1,0 +1,75 @@
+{#
+    The tax-province explanatory paragraph, shared by PurchaseOrder's and VendorBill's EDIT screens
+    (`purchase_order_edit.html.twig`'s `#po-tax-province-note` and `bill_edit.html.twig`'s
+    `#bill-tax-province-note`). Both used to hand-write the same four-branch structure with the same
+    reasoning and only the noun, the freeze verb and a couple of document-specific sentences
+    differing; this is the one file both now include. The caller keeps its own wrapping
+    `<p id="...">` — this partial renders only the branching text inside it, so each screen's id
+    stays exactly where a test already looks for it.
+
+    Every phrase that is genuinely shared (the "no tax province on this X" paragraph and its
+    "now records" / "record the address" remedy) is written once below with `documentNoun`
+    substituted in. Every phrase that ISN'T identical between the two documents is
+    passed in as its own parameter rather than forced to match — see the two per-document sentences
+    below, and VendorBill's own `warehouseKnownButNotSavedYet` branch, which PurchaseOrder never
+    reaches (a purchase order's warehouse is never known before the order itself is saved; a bill
+    created from `?po=` inherits its warehouse before its own first save, which is the one shape
+    of this note PurchaseOrder has no equivalent for).
+
+    Parameters
+    ----------
+    documentNoun                required  'order' | 'bill'
+    cannotFreezeSentence         required  "An order with taxable goods and no province cannot be
+                                          issued." / "A bill with taxable goods and no province
+                                          cannot be approved." — a full sentence rather than
+                                          composed from a noun and a verb because "an order" /
+                                          "a bill" is a grammar rule, not a substitution.
+    isDraft                     required  Whether this document is still a draft. PurchaseOrder's
+                                          final (no-warehouse-at-all) branch is only ever reached
+                                          while brand new, so passing its own `isDraft` here is
+                                          always true there and changes nothing about its output.
+    hasProvince                 required  Whether the document already carries a frozen province.
+    provinceDisplay              optional  The frozen value's display text (PO: a province name
+                                          plus its code in parens; Bill: the bare code). Only read
+                                          when `hasProvince`.
+    warehouse                    optional  The document's warehouse, nullable exactly as each
+                                          caller's own template variable is (PurchaseOrder's is
+                                          effectively always set here; VendorBill's genuinely can be
+                                          null). Drives the ", from X's address" clause and the
+                                          no-province remedy's warehouse name.
+    savingRetakesSentence        optional  Shown when `hasProvince` and `isDraft`.
+    frozenPastDraftSentence      optional  Shown when `hasProvince` and not `isDraft`.
+    warehouseKnownButNotSavedYet optional  VendorBill's own extra state: a warehouse is known (from
+                                          `?po=`) but nothing has been saved yet, so there is no
+                                          snapshot to have gone stale. Default false.
+    notYetSavedBody              optional  Rendered only when `warehouseKnownButNotSavedYet`.
+    noWarehouseSentence          optional  Shown when there is no province and no warehouse at all.
+    noWarehouseRemedySentence    optional  Shown alongside it, gated by `isDraft` — see the note
+                                          above on why that gate is a no-op for PurchaseOrder.
+#}
+{% set warehouse = warehouse|default(null) %}
+{% if hasProvince %}
+    Tax province: <strong>{{ provinceDisplay|default('') }}</strong>{% if warehouse %}, from {{ warehouse.name }}'s address{% endif %}.
+    {% if isDraft %}
+        {{ savingRetakesSentence|default('') }}
+    {% else %}
+        {{ frozenPastDraftSentence|default('') }}
+    {% endif %}
+{% elseif warehouseKnownButNotSavedYet|default(false) %}
+    {{ notYetSavedBody|default('') }}
+{% elseif warehouse %}
+    <strong>No tax province on this {{ documentNoun }}</strong>{% if not warehouse.province %} — {{ warehouse.name }} has no province recorded{% endif %}, so taxable goods on it would compute no tax.
+    {% if isDraft %}
+        {% if warehouse.province %}
+            <strong>{{ warehouse.name }} now records {{ warehouse.province }}</strong> — this {{ documentNoun }} was entered before that, and the province is taken from the warehouse each time the draft is saved. Save this draft again to freeze it onto the {{ documentNoun }}.
+        {% else %}
+            Record the address under Config &rsaquo; Warehouses, then save this draft again.
+        {% endif %}
+        {{ cannotFreezeSentence|default('') }}
+    {% endif %}
+{% else %}
+    {{ noWarehouseSentence|default('') }}
+    {% if isDraft %}
+        {{ noWarehouseRemedySentence|default('') }}
+    {% endif %}
+{% endif %}

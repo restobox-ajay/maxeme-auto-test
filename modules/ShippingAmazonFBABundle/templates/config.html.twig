@@ -1,0 +1,63 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Amazon FBA — Shipping Bundle | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Shipping</p>
+                <h1>Amazon FBA</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <h2>Eligible Products</h2>
+        {% if products|default([])|length > 0 %}
+        <table class="admin-grid-table data-table" style="max-width:640px;margin-top:1rem">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>SKU</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.id }}</td>
+                    <td>{{ product.sku }}</td>
+                    <td>{{ product.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <p style="color:var(--text-muted,#6b7280)">No eligible products configured — Amazon FBA will not appear as a shipping option.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <h2>Update Eligible Product IDs</h2>
+        <p>Enter product IDs separated by commas or newlines. Amazon FBA is shown at checkout only when <strong>all</strong> cart items appear in this list.</p>
+        <form method="post" action="{{ path('admin_bundle_shipping_amazon_fba') }}" style="margin-top:1rem">
+            {{ csrf_field() }}
+            <textarea name="product_ids" rows="6" style="width:100%;max-width:480px;font-family:monospace;padding:0.5rem;border:1px solid var(--border,#e5e7eb);border-radius:4px">{{ eligibleIds|join(', ') }}</textarea>
+            <div style="margin-top:0.75rem">
+                <button type="submit" class="button primary">Save</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Pricing</h2>
+        <p>Rate: <strong>$6.00 base + $1.00 per item</strong> · Delivery: <strong>1 day</strong></p>
+        <p style="color:var(--text-muted,#6b7280);font-size:0.875rem">Rates are set in code (<code>AmazonFBAShippingCalculator</code>). Contact your developer to adjust them.</p>
+    </section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Quote Declined{% endblock %}
+
+{% block body %}
+    <p>Hi,</p>
+    <h2 style="margin-top: 0; color: #0f172a;">Quote Request ({{ estimate.documentNumber }}) has been declined by the customer.</h2>
+
+    {% include 'emails/_quote_summary.html.twig' %}
+
+    <div style="text-align: center; margin-top: 10px;">
+        <a href="{{ admin_url|default('#') }}" class="button">Review Quote</a>
+    </div>
+{% endblock %}

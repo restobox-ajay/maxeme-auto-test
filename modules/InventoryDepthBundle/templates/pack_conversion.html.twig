@@ -1,0 +1,210 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Break a Case | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'pack',
+        heading: 'Break a Case',
+        lead: 'The case and the unit are two SKUs with two balances. Breaking one open moves stock between them, so it is recorded as one operation with a date and an actor — never as two unrelated adjustments.'
+    } only %}
+
+    <section class="panel">
+        <p class="lead">
+            Looking to re-express a quantity within one SKU instead — forty boxes of twelve is four hundred and eighty
+            of the same product? Use <a href="{{ path('admin_product_unit_of_measure_index') }}">Products &rsaquo; Units of Measure</a>
+            instead.
+        </p>
+    </section>
+
+    <section class="panel" id="pack-form">
+        <h2>{{ editing ? 'Pack ' ~ editing.id : 'Declare a pack' }}</h2>
+        <form method="post" action="{{ path('admin_bundle_inventory_depth_pack_rule_save') }}" class="form-grid">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ editing ? editing.id : 0 }}">
+            <label>Case SKU
+                {{ include('admin/_partials/product_field.html.twig', {
+                    field: 'case_product_id',
+                    products: productOptions,
+                    remote: productsRemote,
+                    selected: editing ? editing.caseProduct : null,
+                    required: true,
+                    label: 'The case SKU, the one that gets opened',
+                }, with_context = false) }}
+                <small>The container. Stock leaves this SKU when a case is broken.</small>
+            </label>
+            <label>Unit SKU
+                {{ include('admin/_partials/product_field.html.twig', {
+                    field: 'unit_product_id',
+                    products: productOptions,
+                    remote: productsRemote,
+                    selected: editing ? editing.unitProduct : null,
+                    required: true,
+                    label: 'The unit SKU that comes out of the case',
+                }, with_context = false) }}
+                <small>What comes out. It must be a different product — a SKU that holds a number of itself is a unit of measure.</small>
+            </label>
+            <label>Units per case
+                <input type="number" name="units_per_case" min="2" step="1" required value="{{ editing ? editing.unitsPerCase : '' }}">
+                <small>At least two. A case of one is the same goods under a second SKU, which is a relabelling rather than a pack.</small>
+            </label>
+            <label class="check-row">
+                <input type="checkbox" name="rebuild_allowed" value="1"{{ editing and editing.rebuildAllowed ? ' checked' : '' }}>
+                <span>Cases can be rebuilt from loose units</span>
+            </label>
+            <p class="span-2 lead">Breaking is always available; only rebuilding needs the tick.</p>
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">{{ editing ? 'Save pack ' ~ editing.id : 'Declare pack' }}</button>
+                {% if editing %}<a class="button" href="{{ path('admin_bundle_inventory_depth_pack_conversion') }}">Cancel</a>{% endif %}
+            </div>
+        </form>
+    </section>
+
+    {# No `.table-scroll-region` on either grid below, and that is #618's rule rather than an
+       omission: `app.css` clamps the whole `.content-frame` to 100vh around a scroll region, so a
+       page with sections after it has them pushed past the bottom of the frame, and two regions on
+       one page compete for the same clamped height. #618 removed every region from multi-section
+       pages for exactly this shape — a form, two grids and three explanations — and core uses them
+       on single-grid list screens only. `no-paginate` stays on both cards; it is a separate rule. #}
+    <section class="table-card no-paginate">
+        <h2>Declared packs</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead>
+                <tr>
+                    <th>Case SKU</th>
+                    <th>Holds</th>
+                    <th>Unit SKU</th>
+                    <th>Case cost</th>
+                    <th>Cost per unit</th>
+                    <th>Rebuild</th>
+                    <th>Row</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in packRows %}
+                {% set rule = row.rule %}
+                <tr class="data-item-row">
+                    <td data-label="Case SKU">{{ rule.caseProduct.sku ?: rule.caseProduct.name }}</td>
+                    <td data-label="Holds"><strong>{{ rule.unitsPerCase }}</strong></td>
+                    <td data-label="Unit SKU">{{ rule.unitProduct.sku ?: rule.unitProduct.name }}</td>
+                    <td data-label="Case cost">{{ row.caseCost is null ? 'not set' : row.caseCost }}</td>
+                    {# Derived here and nowhere else: the same PackCost arithmetic a conversion would
+                       record, shown before anybody commits to one. It is NOT stored on the unit
+                       product — see PackConversion on why a conversion never writes a catalogue cost. #}
+                    <td data-label="Cost per unit">{{ row.unitCost is null ? 'not set' : row.unitCost }}</td>
+                    <td data-label="Rebuild">{{ rule.rebuildAllowed ? 'allowed' : 'not allowed' }}</td>
+                    <td data-label="Row">
+                        <a class="table-action" href="{{ path('admin_bundle_inventory_depth_pack_conversion', {edit: rule.id}) }}#pack-form">Edit pack {{ rule.id }}</a>
+                        {# POST, never a link, and the form lives outside this table for the #613 reason. #}
+                        <button type="submit" class="table-action danger" form="retire-pack-{{ rule.id }}">Stop declaring</button>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="empty-table-cell">
+                    <strong>No packs are declared.</strong>
+                    <span>Nothing is inferred from a SKU or a name — a pack size is a fact about the packaging somebody has to state, and a guessed one would move the wrong number of units and look deliberate.</span>
+                </td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+
+    {% for rule in rules %}
+        <form method="post" id="retire-pack-{{ rule.id }}" hidden
+              action="{{ path('admin_bundle_inventory_depth_pack_rule_delete', {id: rule.id}) }}"
+              onsubmit="return confirm('Stop declaring {{ rule.label|e('js') }}? No stock moves and no conversion already recorded changes.')">
+            {{ csrf_field() }}
+        </form>
+    {% endfor %}
+
+    <section class="panel" id="convert-form">
+        <h2>Break or rebuild</h2>
+        {% if rules is empty %}
+            <p class="lead">Declare a pack above first. A conversion is an application of a declaration — there is nothing to apply yet.</p>
+        {% else %}
+            <p class="lead">You do not name a bin — cases are taken earliest-expiry-first and the units land where the case came from.</p>
+            <form method="post" action="{{ path('admin_bundle_inventory_depth_pack_conversion_submit') }}" class="form-grid">
+                {{ csrf_field() }}
+                <label>Pack
+                    <select name="rule_id" required>
+                        <option value="">Choose a pack…</option>
+                        {% for rule in rules %}
+                            <option value="{{ rule.id }}"{{ selectedRuleId == rule.id ? ' selected' : '' }}>{{ rule.describe }}{{ rule.rebuildAllowed ? '' : ' (break only)' }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Warehouse
+                    <select name="warehouse_id" required>
+                        <option value="">Choose a warehouse…</option>
+                        {% for w in warehouses %}
+                            <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <div class="span-2">
+                    <label class="check-row" style="justify-content: flex-start; gap: 10px;">
+                        <input type="radio" name="direction" value="break"{{ direction == 'rebuild' ? '' : ' checked' }}>
+                        <span><strong>Break cases open</strong> — cases leave the case SKU, units arrive at the unit SKU.</span>
+                    </label>
+                    <label class="check-row" style="justify-content: flex-start; gap: 10px;">
+                        <input type="radio" name="direction" value="rebuild"{{ direction == 'rebuild' ? ' checked' : '' }}>
+                        <span><strong>Rebuild cases</strong> — units leave the unit SKU, cases arrive at the case SKU. Only for a pack marked rebuildable.</span>
+                    </label>
+                </div>
+                <label>Cases
+                    <input type="number" name="cases" min="1" step="1" required>
+                    <small>Always a case count, both ways round. Rebuilding five cases of twelve consumes sixty units, so a partial case cannot be expressed.</small>
+                </label>
+                <label>Reference
+                    <input type="text" name="reference" maxlength="160" placeholder="Optional — a work order, a pick list">
+                </label>
+                <label>When
+                    <input type="date" name="occurred_at">
+                    <small>Optional. Blank records it as now.</small>
+                </label>
+                <div class="form-actions span-2">
+                    <button class="button primary" type="submit">Record the conversion</button>
+                </div>
+            </form>
+        {% endif %}
+    </section>
+
+    <section class="table-card no-paginate">
+        <h2>Recent conversions</h2>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Direction</th>
+                    <th>Cases</th>
+                    <th>Units</th>
+                    <th>Case cost</th>
+                    <th>Per unit</th>
+                    <th>Rounding</th>
+                    <th>Actor</th>
+                    <th>Group</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in recent %}
+                <tr class="data-item-row">
+                    <td data-label="When">{{ row.group.occurredAt|date('Y-m-d') }}</td>
+                    <td data-label="Direction">{{ row.direction }}</td>
+                    <td data-label="Cases">{{ row.cases }}</td>
+                    <td data-label="Units">{{ row.units }}</td>
+                    <td data-label="Case cost">{{ row.caseCost is null ? 'not recorded' : row.caseCost }}</td>
+                    <td data-label="Per unit">{{ row.unitCost is null ? 'not recorded' : row.unitCost }}</td>
+                    <td data-label="Rounding">{{ row.roundingResidue is null ? '—' : row.roundingResidue }}</td>
+                    <td data-label="Actor">{{ row.group.actor ?: 'not recorded' }}</td>
+                    <td data-label="Group">
+                        <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: {type: 'pack_convert'}}) }}">group {{ row.group.id }}</a>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="9" class="empty-table-cell">
+                    <strong>Nothing has been broken or rebuilt yet.</strong>
+                    <span>Every conversion recorded here also writes its two movements to the ledger, where they read as one group.</span>
+                </td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </section>
+{% endblock %}

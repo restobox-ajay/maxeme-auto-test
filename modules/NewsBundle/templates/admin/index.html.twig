@@ -1,0 +1,77 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}News | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › News</p>
+                <h1>News Posts</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button" href="{{ path('admin_bundle_news_new') }}">+ Add Post</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <h2>Display Settings</h2>
+                <p class="lead">Choose where the news scroller appears. The bundle-level Active/Inactive toggle in Bundle Management overrides both of these.</p>
+            </div>
+        </div>
+        <form method="post" action="{{ path('admin_bundle_news_settings') }}" class="form-grid">
+            {{ csrf_field() }}
+            <label style="flex-direction: row; align-items: center; gap: 8px;">
+                <input type="checkbox" name="show_on_login" value="1" {{ showOnLogin ? 'checked' : '' }}>
+                Show on Login Page
+            </label>
+            <label style="flex-direction: row; align-items: center; gap: 8px;">
+                <input type="checkbox" name="show_on_catalog" value="1" {{ showOnCatalog ? 'checked' : '' }}>
+                Show on Catalog Page
+            </label>
+            <div class="form-actions">
+                <button type="submit" class="button primary">Save Settings</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Published</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in posts %}
+                <tr>
+                    <td>{{ post.title }}</td>
+                    <td>{{ post.publishedAt ? post.publishedAt|date('M j, Y g:ia') : '' }}</td>
+                    <td>{{ post.createdAt ? post.createdAt|date('M j, Y g:ia') : '' }}</td>
+                    <td class="row-actions">
+                        <a href="{{ path('admin_bundle_news_edit', {id: post.id}) }}">Edit</a>
+                        <form method="post" action="{{ path('admin_bundle_news_delete', {id: post.id}) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('Delete {{ post.title|e('js') }}?')">
+                            {{ csrf_field() }}
+                            <button type="submit" class="link-button danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-row">No news posts yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+{% endblock %}

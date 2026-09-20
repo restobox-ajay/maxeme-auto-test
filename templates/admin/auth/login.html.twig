@@ -1,0 +1,77 @@
+{% extends 'base.html.twig' %}
+{% block title %}Admin Login | {{ site_name() }}{% endblock %}
+{% block body_class %}site site-admin-login{% endblock %}
+{% block area_label %}Admin Console{% endblock %}
+{% block home_path %}/admin{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content_header %}{% endblock %}
+
+{% block body %}
+<div class="admin-login-shell">
+    <div class="admin-login-card">
+
+        {# The card never read logo_url, so it showed a hardcoded "WC" tile even for stores that had
+           uploaded a logo. Artwork only now, with no initials fallback: the "Admin Console" eyebrow
+           and the page title already identify the card. #}
+        {% set logoUrl = app_setting('logo_url', '') %}
+        <div class="admin-login-card-head">
+            {% if logoUrl %}
+                <span class="brand-mark brand-mark-logo"><img src="{{ logoUrl }}" alt=""></span>
+            {% endif %}
+            <div>
+                <p class="eyebrow">Admin Console</p>
+                <h2>Sign in to your account</h2>
+            </div>
+        </div>
+
+        <p class="admin-login-sub">Enter your admin credentials to continue.</p>
+
+        {% if error %}
+            <div class="admin-login-error">
+                {{ error.messageKey|trans(error.messageData, 'security') }}
+            </div>
+        {% endif %}
+
+        <form class="form-grid admin-login-form" method="post" action="{{ path('admin_login') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <label class="span-2">
+                Email address
+                <input type="email" name="email" value="{{ last_username }}"
+                       placeholder="you@yourcompany.com" autocomplete="email" autofocus required>
+            </label>
+            <label class="span-2">
+                Password
+                <div style="position: relative;">
+                    <input type="password" id="admin_login_password" name="password"
+                           placeholder="••••••••" autocomplete="current-password" style="padding-right: 40px;" required>
+                    <button type="button" onclick="togglePassword('admin_login_password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    </button>
+                </div>
+            </label>
+            <label class="check-row span-2">
+                <input type="checkbox" name="_remember_me" value="on"> Keep me signed in
+            </label>
+            <div class="span-2 auth-actions">
+                <button class="button primary full-width" type="submit">Sign in</button>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+<script>
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        if (type === 'text') {
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>`;
+        } else {
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>`;
+        }
+    }
+</script>
+{% endblock %}

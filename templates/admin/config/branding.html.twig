@@ -1,0 +1,77 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Branding | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Config</p>
+                <h1>Branding</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card config-form-card">
+        <form class="form-grid config-form-grid" method="post" enctype="multipart/form-data">
+            {{ csrf_field() }}
+
+            <label class="span-2">
+                <span>Company Name <span class="req">*</span></span>
+                {# A neutral example, not a real business. This field sets the operator's own branding,
+                   so naming another company here reads as a leftover from whoever the app was first
+                   built for — which is exactly what it was. #}
+                <input type="text" name="company_name" value="{{ companyName }}" placeholder="e.g. Your Company Ltd." required>
+            </label>
+
+            <div class="span-2">
+                <span class="ss-field-label">Logo</span>
+                {% if logoUrl %}
+                    <div class="logo-preview-wrap">
+                        <img src="{{ logoUrl }}" alt="Current logo" class="logo-preview-img">
+                        <button type="submit" name="remove_logo" value="1" class="logo-remove-btn" title="Remove logo" aria-label="Remove logo">&times;</button>
+                    </div>
+                {% else %}
+                    <p class="muted">No logo uploaded yet &mdash; the header shows a text mark instead.</p>
+                {% endif %}
+                <input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml">
+                <small>JPG, PNG, WebP, GIF, or SVG. Max 5&nbsp;MB.</small>
+            </div>
+
+            <div class="span-2">
+                <span class="ss-field-label">Favicon</span>
+                {% if faviconUrl %}
+                    <div class="logo-preview-wrap">
+                        <img src="{{ faviconUrl }}" alt="Current favicon" class="logo-preview-img">
+                        <button type="submit" name="remove_favicon" value="1" class="logo-remove-btn" title="Remove favicon" aria-label="Remove favicon">&times;</button>
+                    </div>
+                {% else %}
+                    <p class="muted">No favicon uploaded yet &mdash; the browser shows its default tab icon.</p>
+                {% endif %}
+                <input type="file" name="favicon" accept="image/x-icon,image/vnd.microsoft.icon,image/png,image/svg+xml,image/webp,image/gif,image/jpeg,.ico">
+                <small>Shown in the browser tab. ICO, PNG, or SVG recommended (a square image works best). Max 1&nbsp;MB.</small>
+            </div>
+
+            <div class="span-2">
+                <span class="ss-field-label">Product Image Placeholder</span>
+                {% if productImagePlaceholderUrl %}
+                    <div class="logo-preview-wrap">
+                        <img src="{{ productImagePlaceholderUrl }}" alt="Current product image placeholder" class="logo-preview-img">
+                        <button type="submit" name="remove_product_image_placeholder" value="1" class="logo-remove-btn" title="Remove placeholder" aria-label="Remove placeholder">&times;</button>
+                    </div>
+                {% else %}
+                    <p class="muted">No placeholder uploaded yet &mdash; products with no image fall back to a decorative empty slot.</p>
+                {% endif %}
+                <input type="file" name="product_image_placeholder" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml">
+                <small>Used across the catalog grid, home page, and product detail page whenever a product has no image. JPG, PNG, WebP, GIF, or SVG. Max 5&nbsp;MB.</small>
+            </div>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}

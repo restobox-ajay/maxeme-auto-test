@@ -1,0 +1,18 @@
+{% if syncStatus == 'running' %}
+    <div class="alert info">
+        Sync in progress (started {{ syncStartedAt|date('Y-m-d H:i:s') }})&hellip; this page will refresh
+        automatically when it finishes. Image downloads can take a few minutes on a full pull.
+    </div>
+{% elseif syncStatus == 'error' %}
+    <div class="alert error">
+        Last sync failed{{ syncFinishedAt ? ' at ' ~ syncFinishedAt|date('Y-m-d H:i:s') : '' }}: {{ syncMessage }}
+    </div>
+{% elseif syncStatus == 'success' and result %}
+    <p>
+        Last sync finished {{ syncFinishedAt|date('Y-m-d H:i:s') }} —
+        {{ result.created }} created, {{ result.updated }} updated, {{ result.skipped }} skipped,
+        {{ result.duplicates }} duplicate(s), {{ result.inactivated }} inactivated.
+    </p>
+{% else %}
+    <p class="muted">No sync has run yet.</p>
+{% endif %}

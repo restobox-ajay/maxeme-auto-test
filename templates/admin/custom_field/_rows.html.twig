@@ -1,0 +1,68 @@
+{% for definition in rows %}
+    <tr class="data-item-row">
+        <td data-label="Label"><strong>{{ definition.label }}</strong></td>
+        <td data-label="Slug"><code>{{ definition.slug }}</code></td>
+        {# The column the five stacked tables used to be. It is the first thing this grid has to say
+           about a row, because a slug is unique per object type and not across them: `warranty` on
+           a product and `warranty` on an order are two different fields. #}
+        <td data-label="Object Type">{{ objectTypeLabels[definition.objectType]|default(definition.objectType) }}</td>
+        <td data-label="Field Type"><span class="badge">{{ definition.fieldType }}</span></td>
+        <td data-label="Add">{{ definition.visibleOnAdd ? '✓' : '–' }}</td>
+        <td data-label="Edit">{{ definition.visibleOnEdit ? '✓' : '–' }}</td>
+        <td data-label="Listing">{{ definition.visibleOnListing ? '✓' : '–' }}</td>
+        <td data-label="Searchable">{{ definition.searchable ? '✓' : '–' }}</td>
+        <td data-label="Source">
+            {% if definition.source %}
+                <span class="badge info">{{ definition.source }}</span>
+            {% else %}
+                <span class="badge success">Admin</span>
+            {% endif %}
+        </td>
+        <td data-label="Actions">
+            {# One control per row, opened by the browser rather than by app.js — see
+               admin/_row_actions_no_js.html.twig for why this is <details> and not the
+               `.row-action-toggle` the other grids use.
+
+               The delete form is emitted in the cell: the filter form above is closed before the
+               table starts, so nothing nests. #}
+            <details class="row-action-menu no-js-row-actions">
+                <summary class="table-action" aria-label="Actions for {{ definition.label }}">Actions</summary>
+                <div class="row-action-dropdown">
+                    <a href="{{ path('admin_custom_field_update', {id: definition.id}) }}">Edit</a>
+                    {# A bundle-registered definition is deleted by removing the bundle, and
+                       CustomFieldController::delete() refuses it again regardless — the guard is
+                       there, not here. The menu says so instead of holding a button whose only
+                       outcome is a refusal. #}
+                    {% if definition.source %}
+                        <span class="badge" title="Registered by {{ definition.source }} — remove or update the bundle to change this.">Managed by bundle</span>
+                    {% else %}
+                        <form method="post" action="{{ path('admin_custom_field_delete', {id: definition.id}) }}"
+                              onsubmit="return confirm('Delete custom field {{ definition.label|e('js') }}?')">
+                            {{ csrf_field() }}
+                            <button class="danger" type="submit">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </details>
+        </td>
+    </tr>
+{% else %}
+    {# Ten columns, the width the header declares. The message says which of the three empty pages
+       this is — a type with nothing on it, a filter that matched nothing, or an installation with
+       no custom fields at all — because "nothing here" and "nothing matches what you typed" are
+       different facts and the reader cannot tell them apart from an empty table. #}
+    <tr>
+        <td colspan="10" class="empty-table-cell">
+            {% if activeObjectType != '' and not (filters.label|default('') or filters.slug|default('') or filters.fieldType|default('') or filters.source|default('')) %}
+                <strong>No custom fields defined for {{ objectTypeLabels[activeObjectType]|lower }} yet.</strong>
+                <span>Add one to put an extra box on every {{ objectTypeLabels[activeObjectType]|lower }} form.</span>
+            {% elseif activeObjectType != '' or filters.label|default('') or filters.slug|default('') or filters.fieldType|default('') or filters.source|default('') %}
+                <strong>No custom field matches these filters.</strong>
+                <span>Clear them to see every definition.</span>
+            {% else %}
+                <strong>No custom fields defined yet.</strong>
+                <span>Add one to put an extra box on a product, customer, order, invoice or quote form.</span>
+            {% endif %}
+        </td>
+    </tr>
+{% endfor %}

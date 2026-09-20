@@ -1,0 +1,46 @@
+{% for company in companies %}
+    <tr>
+        <td data-label="Customer Name" class="searchable"><a href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">{{ company.name }}</a></td>
+        <td data-label="Primary Email" class="searchable">{{ company.email }}</td>
+        <td data-label="Primary Contact" class="searchable">{{ company.contact }}</td>
+        <td data-label="Billing Address" style="white-space: normal; overflow: visible; min-width: 220px;">
+            {% if company.billingAddress != '-' and company.billingAddress|length > 25 %}
+                <span class="js-address-short" style="display: inline-flex; align-items: center; gap: 6px;">{{ company.billingAddress|slice(0, 25) }}... <button type="button" class="mini-action info js-expand-address" title="Show full address" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; font-size: 15px; line-height: 1; border-radius: 4px; font-weight: bold;">+</button></span>
+                <span class="js-address-full" style="display:none; line-height: 1.4;">{{ company.billingAddress }}</span>
+            {% else %}
+                {{ company.billingAddress }}
+            {% endif %}
+        </td>
+        <td data-label="Account Type">{{ company.accountType }}</td>
+        <td data-label="Sales Rep">{{ company.salesRepUserName ?: '-' }}</td>
+        <td data-label="Status">
+            <span class="badge {{ company.status == 'Review' ? 'warn' : (company.status == 'Inactive' ? 'danger' : '') }}">{{ company.status }}</span>
+        </td>
+        <td data-label="ID">{{ company.id }}</td>
+        <td data-label="Actions" style="text-align: center;">
+            <div class="row-action-menu" style="margin: 0 auto;">
+                <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open customer actions"></button>
+                <div class="row-action-dropdown">
+                    <a href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">Detail</a>
+                    <a href="{{ path('admin_company_update', {id: company.id}) }}">Edit</a>
+                    <a href="{{ path('admin_company_address_book', {id: company.id}) }}">Address Book</a>
+                    <a href="{{ path('admin_company_payment_methods_by_id', {id: company.id}) }}">Payment Methods</a>
+                    <a href="{{ path('admin_order_create', {OrderSearch: {company_id: company.id}}) }}">Create Order</a>
+                    <a href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">View Orders</a>
+                    {% if company.status == 'Inactive' %}
+                        <button class="js-company-status" type="button" data-action="activate" data-url="{{ path('admin_company_activate', {id: company.id}) }}" data-item="{{ company.name }}">Activate</button>
+                    {% else %}
+                        <button class="js-company-status danger" type="button" data-action="deactivate" data-url="{{ path('admin_company_deactivate', {id: company.id}) }}" data-item="{{ company.name }}">Deactivate</button>
+                    {% endif %}
+                </div>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="9" class="empty-table-cell">
+            <strong>No customers found.</strong>
+            <span>Customers will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

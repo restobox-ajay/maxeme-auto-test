@@ -1,0 +1,32 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Invoice #{{ invoice.documentNumber }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Invoice</h2>
+    <p>Hello <strong>{{ invoice.company.name }}</strong>,</p>
+    <p>Thank you! We have processed your invoice <span class="highlight">#{{ invoice.documentNumber }}</span>. Please find the PDF invoice attached to this email for your records.</p>
+
+    <div class="order-summary-box">
+        <div class="summary-row">
+            <span>Invoice Number:</span>
+            <strong>{{ invoice.documentNumber }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Invoice Date:</span>
+            <strong>{{ invoice.documentDate|date('F j, Y') }}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Grand Total:</span>
+            <strong>${{ invoice.total|default(0)|amount }}</strong>
+        </div>
+    </div>
+
+    <p>If you have any questions regarding this invoice, please don't hesitate to reach out to our billing department.</p>
+
+    {% if order_url is defined %}
+    <div style="text-align: center;">
+        <a href="{{ order_url }}" class="button">View Order Details</a>
+    </div>
+    {% endif %}
+{% endblock %}

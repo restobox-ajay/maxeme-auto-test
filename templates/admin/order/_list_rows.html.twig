@@ -1,0 +1,84 @@
+{% for order in orders %}
+    <tr data-order-id="{{ order.id }}">
+        <td data-label="Order #"><a class="link-strong" href="{{ path('admin_order_detail', {id: order.id}) }}">{{ order.number }}</a></td>
+        <td data-label="Customer">
+            {% if order.companyId is defined and order.companyId %}
+                <a href="{{ path('admin_company_detail_by_id', {id: order.companyId}) }}" title="View customer">{{ order.company }}</a>
+            {% else %}
+                {{ order.company|default('-') }}
+            {% endif %}
+        </td>
+        <td data-label="Shipping Company Name">{{ order.shippingCompany|default('-') }}</td>
+        <td data-label="User">{{ order.user|default('-') }}</td>
+        <td data-label="Billing Name">{{ order.billingName|default('-') }}</td>
+        <td data-label="Shipping Name">{{ order.shippingName|default('-') }}</td>
+        <td data-label="PO #">{{ order.poNumber|default('-') }}</td>
+        <td data-label="Total">{{ order.total|default('-') }}</td>
+        <td data-label="Order Date">{{ order.date|default('-') }}</td>
+        <td data-label="Status">
+            {% include 'admin/_partials/document_status.html.twig' with {status: order.status|default('Draft'), loud: false} only %}
+        </td>
+        <td data-label="Payment Status">
+            {% set paymentStatus = order.paymentStatus|default('') %}
+            {% if paymentStatus %}
+                <span class="badge {{ paymentStatus == 'Paid' ? 'success' : (paymentStatus == 'Partially Paid' ? 'warn' : 'danger') }}">{{ paymentStatus }}</span>
+            {% else %}
+                -
+            {% endif %}
+        </td>
+        <td data-label="Actions" style="text-align: center;">
+            <div class="row-action-menu" style="margin: 0 auto;">
+                <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open order actions"></button>
+                <div class="row-action-dropdown">
+                    {% set orderStatus = order.status|default('')|lower %}
+
+                    {# Closed and Void are #539 stage 2's successors to Completed and Cancelled:
+                       both are locked for editing, so the row offers reads and prints only. #}
+                    {% if orderStatus in ['void', 'closed'] %}
+                        <a href="{{ path('admin_order_detail', {id: order.id}) }}">View</a>
+                        <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                        <a href="{{ path('admin_order_document', {id: order.id}) }}" target="_blank">Print Sales Order</a>
+                        <a href="{{ path('admin_order_document', {id: order.id, download: 1}) }}">Download Sales Order</a>
+                        {% include 'admin/order/_clone_order_action.html.twig' with {order: order} %}
+                    {% else %}
+                        <a href="{{ path('admin_order_edit', {id: order.id}) }}">Edit Order</a>
+                        <a href="{{ path('admin_order_detail', {id: order.id}) }}">View</a>
+                        <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                        {# Invoice, packing slip and Send Invoice are per-INVOICE since #539 stage 6:
+                           they live on the Invoices grid and on this order's own Invoices table,
+                           because an order billed in parts has one of each PER invoice and a row
+                           menu on the order could only ever offer one of them. #}
+                        <a href="{{ path('admin_order_document', {id: order.id}) }}" target="_blank">Print Sales Order</a>
+                        <a href="{{ path('admin_order_document', {id: order.id, download: 1}) }}">Download Sales Order</a>
+                        {% include 'admin/order/_clone_order_action.html.twig' with {order: order} %}
+                        <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                        {# The only two statuses a person sets (#539 stage 2). Everything between
+                           Approved and Closed is derived from the order's invoices. #}
+                        <button type="button" class="danger js-order-cancel" data-order-id="{{ order.id }}" data-status="Void">Void Order</button>
+                        {% if orderStatus == 'draft' %}
+                            <button type="button" class="js-order-approve" data-order-id="{{ order.id }}" data-status="Approved">Approve</button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="12" class="empty-table-cell">
+            {% if company is defined and company %}
+                <strong>No orders found for {{ company.name }}.</strong>
+                <span>This customer has no order matching the filters above.</span>
+            {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                {# Fail closed, and say so. The alternative — listing every customer's orders under
+                   a flash an admin can miss — is a grid that looks exactly like the one that was
+                   asked for and whose totals are not theirs. #}
+                <strong>This customer does not exist.</strong>
+                <span>Nothing is listed, because the customer this link names could not be found.</span>
+            {% else %}
+                <strong>No orders found.</strong>
+                <span>Orders will appear here once created.</span>
+            {% endif %}
+        </td>
+    </tr>
+{% endfor %}

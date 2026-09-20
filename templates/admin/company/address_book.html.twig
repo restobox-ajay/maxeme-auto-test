@@ -1,0 +1,65 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Address Book | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <h1>Address Book - {{ company.name }}</h1>
+    </section>
+
+    <nav class="company-action-links" aria-label="Customer detail actions">
+        <a class="button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_company_update', {id: company.id}) }}">Edit Profile</a>
+        <a class="button is-current" href="{{ path('admin_company_address_book', {id: company.id}) }}">Address Book</a>
+        <a class="button" href="{{ path('admin_company_payment_methods_by_id', {id: company.id}) }}">Payment Methods</a>
+        <a class="button primary" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More customer actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">View Orders</a>
+                <a href="{{ path('admin_order_create', {OrderSearch: {company_id: company.id}}) }}">Create Order</a>
+            </span>
+        </span>
+    </nav>
+
+    <section class="address-book-grid">
+        <article class="address-book-card">
+            <div class="address-book-card-head">
+                <h2>Default Billing Address</h2>
+            </div>
+            {% include 'admin/company/_address_card_body.html.twig' with { address: defaultBilling, company: company, compact: true } only %}
+        </article>
+
+        <article class="address-book-card">
+            <div class="address-book-card-head">
+                <h2>Default Shipping Address</h2>
+            </div>
+            {% include 'admin/company/_address_card_body.html.twig' with { address: defaultShipping, company: company, compact: true } only %}
+        </article>
+
+        <article class="table-card address-book-list">
+            <div class="table-header">
+                <div>
+                    <h2>All Addresses</h2>
+                    <p>{{ addresses|length }} saved {{ addresses|length == 1 ? 'address' : 'addresses' }}</p>
+                </div>
+                <a class="button primary company-card-action" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+            </div>
+
+            {% if addresses %}
+                <div class="address-card-list">
+                    {% for address in addresses %}
+                        <article class="address-list-card">
+                            {% include 'admin/company/_address_card_body.html.twig' with { address: address, company: company, compact: false } only %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <strong>No addresses found.</strong>
+                    <p>Addresses for this customer will appear here once created.</p>
+                </div>
+            {% endif %}
+        </article>
+    </section>
+
+{% endblock %}

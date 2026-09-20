@@ -1,0 +1,130 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Customers | Admin{% endblock %}
+{% block admin_body %}
+    {% set filters = app.request.query.all('filters') %}
+    {% if filters is not iterable %}
+        {% set filters = {} %}
+    {% endif %}
+    {% set search = app.request.query.get('q', '') %}
+    {% set currentSort = app.request.query.get('sort', 'name') %}
+    {% set currentDir = app.request.query.get('dir', 'asc')|lower == 'desc' ? 'desc' : 'asc' %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(10) %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Customer</p>
+                <h1>Customers</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_company_create', {return_to: 'company_index'}) }}">Create Customer</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card company-admin-grid no-paginate">
+        <form method="get" action="{{ path('admin_company_index') }}" class="js-auto-submit-form">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="page" value="1">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="company-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_company_index', {q: search, sort: 'name', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Customer Name</a></th>
+                            {% set nextDir = currentSort == 'primaryEmail' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'primaryEmail' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="primaryEmail"><a href="{{ path('admin_company_index', {q: search, sort: 'primaryEmail', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Primary Email</a></th>
+                            {% set nextDir = currentSort == 'contact' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'contact' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="contact"><a href="{{ path('admin_company_index', {q: search, sort: 'contact', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Primary Contact</a></th>
+                            {% set nextDir = currentSort == 'billingAddress' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'billingAddress' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="billingAddress"><a href="{{ path('admin_company_index', {q: search, sort: 'billingAddress', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Billing Address</a></th>
+                            {% set nextDir = currentSort == 'accountType' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'accountType' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="accountType"><a href="{{ path('admin_company_index', {q: search, sort: 'accountType', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Account Type</a></th>
+                            {% set nextDir = currentSort == 'salesRepUserName' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'salesRepUserName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="salesRepUserName"><a href="{{ path('admin_company_index', {q: search, sort: 'salesRepUserName', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Sales Rep</a></th>
+                            {% set nextDir = currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_company_index', {q: search, sort: 'status', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Status</a></th>
+                            {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="id"><a href="{{ path('admin_company_index', {q: search, sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">ID</a></th>
+                            <th style="width: 80px; text-align: center;">Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" data-filter-field="name" aria-label="Filter customer name"></th>
+                            <th><input type="text" name="filters[primaryEmail]" value="{{ filters.primaryEmail|default('') }}" data-filter-field="primaryEmail" aria-label="Filter primary email"></th>
+                            <th><input type="text" name="filters[contact]" value="{{ filters.contact|default('') }}" data-filter-field="contact" aria-label="Filter primary contact"></th>
+                            <th><input type="text" name="filters[billingAddress]" value="{{ filters.billingAddress|default('') }}" data-filter-field="billingAddress" aria-label="Filter billing address"></th>
+                            <th>
+                                <select name="filters[accountType]" data-filter-field="accountType" aria-label="Filter account type">
+                                    <option value=""></option>
+                                    <option value="Business" {{ filters.accountType|default('') == 'Business' ? 'selected' : '' }}>Business</option>
+                                    <option value="Non-business" {{ filters.accountType|default('') == 'Non-business' ? 'selected' : '' }}>Non-business</option>
+                                </select>
+                            </th>
+                            <th>
+                                {# "Mine" resolves server-side to the signed-in admin (#718) — offered above the named-rep
+                                   options rather than requiring them to find themselves in the same list. #}
+                                <select name="filters[salesRepUserId]" data-filter-field="salesRepUserId" aria-label="Filter sales rep">
+                                    <option value=""></option>
+                                    <option value="mine" {{ filters.salesRepUserId|default('') == 'mine' ? 'selected' : '' }}>Mine</option>
+                                    {% for rep in salesRepOptions|default([]) %}
+                                        <option value="{{ rep.id }}" {{ filters.salesRepUserId|default('') == rep.id ? 'selected' : '' }}>{{ rep.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th>
+                                <select name="filters[status]" data-filter-field="status" aria-label="Filter status">
+                                    <option value=""></option>
+                                    <option value="Active" {{ filters.status|default('') == 'Active' ? 'selected' : '' }}>Active</option>
+                                    <option value="Inactive" {{ filters.status|default('') == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </th>
+                            <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" data-filter-field="id" aria-label="Filter ID"></th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/company/_list_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in [20, 100, 200, 500] %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: companies|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit,
+                    className: 'company-count'
+                } only %}
+                <div class="table-pagination">
+                    <a class="page-btn{{ currentPage <= 1 ? ' is-disabled' : '' }}" {{ currentPage <= 1 ? 'aria-disabled="true"' : 'href="' ~ path('admin_company_index', {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: 1, filters: filters}) ~ '"' }}>First</a>
+                    <a class="page-btn{{ currentPage <= 1 ? ' is-disabled' : '' }}" {{ currentPage <= 1 ? 'aria-disabled="true"' : 'href="' ~ path('admin_company_index', {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage - 1, filters: filters}) ~ '"' }}>&lt;</a>
+                    {% for p in 1..pageCount %}
+                        <a class="page-btn{{ p == currentPage ? ' is-active' : '' }}" href="{{ path('admin_company_index', {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: p, filters: filters}) }}">{{ p }}</a>
+                    {% endfor %}
+                    <a class="page-btn{{ currentPage >= pageCount ? ' is-disabled' : '' }}" {{ currentPage >= pageCount ? 'aria-disabled="true"' : 'href="' ~ path('admin_company_index', {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: currentPage + 1, filters: filters}) ~ '"' }}>&gt;</a>
+                    <a class="page-btn{{ currentPage >= pageCount ? ' is-disabled' : '' }}" {{ currentPage >= pageCount ? 'aria-disabled="true"' : 'href="' ~ path('admin_company_index', {q: search, sort: currentSort, dir: currentDir, limit: currentLimit, page: pageCount, filters: filters}) ~ '"' }}>Last</a>
+                </div>
+            </div>
+        </form>
+    </section>
+
+{% endblock %}
+

@@ -1,0 +1,51 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}FAQ | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="customer-faq-hero">
+        <div class="customer-faq-hero-copy">
+            <span class="customer-faq-kicker">Help Center</span>
+            <h1>Frequently Asked Questions</h1>
+        </div>
+        <div class="customer-faq-hero-card">
+            <strong>Need more help?</strong>
+            <p>Use the contact page if your answer is not listed here and our team will help you directly.</p>
+            <a class="button primary customer-faq-cta" href="{{ path('customer_contact') }}">Contact Support</a>
+        </div>
+    </section>
+
+    <section class="customer-faq-shell" aria-label="FAQ sections">
+        <article class="customer-faq-section">
+            <header class="customer-faq-section-head">
+                <span class="customer-faq-section-icon" aria-hidden="true">?</span>
+                <div>
+                    <h2>Business Accounts &amp; Users</h2>
+                    <p>Company profile, user access, and account-related setup.</p>
+                </div>
+            </header>
+
+            <details class="customer-faq-item" open>
+                <summary>
+                    <span class="customer-faq-toggle" aria-hidden="true"></span>
+                    <span>How Do I Update My Company Address or Manage Users?</span>
+                </summary>
+                <div class="customer-faq-answer">
+                    <p>To update your company information, go to the <strong>Company Profile</strong> page located in the top right corner of your account.</p>
+                    <p>To add or remove users, please visit the <strong>Company Users</strong> page.</p>
+                </div>
+            </details>
+
+            <details class="customer-faq-item">
+                <summary>
+                    <span class="customer-faq-toggle" aria-hidden="true"></span>
+                    <span>My Business has a PST Number, How Can I Get Tax Exemption?</span>
+                </summary>
+                <div class="customer-faq-answer">
+                    <p>Please send your valid PST or tax exemption documents to our support team through the contact form.</p>
+                    <p>Once verified, we can review your account and update the applicable tax settings.</p>
+                </div>
+            </details>
+        </article>
+    </section>
+
+{% endblock %}

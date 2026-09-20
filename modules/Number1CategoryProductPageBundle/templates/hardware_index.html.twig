@@ -1,0 +1,16 @@
+{% extends 'customer/catalog/index.html.twig' %}
+{% block catalog_filters %}
+    <label class="sr-only" for="catalog-search">Search name or description</label>
+    <div class="catalog-search-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="catalog-search" class="catalog-search" type="search" name="q" form="catalog-search-form" placeholder="Search Name or Description" aria-label="Search name or description" value="{{ searchQuery|default('') }}">
+    </div>
+    <button class="catalog-search-btn" type="submit" form="catalog-search-form">Search</button>
+    <a class="catalog-reset-btn" href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView, 'region': selectedRegion} : {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView}) }}">Reset</a>
+{% endblock %}
+{#
+    Hides the "Filter By Category" button inherited from
+    customer/catalog/index.html.twig. Restore it by deleting this block —
+    the markup itself still lives in the parent template.
+#}
+{% block catalog_category_menu %}<!-- Filter By Category hidden on the accessories category page -->{% endblock %}

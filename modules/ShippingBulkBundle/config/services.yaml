@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingBulkBundle\:
+        resource: '../src/'
+
+    ShippingBulkBundle\Shipping\BulkShippingCalculator:
+        tags: ['app.shipping_option']
+
+    ShippingBulkBundle\Menu\BulkShippingMenuItem:
+        tags: ['app.shipping_menu_item']
+
+    ShippingBulkBundle\Bundle\ShippingBulkBundleDescriptor:
+        tags: ['app.bundle_descriptor']

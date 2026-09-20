@@ -1,0 +1,112 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Tracking Worklist | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'tracking',
+        heading: 'Tracking Worklist',
+        lead: 'Stock whose batch or serial is still a placeholder. Tracking never blocks a receipt or an import — an unknown identity goes through and lands here instead, because a warehouse mid-transition has real stock and no codes for any of it.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <p class="lead">A row appears here when it carries a sentinel value ({{ sentinels|join(', ') }}) or is flagged unresolved.</p>
+        <p class="lead">
+            Putting a real batch code on stock is a <a href="{{ path('admin_bundle_inventory_depth_adjust') }}">stock
+            adjustment</a> — it moves the units onto a different row. This screen only records the decision.
+        </p>
+    </section>
+
+    <section class="table-card no-paginate">
+        <form method="get" id="tracking-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist', {filters: filters, limit: limit, page: 1, sort: 'product', dir: currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Product</a>
+                        </th>
+                        <th>Policy</th>
+                        <th>Where</th>
+                        <th>Batch</th>
+                        <th>Serial</th>
+                        <th class="is-sortable{% if currentSort == 'quantity' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_tracking_worklist', {filters: filters, limit: limit, page: 1, sort: 'quantity', dir: currentSort == 'quantity' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Quantity</a>
+                        </th>
+                        <th>Expected to resolve</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[product]" form="tracking-filters" value="{{ filters.product }}" placeholder="SKU or name" aria-label="Filter product"></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[warehouse]" form="tracking-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
+                                <option value="">Every warehouse</option>
+                                {% for warehouse in warehouses %}
+                                    <option value="{{ warehouse.id }}"{{ filters.warehouse == warehouse.id ~ '' ? ' selected' : '' }}>{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <select name="filters[empty]" form="tracking-filters" aria-label="Include emptied rows" onchange="this.form.submit()">
+                                <option value="">Holding stock</option>
+                                <option value="include"{{ filters.empty == 'include' ? ' selected' : '' }}>Include emptied rows</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th>
+                            <select name="filters[expect]" form="tracking-filters" aria-label="Filter expected to resolve" onchange="this.form.submit()">
+                                <option value="">Either</option>
+                                <option value="yes"{{ filters.expect == 'yes' ? ' selected' : '' }}>Someone is coming back</option>
+                                <option value="no"{{ filters.expect == 'no' ? ' selected' : '' }}>Nobody is</option>
+                            </select>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_inventory_depth_tracking_worklist') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr class="data-item-row">
+                        <td data-label="Product"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: row.product.id}) }}">{{ row.product.sku ?: row.product.name }}</a></td>
+                        <td data-label="Policy">{{ row.product.trackingPolicy ? row.product.trackingPolicy.name : 'Not set' }}</td>
+                        <td data-label="Where">{{ row.warehouse.name }}{{ row.location ? ' / ' ~ row.location.code : '' }} [{{ row.status }}]</td>
+                        <td data-label="Batch">{{ row.lot ? row.lot.label : '—' }}</td>
+                        <td data-label="Serial">{{ row.serial ?: '—' }}</td>
+                        <td data-label="Quantity">{{ row.quantity }}</td>
+                        <td data-label="Expected to resolve">
+                            {# The toggle's own form is emitted below, OUTSIDE the filter form, and
+                               referenced by id. A <form> inside a <form> is invalid HTML and every
+                               parser silently drops the inner one — the button would render and
+                               submit nothing. #}
+                            <strong>{{ row.expectResolution ? 'Yes' : 'No' }}</strong>
+                            <button class="table-action" type="submit" form="expect-{{ row.id }}">{{ row.expectResolution ? 'Nobody is coming back' : 'Flag for identification' }}</button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-table-cell"><strong>Nothing is waiting to be identified.</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'rows'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="tracking-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_inventory_depth_tracking_worklist',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        {% for row in rows %}
+            <form method="post" id="expect-{{ row.id }}" action="{{ path('admin_bundle_inventory_depth_tracking_expect', {id: row.id}) }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="expect" value="{{ row.expectResolution ? 0 : 1 }}">
+            </form>
+        {% endfor %}
+    </section>
+{% endblock %}

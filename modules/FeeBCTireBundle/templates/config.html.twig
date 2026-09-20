@@ -1,0 +1,69 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}BC Tire Stewardship | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Fees</p>
+                <h1>BC Tire Stewardship</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+    {% for msg in app.flashes('error') %}
+        <div class="flash flash-error">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <form method="post" class="form-grid">
+            {% for fee in fees %}
+                <label>
+                    Name
+                    <input type="text" name="name_{{ fee.slug }}" value="{{ fee.name }}">
+                </label>
+                <label>
+                    Flat Rate per Eligible Unit ($)
+                    <input type="number" step="0.01" min="0" name="value_{{ fee.slug }}" value="{{ fee.defaultValue|number_format(2) }}">
+                </label>
+                <label>
+                    Tax Class
+                    <select name="tax_class_{{ fee.slug }}">
+                        {% for value, label in taxClasses %}
+                            <option value="{{ value }}" {{ fee.taxClass == value ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Placement
+                    <select name="placement_{{ fee.slug }}">
+                        <option value="main_line" {{ fee.placement == 'main_line' ? 'selected' : '' }}>Main Line Items</option>
+                        <option value="before_tax_line" {{ fee.placement == 'before_tax_line' ? 'selected' : '' }}>Before Tax Fees</option>
+                        <option value="after_tax_line" {{ fee.placement == 'after_tax_line' ? 'selected' : '' }}>After Tax Fees</option>
+                    </select>
+                </label>
+            {% endfor %}
+
+            <div class="span-2" style="margin-top:12px;">
+                <p class="section-label">Show TSBC # on the order record</p>
+                <p class="lead" style="margin-top:0;">Controls where the TSBC # snapshot this bundle records on an order is displayed. Turning one off doesn't delete anything — it just stops showing there.</p>
+                {% for key, label in displaySettingLabels %}
+                    <label class="check-row">
+                        <input type="checkbox" name="display_{{ key }}" value="1" {{ displaySettings[key] ? 'checked' : '' }}>
+                        {{ label }}
+                    </label>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

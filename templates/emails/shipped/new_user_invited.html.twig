@@ -1,0 +1,17 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Welcome to {{ site_name() }}{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Welcome!</h2>
+    <p>Hello <strong>{{ user_email|default('User') }}</strong>,</p>
+    <p>You have been invited to join the {{ site_name() }} portal. To get started and set up your password, please click the button below:</p>
+
+    <div style="text-align: center; margin-top: 25px;">
+        <a href="{{ reset_url|default('#') }}" class="button" style="border-radius: 999px;">Set Up My Account</a>
+    </div>
+
+    <p style="margin-top: 30px; font-size: 13px; color: #64748b;">
+        This invitation will expire in {{ expiry_description }}. If you didn't request this, you can ignore this email.
+    </p>
+{% endblock %}

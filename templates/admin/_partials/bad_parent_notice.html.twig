@@ -1,0 +1,36 @@
+{# The loud half of queue item 51, and of the owner's standing rule: "if there's an issue be clear
+   be loud." Moved here from ProcurementBundle 2026-09-17 — a path change and nothing else — now
+   that the invoice payments screen wants the same notice for its own `?payment=` edit link that
+   the bill payments screen already had.
+
+   Rendered by every screen that takes an id in its URL and decides what a form is about from it:
+   the purchase side's seven create screens and its two row links that put a form into EDIT mode
+   (`/bills/{id}/payments?payment=`, `/vendors/{id}?address=`), and now the sell side's own
+   `/invoice/{id}/payments?payment=`. Those fall back to a CREATE (or blank) form when the id
+   resolves to nothing, which is the same silence with somebody's money or master data behind it.
+
+   `parents` is the list of RequestedParent objects that were REQUESTED and resolved to nothing —
+   normally empty, in which case this partial draws nothing at all.
+
+   ## Three things about where and how this is drawn
+
+   1. **Not a flash.** `CompanyListScope` makes the argument on the sell side and it holds here: a
+      flash is a toast a reader can miss, and the form underneath it looks exactly like a form that
+      is working. This sits in the page, above the fields it is about, and stays there on reload.
+
+   2. **Not a `.lead`, and not inside `.panel-title-row`.** When this was written core's admin skin
+      hid both there — `.site-admin .panel-title-row .lead { display: none !important }` — so every
+      procurement screen's lead sentence was invisible and this notice would have been too. Item 41
+      has since landed and removed that rule. The placement stays anyway: an error is not a subtitle
+      for the page heading, it belongs above the form it is about, and the title row is now where
+      STATUS lives.
+
+   3. **`alert error` and nothing else.** Colour is a shared, core-owned trait vocabulary (owner
+      ruling, item 42): a screen does not invent a class, and "this is broken" already has one. #}
+{% if parents is not empty %}
+    <section class="panel" id="bad-parent-notice">
+        {% for parent in parents %}
+            <p class="alert error">{{ parent.notice }}</p>
+        {% endfor %}
+    </section>
+{% endif %}

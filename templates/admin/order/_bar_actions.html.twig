@@ -1,0 +1,18 @@
+{# The ORDER's own controls in the shared action bar — the slot
+   `admin/_partials/sales_document_action_bar.html.twig` renders after the fixed View / Edit / PDF
+   set. Expects: `document`, the SalesOrder; `orderStatusKey` and `convertToInvoiceUrl`, passed
+   through `barContext` by `_tab_nav.html.twig`.
+
+   Convert to Invoice used to sit alone in the Invoices table's header (`detail.html.twig`'s
+   `related_documents` block) — the same href and the same guard, moved here so it reads as a top
+   action rather than something found by scrolling, and so the page offers it once rather than
+   twice. The guard is the order's own: nothing may be invoiced against a Draft (nothing is
+   accepted yet) or a Void order (there is nothing left to bill). #}
+{% if orderStatusKey not in ['draft', 'void'] %}
+    <a id="order-action-convert-invoice" class="button primary" href="{{ convertToInvoiceUrl }}">Convert to Invoice</a>
+{% endif %}
+{# Both are screens no other sell-side document has. Invoices is a filtered list rather than a
+   detail link because an order can be billed across several (#539 stage 2); Log is the order's
+   timeline screen, and neither the quote nor the invoice has a route for one. #}
+<a id="order-action-invoices" class="button" href="{{ path('admin_invoice_index', {filters: {orderNumber: document.orderNumber}}) }}">Invoices</a>
+<a id="order-action-log" class="button" href="{{ path('admin_order_log', {id: document.id}) }}">Log</a>

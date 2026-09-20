@@ -1,0 +1,127 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Void credit note {{ memo.documentNumber }} | Admin{% endblock %}
+
+{#
+    Voiding a credit note that recorded goods coming back (item 38).
+
+    A GET screen with plain radios and a submit button. No JavaScript, per the standing baseline —
+    a confirmation that only works with scripting on is a confirmation some people never see. The
+    way out is a plain link back to the note, so nothing can be posted by taking it.
+
+    The radios live in a table and post to the <form> declared above it through the HTML5 `form`
+    attribute, which is the shape this codebase already uses where controls have to sit inside table
+    cells (the invoice payments row, the orders grid's filter row). A <form> nested inside a <tr> is
+    invalid HTML and gets foster-parented away from its own inputs.
+#}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Credit note</p>
+                <h1>Void {{ memo.documentNumber }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_credit_memo_detail', {id: memo.id}) }}">Cancel &mdash; change nothing</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card no-search no-paginate">
+        <div class="table-header"><h2>What issuing this note recorded</h2></div>
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table" id="restocked-units">
+                <thead><tr><th>Product</th><th>Units</th><th>Into</th><th>Bin</th><th>Recorded as</th></tr></thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr id="restocked-row-{{ row.product.id }}">
+                            <td data-label="Product">{{ row.product.sku ?: row.product.name }}</td>
+                            <td data-label="Units" id="restocked-units-{{ row.product.id }}">{{ row.quantity|qty }}</td>
+                            <td data-label="Into">{{ row.warehouse ? row.warehouse.name : 'an unnamed warehouse' }}</td>
+                            <td data-label="Bin">{{ row.location ?: '(no bin)' }}</td>
+                            <td data-label="Recorded as">returned &mdash; in the building, counted as quarantine, not sellable</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell"><span>This note moved nothing.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <form id="credit-memo-void-form" method="post" action="{{ path('admin_credit_memo_action', {id: memo.id, action: 'void'}) }}">
+        {{ csrf_field() }}
+    </form>
+
+    <section class="table-card no-search no-paginate">
+        <div class="table-header"><h2>Where are the goods now?</h2></div>
+        <p class="field-hint">
+            Each answer writes a different entry in the stock ledger against this note, and only one of them is
+            right. None of them puts the units back on the shelf: deciding that returned goods are fit to sell is
+            an inspection, and it is not this screen&rsquo;s to make.
+        </p>
+        <div class="wide-table-wrap">
+            <table class="admin-grid-table" id="void-dispositions">
+                <thead><tr><th>Answer</th><th>What it records</th></tr></thead>
+                <tbody>
+                    <tr id="disposition-row-not-here">
+                        <td data-label="Answer">
+                            <label class="radio-choice">
+                                <input type="radio" form="credit-memo-void-form" name="disposition" value="{{ dispositionNotHere.value }}" required>
+                                <span class="radio-control" aria-hidden="true"></span>
+                                <span>{{ dispositionNotHere.label }}</span>
+                            </label>
+                        </td>
+                        <td data-label="What it records" id="disposition-effect-not-here">
+                            They never arrived, or they have gone back to the customer.
+                            {% for row in rows %}
+                                This takes {{ row.quantity|qty }} &times; {{ row.product.sku ?: row.product.name }} back off the books
+                                out of {{ row.warehouse ? row.warehouse.name : 'the warehouse they arrived into' }}{{ row.location ? ', bin ' ~ row.location : '' }}.
+                            {% endfor %}
+                            Quarantine falls by what issuing this note raised it by; sellable stock is not affected either way.
+                        </td>
+                    </tr>
+                    <tr id="disposition-row-written-off">
+                        <td data-label="Answer">
+                            <label class="radio-choice">
+                                <input type="radio" form="credit-memo-void-form" name="disposition" value="{{ dispositionWrittenOff.value }}">
+                                <span class="radio-control" aria-hidden="true"></span>
+                                <span>{{ dispositionWrittenOff.label }}</span>
+                            </label>
+                        </td>
+                        <td data-label="What it records" id="disposition-effect-written-off">
+                            They are here and they are scrap.
+                            {% for row in rows %}
+                                This records {{ row.quantity|qty }} &times; {{ row.product.sku ?: row.product.name }} as damaged in
+                                {{ row.warehouse ? row.warehouse.name : 'the warehouse they arrived into' }}.
+                            {% endfor %}
+                            They move out of quarantine and into the write-off bucket. Sellable stock does <strong>not</strong> go up.
+                        </td>
+                    </tr>
+                    <tr id="disposition-row-still-here">
+                        <td data-label="Answer">
+                            <label class="radio-choice">
+                                <input type="radio" form="credit-memo-void-form" name="disposition" value="{{ dispositionStillHere.value }}">
+                                <span class="radio-control" aria-hidden="true"></span>
+                                <span>{{ dispositionStillHere.label }}</span>
+                            </label>
+                        </td>
+                        <td data-label="What it records" id="disposition-effect-still-here">
+                            They are here, in quarantine, and nothing about them changes &mdash; the note is being voided for a
+                            money reason and the return itself stands. No quantity moves anywhere. An entry is still written
+                            against this note saying exactly that, so the ledger explains why the goods are here with a void
+                            document behind them. Whoever inspects them rules on them afterwards, as they would on a
+                            declined return.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            <button class="button danger" type="submit" form="credit-memo-void-form" id="void-submit">Void this credit note</button>
+            <a class="button back-button" href="{{ path('admin_credit_memo_detail', {id: memo.id}) }}">Cancel &mdash; change nothing</a>
+        </div>
+    </section>
+{% endblock %}

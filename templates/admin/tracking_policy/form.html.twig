@@ -1,0 +1,112 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ editing ? 'Edit ' ~ editing.name : 'Add a tracking policy' }} | Admin{% endblock %}
+{% block admin_body %}
+    {# One template for both create and edit, reached at `admin_tracking_policy_new` and
+       `admin_tracking_policy_edit`, posting to the one `admin_tracking_policy_save` either way.
+
+       The hidden `id` is still `{{ '{{ editing ? editing.id : 0 }}' }}` and `save()` still reads it.
+       That pattern is the whole reason a policy can be edited here and a debit memo cannot be
+       edited on its own screen — those hard-code `0` into the same field, so every save is a create.
+       Splitting the route moved the FORM onto its own page; the id rides inside it exactly as
+       before, which is what keeps the round trip working. #}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products &middot; Tracking Policies</p>
+                <h1>{{ editing ? 'Edit "' ~ editing.name ~ '"' : 'Add a policy' }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_tracking_policy_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {# Ids so a test asserts on THAT element rather than on the whole page (#627). #}
+    {% for msg in app.flashes('success') %}<div class="flash flash-success" id="flash-success-{{ loop.index }}">{{ msg }}</div>{% endfor %}
+    {% for msg in app.flashes('error') %}<div class="flash flash-error" id="flash-error-{{ loop.index }}">{{ msg }}</div>{% endfor %}
+
+    <section class="form-card">
+        {# A policy already SAVED in one of the two refused states — see
+           TrackingPolicyController::contradiction(). Nothing rewrote it: a migration that unticked
+           somebody's box would change what their stock must carry, silently, on a deploy. It says so
+           here instead, and the next save is refused until it is corrected. #}
+        {% if contradiction %}
+            <p class="alert warn" id="policy-contradiction">
+                <strong>This policy cannot be saved as it stands.</strong> {{ contradiction }}
+                Nothing has been changed and receiving is behaving exactly as it did — correct it here and save.
+            </p>
+        {% endif %}
+        {% if editing and products > 0 %}
+            <p class="lead">
+                <strong>{{ products }}</strong> product(s) point at this policy. Changing what it captures changes what
+                their stock must carry from the next receipt onward; nothing already recorded is rewritten.
+            </p>
+        {% endif %}
+        <form class="form-grid" method="post" action="{{ path('admin_tracking_policy_save') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="id" value="{{ editing ? editing.id : 0 }}">
+
+            <label>
+                Name <span class="req">*</span>
+                <input type="text" name="name" maxlength="80" required value="{{ editing ? editing.name : '' }}">
+                <small>What this is picked by on the product form.</small>
+            </label>
+
+            <label>
+                Identity
+                <select name="mode">
+                    {% for mode in modes %}
+                        <option value="{{ mode }}"{{ editing and editing.mode == mode ? ' selected' : '' }}>
+                            {{ mode == 'none' ? 'None — nothing captured' : (mode == 'lot' ? 'Lot — identified by batch' : 'Serial — identified per unit') }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <label class="check-row">
+                <input type="checkbox" name="track_in" value="1"{{ editing is null or editing.trackIn ? ' checked' : '' }}>
+                Capture it on the way in
+                <small>
+                    Booked at receipt and by an import. A Lot or Serial policy that captures in neither direction
+                    is the &ldquo;None&rdquo; policy under another name and is refused.
+                </small>
+            </label>
+
+            <label class="check-row">
+                <input type="checkbox" name="track_out" value="1"{{ editing and editing.trackOut ? ' checked' : '' }}>
+                Capture it on the way out
+                <small>Declared here; the sell side does not read it yet.</small>
+            </label>
+
+            <label class="check-row">
+                <input type="checkbox" name="requires_expiry" value="1"{{ editing and editing.requiresExpiry ? ' checked' : '' }}>
+                Products on this policy carry an expiry date
+                <small>
+                    Works with any identity, or none, and needs neither capture direction. The date rides on the
+                    batch for Lot and on the individual unit for Serial.
+                </small>
+            </label>
+
+            <label>
+                Sentinel in
+                <input type="text" name="sentinel_in" maxlength="64" placeholder="{{ defaultSentinel }}" value="{{ editing ? editing.sentinelIn : '' }}">
+                <small>
+                    What an unknown batch is recorded as on arrival. Leave it blank and the row simply carries no
+                    batch. Either way the row goes through and lands on the tracking worklist &mdash; tracking never
+                    blocks a delivery.
+                </small>
+            </label>
+
+            <label>
+                Sentinel out
+                <input type="text" name="sentinel_out" maxlength="64" value="{{ editing ? editing.sentinelOut : '' }}">
+                <small>The same, on the way out.</small>
+            </label>
+
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">{{ editing ? 'Save policy' : 'Add policy' }}</button>
+                <a class="button" href="{{ path('admin_tracking_policy_index') }}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

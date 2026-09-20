@@ -1,0 +1,248 @@
+{#
+    THE frame for a CommercialDocument's EDIT screen — the sell side's order form, quote form and
+    invoice create screen, and the buy side's purchase order form, once.
+    `admin/order/form.html.twig`, `admin/estimate/form.html.twig`, `admin/invoice/create.html.twig`
+    and `@Procurement/purchase_order_edit.html.twig` extend this and fill its blocks. The name
+    matches the PHP interface every one of these documents implements — `Invoice`, `SalesOrder`,
+    `Estimate`, `CreditMemo` and `PurchaseOrder` — rather than claiming to be sales-only when a
+    purchase document extends it too.
+
+    PurchaseOrder does not use the customer-chooser step below at all: it always renders the full
+    workspace directly (`workspaceReady` is always true for it), vendor being chosen inline or via
+    `?vendor=`. Nothing here is branched on that fact — it simply never fills `picker_step` or
+    `company_picker_options`.
+
+    ## The rule this template is built on
+
+    PARAMETERS AND BLOCKS, NEVER `{% if document == 'invoice' %}`. Nothing below asks which document
+    it is rendering. A difference arrives as a value set at the top of the child, as a block the
+    child fills, or — where it is a whole region with a context of its own — as a TEMPLATE PATH,
+    which is what `admin/invoice/create.html.twig` already does with its `contextTemplate` and
+    `chargeTemplate` and what the line table does with its `actionsTemplate`. A difference that can
+    be expressed none of those ways belongs in the child, not in a branch here.
+
+    ## EDIT ONLY, and why it is not the view base
+
+    There are two bases. `commercial_document_view.html.twig` is the read-only one; this is the one that
+    posts. "Edit and view can be quite different", and they are:
+
+      * NO CUSTOMISATION SKELETON. The view base carries a stable slug per region, two predefined
+        `injection_point()`s and a written-down register of which regions a stored layout may
+        eventually move. None of that is here, deliberately: "the user customization only affects
+        view / edit is pretty much the same and set by us", and "view formatting doesn't wipe data".
+        A movable region on a screen that SAVES is a way to lose a field, so this frame is fixed and
+        ours. The blocks below are fill points, not slots — no layout may reorder them, and none is
+        a public name anything outside these four files may bind to.
+
+      * IT OWNS A FORM. The frame opens the `<form>`, prints the CSRF field, and closes the form
+        around everything a save reads. The view base renders no form control at all.
+
+      * IT HAS TWO STATES. A sell-side edit screen is two pages behind one route: step one is the
+        customer chooser, and step two is the workspace. `workspaceReady` is which, and the chooser
+        is part of the frame because all three screens open with the same one.
+
+      * THE FRAME IS THE SALES ORDER'S. Where the three disagreed about the shape of a region, the
+        order won — "sales order is golden standard".
+
+    ## The frame, in order
+
+        region                what it is                                           fill point
+        ─────────────────────────────────────────────────────────────────────────────────────────
+        no-JS rules           the progressive-enhancement style pair                2 blocks
+        hero                  eyebrow, heading (+ this document's status), lead,    parameters
+                              and this document's own buttons                       + 2 blocks
+        tab_nav               the edit screen's own tab bar                         block
+        ── the workspace shell ────────────────────────────────────────────────────────────────
+        form                  the workspace card the whole save posts from          parameters
+        form_head             hidden identity fields and the banners                block
+        top_actions           the action row above the grid                         block
+        context               the document's own fields, addresses, custom fields   block
+        ── the line-items section ─────────────────────────────────────────────────────────────
+        lines_heading                                                               parameter
+        lines_toolbar         the add-line controls that sit above the table         block
+        lines_note            what an admin needs to know before typing a line       block
+        lines_table           the one table, already a shared component              block
+        lines_after_table     see the note on that block                            block
+        lines_footer          the add-line bar and the totals box                    block
+        footerNote            the right-aligned note under them                      parameter
+        bottom_actions        this document's buttons again, at the bottom           block
+        ── after the form ─────────────────────────────────────────────────────────────────────
+        after_form            sections that are not part of the save                block
+        page_end              modals and <template>s — last because that is what     block
+                              they are
+        ── or, where no customer has been chosen yet ──────────────────────────────────────────
+        picker_step           step one, identical on all three sell-side screens —   2 blocks
+                              default body is today's bare customer chooser
+
+    Line items and the totals box are NOT movable and are not offered as anything a layout could
+    reposition — "that block is solid", and "fees, shipping, tax, totals — i don't think users
+    should just drag that around either. pretty fixed". They are named here so that the frame can
+    say where they go, and that is all the names do.
+
+    Parameters (set at the top of the child, outside its blocks)
+    -----------------------------------------------------------
+    workspaceReady      required  a customer is resolved, so there is a document to build. False
+                                  renders step one — the customer chooser — and nothing else.
+    formId              required when workspaceReady. The workspace form's id; the buttons in the
+                                  hero post it by `form="..."`, so it is not free to drift.
+    formClass           optional  extra classes on the workspace card, for a document whose form
+                                  carries a script hook.
+    formAction          optional  the workspace form's action. Absent posts to the current URL,
+                                  which is what the order form does and has always done.
+    heroEyebrow         optional  the small word above the heading.
+    heroLead            optional  the sentence under it. Absent renders no <p> at all.
+    linesHeading        optional  the <h2> above the line table. Absent renders no heading, which
+                                  is the order form's shape.
+    footerNote          optional  the right-aligned note under the totals box.
+    pickerAction        optional  step one's form action. Absent posts to the current URL.
+    pickerSelectClass   optional  a script hook on step one's customer <select>.
+    pickerSelectPlaceholder optional  its data-placeholder.
+
+    Blocks
+    ------
+    Every block above, all empty by default except the two no-JS style blocks, which default to the
+    pair the order form and the quote form both use.
+
+    `hero_heading` carries the <h1> AND, where the document has one, the status control beside it —
+    the order's status, the quote's acceptance status. It is one block rather than a heading block
+    plus a status block because the order wraps the two in a flex row of its own, and a frame that
+    imposed that wrapper on the other two would restyle their headings. The other home for a
+    document's status is a row in its info card, which is inside `context`.
+
+    `form_attributes` is printed INSIDE the <form> tag, for the data-* attributes a document's own
+    script reads. It is a block and not a map of parameters so that each attribute is written, and
+    escaped, exactly as it was before this frame existed — see the snapshot note below.
+
+    `picker_step` wraps the WHOLE of step one — the `<section class="order-company-card">` and the
+    form inside it, "Choose Customer" label included — and defaults to exactly that markup, so the
+    order form, the quote form and the invoice create screen keep overriding only the innermost
+    `company_picker_options` exactly as before and never need to touch `picker_step` itself. It
+    exists so a document whose step one is not about a company has somewhere to put its own picker
+    without inheriting customer-specific wording — nothing does yet, and PurchaseOrder does not use
+    this branch at all (see above).
+
+    ## The snapshot boundary
+
+    Nothing here prints a line value. `LineDenomination::boxUntouched()` compares a box against its
+    hidden `*_rendered` twin BYTE FOR BYTE to tell "nobody touched this" from "somebody retyped the
+    same number", so a figure that came back through a filter turns a round trip that should change
+    nothing into a rewrite of a stored figure. The frame owns wrappers; the values inside them are
+    the shared line row's business and are passed through untouched.
+#}
+{% extends 'admin/_main/layout.html.twig' %}
+
+{% block admin_body %}
+    {# ── the no-JS rules ──────────────────────────────────────────────────────
+       The add/remove controls that need scripting are hidden without it, and the server-rendered
+       spare rows and submit fallbacks take over. Two blocks rather than one so that a document
+       adding a rule to the <noscript> half does not have to restate the other. #}
+    <style>
+        {% block no_js_style %}.no-js-row, .no-js-inline { display: none; }{% endblock %}
+    </style>
+    <noscript>
+        <style>
+            {% block no_js_noscript_style %}
+            .no-js-row { display: table-row !important; }
+            .no-js-inline { display: inline-block !important; }
+            .js-only { display: none !important; }
+            {% endblock %}
+        </style>
+    </noscript>
+
+    {# ── hero ─────────────────────────────────────────────────────────────── #}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">{{ heroEyebrow|default('') }}</p>
+                {% block hero_heading %}{% endblock %}
+                {% if heroLead|default('') %}<p class="lead">{{ heroLead }}</p>{% endif %}
+            </div>
+            <div class="panel-actions">
+                {% block hero_actions %}{% endblock %}
+            </div>
+        </div>
+    </section>
+
+    {# ── tab_nav ──────────────────────────────────────────────────────────── #}
+    {% block tab_nav %}{% endblock %}
+
+    <section class="order-create-shell">
+        {% if workspaceReady %}
+            <form method="post" id="{{ formId }}" class="order-workspace-card{% if formClass|default('') %} {{ formClass }}{% endif %}"{% if formAction|default('') %} action="{{ formAction }}"{% endif %}{% block form_attributes %}{% endblock %}>
+                {{ csrf_field() }}
+
+                {# ── form_head — the hidden identity fields, and the banners that ride a save ── #}
+                {% block form_head %}{% endblock %}
+
+                {# ── top_actions — captured rather than printed in place, so a document with no
+                       action row above the grid is not given an empty one. ── #}
+                {% set topActions %}{% block top_actions %}{% endblock %}{% endset %}
+                {% if topActions|trim is not empty %}
+                    <div class="order-workspace-actions">{{ topActions }}</div>
+                {% endif %}
+
+                {# ── context — the document's own fields, its addresses and its custom fields.
+                       Whole, because the invoice create screen delegates this to one of two
+                       `contextTemplate`s that each open a workspace grid of their own. ── #}
+                {% block context %}{% endblock %}
+
+                {# ── the line-items section — FIXED, and so is the totals box inside its footer ── #}
+                <section class="order-lines-section">
+                    {% if linesHeading|default('') %}<h2>{{ linesHeading }}</h2>{% endif %}
+                    {% block lines_toolbar %}{% endblock %}
+                    {% block lines_note %}{% endblock %}
+
+                    <div class="wide-table-wrap">
+                        {% block lines_table %}{% endblock %}
+                    </div>
+
+                    {# Between the table and the footer. Only the invoice create screen fills it,
+                       with the submit that adds a row server-side; the order form and the quote
+                       form put their add controls ABOVE the table, in `lines_toolbar`. That
+                       disagreement is real and predates this frame — nothing is moved here. #}
+                    {% block lines_after_table %}{% endblock %}
+
+                    <div class="order-lines-footer">
+                        {% block lines_footer %}{% endblock %}
+                    </div>
+
+                    {% if footerNote|default('') %}
+                        <p class="lead" style="margin:8px 0 0; text-align:right;">{{ footerNote }}</p>
+                    {% endif %}
+
+                    <div class="order-bottom-actions">
+                        {% block bottom_actions %}{% endblock %}
+                    </div>
+                </section>
+            </form>
+
+            {# ── after_form — what is on the page but not part of the save ── #}
+            {% block after_form %}{% endblock %}
+
+            {# ── page_end — modals and <template>s ── #}
+            {% block page_end %}{% endblock %}
+        {% else %}
+            {# ── step one: nothing but the customer chooser ────────────────────
+               A customer decides the price list, the addresses a save freezes and the party
+               billed, so none of the three screens renders a workspace before there is one.
+               Posting company_id and nothing else is answered with a redirect carrying the
+               customer back, which is the redirect-then-reload that makes this work with
+               scripting off. #}
+            {% block picker_step %}
+                <section class="order-company-card">
+                    <form method="post" class="order-company-picker"{% if pickerAction|default('') %} action="{{ pickerAction }}"{% endif %}>
+                        {{ csrf_field() }}
+                        <label for="company_id">Choose Customer <span class="req">*</span></label>
+                        <div class="order-company-select">
+                            <select id="company_id" name="company_id"{% if pickerSelectClass|default('') %} class="{{ pickerSelectClass }}"{% endif %}{% if pickerSelectPlaceholder|default('') %} data-placeholder="{{ pickerSelectPlaceholder }}"{% endif %} required>
+                                <option value=""></option>
+                                {% block company_picker_options %}{% endblock %}
+                            </select>
+                        </div>
+                        <button class="button primary" type="submit">Next</button>
+                    </form>
+                </section>
+            {% endblock %}
+        {% endif %}
+    </section>
+{% endblock %}

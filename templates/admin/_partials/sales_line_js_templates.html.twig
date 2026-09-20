@@ -1,0 +1,109 @@
+{# The <template> elements line-row JS clones to add a row or a charge without a round trip.
+
+   Product-line/blank-line templates render through sales_line_row.html.twig itself — the same
+   include the server-rendered rows use, index literally set to "__INDEX__" (addSellDocLine()
+   substitutes the real one on clone) — so a JS-built row is provably identical to a server-rendered
+   one.
+
+   The charge-row/batch-row templates stay their own markup: sales_charge_row.html.twig renders ONE
+   already-known charge type, but this is a blank skeleton with every field present but hidden,
+   which addSellDocChargeRow() reveals and names once the admin picks a type.
+
+   Parameters
+   ----------
+   hookPrefix       required  'order' | 'estimate' | 'invoice' — every class and template id below is
+                              built from it.
+   columns          required  this document's line-table columns — see sales_line_row.html.twig.
+   products         required  the catalog for the picker.
+   locations        required  the stock locations for the location select.
+   productsRemote   optional  whether the catalog is past the inline limit (#399).
+   productSearchPath optional where the picker fetches the catalog past that limit.
+   lineRowOptions   required  the rest of sales_line_row.html.twig's own parameter set — the same hash
+                              the document's real rows are built from (lineClass, actionsTemplate,
+                              hook, nameInProductCell, controlClass, and the rest). `columns`, `index`,
+                              `line`, `products`, `locations`, `kind`, `productSearchPath`,
+                              `productsRemote`, `submitted` are supplied here and must not be repeated
+                              in it.
+   supportsBatch    optional  render the batch-row-template too — the order and the invoice, not the
+                              quote (#250: a quote allocates nothing, so it has no batch UI to add a
+                              row to). Defaults to false.
+   defaultLineQty   optional  the Qty box's starting value on a freshly cloned row — '1' on the
+                              order, left unset everywhere else (sales_line_row's own blank
+                              default) — see sales_lines_table.html.twig's own note on why.
+#}
+{# The no-JS progressive-enhancement CSS every document with a line-row JavaScript toolbar needs —
+   order's, quote's and standalone invoice's `no_js_noscript_style` block override were byte-identical
+   copies of this. Call it from that block: `{% block no_js_noscript_style %}{{
+   js_templates.no_js_rules() }}{% endblock %}`. #}
+{% macro no_js_rules() %}
+    .no-js-row { display: table-row !important; }
+    .no-js-inline { display: inline-block !important; }
+    .js-only { display: none !important; }
+    .no-js-charge-rows { display: contents !important; }
+{% endmacro %}
+{% macro line_templates(hookPrefix, columns, products, locations, lineRowOptions, productsRemote, productSearchPath, supportsBatch, defaultLineQty) %}
+    {% set _freshLine = defaultLineQty|default('') ? {qty: defaultLineQty} : {} %}
+    <template id="{{ hookPrefix }}-product-line-template">
+        {{- include('admin/_partials/sales_line_row.html.twig', lineRowOptions|merge({
+            columns: columns,
+            index: '__INDEX__',
+            line: _freshLine,
+            products: products,
+            locations: locations,
+            kind: 'product',
+            productSearchPath: productSearchPath|default(null),
+            productsRemote: productsRemote|default(false),
+            rowClass: '',
+            showRemove: true,
+        }), with_context = false) }}
+    </template>
+    <template id="{{ hookPrefix }}-blank-line-template">
+        {{- include('admin/_partials/sales_line_row.html.twig', lineRowOptions|merge({
+            columns: columns,
+            index: '__INDEX__',
+            line: _freshLine,
+            products: products,
+            locations: locations,
+            kind: 'blank',
+            productSearchPath: productSearchPath|default(null),
+            productsRemote: productsRemote|default(false),
+            rowClass: '',
+            showRemove: true,
+        }), with_context = false) }}
+    </template>
+    <template id="{{ hookPrefix }}-charge-row-template">
+        <div class="order-charge-line-row">
+            <span>
+                <button type="button" class="mini-action danger js-{{ hookPrefix }}-remove-charge" aria-label="Remove charge">&#10005;</button>
+                <span class="order-charge-label-text"></span>
+                <input type="text" class="order-charge-label-input" placeholder="Enter label..." style="display:none">
+                {# Tax and fee rows become lines, and a line wants a stable reporting key that
+                   survives a relabel. Optional — blank derives it from the label. #}
+                <input type="text" class="order-charge-slug-input js-{{ hookPrefix }}-charge-slug" placeholder="slug (optional)" style="display:none">
+                {# A fee line has a tax class and a placement; a row typed here has no Fee
+                   definition to inherit them from, so it carries its own. #}
+                <select class="order-charge-select-input js-{{ hookPrefix }}-charge-tax-class" style="display:none" aria-label="Fee tax class">
+                    <option value="E">E</option>
+                    <option value="G">G</option>
+                    <option value="S">S</option>
+                </select>
+                {# #669: app.js's applySellDocChargeExtraInputs() appends a hidden
+                   charge_lines[i][placement] input instead of an editable select — see that
+                   function for why an editable one never belonged here — and fills this label with
+                   the placement choice the add-line bar's picker was set to before this row existed. #}
+                <span class="order-charge-placement-label" hidden></span>
+            </span>
+            <label>$ <input type="number" class="js-{{ hookPrefix }}-charge-amount" min="0" step="0.01" value="0"></label>
+        </div>
+    </template>
+    {% if supportsBatch|default(false) %}
+        <template id="{{ hookPrefix }}-batch-row-template">
+            <div class="order-batch-row">
+                <input type="text" class="js-batch-label">
+                <span class="batch-row-x">×</span>
+                <input type="date" class="js-batch-date">
+                <button type="button" class="mini-action danger js-batch-remove" aria-label="Remove batch row">−</button>
+            </div>
+        </template>
+    {% endif %}
+{% endmacro %}

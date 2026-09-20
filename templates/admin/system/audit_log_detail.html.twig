@@ -1,0 +1,130 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Audit Log Detail: {{ log.id }} | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System &gt; Audit Log</p>
+                <h1>AUDIT LOG DETAIL: {{ log.id }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button info" href="{{ path('admin_audit_log') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="form-card">
+        <div class="detail-grid">
+            <div class="detail-row">
+                <div class="detail-label">Occurred At</div>
+                <div class="detail-value">{{ log.occurredAt|date('Y-m-d H:i A') }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Actor</div>
+                <div class="detail-value">
+                    {{ log.actorName }} <span class="badge">{{ log.actorType }}</span>
+                </div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Area</div>
+                <div class="detail-value">{{ log.area }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Entity</div>
+                <div class="detail-value">{{ log.entityType }}{% if log.entityId %} #{{ log.entityId }}{% endif %}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Action</div>
+                <div class="detail-value"><span class="badge">{{ log.action }}</span></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Summary</div>
+                <div class="detail-value">{{ log.summary }}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Data</div>
+                <div class="detail-value">
+                    {% if fields is empty %}
+                        <span class="muted">No field data recorded.</span>
+                    {% else %}
+                        <table class="admin-grid-table audit-detail-table">
+                            <thead>
+                                <tr><th>Field</th><th>Before</th><th>After</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for f in fields %}
+                                    <tr>
+                                        <td>{{ f.name }}</td>
+                                        <td class="audit-detail-before">
+                                            {%- if not f.hasBefore or f.before is null or f.before == '' -%}
+                                                <span class="muted">&mdash;</span>
+                                            {%- elseif f.before is iterable -%}
+                                                {{ f.before|json_encode }}
+                                            {%- else -%}
+                                                {{ f.before }}
+                                            {%- endif -%}
+                                        </td>
+                                        <td class="audit-detail-after">
+                                            {%- if not f.hasAfter or f.after is null or f.after == '' -%}
+                                                <span class="muted">&mdash;</span>
+                                            {%- elseif f.after is iterable -%}
+                                                {{ f.after|json_encode }}
+                                            {%- else -%}
+                                                {{ f.after }}
+                                            {%- endif -%}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <style>
+        .detail-grid {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--line-light);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .detail-row {
+            display: flex;
+            border-bottom: 1px solid var(--line-light);
+            min-height: 48px;
+        }
+        .detail-row:last-child {
+            border-bottom: 0;
+        }
+        .detail-label {
+            width: 180px;
+            background: #f8fafc;
+            padding: 14px 20px;
+            font-weight: 700;
+            color: var(--slate-800);
+            font-size: 0.85rem;
+            text-transform: capitalize;
+            border-right: 1px solid var(--line-light);
+            flex-shrink: 0;
+        }
+        .detail-value {
+            flex-grow: 1;
+            padding: 14px 20px;
+            font-size: 0.85rem;
+            color: var(--slate-700);
+            line-height: 1.5;
+            background: #fff;
+        }
+        .detail-row:nth-child(even) .detail-value {
+            background: #fdfdfd;
+        }
+        .detail-value .audit-detail-table {
+            margin-top: 4px;
+        }
+    </style>
+
+{% endblock %}

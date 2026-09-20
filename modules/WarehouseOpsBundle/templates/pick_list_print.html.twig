@@ -1,0 +1,50 @@
+{# The round sheet is a document a picker carries, not an admin screen, so it goes out on the bare
+   document layout the same way the purchase order does — app.css carries no @media print rules at
+   all, so on the admin layout the sidebar and the Warehouse Operations subnav came out on the
+   paper. `is_pdf` is the switch the rest of the repo uses (purchase_order_document.html.twig), and
+   this route always renders the document form. #}
+{% extends is_pdf|default(true) ? 'admin/_main/pdf_layout.html.twig' : 'admin/_main/layout.html.twig' %}
+{% block title %}{{ list.number }} — round sheet{% endblock %}
+{% block admin_body %}
+    {# The printout: bins in walking order and nothing else on the page. A picker holding paper does
+       not need filters, sort headers or a nav bar. #}
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px; color: #111; }
+        .round-sheet { max-width: 60rem; margin: 1.5rem auto; padding: 0 1rem; }
+        .round-sheet h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+        .round-sheet table { width: 100%; border-collapse: collapse; }
+        .round-sheet th, .round-sheet td { border: 1px solid #999; padding: 0.35rem 0.5rem; text-align: left; }
+        .round-sheet .tick { width: 5rem; }
+        .round-sheet .back-link { display: inline-block; margin-top: 1rem; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+
+    <section class="round-sheet">
+        <h1>{{ list.number }}</h1>
+        <p>{{ list.warehouse.name }} · {{ list.orderCount }} order(s) · staging
+            {{ list.stagingLocation ? list.stagingLocation.code : 'not chosen' }}
+            {% if list.assignedTo %}· {{ list.assignedTo }}{% endif %}</p>
+
+        <table>
+            {# "Taken from" is blank on the paper on purpose: it is where the picker writes the shelf they
+               actually stood at when it was not the one printed in "Bin". The confirm screen asks the same
+               question, and a round sheet that cannot record the answer sends it back as a guess (#591). #}
+            <thead><tr><th>Bin</th><th>SKU</th><th>Item</th><th>Order</th><th>Qty</th><th class="tick">Taken from</th><th class="tick">Found</th></tr></thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.suggestedLocation ? task.suggestedLocation.code : '— no stock —' }}</td>
+                        <td>{{ task.sku ?? '' }}</td>
+                        <td>{{ task.name }}</td>
+                        <td>{{ task.orderNumber }}</td>
+                        <td>{{ task.quantityRequested }}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="no-print"><a class="back-link" href="{{ path('admin_bundle_warehouse_ops_pick_list', {id: list.id}) }}">← Back to the round</a></p>
+    </section>
+{% endblock %}

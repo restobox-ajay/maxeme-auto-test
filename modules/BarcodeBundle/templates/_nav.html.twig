@@ -1,0 +1,29 @@
+{# The bundle's own page header and flash strip, included by both of its screens.
+   Same shape as @WarehouseOps/_nav.html.twig and @Procurement/_nav.html.twig, so a barcode screen
+   reads as part of the same application rather than as a bolted-on one.
+
+   Deliberately links to NOTHING outside this bundle. Warehouse Operations and Procurement depend on
+   this bundle; this one depends on neither, and a path() call to a route that came from a deleted
+   bundle is a 500 rather than a missing link. The traffic goes the other way: the label screen and
+   the scan console link here. #}
+<section class="panel compact-panel">
+    <div class="panel-title-row">
+        <div>
+            <p class="eyebrow">Apps › Inventory › Barcodes</p>
+            <h1>{{ heading }}</h1>
+        </div>
+        <div class="panel-actions">
+            <a class="button back-button" href="{{ path('admin_bundle_barcodes') }}">All barcodes</a>
+        </div>
+    </div>
+</section>
+
+{% for msg in app.flashes('success') %}
+    <div class="flash flash-success">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('info') %}
+    <div class="flash flash-info">{{ msg }}</div>
+{% endfor %}
+{% for msg in app.flashes('error') %}
+    <div class="flash flash-error">{{ msg }}</div>
+{% endfor %}

@@ -1,0 +1,69 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Products Price Lists | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products price lists</p>
+                <h1>Pricing Groups</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_price_list_create') }}">Add new</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set routeQuery = {q: search|default(''), sort: currentSort|default('id'), dir: currentDir|default('asc'), limit: currentLimit} %}
+    <section class="table-card price-list-admin no-paginate"
+             data-ajax-url="{{ path('admin_price_list_index') }}"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        <div class="table-scroll-region">
+        <div class="table-header">
+            <div class="table-tools">
+                <input class="table-search price-list-search" type="search" placeholder="Search lists..." aria-label="Search lists">
+                <button class="button primary js-price-list-search" type="button">Search</button>
+            </div>
+        </div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead>
+                <tr>
+                    <th data-sort-field="id">#</th>
+                    <th data-sort-field="name">Group label</th>
+                    <th data-sort-field="companies">Customers</th>
+                    <th data-sort-field="companyCount">Assigned</th>
+                    <th data-sort-field="status">Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% include 'admin/product/_price_list_rows.html.twig' %}
+                </tbody>
+        </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: priceLists|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_price_list_index',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

@@ -1,0 +1,54 @@
+{#
+    Reusable per-object History panel. Include with `logs` (App\Entity\AuditLog[]),
+    pre-fetched by the controller via AuditLogRepository::findForEntity(). Also include
+    admin/_shared/_audit_detail_modal.html.twig once on the same page for the "View" button.
+#}
+<section class="panel compact-panel audit-history-panel">
+    <div class="table-header">
+        <h2>Change History</h2>
+    </div>
+    <div class="wide-table-wrap">
+        <table class="admin-grid-table audit-log-table">
+            <thead>
+                <tr>
+                    <th>Occurred At</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Summary</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('Y-m-d H:i A') }}</td>
+                        <td data-label="Actor">{{ log.actorName }} <span class="badge">{{ log.actorType }}</span></td>
+                        <td data-label="Action"><span class="badge">{{ log.action }}</span></td>
+                        <td data-label="Summary">{{ log.summary }}</td>
+                        <td data-label="Data">
+                            {% if log.dataBefore or log.dataAfter %}
+                                <a class="table-action info js-audit-view-detail" href="{{ path('admin_audit_detail', {id: log.id}) }}">View</a>
+                            {% else %}
+                                <span class="muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-table-cell">
+                            <strong>No history recorded yet.</strong>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer">
+        {% include 'admin/_table_count.html.twig' with {
+            count: logs|length,
+            total: logs|length
+        } only %}
+    </div>
+</section>
+
+{% include 'admin/_shared/_audit_detail_modal.html.twig' %}

@@ -1,0 +1,233 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Quotes | Admin{% endblock %}
+{% block admin_body %}
+    {% set tabs = ['All Quotes', 'Draft', 'Submitted', 'Priced', 'Accepted', 'Rejected'] %}
+    {% set filters = app.request.query.all('filters') %}
+    {% set activeStatus = filters.status|default('') %}
+    {% set currentPage = page|default(1) %}
+    {% set currentPageLimit = limit|default(app.request.query.getInt('limit', 100)) %}
+    {% set currentSort = app.request.query.get('sort', 'id') %}
+    {% set currentDir = app.request.query.get('dir', 'desc') %}
+    {% set pageCount = pages|default((total / (currentPageLimit ?: 1))|round(0, 'ceil')) %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {# The customer this grid is scoped to, carried onto every link the screen generates — filter
+       bar, status tabs, sort headers, per-page and pagination — in the `EstimateSearch[company_id]`
+       shape the Orders grid established. A scope that survived the first click and not the second
+       would be worse than none: the grid would quietly widen to every customer mid-session.
+       When the id matched nothing it is carried too, so the empty list stays empty. #}
+    {% set estimateScope = company ? {EstimateSearch: {company_id: company.id}} : (companyScopeMissingId is defined and companyScopeMissingId ? {EstimateSearch: {company_id: companyScopeMissingId}} : {}) %}
+
+    <section class="panel compact-panel order-list-hero">
+        <div class="panel-title-row">
+            <div>
+                <h1>{{ company ? 'Quotes for ' ~ company.name : 'Quotes' }}</h1>
+                {% if company %}
+                    {# Whose quotes these are, in the heading and again in words: a filtered grid
+                       that reads like an unfiltered one is how a total gets misread as the whole
+                       business rather than one customer's share of it. #}
+                    <p class="lead">Only the quotes of {{ company.name }}. Every count and total below covers this customer alone.</p>
+                {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    <p class="lead">
+                        No quotes are listed: this link asks for
+                        {{ companyScopeMissingId ? 'customer ' ~ companyScopeMissingId ~ ', and no such customer exists' : 'a customer, and the id it gives is not one' }}.
+                        Listing every customer's quotes instead would answer a question nobody asked.
+                    </p>
+                {% endif %}
+            </div>
+            <div class="panel-actions">
+                {% if company %}
+                    <a class="button back-button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">Back to customer</a>
+                    <a class="button outline" href="{{ path('admin_estimate_index') }}">All Quotes</a>
+                {% else %}
+                    <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                    {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                        <a class="button outline" href="{{ path('admin_estimate_index') }}">All Quotes</a>
+                    {% endif %}
+                {% endif %}
+                <a class="button primary" href="{{ company ? path('admin_estimate_create', {company_id: company.id}) : path('admin_estimate_create') }}">Create Quote</a>
+            </div>
+        </div>
+    </section>
+
+    {% set estimateQueryBase = {limit: currentPageLimit, filters: filters}|merge(estimateScope) %}
+    <section class="table-card order-admin-grid no-search no-paginate" data-link-controls="true">
+        <div class="table-scroll-region">
+        {# ── Filter bar ──────────────────────────────────────────────────── #}
+        <div class="order-filter-section">
+            <form id="estimate-grid-filters-form" class="order-filter-fields" method="get" action="{{ path('admin_estimate_index') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentPageLimit }}">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                {# Plain GET, no JavaScript: the scope has to ride the form itself or submitting a
+                   column filter would drop it. #}
+                {% if estimateScope.EstimateSearch is defined %}
+                    <input type="hidden" name="EstimateSearch[company_id]" value="{{ estimateScope.EstimateSearch.company_id }}">
+                {% endif %}
+                <div class="order-filter-actions">
+                    <button class="button primary" type="submit">Search</button>
+                    <a class="button outline" href="{{ path('admin_estimate_index', estimateScope) }}">Reset</a>
+                </div>
+            </form>
+
+            <nav class="order-status-tabs">
+                {% for tab in tabs %}
+                    {% set tabStatus = loop.first ? '' : tab %}
+                    {% set tabFilters = {} %}
+                    {% for key, value in filters %}
+                        {% if key != 'status' and value is not same as('') %}
+                            {% set tabFilters = tabFilters|merge({ (key): value }) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if tabStatus != '' %}
+                        {% set tabFilters = tabFilters|merge({'status': tabStatus}) %}
+                    {% endif %}
+                    {% set tabQuery = {
+                        page: 1,
+                        limit: currentPageLimit,
+                        sort: currentSort,
+                        dir: currentDir,
+                        filters: tabFilters
+                    }|merge(estimateScope) %}
+                    <a class="{{ (tabStatus == activeStatus) or (loop.first and activeStatus == '') ? 'is-active' : '' }}"
+                       href="{{ path('admin_estimate_index', tabQuery) }}">{{ tab }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div class="wide-table-wrap">
+            <table class="order-list-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'documentNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="documentNumber"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'documentNumber', dir: currentSort == 'documentNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Quote #</a></th>
+                        <th class="is-sortable{% if currentSort == 'orderNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="orderNumber"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'orderNumber', dir: currentSort == 'orderNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Order #</a></th>
+                        <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="company"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'company', dir: currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Customer</a></th>
+                        <th class="is-sortable{% if currentSort == 'userName' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="userName"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'userName', dir: currentSort == 'userName' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">User</a></th>
+                        <th class="is-sortable{% if currentSort == 'total' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="total"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'total', dir: currentSort == 'total' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Total</a></th>
+                        <th class="is-sortable{% if currentSort == 'source' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="source"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'source', dir: currentSort == 'source' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Source</a></th>
+                        <th class="is-sortable{% if currentSort == 'createdAt' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="createdAt"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'createdAt', dir: currentSort == 'createdAt' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Created</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_estimate_index', estimateQueryBase|merge({page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Status</a></th>
+                        <th style="width: 80px; text-align: center;">Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[documentNumber]" form="estimate-grid-filters-form" value="{{ filters.documentNumber|default('') }}" data-filter-field="documentNumber" aria-label="Filter quote number"></th>
+                        <th><input type="text" name="filters[orderNumber]" form="estimate-grid-filters-form" value="{{ filters.orderNumber|default('') }}" data-filter-field="orderNumber" aria-label="Filter order number"></th>
+                        <th><input type="text" name="filters[company]" form="estimate-grid-filters-form" value="{{ filters.company|default('') }}" data-filter-field="company" aria-label="Filter customer"></th>
+                        <th><input type="text" name="filters[userName]" form="estimate-grid-filters-form" value="{{ filters.userName|default('') }}" data-filter-field="userName" aria-label="Filter user"></th>
+                        <th><input type="text" name="filters[total]" form="estimate-grid-filters-form" value="{{ filters.total|default('') }}" data-filter-field="total" aria-label="Filter total"></th>
+                        <th>
+                            <select name="filters[source]" form="estimate-grid-filters-form" data-filter-field="source" aria-label="Filter source" onchange="submitEstimateGridFilters(this)">
+                                <option value=""></option>
+                                <option {{ filters.source|default('') == 'Admin' ? 'selected' : '' }}>Admin</option>
+                                <option {{ filters.source|default('') == 'Customer' ? 'selected' : '' }}>Customer</option>
+                            </select>
+                        </th>
+                        <th>
+                            <input type="date" name="filters[createdAt]" form="estimate-grid-filters-form" value="{{ filters.createdAt|default('') }}" data-filter-field="createdAt" aria-label="Filter created date" onchange="submitEstimateGridFilters(this)">
+                        </th>
+                        <th>
+                            <select name="filters[status]" form="estimate-grid-filters-form" data-filter-field="status" aria-label="Filter status" onchange="submitEstimateGridFilters(this)">
+                                <option value=""></option>
+                                {% for tab in tabs|slice(1) %}
+                                    <option value="{{ tab }}" {{ filters.status|default('') == tab ? 'selected' : '' }}>{{ tab }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for estimate in estimates %}
+                        <tr>
+                            <td data-label="Quote #"><a class="link-strong" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">{{ estimate.documentNumber }}</a></td>
+                            {# A quote only has an order number once it has been converted; until then there is
+                               nothing to link to, so the cell reads as empty rather than as a dead link. #}
+                            <td data-label="Order #">
+                                {% if estimate.convertedOrder %}
+                                    <a class="link-strong" href="{{ path('admin_order_detail', {id: estimate.convertedOrder.id}) }}">{{ estimate.convertedOrder.orderNumber }}</a>
+                                {% else %}
+                                    <span class="muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Customer">{{ estimate.companyIdentity.name }}</td>
+                            <td data-label="User">{{ estimate.userName|default('') ?: '-' }}</td>
+                            <td data-label="Total">{{ estimate.total is not null ? '$' ~ estimate.total|amount : 'TBD' }}</td>
+                            <td data-label="Source">{{ estimate.source }}</td>
+                            <td data-label="Created">{{ estimate.createdAt|date('Y-m-d') }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: estimate.status, loud: false} only %}</td>
+                            <td data-label="Actions"><a class="table-action" href="{{ path('admin_estimate_detail', {id: estimate.id}) }}">View</a></td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-table-cell">
+                                {% if company %}
+                                    <strong>No quotes found for {{ company.name }}.</strong>
+                                    <span>This customer has no quote matching the filters above.</span>
+                                {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                                    <strong>This customer does not exist.</strong>
+                                    <span>Nothing is listed, because the customer this link names could not be found.</span>
+                                {% else %}
+                                    <strong>No quotes found.</strong>
+                                    <span>Quotes will appear here once created.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+
+        <div class="table-footer">
+            <form method="get" action="{{ path('admin_estimate_index') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                {% for key, value in filters %}
+                    <input type="hidden" name="filters[{{ key }}]" value="{{ value }}">
+                {% endfor %}
+                {% if estimateScope.EstimateSearch is defined %}
+                    <input type="hidden" name="EstimateSearch[company_id]" value="{{ estimateScope.EstimateSearch.company_id }}">
+                {% endif %}
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in [20, 100, 200, 500] %}
+                            <option value="{{ size }}" {{ currentPageLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </form>
+            {% include 'admin/_table_count.html.twig' with {
+                count: estimates|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentPageLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_estimate_index',
+                routeQuery: {limit: currentPageLimit, sort: currentSort, dir: currentDir, filters: filters}|merge(estimateScope),
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+function submitEstimateGridFilters(inputEl) {
+    var form = document.getElementById('estimate-grid-filters-form') || (inputEl && inputEl.form) || null;
+    if (!form) { return; }
+
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

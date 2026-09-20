@@ -1,0 +1,152 @@
+{#
+  One row of the receiving bay form (#792, mockup/receive-flow-7's "What arrived" table).
+
+  Shared by the order's own lines and by the spare rows *Add more lines* produces, so the two cannot
+  drift into offering different boxes — which is exactly what happened to this screen the last time
+  it had two row shapes. Also shared between the with-PO and without-PO screens: `order` (read from
+  the parent context — this partial is never included with `only`) decides whether the PO/Outstanding
+  columns exist at all, and everything else renders identically either way.
+
+  ## The boxes rendered are the boxes that MEAN something (item 67)
+
+  `needs` is a CaptureRequirement, built from the same ProductReceivingRule that ReceivingService
+  refuses on — whose batch, expiry and serial answers derive from the product's TRACKING POLICY, so
+  there is one description of what this product needs and not two. A product that tracks nothing
+  gets no batch box and no serial box, because the walkthrough found both typed against exactly such
+  a product and stored. A product that carries a serial gets the serial block and NOT a batch box.
+  What the row needs is stated in words above the boxes, on every row including the ones that need
+  nothing — silence was being read as "nobody has told me".
+
+  ## Lot Skip and Expiry Skip are independent (#792)
+
+  Each identity dimension carries its OWN real checkbox next to its own box — `f-none` beside the
+  lot code (`[unidentified]`, unchanged since item 67/#573) and `f-noexp` beside the expiry
+  (`[expiry_unidentified]`, new) — styled as a toggle button by `.skip-toggle` in app.css but a plain
+  checkbox underneath, so it posts and works exactly the same with scripting off. A receiver who has
+  the batch code but genuinely has no expiry for it ticks Expiry Skip alone; ticking Lot Skip does
+  not touch the expiry box, and the other way round. ReceivingService::assertLineIsBookable() reads
+  the two independently — see its `$declared` and `$expiryDeclared`.
+
+  Serial-tracked rows carry no Skip at all: "Serial-tracked rows need one serial per unit" is a rule
+  this screen does not offer an escape from, on this table. (`unidentified` can still excuse a blank
+  serial when posted directly — #573's declaration was never restricted to lot-tracked products in
+  ReceivingService — but nothing on this table invites that for a serial row, matching the mockup.)
+
+  ## The short-dated reason box (item 68)
+
+  Rendered wherever an expiry box is, because that is the only place a date can be short. It is
+  blank on an ordinary delivery and stays blank: a reason typed on a line that turns out not to be
+  short records nothing. When the date IS inside the minimum shelf life, booking in is refused until
+  it is filled — and everything typed comes back on the re-render, so the reason is added to the
+  form that was refused rather than retyped into a fresh one.
+
+  ## Why nothing here carries `required`
+
+  A row on this form is optional: every line of a purchase order appears whether or not it turned
+  up, and a receiver skips one by leaving it blank. `required` cannot say "required only if this row
+  is being received" without JavaScript, and this app's baseline is that it works without any. So
+  the enforcement is ReceivingService's, where it can see the quantity beside the box, and every
+  refusal names the line and says what is missing.
+
+  Parameters
+  ----------
+  index            required  the row's position in `lines[]`
+  orderLine        required  the PurchaseOrderLine this row is fixed to, or null for a spare row
+  needs            required  the CaptureRequirement for this row's product, or null
+  defaultQuantity  optional  pre-filled quantity — the order line's outstanding balance
+  defaultUnitCost  optional  pre-filled unit cost — the order line's cost
+#}
+{% set idx = 'lines[' ~ index ~ ']' %}
+{% set row = draft[index] ?? {} %}
+<tr>
+    <td data-label="Item">
+        {% if orderLine %}
+            {{ orderLine.name }}
+            <input type="hidden" name="{{ idx }}[purchase_order_line_id]" value="{{ orderLine.id }}">
+        {% else %}
+            {# `selected` is the ENTITY the controller resolved for this row, never `row.product_id`.
+               `draft` is a redisplay and holds the strings that were posted, while the shared
+               partial evaluates `selected.id` — so handing it the string turned every re-render of a
+               spare row with a product chosen into a 500. That fired on *Add more lines* and on ANY
+               refusal, which is precisely when this re-render exists to give a receiver back the
+               block of serials they pasted. #}
+            {{ include('@Procurement/_product_field.html.twig', {
+                field: idx ~ '[product_id]',
+                products: productOptions,
+                remote: productsRemote,
+                selected: draftProducts[index]|default(null),
+                vendorId: null,
+                label: 'Product for line ' ~ (index + 1),
+            }) }}
+        {% endif %}
+
+        {% if needs %}<br><small>{{ needs.describe }}</small>{% endif %}
+    </td>
+    {% if order %}
+        <td data-label="PO" style="text-align:right;">{{ orderLine ? orderLine.quantityOrdered|qty : '—' }}</td>
+        <td data-label="O/S" style="text-align:right;">{{ orderLine ? orderLine.quantityOutstanding|qty : '—' }}</td>
+    {% endif %}
+    <td class="qty-td" data-label="{{ order ? 'Arriving now' : 'Quantity arriving' }}">
+        <input type="text" name="{{ idx }}[quantity]" value="{{ row.quantity|default(defaultQuantity|default('')) }}"
+               inputmode="decimal" aria-label="Quantity arriving">
+        {# Recorded and never applied to the product's own cost (see GoodsReceiptLine's own
+           docblock) — carried through as the order line's cost, or whatever was typed on a
+           previous pass of this same row, without its own column on this table. #}
+        <input type="hidden" name="{{ idx }}[unit_cost]" value="{{ row.unit_cost|default(defaultUnitCost|default('')) }}">
+    </td>
+    <td class="id-c" data-label="Lot">
+        {% if needs and needs.capturesLot %}
+            <div class="skip-row">
+                <input type="text" name="{{ idx }}[lot_code]" maxlength="64" value="{{ row.lot_code|default('') }}"
+                       placeholder="Lot code" aria-label="Lot code">
+                {% if needs.unidentifiedMayBeDeclared %}
+                    <label class="skip-toggle" title="Arrived with no lot: goes on the tracking worklist">
+                        <input type="checkbox" name="{{ idx }}[unidentified]" value="1"
+                               {{ row.unidentified|default('') ? 'checked' : '' }} aria-label="Arrived with no lot">
+                        <span>Skip</span>
+                    </label>
+                {% endif %}
+            </div>
+        {% else %}
+            <small>—</small>
+        {% endif %}
+    </td>
+    <td class="id-c" data-label="Expiry">
+        {% if needs and needs.capturesExpiry %}
+            <div class="skip-row">
+                <input type="date" name="{{ idx }}[expiry]" value="{{ row.expiry|default('') }}" aria-label="Expiry">
+                <label class="skip-toggle" title="No expiry date on the goods">
+                    <input type="checkbox" name="{{ idx }}[expiry_unidentified]" value="1"
+                           {{ row.expiry_unidentified|default('') ? 'checked' : '' }} aria-label="Arrived with no expiry date">
+                    <span>Skip</span>
+                </label>
+            </div>
+            {{ include('@Procurement/_short_dated_reason.html.twig', {idx: idx, index: index, row: row}) }}
+        {% else %}
+            <small>—</small>
+        {% endif %}
+    </td>
+    <td class="id-c" data-label="Serial">
+        {% if needs and needs.capturesSerial %}
+            {# Bulk entry, and the reason it is a textarea rather than a repeated input is in
+               SerialList's docblock: a vendor's manifest is a COLUMN, and a wedge scanner pointed at
+               a textarea types the serial and inserts a newline instead of submitting — so seventy
+               units can be scanned into one box, with no JavaScript. #}
+            <label class="sr-only" for="{{ idx }}-serials">Serials for line {{ index + 1 }}, one per line</label>
+            <textarea id="{{ idx }}-serials" name="{{ idx }}[serials]" rows="3" cols="16"
+                      placeholder="One per line">{{ row.serials|default('') }}</textarea>
+            <br><small>One serial per unit. Up to {{ serialLimit }}. Leave the quantity blank and they count themselves.</small>
+        {% else %}
+            <small>—</small>
+        {% endif %}
+    </td>
+    <td data-label="Bin">
+        <select name="{{ idx }}[location_id]" aria-label="Bin">
+            <option value="">—</option>
+            {% for bin in bins %}
+                <option value="{{ bin.id }}" {{ row.location_id|default('') == bin.id ? 'selected' : '' }}>{{ bin.code }}{{ order ? '' : ' @ ' ~ bin.warehouse.name }}</option>
+            {% endfor %}
+        </select>
+        {% if needs and needs.location %}<br><small>Required — cannot be skipped</small>{% endif %}
+    </td>
+</tr>

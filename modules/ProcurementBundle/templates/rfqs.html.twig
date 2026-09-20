@@ -1,0 +1,49 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}RFQs | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'rfqs',
+        heading: 'Requests for Quotation',
+        lead: 'One requirement, put to several vendors, holding their competing replies. Accepting a reply converts it into a purchase order.',
+        createPath: path('admin_bundle_procurement_rfq_new'),
+        createLabel: 'Raise an RFQ'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="rfq-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-header">
+                <div class="table-tools">
+                    <select name="filters[status]" onchange="this.form.submit()">
+                        <option value="">&mdash; every status &mdash;</option>
+                        {% for status in statuses %}
+                            <option value="{{ status.value }}"{{ filters.status is defined and filters.status == status.value ? ' selected' : '' }}>{{ status.value }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="search" name="filters[q]" value="{{ filters.q|default('') }}" placeholder="Search RFQ number...">
+                    <button class="button" type="submit">Search</button>
+                </div>
+            </div>
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>RFQ</th><th>Warehouse</th><th>Lines</th><th>Replies</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                    {% for rfq in rfqs %}
+                        <tr>
+                            <td data-label="RFQ">{{ rfq.documentNumber }}</td>
+                            <td data-label="Warehouse">{{ rfq.warehouse ? rfq.warehouse.name : '-' }}</td>
+                            <td data-label="Lines">{{ rfq.lines|length }}</td>
+                            <td data-label="Replies">{{ rfq.replies|length }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: rfq.status.value, loud: false} only %}</td>
+                            <td data-label="Actions"><a class="table-action" href="{{ path('admin_bundle_procurement_rfq', {id: rfq.id}) }}">Open</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell"><span>No RFQs raised yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with { count: rfqs|length, total: total, currentPage: page, perPage: limit } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

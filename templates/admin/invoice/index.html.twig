@@ -1,0 +1,304 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Invoices | Admin{% endblock %}
+{% block admin_body %}
+    {# Every InvoiceStatus, in the order an invoice moves through them. Cancelled has a tab, unlike
+       the Orders grid's Void: a cancelled invoice keeps its number forever and stays part of the
+       accounting record, so it is looked up, not hidden. #}
+    {% set tabs = ['All Invoices', 'Draft', 'On Hold', 'Pending', 'Processing', 'Completed', 'Cancelled'] %}
+    {% set filters = app.request.query.all('filters') %}
+    {% set activeStatus = filters.status|default('') %}
+    {% set currentPage = page|default(1) %}
+    {% set currentPageLimit = limit|default(app.request.query.getInt('limit', 100)) %}
+    {% set currentSort = app.request.query.get('sort', 'id') %}
+    {% set currentDir = app.request.query.get('dir', 'desc') %}
+    {% set pageCount = pages|default((total / (currentPageLimit ?: 1))|round(0, 'ceil')) %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+    {# The customer this grid is scoped to, carried onto every link the screen generates — filter
+       bar, status tabs, sort headers, per-page and pagination — in the `InvoiceSearch[company_id]`
+       shape the Orders grid established. A scope that survived the first click and not the second
+       would be worse than none: the grid would quietly widen to every customer mid-session.
+       When the id matched nothing it is carried too, so the empty list stays empty. #}
+    {% set invoiceScope = company ? {InvoiceSearch: {company_id: company.id}} : (companyScopeMissingId is defined and companyScopeMissingId ? {InvoiceSearch: {company_id: companyScopeMissingId}} : {}) %}
+
+    <section class="panel compact-panel order-list-hero">
+        <div class="panel-title-row">
+            <div>
+                <h1>{{ company ? 'Invoices for ' ~ company.name : 'Invoices' }}</h1>
+                {% if company %}
+                    {# Whose invoices these are, in the heading and again in words: a filtered grid
+                       that reads like an unfiltered one is how a total gets misread as the whole
+                       business rather than one customer's share of it. #}
+                    <p class="lead">Only the invoices of {{ company.name }}. Every count and total below covers this customer alone.</p>
+                {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                    <p class="lead">
+                        No invoices are listed: this link asks for
+                        {{ companyScopeMissingId ? 'customer ' ~ companyScopeMissingId ~ ', and no such customer exists' : 'a customer, and the id it gives is not one' }}.
+                        Listing every customer's invoices instead would answer a question nobody asked.
+                    </p>
+                {% else %}
+                    <p class="lead">Every invoice raised, with what has been fulfilled and what has been paid. Raise one here for goods no order stands behind, or from an order's Convert to Invoice.</p>
+                {% endif %}
+            </div>
+            <div class="panel-actions">
+                {% if company %}
+                    <a class="button back-button" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">Back to customer</a>
+                    <a class="button outline" href="{{ path('admin_invoice_index') }}">All Invoices</a>
+                    {# Scoped to one customer, the create link carries that customer, so the screen
+                       opens on the company the admin was already looking at. #}
+                    <a class="button primary" href="{{ path('admin_invoice_create', {company_id: company.id}) }}">Create Invoice</a>
+                {% else %}
+                    <a class="button back-button" href="{{ path('admin_order_index') }}">Back to orders</a>
+                    {% if companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                        <a class="button outline" href="{{ path('admin_invoice_index') }}">All Invoices</a>
+                    {% endif %}
+                    {# The way in to a standalone invoice — one with no sales order behind it. It sits
+                       where the Orders grid keeps Create Order, because this is the same act on the
+                       same kind of document and that is where somebody looks for it. #}
+                    <a class="button primary" href="{{ path('admin_invoice_create') }}">Create Invoice</a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% set invoiceQueryBase = {limit: currentPageLimit, filters: filters}|merge(invoiceScope) %}
+    <section class="table-card order-admin-grid no-search no-paginate" data-link-controls="true">
+        <div class="table-scroll-region">
+        {# ── Filter bar ──────────────────────────────────────────────────── #}
+        <div class="order-filter-section">
+            <form id="invoice-grid-filters-form" class="order-filter-fields" method="get" action="{{ path('admin_invoice_index') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="limit" value="{{ currentPageLimit }}">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                {# Plain GET, no JavaScript: the scope has to ride the form itself or submitting a
+                   column filter would drop it. #}
+                {% if invoiceScope.InvoiceSearch is defined %}
+                    <input type="hidden" name="InvoiceSearch[company_id]" value="{{ invoiceScope.InvoiceSearch.company_id }}">
+                {% endif %}
+                {# The top-of-page range, matching the Orders grid. Both bounds are inclusive, and
+                   both submit with the Search button below — no scripting involved, so the range
+                   applies with JavaScript off exactly as it does with it on. #}
+                <span class="order-filter-label">Filter by:</span>
+                <label class="order-filter-field">
+                    <span>Invoice Date From</span>
+                    <input type="date" name="filters[invoiceDateFrom]" value="{{ filters.invoiceDateFrom|default('') }}" data-filter-field="invoiceDateFrom">
+                </label>
+                <label class="order-filter-field">
+                    <span>Invoice Date To</span>
+                    <input type="date" name="filters[invoiceDateTo]" value="{{ filters.invoiceDateTo|default('') }}" data-filter-field="invoiceDateTo">
+                </label>
+                <div class="order-filter-actions">
+                    <button class="button primary" type="submit">Search</button>
+                    <a class="button outline" href="{{ path('admin_invoice_index', invoiceScope) }}">Reset</a>
+                </div>
+            </form>
+
+            <nav class="order-status-tabs">
+                {% for tab in tabs %}
+                    {% set tabStatus = loop.first ? '' : tab %}
+                    {% set tabFilters = {} %}
+                    {% for key, value in filters %}
+                        {% if key != 'status' and value is not same as('') %}
+                            {% set tabFilters = tabFilters|merge({ (key): value }) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if tabStatus != '' %}
+                        {% set tabFilters = tabFilters|merge({'status': tabStatus}) %}
+                    {% endif %}
+                    {% set tabQuery = {
+                        page: 1,
+                        limit: currentPageLimit,
+                        sort: currentSort,
+                        dir: currentDir,
+                        filters: tabFilters
+                    }|merge(invoiceScope) %}
+                    <a class="{{ (tabStatus == activeStatus) or (loop.first and activeStatus == '') ? 'is-active' : '' }}"
+                       href="{{ path('admin_invoice_index', tabQuery) }}">{{ tab }}</a>
+                {% endfor %}
+            </nav>
+        </div>
+
+        <div class="wide-table-wrap">
+            <table class="order-list-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'documentNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="documentNumber"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'documentNumber', dir: currentSort == 'documentNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Invoice #</a></th>
+                        <th class="is-sortable{% if currentSort == 'orderNumber' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="orderNumber"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'orderNumber', dir: currentSort == 'orderNumber' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Order #</a></th>
+                        <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="company"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'company', dir: currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Customer</a></th>
+                        <th class="is-sortable{% if currentSort == 'invoiceDate' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="invoiceDate"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'invoiceDate', dir: currentSort == 'invoiceDate' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Invoice<br>Date</a></th>
+                        <th class="is-sortable{% if currentSort == 'total' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="total"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'total', dir: currentSort == 'total' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Total</a></th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="status"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Status</a></th>
+                        <th class="is-sortable{% if currentSort == 'paymentStatus' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="paymentStatus"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'paymentStatus', dir: currentSort == 'paymentStatus' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Payment<br>Status</a></th>
+                        <th class="is-sortable{% if currentSort == 'shippingStatus' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="shippingStatus"><a href="{{ path('admin_invoice_index', invoiceQueryBase|merge({page: 1, sort: 'shippingStatus', dir: currentSort == 'shippingStatus' and currentDir == 'asc' ? 'desc' : 'asc'})) }}">Shipping<br>Status</a></th>
+                        <th style="width: 80px; text-align: center;">Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[documentNumber]" form="invoice-grid-filters-form" value="{{ filters.documentNumber|default('') }}" data-filter-field="documentNumber" aria-label="Filter invoice number"></th>
+                        <th><input type="text" name="filters[orderNumber]" form="invoice-grid-filters-form" value="{{ filters.orderNumber|default('') }}" data-filter-field="orderNumber" aria-label="Filter order number"></th>
+                        <th><input type="text" name="filters[company]" form="invoice-grid-filters-form" value="{{ filters.company|default('') }}" data-filter-field="company" aria-label="Filter customer"></th>
+                        <th><input type="date" name="filters[invoiceDate]" form="invoice-grid-filters-form" value="{{ filters.invoiceDate|default('') }}" data-filter-field="invoiceDate" aria-label="Filter invoice date" onchange="submitInvoiceGridFilters(this)"></th>
+                        <th><input type="text" name="filters[total]" form="invoice-grid-filters-form" value="{{ filters.total|default('') }}" data-filter-field="total" aria-label="Filter total"></th>
+                        <th>
+                            <select name="filters[status]" form="invoice-grid-filters-form" data-filter-field="status" aria-label="Filter status" onchange="submitInvoiceGridFilters(this)">
+                                <option value=""></option>
+                                {% for tab in tabs|slice(1) %}
+                                    <option value="{{ tab }}" {{ filters.status|default('') == tab ? 'selected' : '' }}>{{ tab }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select name="filters[paymentStatus]" form="invoice-grid-filters-form" data-filter-field="paymentStatus" aria-label="Filter payment status" onchange="submitInvoiceGridFilters(this)">
+                                <option value=""></option>
+                                <option {{ filters.paymentStatus|default('') == 'Not Paid' ? 'selected' : '' }}>Not Paid</option>
+                                <option {{ filters.paymentStatus|default('') == 'Partially Paid' ? 'selected' : '' }}>Partially Paid</option>
+                                <option {{ filters.paymentStatus|default('') == 'Paid' ? 'selected' : '' }}>Paid</option>
+                            </select>
+                        </th>
+                        <th>
+                            {# Partially Shipped is offered whether or not a shipment bundle is
+                               active: with none, no invoice can be in it and the filter correctly
+                               returns nothing, which is a truthful empty list rather than a missing
+                               control that changes shape depending on what is installed. #}
+                            <select name="filters[shippingStatus]" form="invoice-grid-filters-form" data-filter-field="shippingStatus" aria-label="Filter shipping status" onchange="submitInvoiceGridFilters(this)">
+                                <option value=""></option>
+                                <option {{ filters.shippingStatus|default('') == 'Not Shipped' ? 'selected' : '' }}>Not Shipped</option>
+                                <option {{ filters.shippingStatus|default('') == 'Partially Shipped' ? 'selected' : '' }}>Partially Shipped</option>
+                                <option {{ filters.shippingStatus|default('') == 'Shipped' ? 'selected' : '' }}>Shipped</option>
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                        <tr>
+                            <td data-label="Invoice #"><a class="link-strong" href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">{{ invoice.documentNumber }}</a></td>
+                            {# An invoice raised outside an order has nothing to link to, so the cell
+                               reads as empty rather than as a dead link — same shape the Quotes grid
+                               uses for an unconverted quote. #}
+                            <td data-label="Order #">
+                                {% if invoice.salesOrder %}
+                                    <a class="link-strong" href="{{ path('admin_order_detail', {id: invoice.salesOrder.id}) }}">{{ invoice.salesOrder.orderNumber }}</a>
+                                {% else %}
+                                    <span class="muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Customer"><a href="{{ path('admin_company_detail_by_id', {id: invoice.company.id}) }}" title="View customer">{{ invoice.companyIdentity.name }}</a></td>
+                            <td data-label="Invoice Date">{{ invoice.invoiceDate ?: invoice.documentDate ?: '-' }}</td>
+                            <td data-label="Total">${{ invoice.total|amount }}</td>
+                            {# The three statuses side by side, which is what this grid is for: where
+                               the document stands, whether the money arrived, and whether the goods
+                               left — three separate questions, none of them derived from another. #}
+                            <td data-label="Status">
+                                {% include 'admin/_partials/document_status.html.twig' with {status: invoice.status, loud: false} only %}
+                            </td>
+                            <td data-label="Payment Status">
+                                <span class="badge {{ invoice.paymentStatus.value == 'Paid' ? 'success' : (invoice.paymentStatus.value == 'Partially Paid' ? 'warn' : 'danger') }}">{{ invoice.paymentStatus.value }}</span>
+                            </td>
+                            {# Badged on the same scale as the payment column beside it — done is
+                               green, part-done is amber, nothing yet is red — so the two read as one
+                               pair rather than as two conventions. #}
+                            <td data-label="Shipping Status">
+                                <span class="badge {{ invoice.shippingStatus.value == 'Shipped' ? 'success' : (invoice.shippingStatus.value == 'Partially Shipped' ? 'warn' : 'danger') }}">{{ invoice.shippingStatus.value }}</span>
+                            </td>
+                            <td data-label="Actions" style="text-align: center;">
+                                <div class="row-action-menu" style="margin: 0 auto;">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open invoice actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_invoice_detail', {id: invoice.id}) }}">View</a>
+                                        {% if not invoice.draft %}
+                                            <a href="{{ path('admin_invoice_payments', {id: invoice.id}) }}">Payments</a>
+                                        {% endif %}
+                                        <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                                        <a href="{{ path('admin_invoice_print', {id: invoice.id}) }}" target="_blank">Print Invoice</a>
+                                        <a href="{{ path('admin_invoice_print', {id: invoice.id, download: 1}) }}">Download Invoice</a>
+                                        <a href="{{ path('admin_invoice_packing_slip', {id: invoice.id, pdf: 1}) }}">Download Packing Slip</a>
+                                        {% include 'admin/invoice/_send_invoice_actions.html.twig' with {invoice: invoice} %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-table-cell">
+                                {% if company %}
+                                    <strong>No invoices found for {{ company.name }}.</strong>
+                                    <span>This customer has no invoice matching the filters above.</span>
+                                {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                                    <strong>This customer does not exist.</strong>
+                                    <span>Nothing is listed, because the customer this link names could not be found.</span>
+                                {% else %}
+                                    <strong>No invoices found.</strong>
+                                    <span>Invoices appear here once one is raised against an order.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+
+        <div class="table-footer">
+            <form method="get" action="{{ path('admin_invoice_index') }}">
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="sort" value="{{ currentSort }}">
+                <input type="hidden" name="dir" value="{{ currentDir }}">
+                {% for key, value in filters %}
+                    <input type="hidden" name="filters[{{ key }}]" value="{{ value }}">
+                {% endfor %}
+                {% if invoiceScope.InvoiceSearch is defined %}
+                    <input type="hidden" name="InvoiceSearch[company_id]" value="{{ invoiceScope.InvoiceSearch.company_id }}">
+                {% endif %}
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in [20, 100, 200, 500] %}
+                            <option value="{{ size }}" {{ currentPageLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </form>
+            {% include 'admin/_table_count.html.twig' with {
+                count: invoices|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentPageLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_invoice_index',
+                routeQuery: {limit: currentPageLimit, sort: currentSort, dir: currentDir, filters: filters}|merge(invoiceScope),
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+function submitInvoiceGridFilters(inputEl) {
+    var form = document.getElementById('invoice-grid-filters-form') || (inputEl && inputEl.form) || null;
+    if (!form) { return; }
+
+    // The controller lets the From/To range win over the single-day column filter, so picking a
+    // day here clears the range — otherwise the box the admin just used would appear to do
+    // nothing. Same rule, and the same reason, as the Orders grid.
+    if (inputEl && inputEl.getAttribute && inputEl.getAttribute('data-filter-field') === 'invoiceDate') {
+        var dateFrom = form.querySelector('[name="filters[invoiceDateFrom]"]');
+        var dateTo = form.querySelector('[name="filters[invoiceDateTo]"]');
+        if (dateFrom) { dateFrom.value = ''; }
+        if (dateTo) { dateTo.value = ''; }
+    }
+
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

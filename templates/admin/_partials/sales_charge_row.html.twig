@@ -1,0 +1,101 @@
+{# One server-rendered charge row inside a sales document's totals box — the same markup order's
+   #order-charge-row-template and the quote's #estimate-charge-row-template clone client-side
+   (.order-charge-line-row, so both pick up order's styling verbatim), rendered by the server so a
+   saved document's charges are visible and editable without JavaScript.
+
+   Shared by templates/admin/order/form.html.twig and templates/admin/estimate/form.html.twig
+   because these two forms diverging is exactly how a no-JS admin ended up able to edit a quote's
+   charges and not an order's: the quote form grew this row server-side, order never did, and
+   nothing made the two disagree visible. One definition cannot drift.
+
+   `hook` is 'order' or 'estimate' — the only thing that genuinely differs between the two forms,
+   since app.js keys its per-form handlers off .js-order-* and .js-estimate-* class names.
+
+   `type` is 'shipping', 'fee' or 'tax' — the same word the line each row becomes uses — and the
+   row posts itself back as charge_lines[index][label|amount|type|slug|taxClass|placement], which
+   SalesDocumentChargeLines turns into that line.
+
+   Charges picked from the bottom Add Line select carry a fixed label; ones added through "Empty
+   Shipping/Tax/Fee Line" are free text, so those keep an editable label input. #}
+{% macro charge_row(hook, index, label, amount, type, slug, taxClass, placement) %}
+    {% set isNamedShipping = type == 'shipping' and (label == 'Custom Shipping' or label matches '/^Shipping \\(.+\\)$/') %}
+    {% set isBuiltIn = isNamedShipping or label starts with 'Custom ' %}
+    {% set placementLabels = {'main_line': 'Main Line', 'before_tax_line': 'Before Tax', 'after_tax_line': 'After Tax'} %}
+    <div class="order-charge-line-row" data-charge-type="{{ type }}"{% if isNamedShipping %} data-charge-kind="named"{% endif %}>
+        <span>
+            <button type="button" class="mini-action danger js-only js-{{ hook }}-remove-charge" aria-label="Remove charge">&#10005;</button>
+            {# The no-JS twin. The ✕ above is a type="button" and therefore a dead control without
+               JavaScript, which left an admin able to zero a charge's amount but never delete the
+               row. This one is a real submit: it drops this row, saves and recalculates in one
+               POST, the same shape as the Add Line submit on the bar below.
+
+               Carries its own index as the value, because that is the only thing that identifies
+               which row was pressed — the rows are a posted array and every one of them posts. #}
+            <button type="submit" class="mini-action danger no-js-inline" name="remove_charge_line" value="{{ index }}" aria-label="Remove charge and save">&#10005;</button>
+            {% if isBuiltIn %}
+                <span class="order-charge-label-text">{{ label }}</span>
+                <input type="hidden" name="charge_lines[{{ index }}][label]" value="{{ label }}">
+            {% else %}
+                <input type="text" class="order-charge-label-input" name="charge_lines[{{ index }}][label]" value="{{ label }}" placeholder="Enter label...">
+            {% endif %}
+            {# Tax and fee rows become lines, and a line wants a stable reporting key that survives
+               a relabel. Optional — blank derives it from the label. #}
+            {% if type != 'shipping' %}
+                <input type="text" class="order-charge-slug-input" name="charge_lines[{{ index }}][slug]" value="{{ slug|default('') }}" placeholder="slug (optional)">
+            {% endif %}
+            {# A fee line has a tax class and a placement. A shipping row takes the document's
+               highest class and main_line at save; a row typed here has no Fee definition to
+               inherit either from, so the admin picks them.
+
+               On the order form (hook == 'order') placement is a hidden field, not a select
+               (#669, order-only): it used to be editable right here, any time after the row
+               existed, and editing it never actually moved the row — the totals box has no "Main
+               Line" region to move a Before Tax row into, so changing the value just changed what
+               would happen on the NEXT save, with nothing on screen saying so. The order's add-line
+               bar now asks for placement once, before a fresh row exists; this field only
+               round-trips that choice (or, for a row the server is redrawing after a save, what is
+               already stored). The quote keeps its own select and its own JS below — untouched.
+
+               Beside the hidden field, a plain-text label states the same choice: the row's own
+               DOM position no longer says which it is — Main Line and Before Tax both anchor
+               beside Subtotal (chargeRowAnchor() in app.js), because both feed the same pre-tax
+               total today — so a row that carries no visible statement of its own placement is
+               indistinguishable from the other. #}
+            {% if type == 'fee' %}
+                <select class="order-charge-select-input" name="charge_lines[{{ index }}][taxClass]" aria-label="Fee tax class">
+                    {% for code in ['E', 'G', 'S'] %}
+                        <option value="{{ code }}"{{ (taxClass|default('E')) == code ? ' selected' : '' }}>{{ code }}</option>
+                    {% endfor %}
+                </select>
+                {% if hook == 'order' %}
+                    <span class="order-charge-placement-label">{{ placementLabels[placement|default('main_line')] }}</span>
+                    <input type="hidden" name="charge_lines[{{ index }}][placement]" value="{{ placement|default('main_line') }}">
+                {% else %}
+                    <select class="order-charge-select-input" name="charge_lines[{{ index }}][placement]" aria-label="Fee placement">
+                        {% for option in [{value: 'main_line', text: 'Main Line'}, {value: 'before_tax_line', text: 'Before Tax'}, {value: 'after_tax_line', text: 'After Tax'}] %}
+                            <option value="{{ option.value }}"{{ (placement|default('main_line')) == option.value ? ' selected' : '' }}>{{ option.text }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            {% endif %}
+        </span>
+        {# min="0" stays, and now means the same thing on both forms.
+           SalesDocumentChargeLines::normalize() floors a negative amount at 0.0, so the server
+           enforces exactly what this attribute states and the constraint does not lie.
+
+           Deliberately the opposite call from the line quantity, which lost its min in the same
+           sweep (#248). The difference is what happens after the coercion: a coerced QUANTITY is
+           reported — SalesDocumentLineWarnings names the line and paints the cell red — and that
+           explanation is only reachable if the figure is allowed to reach the server. A coerced
+           charge amount has no such mechanism; it just becomes 0.00 with nothing said. Between a
+           silent rewrite and the browser saying so before the post, the browser is the better of
+           two behaviours that agree on the outcome.
+
+           This markup is shared by the order and quote forms, so the two cannot drift back apart —
+           which is the whole reason the row was extracted here (#241). Until #248 the attribute was
+           present in both and enforced in neither-then-one: the order form's novalidate switched it
+           off there and nowhere else. #}
+        <label>$ <input type="number" class="js-{{ hook }}-charge-amount" name="charge_lines[{{ index }}][amount]" min="0" step="0.01" value="{{ amount|number_format(2, '.', '') }}"></label>
+        <input type="hidden" name="charge_lines[{{ index }}][type]" value="{{ type }}">
+    </div>
+{% endmacro %}

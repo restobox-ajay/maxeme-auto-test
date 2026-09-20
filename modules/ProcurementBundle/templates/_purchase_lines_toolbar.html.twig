@@ -1,0 +1,22 @@
+{# The add-line controls above a purchase document's line table — the buy-side twin of
+   sales_lines_toolbar.html.twig. Renders nothing when `hook` isn't passed, same as the sell side's.
+
+   Parameters
+   ----------
+   sentinel  optional  passed straight to _purchase_add_line_bar.html.twig.
+   hook      optional  'po' or '' (default) — required to render anything, same as the sell side's.
+#}
+{% if hook|default('') %}
+    <div class="order-lines-toolbar">
+        <div class="order-line-actions js-only">
+            <button class="button primary js-{{ hook }}-add-product" type="button">Add Product</button>
+            <button class="button primary js-{{ hook }}-add-blank" type="button">Add Blank Line</button>
+        </div>
+        {{ include('@Procurement/_purchase_add_line_bar.html.twig', {
+            submitLabel: 'Add Line & Save',
+            sentinel: sentinel|default(false),
+            hook: hook,
+            categoryFilter: true,
+        }, with_context = false) }}
+    </div>
+{% endif %}

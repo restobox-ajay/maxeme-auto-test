@@ -1,0 +1,233 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Mail Queue | Admin{% endblock %}
+{% block admin_body %}
+    {% set filters = filters|default({}) %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set pageSizes = [20, 100, 200, 500] %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Mail Queue</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="table-card messenger-queue-grid no-paginate">
+        <form id="messenger-queue-filter-form" method="get" action="{{ path('admin_messenger_queue') }}" class="js-auto-submit-form">
+            <input type="hidden" name="sort" value="{{ currentSort|default('id') }}">
+            <input type="hidden" name="dir" value="{{ currentDir|default('desc') }}">
+            <input type="hidden" name="page" value="1">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="admin-grid-table messenger-queue-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort|default('id') == 'id' and currentDir|default('desc') == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort|default('id') == 'id' %} is-sorted-{{ currentDir|default('desc') }}{% endif %}"><a href="{{ path('admin_messenger_queue', {sort: 'id', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">#</a></th>
+                            {% set nextDir = currentSort|default('') == 'queue' and currentDir|default('') == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort|default('') == 'queue' %} is-sorted-{{ currentDir|default('') }}{% endif %}"><a href="{{ path('admin_messenger_queue', {sort: 'queue', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Queue</a></th>
+                            <th>Message Type</th>
+                            {% set nextDir = currentSort|default('') == 'createdAt' and currentDir|default('') == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort|default('') == 'createdAt' %} is-sorted-{{ currentDir|default('') }}{% endif %}"><a href="{{ path('admin_messenger_queue', {sort: 'createdAt', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Created At</a></th>
+                            {% set nextDir = currentSort|default('') == 'availableAt' and currentDir|default('') == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort|default('') == 'availableAt' %} is-sorted-{{ currentDir|default('') }}{% endif %}"><a href="{{ path('admin_messenger_queue', {sort: 'availableAt', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Available At</a></th>
+                            {% set nextDir = currentSort|default('') == 'deliveredAt' and currentDir|default('') == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort|default('') == 'deliveredAt' %} is-sorted-{{ currentDir|default('') }}{% endif %}"><a href="{{ path('admin_messenger_queue', {sort: 'deliveredAt', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Delivered At</a></th>
+                            <th>Body Preview</th>
+                            <th>Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th></th>
+                            <th>
+                                <select name="filters[queue]" data-filter-field="queue" aria-label="Filter queue">
+                                    <option value="">All</option>
+                                    <option value="default" {{ filters.queue|default('') == 'default' ? 'selected' : '' }}>Pending</option>
+                                    <option value="failed" {{ filters.queue|default('') == 'failed' ? 'selected' : '' }}>Failed</option>
+                                </select>
+                            </th>
+                            <th></th><th></th><th></th><th></th><th></th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td data-label="#">{{ row.id }}</td>
+                                <td data-label="Queue"><span class="badge {{ row.queue == 'failed' ? 'danger-soft' : '' }}">{{ row.queueLabel }}</span></td>
+                                <td data-label="Message Type">{{ row.messageType }}</td>
+                                <td data-label="Created At" class="log-date">{{ row.createdAt }}</td>
+                                <td data-label="Available At" class="log-date">{{ row.availableAt }}</td>
+                                <td data-label="Delivered At" class="log-date">{{ row.deliveredAt|default('—') }}</td>
+                                <td data-label="Body Preview"><pre class="error-meta-preview">{{ row.bodyPreview }}</pre></td>
+                                <td data-label="Actions">
+                                    <span class="action-group">
+                                        <button class="table-action info js-view-message" type="button" data-url="{{ path('admin_messenger_body', {id: row.id}) }}">View</button>
+                                        {% if row.queue == 'failed' %}
+                                            <button class="table-action js-retry-message" type="button" data-url="{{ path('admin_messenger_retry', {id: row.id}) }}" data-token="{{ csrf_token_value() }}">Retry</button>
+                                        {% endif %}
+                                        <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_messenger_remove', {id: row.id}) }}" data-token="{{ csrf_token_value() }}" data-item="message #{{ row.id }}">Remove</button>
+                                    </span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="empty-table-cell">
+                                    <strong>No queued messages.</strong>
+                                    <span>Queued mail will appear here when Messenger has pending or failed sends.</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+            <div class="table-footer">
+                <label class="per-page-label">
+                    Per page
+                    <select name="limit" onchange="this.form.submit()">
+                        {% for size in pageSizes %}
+                            <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_table_count.html.twig' with {
+                    count: rows|length,
+                    total: total,
+                    currentPage: currentPage,
+                    perPage: currentLimit
+                } only %}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_messenger_queue',
+                    routeQuery: {sort: currentSort|default('id'), dir: currentDir|default('desc'), limit: currentLimit, filters: filters},
+                    currentPage: currentPage,
+                    pageCount: pageCount
+                } only %}
+            </div>
+        </form>
+    </section>
+
+    <div id="message-viewer" class="admin-overlay" style="display: none;">
+        <div class="overlay-card viewer-card">
+            <div class="overlay-header">
+                <h2>Message Body</h2>
+                <button class="overlay-close js-close-viewer" type="button" title="Close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="viewer-body">
+                {# sandbox="" (no allow-scripts, no allow-same-origin, no allow-forms, no allow-popups):
+                   the framed document renders escaped, opaque content only. This is on top of, not
+                   instead of, the server-side escaping in _body.html.twig — belt and suspenders for a
+                   field this controller doesn't control the shape of. #}
+                <iframe id="message-viewer-frame" sandbox="" style="width: 100%; height: 65vh; min-height: 400px; border: none; background: #fff; border-radius: 8px;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .admin-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 40px;
+        }
+        .viewer-card {
+            background: #fff;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            border-radius: 20px;
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .overlay-header {
+            padding: 20px 30px;
+            border-bottom: 1.5px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--paper);
+        }
+        .overlay-header h2 { margin: 0; font-size: 1.25rem; color: var(--ink); }
+        .overlay-close {
+            background: #f1f5f9;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--ink);
+            cursor: pointer;
+            line-height: 1;
+            padding: 5px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .overlay-close:hover { background: var(--red); color: #fff; }
+        .viewer-body { padding: 30px; background: #f8fafc; overflow-y: auto; flex: 1; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const viewer = document.getElementById('message-viewer');
+            const frame = document.getElementById('message-viewer-frame');
+            const closeBtn = viewer.querySelector('.js-close-viewer');
+
+            function openViewer(url) {
+                if (!url) { return; }
+                frame.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+                viewer.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            closeBtn.addEventListener('click', function() {
+                viewer.style.display = 'none';
+                frame.src = 'about:blank';
+                document.body.style.overflow = '';
+            });
+
+            viewer.addEventListener('click', function(e) {
+                if (e.target === viewer) { closeBtn.click(); }
+            });
+
+            document.addEventListener('click', function (e) {
+                const viewBtn = e.target.closest('.js-view-message');
+                if (viewBtn) {
+                    e.preventDefault();
+                    openViewer(viewBtn.getAttribute('data-url'));
+                    return;
+                }
+
+                const retryBtn = e.target.closest('.js-retry-message');
+                if (retryBtn) {
+                    e.preventDefault();
+                    retryBtn.disabled = true;
+                    fetch(retryBtn.getAttribute('data-url'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: '_token=' + encodeURIComponent(retryBtn.getAttribute('data-token')),
+                    })
+                        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+                        .then(function (result) {
+                            window.location.reload();
+                        })
+                        .catch(function () {
+                            retryBtn.disabled = false;
+                            window.location.reload();
+                        });
+                }
+            });
+        });
+    </script>
+{% endblock %}

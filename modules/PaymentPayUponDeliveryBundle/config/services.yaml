@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    PaymentPayUponDeliveryBundle\:
+        resource: '../src/'
+
+    PaymentPayUponDeliveryBundle\Payment\PayUponDeliveryPaymentMethod:
+        tags: ['app.payment_method']
+
+    PaymentPayUponDeliveryBundle\Fee\PayUponDeliverySurchargeFeeCalculator:
+        tags: ['app.fee_calculator']
+
+    PaymentPayUponDeliveryBundle\Bundle\PaymentPayUponDeliveryBundleDescriptor:
+        tags: ['app.bundle_descriptor']

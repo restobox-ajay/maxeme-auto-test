@@ -1,0 +1,142 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Contact | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    {# Blank on purpose — a hardcoded fallback is worse than nothing at all. The address and the two
+       email addresses used to fall back to invented ones (123 Placeholder Street, Vancouver, and
+       hello@/support@example.ca), which printed another company's contact details on this store's
+       contact page as if they were real. Every row below is now dropped when its setting is unset
+       (#351), the way the phone number already was. #}
+    {% set companyPhone = app_setting('company_phone', '') %}
+    {% set salesEmail = app_setting('sales_email', '') %}
+    {% set supportEmail = app_setting('support_email', '') %}
+    {% set companyAddress = app_setting('company_address', '') %}
+    {% set companyCity = app_setting('company_city', '') %}
+    {% set companyPostalCode = app_setting('company_postal_code', '') %}
+    {# Both settings now store codes, so render them the way document addresses do. #}
+    {% set companyCountry = country_name(app_setting('company_country', '')) %}
+    {% set companyState = province_name(app_setting('company_country', ''), app_setting('company_state', '')) %}
+    {% set fullAddress = [companyAddress, companyCity, companyState, companyPostalCode, companyCountry]|filter(v => v is not empty)|join(', ') %}
+
+    <section class="order-detail-header customer-contact-header">
+        <h1>Contact</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">›</span>
+            <span>Contact</span>
+        </nav>
+    </section>
+
+    <section class="customer-contact-grid">
+        <div class="customer-contact-left">
+            <p class="lead customer-contact-intro">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            </p>
+
+            <div class="panel customer-contact-card">
+                <h2 class="customer-contact-card-title">Vancouver Head Office</h2>
+                <p class="muted" style="margin-top:-6px;">Placeholder contact details for demo use only.</p>
+                <ul class="customer-contact-list">
+                    {% if fullAddress %}
+                        <li>
+                            <span class="customer-contact-ico" aria-hidden="true">📍</span>
+                            <span>{{ fullAddress }}</span>
+                        </li>
+                    {% endif %}
+                    {% if salesEmail or supportEmail %}
+                        <li>
+                            <span class="customer-contact-ico" aria-hidden="true">✉</span>
+                            <span>{{ salesEmail }}{% if salesEmail and supportEmail %} &nbsp;|&nbsp; {% endif %}{{ supportEmail }}</span>
+                        </li>
+                    {% endif %}
+                    {% if companyPhone %}
+                        <li>
+                            <span class="customer-contact-ico" aria-hidden="true">☎</span>
+                            <span>{{ companyPhone }}</span>
+                        </li>
+                    {% endif %}
+                    <li>
+                        <span class="customer-contact-ico" aria-hidden="true">🕒</span>
+                        <span>Monday to Friday, 9:00am - 5:00pm PST</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="panel customer-contact-card">
+                <h2 class="customer-contact-card-title">Burnaby Fulfillment Region</h2>
+                <p class="muted" style="margin-top:-6px;">Demo fulfillment region information only.</p>
+                <ul class="customer-contact-list">
+                    {% if fullAddress %}<li><span class="customer-contact-ico" aria-hidden="true">📍</span><span>{{ fullAddress }}</span></li>{% endif %}
+                    {% if supportEmail or salesEmail %}<li><span class="customer-contact-ico" aria-hidden="true">✉</span><span>{{ supportEmail ?: salesEmail }}</span></li>{% endif %}
+                    {% if companyPhone %}<li><span class="customer-contact-ico" aria-hidden="true">☎</span><span>{{ companyPhone }}</span></li>{% endif %}
+                    <li><span class="customer-contact-ico" aria-hidden="true">🕒</span><span>Monday to Friday, 9:00am - 5:00pm PST</span></li>
+                </ul>
+            </div>
+
+            <div class="panel customer-contact-card">
+                <h2 class="customer-contact-card-title">Calgary Regional Office</h2>
+                <ul class="customer-contact-list">
+                    {% if fullAddress %}<li><span class="customer-contact-ico" aria-hidden="true">📍</span><span>{{ fullAddress }}</span></li>{% endif %}
+                    {% if salesEmail or supportEmail %}<li><span class="customer-contact-ico" aria-hidden="true">✉</span><span>{{ salesEmail }}{% if salesEmail and supportEmail %} &nbsp;|&nbsp; {% endif %}{{ supportEmail }}</span></li>{% endif %}
+                    {% if companyPhone %}<li><span class="customer-contact-ico" aria-hidden="true">☎</span><span>{{ companyPhone }}</span></li>{% endif %}
+                    <li><span class="customer-contact-ico" aria-hidden="true">🕒</span><span>Monday to Friday, 9:00am - 5:00pm MST</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="customer-contact-right">
+            <div class="panel customer-contact-form-card">
+                <div class="customer-contact-form-head">
+                    <h2>Get in Touch</h2>
+                    <p class="muted">Send us a message and we’ll reply soon.</p>
+                </div>
+
+                {% for message in app.flashes('success') %}
+                    <div class="alert success" style="margin-bottom: 14px;">{{ message }}</div>
+                {% endfor %}
+                {% for message in app.flashes('error') %}
+                    <div class="alert error" style="margin-bottom: 14px;">{{ message }}</div>
+                {% endfor %}
+                {% if errors.name|default('') or errors.email|default('') or errors.location|default('') or errors.subject|default('') or errors.comments|default('') %}
+                    <div class="form-error-banner" style="margin-bottom: 14px;">Please fix the highlighted fields below.</div>
+                {% endif %}
+
+                <form method="post" action="{{ path('customer_contact') }}" class="customer-contact-form" autocomplete="on" novalidate>
+                    {{ csrf_field() }}
+                    <div class="form-row">
+                        <label for="contact-name">Name <span class="req">*</span></label>
+                        <input id="contact-name" class="form-control" type="text" name="name" value="{{ values.name }}" placeholder="Name or Company" required>
+                        {% if errors.name|default('') %}<span class="error-message">{{ errors.name }}</span>{% endif %}
+                    </div>
+
+                    <div class="form-row">
+                        <label for="contact-email">Email <span class="req">*</span></label>
+                        <input id="contact-email" class="form-control" type="email" name="email" value="{{ values.email }}" required>
+                        {% if errors.email|default('') %}<span class="error-message">{{ errors.email }}</span>{% endif %}
+                    </div>
+
+                    <div class="form-row">
+                        <label for="contact-location">Location <span class="req">*</span></label>
+                        <input id="contact-location" class="form-control" type="text" name="location" value="{{ values.location }}" placeholder="Province, City" required>
+                        {% if errors.location|default('') %}<span class="error-message">{{ errors.location }}</span>{% endif %}
+                    </div>
+
+                    <div class="form-row">
+                        <label for="contact-subject">Subject <span class="req">*</span></label>
+                        <input id="contact-subject" class="form-control" type="text" name="subject" value="{{ values.subject }}" required>
+                        {% if errors.subject|default('') %}<span class="error-message">{{ errors.subject }}</span>{% endif %}
+                    </div>
+
+                    <div class="form-row">
+                        <label for="contact-comments">Comments <span class="req">*</span></label>
+                        <textarea id="contact-comments" class="form-control" name="comments" rows="5" placeholder="Your message" required>{{ values.comments }}</textarea>
+                        {% if errors.comments|default('') %}<span class="error-message">{{ errors.comments }}</span>{% endif %}
+                    </div>
+
+                    <button class="button primary customer-contact-submit" type="submit">Send</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+{% endblock %}

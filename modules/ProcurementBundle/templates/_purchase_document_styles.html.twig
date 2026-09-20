@@ -1,0 +1,53 @@
+{#
+    The printed-document layout the buy side's PDFs share (#555, queue items 15 and 44).
+
+    Lifted out of `purchase_order_document.html.twig`, where it had been inline, when the vendor
+    bill grew a printed document of its own: two templates rendering the same `.po-*` markup with
+    the rules defined in only one of them is the same trap `_purchase_charge_row.html.twig` was
+    already in. Included, never duplicated — one `<style>` per page, and each document is its own
+    page.
+
+    Sized for the dompdf render, same as the invoice's: the items table has to begin in the top
+    third of page 1, so everything above it is compact. Only normal/bold font-weights — 800/900 make
+    dompdf fall back to Times (see pdf_layout.html.twig). None of this is a trait or a colour
+    vocabulary; core owns that, and these screens use core's own classes for status and actions.
+#}
+<style>
+    /*
+     * Sized for the dompdf render, same as the invoice: the items table has to begin in the
+     * top third of page 1, so everything above it is compact. Only normal/bold font-weights —
+     * 800/900 make dompdf fall back to Times (see pdf_layout.html.twig).
+     */
+    .po-page-container { padding: 24px 0 30px; max-width: 820px; margin: 0 auto; }
+    .po-document { background: #fff; border-radius: 4px; color: #1e293b; border: 1px solid #e2e8f0; overflow: hidden; font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif; }
+    .po-body { padding: 12px 16px 14px; }
+    .po-document tbody tr:hover,
+    .po-document tbody tr:hover td { background: transparent !important; }
+
+    .po-meta-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .po-meta-col { width: 33.33%; vertical-align: top; font-size: 8.5px; line-height: 1.35; padding-right: 14px; }
+    .po-meta-col:last-child { padding-right: 0; }
+    .po-meta-col p { margin: 0; }
+
+    .po-section-title { font-size: 10px; font-weight: bold; color: #1e3a8a; border-bottom: 1px solid #334155; padding-bottom: 2px; margin-bottom: 5px; margin-top: 10px; }
+
+    .po-addr-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    .po-addr-table .address-box { width: 50%; vertical-align: top; padding-right: 14px; }
+    .po-addr-table .address-box:last-child { padding-right: 0; }
+    .po-addr-table .address-box h3 { font-size: 9px; font-weight: bold; color: #1e3a8a; margin: 0 0 3px 0; }
+    .po-addr-table .address-box p { margin: 0; font-size: 8.5px; line-height: 1.35; }
+
+    .po-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .po-table th { text-align: left; background: #f8fafc; padding: 4px 6px; font-size: 8px; font-weight: bold; border-bottom: 2px solid #334155; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .po-table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 8.5px; line-height: 1.3; }
+
+    .po-footer-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .po-footer-table .footer-note { vertical-align: top; font-size: 8.5px; color: #475569; padding-right: 20px; padding-top: 6px; line-height: 1.35; }
+    .po-footer-table .footer-note-block { margin: 0 0 5px 0; }
+    .po-footer-table .footer-totals { vertical-align: top; width: 230px; border-top: 1px solid #334155; padding-top: 6px; }
+    .po-global-footer-note { width: 100%; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8.5px; color: #475569; line-height: 1.35; }
+    .po-footer-table .totals-inner { width: 100%; border-collapse: collapse; }
+    .po-footer-table .totals-inner td { font-size: 8.5px; padding: 1px 0; }
+    .po-footer-table .grand-total-row { border-top: 2px solid #334155; }
+    .po-footer-table .grand-total-row td { font-size: 11px; font-weight: bold; color: #1e3a8a; padding-top: 5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>

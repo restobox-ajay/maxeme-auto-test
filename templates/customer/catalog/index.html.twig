@@ -1,0 +1,214 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Catalog | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+    {% include 'customer/_main/_cart_hold_banner.html.twig' %}
+    {% set catalogQuery = app.request.query.all %}
+    {% set currentView = currentView|default('GRID_VIEW') %}
+    {% set isListView = currentView == 'LIST_VIEW' %}
+    {% set currentPage = currentPage|default(1) %}
+    {% set totalPages = totalPages|default(1) %}
+    {% set pageWindowStart = currentPage - 2 > 1 ? currentPage - 2 : 1 %}
+    {% set pageWindowEnd = pageWindowStart + 4 < totalPages ? pageWindowStart + 4 : totalPages %}
+    {% if pageWindowEnd - pageWindowStart < 4 %}
+        {% set pageWindowStart = pageWindowEnd - 4 > 1 ? pageWindowEnd - 4 : 1 %}
+    {% endif %}
+
+    <section class="catalog-page-head" aria-label="Catalog heading">
+        <div>
+            <h1>PRODUCTS</h1>
+            <nav class="breadcrumbs" aria-label="Breadcrumb">
+                <a href="{{ path('customer_home') }}">Home</a>
+                {% for crumb in selectedCategoryTrail|default([]) %}
+                    <span>/</span>
+                    {% if loop.last %}
+                        <span>{{ crumb.name }}</span>
+                    {% else %}
+                        <a href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': crumb.id, 'ProductSearch[view]': currentView, 'region': selectedRegion, 'q': searchQuery|default('')} : {'ProductSearch[category_id]': crumb.id, 'ProductSearch[view]': currentView, 'q': searchQuery|default('')}) }}">{{ crumb.name }}</a>
+                    {% endif %}
+                {% endfor %}
+            </nav>
+        </div>
+        {% if not blocked|default(false) %}
+            <div class="catalog-page-context">
+                <span>Region:</span>
+                <strong>{{ selectedRegion }}</strong>
+            </div>
+        {% endif %}
+    </section>
+
+    {{ injection_point('catalog_before_products', {}) }}
+
+    {% if blocked|default(false) %}
+        <section class="catalog-shell">
+            <div class="alert error" style="margin: 20px 0;">
+                No fulfillment region is currently enabled for your account. Please contact your account representative to get a region enabled before browsing the catalog.
+            </div>
+        </section>
+    {% else %}
+    <section class="catalog-shell{{ isListView ? ' is-list-view' : '' }}"
+             aria-label="Product catalog"
+             data-ajax-url="{{ path('customer_catalog') }}"
+             data-active-category-id="{{ activeCategoryId }}"
+             data-search-query="{{ searchQuery|default('') }}"
+             data-current-view="{{ isListView ? 'list' : 'grid' }}"
+             data-current-page="{{ currentPage|default(1) }}"
+             data-total-pages="{{ totalPages|default(1) }}"
+             data-total-products="{{ matchingProductsCount|default(products|length) }}">
+        {% block catalog_filters_panel %}{% endblock %}
+        <div class="catalog-toolbar">
+            {% block catalog_category_menu %}
+            <div class="catalog-category-menu">
+                <button class="catalog-filter-button" type="button" aria-expanded="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                    Filter By Category
+                </button>
+                <div class="catalog-category-dropdown">
+                    <a class="filter-link {{ activeCategoryId == '0' ? 'active' : '' }}"
+                       data-category-id="0"
+                       href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[view]': currentView, 'region': selectedRegion, 'q': searchQuery|default('')} : {'ProductSearch[view]': currentView, 'q': searchQuery|default('')}) }}">
+                        <span>All categories</span>
+                        <strong>{{ totalProductsCount }}</strong>
+                    </a>
+                    <a class="filter-link {{ activeCategoryId == '-1' ? 'active' : '' }}"
+                       data-category-id="-1"
+                       href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': -1, 'ProductSearch[view]': currentView, 'region': selectedRegion, 'q': searchQuery|default('')} : {'ProductSearch[category_id]': -1, 'ProductSearch[view]': currentView, 'q': searchQuery|default('')}) }}">
+                        <span>Uncategorized</span>
+                        <strong>{{ uncategorizedCount }}</strong>
+                    </a>
+                    {% if categories is not empty %}
+                        {% include 'customer/_main/_category_tree.html.twig' with {categories: categories, activeCategoryId: activeCategoryId, selectedRegion: selectedRegion, searchQuery: searchQuery|default(''), currentView: currentView} only %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endblock %}
+
+            <form id="catalog-search-form" method="get" action="{{ path('customer_catalog') }}">
+                <input type="hidden" name="ProductSearch[category_id]" value="{{ activeCategoryId }}">
+                <input type="hidden" name="ProductSearch[view]" value="{{ currentView }}">
+                <input type="hidden" name="region" value="{{ selectedRegion }}">
+            </form>
+            {% block catalog_filters %}
+                <label class="sr-only" for="catalog-search">Search products</label>
+                <div class="catalog-search-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input id="catalog-search" class="catalog-search" type="search" name="q" form="catalog-search-form" placeholder="Search by SKU or Product Name" aria-label="Search products" value="{{ searchQuery|default('') }}">
+                </div>
+                <button class="catalog-search-btn" type="submit" form="catalog-search-form">Search</button>
+                <a class="catalog-reset-btn" href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView, 'region': selectedRegion} : {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView}) }}">Reset</a>
+            {% endblock %}
+
+            {# gridViewAvailable/listViewAvailable can be real `false` — |default() treats false
+               as empty and would silently force it back to true, so check `is defined` instead. #}
+            {% set gridViewAvailable = gridViewAvailable is defined ? gridViewAvailable : true %}
+            {% set listViewAvailable = listViewAvailable is defined ? listViewAvailable : true %}
+            {% if gridViewAvailable and listViewAvailable %}
+            <div class="catalog-view-group">
+                <span>SELECT VIEW:</span>
+                <div class="catalog-view-toggle" role="group" aria-label="View mode">
+                    <a class="view-toggle {{ not isListView ? 'active' : '' }}"
+                       data-view="grid"
+                       href="{{ path('customer_catalog', catalogQuery|merge({'ProductSearch': (catalogQuery.ProductSearch|default({}))|merge({'view': 'GRID_VIEW'})})) }}"
+                       aria-pressed="{{ not isListView ? 'true' : 'false' }}"
+                       title="Grid View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>
+                    </a>
+                    <a class="view-toggle {{ isListView ? 'active' : '' }}"
+                       data-view="list"
+                       href="{{ path('customer_catalog', catalogQuery|merge({'ProductSearch': (catalogQuery.ProductSearch|default({}))|merge({'view': 'LIST_VIEW'})})) }}"
+                       aria-pressed="{{ isListView ? 'true' : 'false' }}"
+                       title="List View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if regions|length > 1 %}
+            <form class="catalog-warehouse-select-wrap" method="get" action="{{ path('customer_catalog') }}">
+                <input type="hidden" name="ProductSearch[category_id]" value="{{ activeCategoryId }}">
+                <input type="hidden" name="ProductSearch[view]" value="{{ currentView }}">
+                <input type="hidden" name="q" value="{{ searchQuery|default('') }}">
+                <label class="catalog-warehouse-label" for="catalog-warehouse">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-4 7 4v13"/><path d="M9 21v-7h6v7"/><path d="M9 10h.01"/><path d="M15 10h.01"/></svg>
+                    Region:
+                </label>
+                <select id="catalog-warehouse" class="catalog-warehouse-select" name="region" onchange="this.form.submit()">
+                    {% for region in regions %}
+                        <option value="{{ region }}" {{ selectedRegion == region ? 'selected' : '' }}>{{ region }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+        </div>
+
+        {# Server-rendered so a no-JS visitor sees the count (issue #179). JS re-renders this
+           on filter/search using the same format (setCountLabel() in app.js). #}
+        {% set countTotal = matchingProductsCount|default(products|length) %}
+        {% set countPerPage = perPage|default(24) %}
+        {% set countStart = countTotal > 0 ? (currentPage - 1) * countPerPage + 1 : 0 %}
+        {% set countEnd = currentPage * countPerPage < countTotal ? currentPage * countPerPage : countTotal %}
+        <div class="catalog-meta">
+            <span class="product-count-label">Showing <span class="product-count">
+                {%- if countTotal <= 0 -%}
+                    0
+                {%- elseif countStart == countEnd -%}
+                    {{ countEnd }} of {{ countTotal }}
+                {%- else -%}
+                    {{ countStart }}&ndash;{{ countEnd }} of {{ countTotal }}
+                {%- endif -%}
+            </span></span>
+            {# <span class="selected-view-label">Select view Grid</span> #}
+        </div>
+
+        {% block catalog_products %}
+        <div class="product-grid product-grid-market catalog-products{{ isListView ? ' is-list-view' : '' }}" aria-label="Products">
+            {% include 'customer/catalog/_products.html.twig' with {products: products, selectedRegion: selectedRegion, isListView: isListView, hideUnitColumn: hideUnitColumn|default(false), currentSort: currentSort|default(null), currentDir: currentDir|default('asc')} only %}
+        </div>
+        {% endblock %}
+
+        <p class="lead catalog-empty{{ products is empty ? '' : ' is-hidden' }}" {{ products is empty ? '' : 'hidden' }}>No products match your search.</p>
+        {% if totalPages > 1 %}
+            <nav class="pagination js-catalog-pagination" aria-label="Catalog pages" data-per-page="{{ perPage|default(24) }}">
+                {% if currentPage > 1 %}
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: 1})) }}" aria-label="First page">First</a>
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: currentPage - 1})) }}" aria-label="Previous page">&lsaquo;</a>
+                {% else %}
+                    <span class="page-link is-disabled" aria-disabled="true" aria-label="First page">First</span>
+                    <span class="page-link is-disabled" aria-disabled="true" aria-label="Previous page">&lsaquo;</span>
+                {% endif %}
+
+                {% if pageWindowStart > 1 %}
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: 1})) }}">1</a>
+                    {% if pageWindowStart > 2 %}
+                        <span class="page-ellipsis">&hellip;</span>
+                    {% endif %}
+                {% endif %}
+
+                {% for pageNumber in pageWindowStart..pageWindowEnd %}
+                    <a class="page-link {{ pageNumber == currentPage ? 'active' : '' }}"
+                       href="{{ path('customer_catalog', catalogQuery|merge({page: pageNumber})) }}"
+                       {% if pageNumber == currentPage %}aria-current="page"{% endif %}>
+                        {{ pageNumber }}
+                    </a>
+                {% endfor %}
+
+                {% if pageWindowEnd < totalPages %}
+                    {% if pageWindowEnd < totalPages - 1 %}
+                        <span class="page-ellipsis">&hellip;</span>
+                    {% endif %}
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: totalPages})) }}">{{ totalPages }}</a>
+                {% endif %}
+
+                {% if currentPage < totalPages %}
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: currentPage + 1})) }}" aria-label="Next page">&rsaquo;</a>
+                    <a class="page-link" href="{{ path('customer_catalog', catalogQuery|merge({page: totalPages})) }}" aria-label="Last page">Last</a>
+                {% else %}
+                    <span class="page-link is-disabled" aria-disabled="true" aria-label="Next page">&rsaquo;</span>
+                    <span class="page-link is-disabled" aria-disabled="true" aria-label="Last page">Last</span>
+                {% endif %}
+            </nav>
+        {% endif %}
+    </section>
+    {% endif %}
+
+{% endblock %}

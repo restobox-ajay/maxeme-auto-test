@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        /*
+         * One family for the whole document. The website stack is
+         * 'Inter', "Segoe UI", system-ui, -apple-system, sans-serif (public/assets/css/app.css),
+         * none of which dompdf can load — it only ships DejaVu Sans, Helvetica, Times and
+         * Courier. DejaVu Sans is the humanist sans closest to Inter and the only bundled
+         * family with full Unicode coverage, so it stands in for the web font here.
+         *
+         * Do NOT use font-weight values other than normal/bold in PDF templates:
+         * dompdf's FontMetrics::getType() maps 700 to "bold" but leaves 800/900 as the
+         * literal subtype "800"/"900", which no bundled family declares, so the lookup
+         * misses and dompdf silently falls back to its default serif (Times) — that was
+         * the serif/sans mix on invoices and packing slips.
+         */
+        body {
+            font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif;
+            font-size: 9px;
+            line-height: 1.35;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+        }
+        @page {
+            margin: 0.8cm;
+        }
+    </style>
+</head>
+<body>
+    {% block admin_body %}{% endblock %}
+</body>
+</html>

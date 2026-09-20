@@ -1,0 +1,154 @@
+security:
+    # Tech Support is Super Admin plus the database console, so it inherits rather than duplicates.
+    # Any current or future ROLE_SUPER_ADMIN gate covers Tech Support automatically — there is no
+    # second gate to remember, which is the point of expressing it here rather than in code.
+    role_hierarchy:
+        ROLE_TECH_SUPPORT: [ROLE_SUPER_ADMIN]
+
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        admin_users:
+            entity:
+                class: App\Entity\AdminUser
+                property: email
+        customer_users:
+            entity:
+                class: App\Entity\CustomerUser
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+
+        admin:
+            lazy: true
+            provider: admin_users
+            pattern: ^/admin
+            user_checker: App\Security\AdminUserChecker
+            form_login:
+                login_path: admin_login
+                check_path: admin_login
+                username_parameter: email
+                password_parameter: password
+                default_target_path: /admin
+                always_use_default_target_path: false
+                enable_csrf: true
+            login_throttling:
+                max_attempts: 5
+                # A 15-minute window was punishing ordinary typos: five fat-fingered attempts locked a
+                # legitimate user out for a quarter of an hour, and support could not tell that apart
+                # from a broken login. Two minutes still blunts online guessing while letting a real
+                # person pause and retry.
+                #
+                # Note this widens two limits, not one. Symfony derives a second, per-IP limiter from
+                # the same interval at 5x max_attempts, so the compiled rates go from 5/15min and
+                # 25/15min to 5/2min and 25/2min — about 150 and 750 attempts an hour against 20 and
+                # 100 before. Still a real cap, but the per-IP spray ceiling moved too; if that matters
+                # more than the lockout does, raise max_attempts and keep the window long instead.
+                interval: '2 minutes'
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 1209600
+                path: /admin
+                # Persistent (not signature-based) tokens (#299): a signature-based cookie is
+                # self-contained and stateless, so there is no server-side record to delete —
+                # a captured copy stays valid for its full 14-day lifetime even after logout,
+                # and clearing the cookie in one browser cannot touch a copy taken elsewhere.
+                # With a token_provider, logout deletes the row (Symfony's own RememberMeListener
+                # already reacts to LogoutEvent and calls clearRememberMeCookie(), which calls
+                # through to the token provider — no app code needed for that half). See
+                # migrations/Version20260802120000.php for the required table.
+                token_provider:
+                    doctrine: true
+            logout:
+                path: /admin/logout
+                target: /admin/login
+
+        # Stateless, key-only firewall for the customer API. Must come before `main`, which has no
+        # `pattern` and would otherwise catch these requests first.
+        #
+        # ApiKeyAuthenticator authenticates as the CustomerUser the key belongs to, so a request
+        # that arrives here ends up carrying the same token a browser session would. That is what
+        # lets App\Controller\Api\* be routing and nothing else: it forwards into the ordinary
+        # customer controllers, which then apply every rule they already apply on the website.
+        api:
+            pattern: ^/api/
+            stateless: true
+            provider: customer_users
+            custom_authenticators:
+                - App\Security\Api\ApiKeyAuthenticator
+
+        main:
+            lazy: true
+            provider: customer_users
+            user_checker: App\Security\CustomerUserChecker
+            form_login:
+                login_path: customer_login
+                check_path: customer_login
+                username_parameter: _username
+                password_parameter: _password
+                default_target_path: /
+                always_use_default_target_path: false
+                enable_csrf: true
+                csrf_parameter: _csrf_token
+                csrf_token_id: authenticate
+            login_throttling:
+                max_attempts: 5
+                # A 15-minute window was punishing ordinary typos: five fat-fingered attempts locked a
+                # legitimate user out for a quarter of an hour, and support could not tell that apart
+                # from a broken login. Two minutes still blunts online guessing while letting a real
+                # person pause and retry.
+                #
+                # Note this widens two limits, not one. Symfony derives a second, per-IP limiter from
+                # the same interval at 5x max_attempts, so the compiled rates go from 5/15min and
+                # 25/15min to 5/2min and 25/2min — about 150 and 750 attempts an hour against 20 and
+                # 100 before. Still a real cap, but the per-IP spray ceiling moved too; if that matters
+                # more than the lockout does, raise max_attempts and keep the window long instead.
+                interval: '2 minutes'
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 1209600
+                path: /
+                # See the admin firewall's remember_me block above for why this matters (#299).
+                token_provider:
+                    doctrine: true
+            logout:
+                path: /logout
+                target: /
+
+    access_control:
+        - { path: ^/admin/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/password-reset$, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/forgot-password$, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/setup-account$, roles: PUBLIC_ACCESS }
+        # Require admin role for all /admin routes (host restriction is enforced by AdminHostSubscriber).
+        - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/checkout, roles: ROLE_CUSTOMER }
+        - { path: ^/cart, roles: ROLE_CUSTOMER }
+        - { path: ^/orders, roles: ROLE_CUSTOMER }
+        - { path: ^/profile$, roles: ROLE_CUSTOMER }
+        - { path: ^/company-profile$, roles: ROLE_CUSTOMER }
+        - { path: ^/company-users, roles: ROLE_CUSTOMER }
+        - { path: ^/company-addresses, roles: ROLE_CUSTOMER }
+        - { path: ^/profile/api-key, roles: ROLE_CUSTOMER }
+        - { path: ^/api/v1, roles: ROLE_API_CLIENT }
+        # Stripe is not a logged-in user and cannot carry a session or CSRF token; the endpoint's
+        # only authentication is the Stripe-Signature check in StripeWebhookController, which
+        # refuses every request when no signing secret is configured.
+        - { path: ^/webhook/stripe$, roles: PUBLIC_ACCESS }
+        # WooCommerce is not a logged-in user either; the endpoint's only authentication is the
+        # X-WC-Webhook-Signature check in WooCommerceWebhookController, verified per-connection
+        # against that connection's own webhook secret.
+        - { path: ^/webhook/woocommerce, roles: PUBLIC_ACCESS }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

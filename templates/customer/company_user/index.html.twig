@@ -1,0 +1,78 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}My Company User | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-company-users-header">
+        <h1>My Company User</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">›</span>
+            <span>My Company User</span>
+        </nav>
+    </section>
+
+    <section class="table-card customer-company-users-card ajax-only"
+             data-ajax-url="{{ path('customer_company_users') }}"
+             data-current-page="{{ page|default(1) }}"
+             data-per-page="{{ limit|default(10) }}"
+             data-total="{{ total|default(users|length) }}"
+             data-pages="{{ (total|default(users|length) / (limit|default(10) ?: 1))|round(0, 'ceil') }}">
+        <div class="table-header customer-company-users-toolbar">
+            <div class="customer-company-users-search">
+                <div class="table-tools ccu-search-form" role="search" aria-label="Search company users">
+                    <div class="ccu-search-wrap">
+                        <svg class="ccu-search-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.3-4.3"></path>
+                        </svg>
+                        <input class="table-search form-control ccu-search-input" type="search" value="{{ q }}" placeholder="Search users..." aria-label="Search company users">
+                    </div>
+                    <button class="button primary ccu-search-btn" type="button">Search</button>
+                </div>
+            </div>
+
+            <div class="customer-company-users-actions">
+                {# Staff reach the same page read-only (#522 §3), so the label has to stop promising an edit. #}
+                <a class="button info ccu-edit-company" href="{{ path('customer_company_profile') }}">{{ (app.user and 'ROLE_COMPANY_OWNER' in app.user.roles) ? 'Edit Company' : 'View Company' }}</a>
+                {# Owner-only (#532), and placed here because the API Access column below is where the
+                   question occurs to someone. The controller enforces it independently — hiding a
+                   button stops nothing that types the URL. #}
+                {% if app.user and 'ROLE_COMPANY_OWNER' in app.user.roles %}
+                    {# `info`, not a bare `button`: the base class is a ghost style (transparent
+                       background AND transparent border), so a modifier-less .button renders as
+                       plain grey text and reads as a label rather than a control. #}
+                    <a class="button info ccu-manage-api" href="{{ path('customer_company_api_access') }}">Manage API Access</a>
+                {% endif %}
+                <a class="button primary ccu-add-staff" href="{{ path('customer_company_users_create') }}">Add Staff</a>
+            </div>
+        </div>
+
+        <div class="wide-table-wrap">
+            <table class="order-list-table customer-company-users-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Role</th>
+                        <th>API Access</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'customer/company_user/_list_rows.html.twig' with {users: users, apiKeyFlags: apiKeyFlags|default({})} %}
+                </tbody>
+            </table>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: users|length,
+                total: total|default(users|length),
+                currentPage: page|default(1),
+                perPage: limit|default(10)
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

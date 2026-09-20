@@ -1,0 +1,376 @@
+{# THE sell-side printed/PDF document card — the ".invoice-document" every Sales Order, Invoice
+   and Quote (admin and customer) renders, shared rather than copied three and a half times.
+
+   is_pdf already made these one file per document type in the SENSE that screen and PDF share a
+   template (dompdf renders the same twig with is_pdf: true); this partial is the other half —
+   the three DOCUMENT TYPES sharing the same markup and the same CSS, with only the genuinely
+   different business content left to each caller. Modelled directly on
+   admin/_partials/sales_detail_line_table.html.twig's own rule for the VIEW-screen line table:
+   one column list and one row loop, real differences as parameters, nothing here that posts and
+   nothing that branches on which of the three documents this is.
+
+   ## What stays different, and why (the same distinctions sales_order.html.twig's own docblock,
+   written before this partial existed, already drew)
+
+     - An Order shows Ordered/Invoiced/Remaining, never a plain Quantity, and never Amount Due,
+       payment status or amount received: nothing is owed on an order, the invoice raised
+       against it is what asks for money.
+     - An Invoice shows Batch (the lot actually shipped) and the money block; an order has no lot
+       to name because nothing has been picked against IT, and a quote has ordered nothing.
+     - A Quote may leave shipping/price/tax/total genuinely unstated ("TBD" — #255): a quote is
+       priced incrementally and a stated $0.00 would tell the customer the goods are free.
+
+   Everything else — the header band, the seller/buyer meta layout, the address boxes, the line
+   table's shared columns and their order, the fee-line rows beside the products, the totals
+   table's shared rows, and every pixel of the CSS — is now ONE shape for all three, including the
+   customer's own quote PDF, which used to be a fourth, visually unrelated document.
+
+   Parameters
+   ----------
+   docLabel           required  'SALES ORDER' | 'INVOICE' | 'QUOTE' — the header band's right side.
+   sectionTitle       required  'Ordered Items' | 'Products' — the line table's own heading.
+   metaLeftTemplate   required  a template path rendering the LEFT meta column's own fields (order
+                                number/date/status vs invoice number/due date/sales order vs quote
+                                number/status) — a path, not parameters, for the same reason
+                                sales_detail_line_table.html.twig's footTemplate is: a handful of
+                                conditional rows, not a value.
+   metaLeftContext    required  what metaLeftTemplate is rendered with.
+   billingAddress     required  ?AbstractDocumentAddress — the frozen snapshot, or null.
+   shippingAddress    required  ?AbstractDocumentAddress
+   billingFallbackName   required  the bold name printed when billingAddress is null.
+   shippingFallbackName  required  the bold name printed when shippingAddress is null.
+   companyIdentityName   required  the buyer's own company name — address-box fallback body line,
+                                    and the phone/email fallback when the address carries none.
+   companyIdentityPhone  required
+   companyIdentityEmail  required
+   lineColumns        required  ordered list of column keys this document's table carries. Known
+                                keys: 'ordered', 'invoiced', 'remaining', 'qty', 'name', 'unit',
+                                'sku', 'price', 'subtotal', 'batch'. The header, the empty/fee row
+                                colspans and the column widths all read this ONE list, so a table
+                                cannot end up one cell out of alignment.
+   lines              required  the document's lines, in sortOrder.
+   document           required  the order/invoice/estimate itself — 'ordered'/'invoiced'/
+                                'remaining' read `document.invoicedQuantityInLineUnitFor(line)` /
+                                `uninvoicedQuantityInLineUnitFor(line)` off it (SalesOrder only;
+                                the column key is simply never in `lineColumns` for the other two).
+   allowUnpriced      optional  true to print TBD instead of a dollar figure wherever a line's
+                                price/subtotal, or a totals row, is null (#255). Quote only.
+                                Defaults to false.
+   feeLinesJson       required  the document's own feeLines column, undecoded — decoded once here,
+                                and split by placement here too: `before_tax_line`/`after_tax_line`
+                                rows for the totals table, `main_line` rows folded into the product
+                                table and its own subtotal. One caller passing one raw column beats
+                                three each replicating the same placement filter.
+   footerNoteTemplate required  a template path for the footer's LEFT note (customer note / a
+                                static sentence / an app_setting), a path for the same reason
+                                metaLeftTemplate is.
+   footerNoteContext  required
+   subtotal           required  the document's own subtotal — a float, or null on an unpriced quote.
+   shippingTotal      required  float, or null.
+   shippingLines      required  list of {label, amount} — already filtered to shipping-type rows.
+   taxLines           required  list of {label, rate, amount} from the tax breakdown.
+   tax                required  float, or null.
+   grandTotalLabel    required  'ORDER VALUE:' | 'TOTAL:' — the one row wording a Sales Order and
+                                an Invoice/Quote have never agreed on, and do not need to: it names
+                                what the figure beneath it actually is.
+   total              required  float, or null.
+   showMoneyBlock     optional  true to add Amount received / AMOUNT DUE / payment status under
+                                the grand total. Invoice only. Defaults to false.
+   amountPaid / balance / paymentStatusLabel   required when showMoneyBlock is true.
+   injectionPointName    optional  'invoice_note' | 'quote_note' | null — an order carries none.
+   injectionPointContext optional  what the injection point is called with. Defaults to {}.
+   extraSectionTemplate  optional  a template path rendered inside invoice-body, after the totals
+                                table — the order's own "Invoices Raised" list. Nothing else has
+                                one, so this is null everywhere else.
+   extraSectionContext   optional  what extraSectionTemplate is rendered with. Defaults to {}.
+   globalFooterNoteText  optional  a centred, full-width note below the totals table entirely —
+                                `invoice_footer_note`, the one app setting only the invoice reads.
+                                Defaults to '' (renders nothing).
+#}
+{%- set _feeLines = feeLinesJson|default('')|json_decode -%}
+{%- set _feeLinesBeforeTax = _feeLines|filter(f => (f.placement|default('main_line')) == 'before_tax_line') -%}
+{%- set _feeLinesAfterTax = _feeLines|filter(f => (f.placement|default('main_line')) == 'after_tax_line') -%}
+{%- set _feeLinesMainLineTotal = 0 -%}
+{%- for _feeLine in _feeLines -%}
+    {%- if (_feeLine.placement|default('main_line')) == 'main_line' and (_feeLine.type|default('fee')) != 'shipping' -%}
+        {%- set _feeLinesMainLineTotal = _feeLinesMainLineTotal + _feeLine.amount -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- set _columnWidths = {
+    ordered: '8%', invoiced: '9%', remaining: '9%',
+    qty: '9%', name: '34%', unit: '9%', sku: '11%',
+    price: '12%', subtotal: '13%', batch: '12%',
+}-%}
+{%- set _columnLabels = {
+    ordered: 'Ordered', invoiced: 'Invoiced', remaining: 'Remaining',
+    qty: 'Quantity', name: 'Product Name and Description', unit: 'U/M', sku: 'SKU',
+    price: 'Price', subtotal: 'Total', batch: 'Batch',
+}-%}
+{%- set _columnAlign = {price: 'right', subtotal: 'right'}-%}
+<div class="invoice-page-container">
+    <div class="invoice-document shadow-lg">
+
+        {# Header band, slim on purpose (issue #35): the line-items table has to start high on
+           page 1, so the title bar carries text only, no logo tile. #}
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:#0f172a;border-collapse:collapse;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+            <tr>
+                <td width="65%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+                    <span style="font-size:13px;font-weight:bold;color:#ffffff;">{{ site_name() }}</span>
+                </td>
+                <td width="35%" style="background:#0f172a;padding:7px 16px;vertical-align:middle;text-align:right;font-size:16px;font-weight:bold;color:#ffffff;letter-spacing:-0.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">{{ docLabel }}</td>
+            </tr>
+        </table>
+
+        <div class="invoice-body">
+
+            {# Meta 3-col: the document's own facts (left, doc-specific), then the seller's
+               identity — every line an admin setting (Settings → Company Information), and
+               nothing here ever falls back to the BUYER's details: a blank setting omits the
+               line rather than naming the wrong party. #}
+            <table class="inv-meta-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="inv-meta-col">
+                        {{ include(metaLeftTemplate, metaLeftContext, with_context = false) }}
+                    </td>
+                    <td class="inv-meta-col">
+                        {% if app_setting('company_name', '') %}<p><strong>{{ app_setting('company_name', '') }}</strong></p>{% endif %}
+                        {% if app_setting('company_address', '') %}<p>{{ app_setting('company_address', '') }}</p>{% endif %}
+                        {% set _cityLine = [app_setting('company_city', ''), province_name(app_setting('company_country', ''), app_setting('company_state', ''))]|filter(v => v)|join(', ') %}
+                        {% if _cityLine %}<p>{{ _cityLine }}</p>{% endif %}
+                        {% if app_setting('company_postal_code', '') %}<p>{{ app_setting('company_postal_code', '') }}</p>{% endif %}
+                    </td>
+                    <td class="inv-meta-col" style="text-align:right;">
+                        {% set _sellerPhone = app_setting('company_phone', '') %}
+                        {% set _sellerEmail = app_setting('sales_email', '') ?: app_setting('app_email', '') %}
+                        {% if _sellerPhone %}<p><strong>Phone:</strong> {{ _sellerPhone }}</p>{% endif %}
+                        {% if _sellerEmail %}<p><strong>Email:</strong> {{ _sellerEmail }}</p>{% endif %}
+                        <p><strong>Website:</strong> {{ app_setting('website_url', app.request.schemeAndHttpHost) }}</p>
+                        <p><strong>GST Number:</strong> {{ app_setting('company_gst_number', '') ?: '-' }}</p>
+                    </td>
+                </tr>
+            </table>
+
+            {# Customer information — the frozen snapshot, never a live company lookup, or a
+               document reprinted after a rebrand would name a customer who never saw this. #}
+            <div class="invoice-section-title">Customer Information</div>
+            <table class="inv-addr-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="address-box">
+                        <h3>Bill To:</h3>
+                        {% if billingAddress %}
+                            <p><strong>{{ billingAddress.companyName|default(billingFallbackName) }}</strong></p>
+                            <p>{{ billingAddress.addressLine1 }}</p>
+                            {% if billingAddress.addressLine2 %}<p>{{ billingAddress.addressLine2 }}</p>{% endif %}
+                            <p>{{ billingAddress.city }}, {{ province_name(billingAddress.country, billingAddress.province) }} {{ billingAddress.postalCode }}</p>
+                            <p>{{ country_name(billingAddress.country) }}</p>
+                            <p style="margin-top:10px;"><strong>Phone:</strong> {{ billingAddress.phone|default(companyIdentityPhone) }}</p>
+                            <p><strong>Email:</strong> {{ billingAddress.emailPrimary|default(companyIdentityEmail) }}</p>
+                        {% else %}
+                            <p><strong>{{ billingFallbackName|default(companyIdentityName) }}</strong></p>
+                            <p>{{ companyIdentityName }}</p>
+                        {% endif %}
+                    </td>
+                    <td class="address-box">
+                        <h3>Ship To:</h3>
+                        {% if shippingAddress %}
+                            <p><strong>{{ shippingAddress.companyName|default(shippingFallbackName) }}</strong></p>
+                            <p>{{ shippingAddress.addressLine1 }}</p>
+                            {% if shippingAddress.addressLine2 %}<p>{{ shippingAddress.addressLine2 }}</p>{% endif %}
+                            <p>{{ shippingAddress.city }}, {{ province_name(shippingAddress.country, shippingAddress.province) }} {{ shippingAddress.postalCode }}</p>
+                            <p>{{ country_name(shippingAddress.country) }}</p>
+                            {% if shippingAddress.deliveryInstructions %}<p style="margin-top:6px;"><strong>Delivery:</strong> {{ shippingAddress.deliveryInstructions }}</p>{% endif %}
+                            <p style="margin-top:10px;"><strong>Phone:</strong> {{ shippingAddress.phone|default(companyIdentityPhone) }}</p>
+                            <p><strong>Email:</strong> {{ shippingAddress.emailPrimary|default(companyIdentityEmail) }}</p>
+                        {% else %}
+                            <p><strong>{{ shippingFallbackName|default(companyIdentityName) }}</strong></p>
+                            <p>{{ companyIdentityName }}</p>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+
+            {# Line items. #}
+            <div class="invoice-section-title">{{ sectionTitle }}</div>
+            <table class="invoice-table" style="width:100%;table-layout:fixed;">
+                <colgroup>
+                    {% for key in lineColumns %}
+                        <col style="width:{{ _columnWidths[key] }};">
+                    {% endfor %}
+                </colgroup>
+                <thead>
+                    <tr>
+                        {% for key in lineColumns %}
+                            <th{% if _columnAlign[key] is defined %} style="text-align:{{ _columnAlign[key] }};"{% endif %}>{{ _columnLabels[key] }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                        <tr>
+                            {% for key in lineColumns %}
+                                {%- if key == 'ordered' -%}
+                                    <td id="doc-line-qty-{{ line.id }}">{{ line.quantityEntered|qty }}</td>
+                                {%- elseif key == 'invoiced' -%}
+                                    <td>{{ document.invoicedQuantityInLineUnitFor(line)|qty }}</td>
+                                {%- elseif key == 'remaining' -%}
+                                    <td>{{ document.uninvoicedQuantityInLineUnitFor(line)|qty }}</td>
+                                {%- elseif key == 'qty' -%}
+                                    <td id="doc-line-qty-{{ line.id }}">{{ line.quantityEntered|qty }}</td>
+                                {%- elseif key == 'name' -%}
+                                    <td><strong>{{ line.name }}</strong></td>
+                                {%- elseif key == 'unit' -%}
+                                    <td>{{ line.displayUnitLabel }}</td>
+                                {%- elseif key == 'sku' -%}
+                                    <td>{{ line.sku|default('-') }}</td>
+                                {%- elseif key == 'price' -%}
+                                    <td style="text-align:right;" id="doc-line-price-{{ line.id }}">{% if allowUnpriced|default(false) %}{{ line.displayUnitPrice is not null ? '$' ~ line.displayUnitPrice|price : 'TBD' }}{% else %}${{ line.displayUnitPrice|price }}{% endif %}</td>
+                                {%- elseif key == 'subtotal' -%}
+                                    <td style="text-align:right;">{% if allowUnpriced|default(false) %}{{ line.subtotal is not null ? '$' ~ line.subtotal|amount : 'TBD' }}{% else %}${{ line.subtotal|amount }}{% endif %}</td>
+                                {%- elseif key == 'batch' -%}
+                                    <td style="white-space: normal; word-break: break-word; line-height: 1.25;">{{ line.batch|default('-') }}</td>
+                                {%- endif -%}
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    {# A main-line, non-shipping charge is a line item too, listed beside the
+                       products it was billed with. #}
+                    {% for feeLine in _feeLines %}
+                        {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+                            <tr>
+                                {% for key in lineColumns %}
+                                    {%- if key == 'name' -%}
+                                        <td><strong>{{ feeLine.label }}</strong></td>
+                                    {%- elseif key == 'subtotal' -%}
+                                        <td style="text-align:right;">${{ feeLine.amount|amount }}</td>
+                                    {%- else -%}
+                                        <td{% if _columnAlign[key] is defined %} style="text-align:{{ _columnAlign[key] }};"{% endif %}>&mdash;</td>
+                                    {%- endif -%}
+                                {% endfor %}
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {# Footer: note (left, doc-specific) + totals (right, shared shape). #}
+            <table class="inv-footer-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="footer-note">
+                        {{ include(footerNoteTemplate, footerNoteContext, with_context = false) }}
+                    </td>
+                    <td class="footer-totals">
+                        <table class="totals-inner" cellpadding="0" cellspacing="0">
+                            <tr><td>Product Subtotal:</td><td style="text-align:right;"><strong>{{ subtotal is not null ? '$' ~ subtotal|amount : 'TBD' }}</strong></td></tr>
+                            {# One row per shipping line, labelled as entered; a summed stand-in
+                               row appears when the document has none, so a document never simply
+                               omits shipping. `shipping-fee-row` is the hook every caller of this
+                               partial addresses it by (#254). #}
+                            {% if shippingLines is empty %}
+                                <tr class="shipping-fee-row"><td>Shipping Fee:</td><td style="text-align:right;"><strong>{{ allowUnpriced|default(false) ? 'TBD' : '$0.00' }}</strong></td></tr>
+                            {% endif %}
+                            {% for shippingLine in shippingLines %}
+                                <tr class="shipping-fee-row"><td>{{ shippingLine.label }}:</td><td style="text-align:right;"><strong>${{ shippingLine.amount|amount }}</strong></td></tr>
+                            {% endfor %}
+                            {# TBD only when the figure it sums is itself unknown: an unpriced
+                               subtotal, or (quote only) shipping not yet decided — never merely
+                               because shippingTotal happens to be null on an order/invoice that
+                               simply has no shipping, which `?? 0` already covers. #}
+                            {%- set _subtotalExclTaxesTbd = subtotal is null or (allowUnpriced|default(false) and shippingTotal is null) -%}
+                            <tr class="subtotal-excl-taxes-row"><td>Subtotal excl. taxes:</td><td style="text-align:right;"><strong>{{ not _subtotalExclTaxesTbd ? '$' ~ (subtotal + (shippingTotal ?? 0) + _feeLinesMainLineTotal)|amount : 'TBD' }}</strong></td></tr>
+                            {% for feeLine in _feeLinesBeforeTax %}
+                                <tr><td>{{ feeLine.label }}:</td><td style="text-align:right;"><strong>${{ feeLine.amount|amount }}</strong></td></tr>
+                            {% endfor %}
+                            {% for taxLine in taxLines %}
+                                <tr><td>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</td><td style="text-align:right;"><strong>${{ taxLine.amount|amount }}</strong></td></tr>
+                            {% endfor %}
+                            <tr><td>Total Tax:</td><td style="text-align:right;"><strong>{{ tax is not null ? '$' ~ tax|amount : 'TBD' }}</strong></td></tr>
+                            {% for feeLine in _feeLinesAfterTax %}
+                                <tr><td>{{ feeLine.label }}:</td><td style="text-align:right;"><strong>${{ feeLine.amount|amount }}</strong></td></tr>
+                            {% endfor %}
+                            <tr class="grand-total-row"><td><strong>{{ grandTotalLabel }}</strong></td><td style="text-align:right;"><strong>{{ total is not null ? '$' ~ total|amount : 'TBD' }}</strong></td></tr>
+                            {% if showMoneyBlock|default(false) %}
+                                {# The money block. Both figures come off the invoice's own payment
+                                   rows, never summed here — a template that added the payments up
+                                   itself would be a second answer able to disagree with the status
+                                   beside it. #}
+                                <tr><td>Amount received:</td><td style="text-align:right;"><strong>${{ amountPaid|amount }}</strong></td></tr>
+                                <tr class="amount-due-row"><td><strong>AMOUNT DUE:</strong></td><td style="text-align:right;"><strong>${{ balance|amount }}</strong></td></tr>
+                                <tr><td colspan="2" style="text-align:right; padding-top:3px;">{{ paymentStatusLabel }}</td></tr>
+                            {% endif %}
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            {% if globalFooterNoteText|default('') %}
+                <p class="invoice-global-footer-note">{{ globalFooterNoteText }}</p>
+            {% endif %}
+
+            {% if extraSectionTemplate is defined and extraSectionTemplate is not null %}
+                {{ include(extraSectionTemplate, extraSectionContext|default({}), with_context = false) }}
+            {% endif %}
+
+            {% if injectionPointName is defined and injectionPointName is not null %}
+                {{ injection_point(injectionPointName, injectionPointContext|default({})) }}
+            {% endif %}
+
+        </div>{# /invoice-body #}
+    </div>{# /invoice-document #}
+</div>
+
+<style>
+    /*
+     * One sizing discipline for every sell-side document (issue #35): print sizes throughout,
+     * one sans family, and only normal/bold weights — 800/900 make dompdf fall back to Times
+     * (see admin/_main/pdf_layout.html.twig).
+     */
+    .invoice-page-container { padding: 24px 0 30px; max-width: 820px; margin: 0 auto; }
+    .invoice-document { background: #fff; border-radius: 4px; color: #1e293b; border: 1px solid #e2e8f0; overflow: hidden; font-family: 'DejaVu Sans', Helvetica, Arial, sans-serif; }
+    .invoice-body { padding: 12px 16px 14px; }
+    .invoice-document tbody tr:hover,
+    .invoice-document tbody tr:hover td { background: transparent !important; }
+
+    .inv-meta-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .inv-meta-col { width: 33.33%; vertical-align: top; font-size: 8.5px; line-height: 1.35; padding-right: 14px; }
+    .inv-meta-col:last-child { padding-right: 0; }
+    .inv-meta-col p { margin: 0; }
+
+    .invoice-section-title { font-size: 10px; font-weight: bold; color: #1e3a8a; border-bottom: 1px solid #334155; padding-bottom: 2px; margin-bottom: 5px; margin-top: 10px; }
+
+    .inv-addr-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    .address-box { width: 50%; vertical-align: top; padding-right: 14px; }
+    .address-box:last-child { padding-right: 0; }
+    .address-box h3 { font-size: 9px; font-weight: bold; color: #1e3a8a; margin: 0 0 3px 0; }
+    .address-box p { margin: 0; font-size: 8.5px; line-height: 1.35; }
+
+    .invoice-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .invoice-table th { text-align: left; background: #f8fafc; padding: 4px 6px; font-size: 8px; font-weight: bold; border-bottom: 2px solid #334155; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .invoice-table td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 8.5px; line-height: 1.3; }
+
+    .inv-footer-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .footer-note { vertical-align: top; font-size: 8.5px; color: #475569; padding-right: 20px; padding-top: 6px; line-height: 1.35; }
+    .footer-note-block { margin: 0 0 5px 0; }
+    .footer-totals { vertical-align: top; width: 230px; border-top: 1px solid #334155; padding-top: 6px; }
+    .invoice-global-footer-note { width: 100%; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8.5px; color: #475569; line-height: 1.35; }
+    .totals-inner { width: 100%; border-collapse: collapse; }
+    .totals-inner td { font-size: 8.5px; padding: 1px 0; }
+    .grand-total-row { border-top: 2px solid #334155; }
+    .grand-total-row td { font-size: 11px; font-weight: bold; color: #1e3a8a; padding-top: 5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .amount-due-row { border-top: 1px solid #334155; }
+    .amount-due-row td { font-size: 10px; font-weight: bold; color: #b42318; padding-top: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    @media print {
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+        .topbar, .site-footer, .admin-content-header, .no-print, .breadcrumbs,
+        header, footer, nav, aside, .skip-link, .toast, .delete-modal-overlay, .flash-messages { display: none !important; }
+        .app-shell, .content-frame, #main-content, .invoice-page-container {
+            display: block !important; padding: 0 !important; margin: 0 !important;
+            width: 100% !important; max-width: none !important; border: none !important;
+            box-shadow: none !important; background: #fff !important;
+        }
+        .invoice-document { border: none !important; box-shadow: none !important; }
+        .address-box, .invoice-section-title { page-break-inside: avoid; }
+        .invoice-table tr { page-break-inside: avoid; page-break-after: auto; }
+    }
+</style>

@@ -1,0 +1,18 @@
+{% for o in recentOrders %}
+    <tr>
+        <td data-label="Order #"><strong>{{ o.orderNumber }}</strong></td>
+        <td data-label="Customer">{{ o.companyName }}</td>
+        <td data-label="Total" style="text-align:right">${{ o.total|amount }}</td>
+        <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: o.status, loud: false} only %}</td>
+        <td data-label="Date">{{ o.documentDate }}</td>
+        <td><a class="table-action" href="{{ path('admin_order_detail', {id: o.id}) }}">View</a></td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="6" class="empty-table-cell">
+            <strong>No orders yet.</strong>
+            <span>Orders will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}
+

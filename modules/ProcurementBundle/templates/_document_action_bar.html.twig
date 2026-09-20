@@ -1,0 +1,18 @@
+{#
+    PurchaseOrder's `actionBarTemplate` for `commercial_document_view.html.twig`.
+
+    The sell side's own action bar is a real tab strip — View / Edit / PDF / Log — because those
+    screens are reached by more than one route. Purchase orders are not: `detail()` is the only GET
+    route for this document, `edit()` is a single Edit link the detail screen's own `document_actions`
+    panel already carries, and the print/send actions live there too. So there is nothing for a tab
+    bar to say here, and this template is not one — it exists only to satisfy the frame's REQUIRED
+    `actionBarTemplate` parameter.
+
+    What it does carry is the flash messages `@Procurement/_nav.html.twig` used to render for every
+    other purchase-side screen, via the one shared `_purchase_flash_messages.html.twig` partial both
+    now include. This document has no app.js hook at all — see `purchase_order_edit.html.twig`'s own
+    docblock — so a flash cannot ride the hidden JS-toast div `base.html.twig` renders for the sell
+    side; it has to be printed as real, visible markup, and this is the frame slot that sits in the
+    same place under the hero that `_nav.html.twig` always put it.
+#}
+{% include '@Procurement/_purchase_flash_messages.html.twig' %}

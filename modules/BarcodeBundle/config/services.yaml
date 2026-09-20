@@ -1,0 +1,34 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    BarcodeBundle\:
+        resource: '../src/'
+        # The entity, the exception and the two symbology encoders are constructed by hand or never
+        # constructed at all — Code128 and Qr are static tables and pure functions with no state to
+        # inject. Leaving them in the container would register a service for each that could never
+        # be built or would never be used.
+        exclude:
+            - '../src/Entity/'
+            - '../src/Barcode/BarcodeException.php'
+            - '../src/Barcode/Gtin.php'
+            - '../src/Symbology/Code128.php'
+            - '../src/Symbology/Qr.php'
+            - '../src/BarcodeBundle.php'
+
+    BarcodeBundle\Bundle\BarcodeBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    # #707: the barcode half of the shared product picker's search — see
+    # App\Service\Product\ProductBarcodeSearchResolver.
+    BarcodeBundle\Barcode\ProductBarcodeSearchProvider:
+        tags: ['app.product_barcode_search_provider']
+
+    # The sidebar. Order -750 inside the shared Warehouse group puts this between
+    # WarehouseOpsBundle's Labels (-760) and Discrepancies (-740) — one sorted list across two
+    # bundles, exactly as tag priority 750 did between 760 and 740 (#632), with each entry still
+    # coming and going with its OWN bundle's Active/Inactive switch. See
+    # BarcodeBundle\Menu\BarcodeMenuOverrideProvider.
+    BarcodeBundle\Menu\BarcodeMenuOverrideProvider:
+        tags: ['app.admin_menu_override_provider']

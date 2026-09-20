@@ -1,0 +1,5 @@
+{# The order document's left footer note. Rendered with {order}. #}
+{% if order.specialInstructions %}
+    <p class="footer-note-block"><strong>Customer Note:</strong> {{ order.specialInstructions }}</p>
+{% endif %}
+<p class="footer-note-block">This is a sales order, not an invoice. It confirms what was ordered and accepted; the goods are billed on the invoice raised against it.</p>

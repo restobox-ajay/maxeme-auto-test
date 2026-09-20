@@ -1,0 +1,57 @@
+{% if address %}
+    <div class="address-card-body">
+        <dl class="address-detail-list">
+            <div>
+                <dt>Company Name</dt>
+                <dd>{{ address.company ?: company.name }}</dd>
+            </div>
+            <div>
+                <dt>First Name</dt>
+                <dd>{{ address.name|split(' ')|first ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Last Name</dt>
+                <dd>{{ address.name|split(' ')|slice(1)|join(' ') ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Email</dt>
+                <dd>{{ address.email ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Secondary Email</dt>
+                <dd>{{ address.secondary ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Fax</dt>
+                <dd>{{ address.fax ?: '-' }}</dd>
+            </div>
+            <div>
+                <dt>Phone Number</dt>
+                <dd>{{ address.phone ?: '-' }}</dd>
+            </div>
+            <div class="address-lines">
+                <dt>Address</dt>
+                <dd>{{ address.address|replace({'\\n': "\n"})|nl2br }}</dd>
+            </div>
+        </dl>
+        <div class="address-card-actions">
+            <a href="{{ path('admin_company_address_update', {companyId: company.id, addressId: address.id}) }}">Edit</a>
+            {% if not compact %}
+                <button class="link-button js-delete" type="button" data-url="{{ path('admin_company_address_delete', {companyId: company.id, addressId: address.id}) }}" data-item="address">Delete</button>
+                <form class="inline-action-form" method="post" action="{{ path('admin_company_address_default', {companyId: company.id, addressId: address.id, type: 'billing'}) }}">
+                    {{ csrf_field() }}
+                    <button class="link-button" type="submit">Set Default Billing</button>
+                </form>
+                <form class="inline-action-form" method="post" action="{{ path('admin_company_address_default', {companyId: company.id, addressId: address.id, type: 'shipping'}) }}">
+                    {{ csrf_field() }}
+                    <button class="link-button" type="submit">Set Default Shipping</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="address-card-body address-card-empty">
+        <p>No address selected yet.</p>
+        <a class="button primary company-card-action" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+    </div>
+{% endif %}

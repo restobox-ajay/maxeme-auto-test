@@ -1,0 +1,132 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Debit Memos | Admin{% endblock %}
+{% block admin_body %}
+    {# "New debit memo" goes in the header panel's .panel-actions, where this application puts a
+       create button, rather than in a bare .panel of its own below the heading (#621). #}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'debit_memos',
+        heading: 'Debit Memos',
+        lead: 'What a vendor owes back to us. A document with a balance, applied against vendor bills or refunded — the exact mirror of a credit note.',
+        createPath: path('admin_bundle_procurement_debit_memo_new'),
+        createLabel: 'New debit memo'
+    } only %}
+
+    {# Status tabs, off DebitMemoStatus::cases() so the bar cannot drift from the enum or from the
+       <select> in the filter row, which reads the same list. This grid shipped with six headers and
+       no way to narrow any of them: no bar, and no filter row at all. #}
+    <section class="panel compact-panel">
+        <nav class="order-status-tabs">
+            <a class="{{ filters.status == '' ? 'is-active' : '' }}"
+               href="{{ path('admin_bundle_procurement_debit_memos', {filters: filters|merge({status: ''}), limit: limit, page: 1, sort: currentSort, dir: currentDir}) }}">All Debit Memos</a>
+            {% for status in statuses %}
+                <a class="{{ filters.status == status.value ? 'is-active' : '' }}"
+                   href="{{ path('admin_bundle_procurement_debit_memos', {filters: filters|merge({status: status.value}), limit: limit, page: 1, sort: currentSort, dir: currentDir}) }}">{{ status.value }}</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="table-card no-paginate">
+        {# A plain GET form, exactly as the Vendor Bills grid does it: every filter is a URL
+           parameter the server reads, so the grid narrows with scripting off and a copied URL
+           reproduces the result. The controls sit in the table's own filter row and point back
+           here by form="" id, because a <form> inside this <form> would be dropped by the parser. #}
+        <form method="get" id="debit-memo-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_debit_memos', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Memo</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'vendor' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_debit_memos', {filters: filters, limit: limit, page: 1, sort: 'vendor', dir: currentSort == 'vendor' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Vendor</a>
+                        </th>
+                        <th>Total</th>
+                        <th>Balance</th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_debit_memos', {filters: filters, limit: limit, page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Status</a>
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="search" name="filters[q]" form="debit-memo-filters" value="{{ filters.q }}" placeholder="Memo number or vendor" aria-label="Search debit memos"></th>
+                        <th>
+                            <select name="filters[vendor]" form="debit-memo-filters" aria-label="Filter vendor" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ~ '' ? ' selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <select name="filters[status]" form="debit-memo-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status.value }}"{{ filters.status == status.value ? ' selected' : '' }}>{{ status.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_procurement_debit_memos') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for memo in memos %}
+                        <tr class="data-item-row">
+                            <td data-label="Memo"><a class="link-strong" href="{{ path('admin_bundle_procurement_debit_memo', {id: memo.id}) }}">{{ memo.documentNumber }}</a></td>
+                            <td data-label="Vendor">{{ memo.vendorName }}</td>
+                            <td data-label="Total">{{ memo.currency }} {{ memo.total|amount }}</td>
+                            <td data-label="Balance">{{ memo.currency }} {{ memo.balance|amount }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: memo.status.value, loud: false} only %}</td>
+                            {# The second action arrived, so the dropdown appeared — which is what
+                               the note here used to promise would happen. #659 conformed this grid
+                               while its Actions cell still held a single Open link, and said a
+                               single link is not a row of buttons; #36's debit memo edit route is
+                               the second action, and everyDocumentRowOffersOneActionsControl()
+                               counts both arms of the {% if %}, so two flat .table-action controls
+                               here would fail the rule with no KNOWN_OFFENDERS entry left to hold
+                               them. Same shape as the conformed purchase order grid beside it. #}
+                            <td data-label="Actions">
+                                <div class="row-action-menu">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open debit memo actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_bundle_procurement_debit_memo', {id: memo.id}) }}">Open</a>
+                                        {% if memo.status.value == 'Draft' %}
+                                            <a href="{{ path('admin_bundle_procurement_debit_memo_edit', {id: memo.id}) }}">Edit</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell">
+                            <strong>No debit memos match.</strong>
+                            <span>Raise one, or widen the filters.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: memos|length, total: total, currentPage: page, perPage: limit, label: 'debit memos'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="debit-memo-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {# A filter that can narrow to more rows than one page holds needs a way to reach
+                   the second page; the count line above already claims there is one. #}
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_procurement_debit_memos',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

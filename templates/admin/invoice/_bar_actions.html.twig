@@ -1,0 +1,25 @@
+{# The INVOICE's own controls in the shared action bar — the slot
+   `admin/_partials/sales_document_action_bar.html.twig` renders after the fixed View / Edit / PDF
+   set. Expects: `document` (the Invoice) and `current` (which tab is being viewed).
+
+   Packing Slip is here and not in the print menu because it is a SCREEN of this invoice as much as
+   a document: `current == 'packing-slip'` makes it a tab like View. #}
+<a id="invoice-action-packing-slip" class="button{{ current == 'packing-slip' ? ' is-current' : '' }}" href="{{ path('admin_invoice_packing_slip', {id: document.id}) }}">Packing Slip</a>
+{# Not offered on a draft (#31). A draft has been sent to nobody, so nobody could have paid it,
+   and the screen behind this tab has neither a form nor a row to show. The tab going away is
+   not the guard — InvoiceStatus::acceptsPayment() is, on the controller and on the entity —
+   it is just the app not offering a door it will refuse to open. #}
+{% if not document.draft %}
+    <a id="invoice-action-payments" class="button{{ current == 'payments' ? ' is-current' : '' }}" href="{{ path('admin_invoice_payments', {id: document.id}) }}">Payments</a>
+{% endif %}
+{# Raising a credit note against this invoice (#586). Here rather than on the payments screen
+   because a credit is not a payment: it is a document of its own, with its own number and its
+   own balance, and it may end up applied to a different invoice entirely. #}
+<a id="invoice-action-credit-note" class="button" href="{{ path('admin_credit_memo_new', {invoice: document.id}) }}">Credit Note</a>
+{# Authorising a return of what this invoice billed (#596). Beside the credit note rather than
+   instead of it, because they are different acts on different days: the goods coming back and
+   the money going back are two documents precisely so they need not happen together. #}
+<a id="invoice-action-sales-return" class="button" href="{{ path('admin_sales_return_new', {invoice: document.id}) }}">Sales Return</a>
+{% if document.salesOrder %}
+    <a id="invoice-action-order" class="button" href="{{ path('admin_order_detail', {id: document.salesOrder.id}) }}">Order {{ document.salesOrder.orderNumber }}</a>
+{% endif %}

@@ -1,0 +1,111 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Scan out {{ list.number }} | Admin{% endblock %}
+{% block admin_body %}
+    {# Scoped to this screen and shipped inside the bundle, the same way the scan console's styling
+       is: remove the bundle and this goes with it, and no cache-buster has to be bumped. #}
+    <style>
+        .scan-out { max-width: 34rem; margin: 0 auto; }
+        .scan-out .scan-input { font-size: 1.5rem; width: 100%; padding: 0.6rem; letter-spacing: 0.05em; }
+        .scan-out .scan-step { font-size: 1.1rem; }
+        .scan-out .scan-crumbs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+        .scan-out .scan-crumbs span { background: rgba(127,127,127,0.15); padding: 0.2rem 0.5rem; border-radius: 0.2rem; font-size: 0.85rem; }
+        .scan-out .button { min-height: 2.75rem; }
+        .scan-out .is-done td { opacity: 0.55; }
+    </style>
+
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'picks',
+        heading: 'Scan out — ' ~ list.number,
+        lead: 'Scan the shelf, then scan each carton as it leaves it. Every scan changes the URL and nothing else; the Confirm button below posts to the same route the typed screen has always posted to, so a scanned round and a typed round produce identical movement rows.'
+    } only %}
+
+    <section class="panel scan-out">
+        <div class="scan-crumbs">
+            <span>{{ list.warehouse.name }}</span>
+            <span>{{ list.status }}</span>
+            {% if bin %}<span>at {{ bin.code }}</span>{% else %}<span>no shelf scanned yet</span>{% endif %}
+            <span>{{ scannedTotal }} scanned</span>
+        </div>
+
+        {% if list.isOpen %}
+            <h2 class="scan-step">Scan a shelf, or a carton</h2>
+            <p class="lead">
+                A bin code says where you are standing, and everything scanned after it is recorded as having come
+                off that shelf. A SKU or any barcode on the product counts one unit against the first order on this
+                round that still wants it.
+            </p>
+            <form id="scan-out-form" method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_scan_step', {id: list.id}) }}">
+                {{ csrf_field() }}
+                {% if bin %}<input type="hidden" name="bin" value="{{ bin.id }}">{% endif %}
+                {% for taskId, quantity in counted %}
+                    <input type="hidden" name="counted[{{ taskId }}]" value="{{ quantity }}">
+                {% endfor %}
+                {% for taskId, binId in sources %}
+                    <input type="hidden" name="source[{{ taskId }}]" value="{{ binId }}">
+                {% endfor %}
+                <input class="scan-input" type="text" name="code" autofocus autocomplete="off" placeholder="Scan or type, then Enter">
+                <div class="form-actions"><button class="button primary" type="submit">Accept scan</button></div>
+            </form>
+            {% include '@Barcode/_camera.html.twig' with {formId: 'scan-out-form'} only %}
+        {% else %}
+            <p class="lead"><strong>{{ list.number }} is {{ list.status }}.</strong> Nothing more can be scanned against it.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <h2>What has been scanned</h2>
+        <table class="admin-grid-table compact">
+            <thead>
+                <tr>
+                    <th>Route</th>
+                    <th>Order</th>
+                    <th>SKU</th>
+                    <th>Item</th>
+                    <th>Asked</th>
+                    <th>Scanned</th>
+                    <th>Off</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    {% set scanned = counted[task.id]|default(0) %}
+                    <tr class="{{ scanned >= task.quantityRequested ? 'is-done' : '' }}">
+                        <td>{{ task.sortKey }}</td>
+                        <td>{{ task.orderNumber }}</td>
+                        <td>{{ task.sku|default('—') }}</td>
+                        <td>{{ task.name }}</td>
+                        <td>{{ task.quantityRequested }}</td>
+                        <td>{{ scanned }}</td>
+                        <td>{{ sources[task.id] is defined ? 'bin #' ~ sources[task.id] : '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7">This round has no tasks.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if list.isOpen %}
+        <section class="panel">
+            <h2>Confirm what left the shelf</h2>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_confirm', {id: list.id}) }}">
+                {{ csrf_field() }}
+                {# Minted when this form was rendered. Warehouse wi-fi is bad: a submit that times out
+                   and gets retried finds this same key and applies nothing the second time. #}
+                <input type="hidden" name="op_id" value="{{ operationId }}">
+                {% for taskId, quantity in counted %}
+                    <input type="hidden" name="picked[{{ taskId }}]" value="{{ quantity }}">
+                {% endfor %}
+                {% for taskId, binId in sources %}
+                    <input type="hidden" name="picked_from[{{ taskId }}]" value="{{ binId }}">
+                {% endfor %}
+                <div class="form-actions">
+                    <button class="button primary" type="submit" {{ scannedTotal == 0 ? 'disabled' : '' }}>Confirm {{ scannedTotal }} scanned unit(s)</button>
+                    <a class="button" href="{{ path('admin_bundle_warehouse_ops_pick_list', {id: list.id}) }}">Type it instead</a>
+                    <a class="button" href="{{ path('admin_bundle_warehouse_ops_pick_list_scan', {id: list.id}) }}">Start the tally again</a>
+                </div>
+            </form>
+            <p class="lead">A task with nothing scanned stays outstanding. Confirm a genuine shortfall on the typed screen instead.</p>
+        </section>
+    {% endif %}
+{% endblock %}

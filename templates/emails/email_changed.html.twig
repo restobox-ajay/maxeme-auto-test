@@ -1,0 +1,28 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Your Account's Email Has Changed{% endblock %}
+
+{% block body %}
+    <h2 style="margin-top: 0; color: #0f172a;">Your account's email has changed</h2>
+    <p>Hello,</p>
+    <p>This is a confirmation that the email address on your {{ site_name() }} account was recently changed by an administrator.</p>
+
+    <div class="order-summary">
+        <div class="summary-row">
+            <span>Previous email</span>
+            <span>{{ old_email|default('-') }}</span>
+        </div>
+        <div class="summary-row">
+            <span>New email</span>
+            <span>{{ new_email|default('-') }}</span>
+        </div>
+    </div>
+
+    <p style="margin-top: 30px; font-size: 14px; color: #64748b;">
+        {% if support_email is defined and support_email %}
+            If you did not expect this change, please <a href="mailto:{{ support_email }}">contact us</a> immediately at {{ support_email }}.
+        {% else %}
+            If you did not expect this change, please contact us immediately.
+        {% endif %}
+    </p>
+{% endblock %}

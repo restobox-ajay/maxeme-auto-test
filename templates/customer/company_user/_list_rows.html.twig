@@ -1,0 +1,64 @@
+{# Row actions are owner-only (#522): every one of them (edit, reset link) is a privilege-escalation
+   or account-takeover step in staff hands, so a staff viewer gets a read-only list. The controller
+   enforces this independently — hiding a button stops nothing that posts directly. #}
+{% set viewerIsOwner = app.user and 'ROLE_COMPANY_OWNER' in app.user.roles %}
+{% for u in users %}
+    {% set name = (u.firstName ?: '') ~ ' ' ~ (u.lastName ?: '') %}
+    {% set name = name|trim ?: u.email %}
+    {% set isOwner = 'ROLE_COMPANY_OWNER' in u.roles %}
+    <tr>
+        <td data-label="Name">{{ name }}</td>
+        <td data-label="Email">{{ u.email }}</td>
+        <td data-label="Status">
+            {% if u.status|lower == 'active' %}
+                <span class="badge success">Active</span>
+            {% else %}
+                <span class="badge warn">{{ u.status }}</span>
+            {% endif %}
+        </td>
+        <td data-label="Last Login">
+            <span class="muted">
+                {{ u.lastLoginAt ? u.lastLoginAt|date('M j, Y g:i A') : '-' }}
+            </span>
+        </td>
+        <td data-label="Role">{{ isOwner ? 'Owner' : 'Company Staff' }}</td>
+        {# Read-only for everyone, including the viewer's own row (#521). An API key is operated only
+           by the person it belongs to, from /profile/api-key — no owner can activate, regenerate or
+           revoke a teammate's, and this column deliberately offers no control that would suggest
+           otherwise. It answers "who has API access", nothing more. #}
+        <td data-label="API Access">
+            {% if apiKeyFlags|default({})[u.id]|default(false) %}
+                <span class="badge success">Active</span>
+            {% elseif u.apiEnabled %}
+                <span class="muted">Allowed, no key</span>
+            {% else %}
+                <span class="muted">—</span>
+            {% endif %}
+        </td>
+        <td data-label="Actions" class="row-actions">
+            {% if viewerIsOwner %}
+                {# <details>, opened by the browser rather than by app.js — same no-JS-safe shape
+                   as the order and quote lists. No form here nests inside another: this page has
+                   no filter form wrapping the table at all. #}
+                <details class="row-action-menu no-js-row-actions">
+                    <summary class="table-action" aria-label="Actions for {{ name }}">Actions</summary>
+                    <div class="row-action-dropdown">
+                        <a href="{{ path('customer_company_users_edit', {id: u.id}) }}">Edit</a>
+                        <form method="post" action="{{ path('customer_company_users_reset', {id: u.id}) }}">
+                            {{ csrf_field() }}
+                            <button type="submit">PW Reset Link</button>
+                        </form>
+                    </div>
+                </details>
+            {% endif %}
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="7">
+            <div class="empty-table-cell">
+                <strong>No users found.</strong>
+            </div>
+        </td>
+    </tr>
+{% endfor %}

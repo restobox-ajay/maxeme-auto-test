@@ -1,0 +1,19 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Number1HideRealPriceBundle\:
+        resource: '../src/'
+
+    Number1HideRealPriceBundle\Hook\HideListingPriceProvider:
+        tags: ['app.injection_point']
+
+    Number1HideRealPriceBundle\Hook\HideDetailPriceProvider:
+        tags: ['app.injection_point']
+
+    Number1HideRealPriceBundle\Hook\HideModalPriceProvider:
+        tags: ['app.injection_point']
+
+    Number1HideRealPriceBundle\Bundle\Number1HideRealPriceBundleDescriptor:
+        tags: ['app.bundle_descriptor']

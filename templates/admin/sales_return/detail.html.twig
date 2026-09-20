@@ -1,0 +1,268 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Return {{ return.documentNumber }} | Admin{% endblock %}
+
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Sales return</p>
+                {# Queue item 41 — see admin/credit_memo/detail.html.twig for why it came out
+                   of the h1. #}
+                <div class="title-with-status">
+                    <h1>{{ return.documentNumber }}</h1>
+                    {% include 'admin/_partials/document_status.html.twig' with {status: return.status.value} only %}
+                </div>
+                <p class="lead">
+                    {{ return.company.name }}
+                    {% if return.invoice %}
+                        &middot; raised against <a href="{{ path('admin_invoice_detail', {id: return.invoice.id}) }}">{{ return.invoice.documentNumber }}</a>
+                    {% else %}
+                        &middot; no invoice named
+                    {% endif %}
+                    {% if return.salesOrder %}
+                        &middot; order <a href="{{ path('admin_order_detail', {id: return.salesOrder.id}) }}">{{ return.salesOrder.orderNumber }}</a>
+                    {% endif %}
+                </p>
+                {% if return.reason %}<p class="field-hint">{{ return.reason }}</p>{% endif %}
+            </div>
+            <div class="panel-actions">
+                {% if return.draft %}
+                    <a class="button" href="{{ path('admin_sales_return_edit', {id: return.id}) }}">Edit</a>
+                {% endif %}
+                <a class="button back-button" href="{{ path('admin_sales_return_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {#
+        THE STRANDED-STOCK WARNING.
+
+        A return that was received and then declined leaves its units in `returned` — physically
+        present, counted in `quarantine_quantity`, not sellable, and not the customer's to have back
+        for free. Nothing disposes of them automatically and nothing here invents a disposition,
+        because what happens to refused goods is a commercial decision that a status change must not
+        make on somebody's behalf.
+
+        Correct and invisible is how stock rots in a bucket nobody reports on, so the figure is put
+        in front of the reader with a link to the rows themselves.
+    #}
+    {% if return.strandedUnits > 0 %}
+        <section class="panel compact-panel">
+            <p class="eyebrow">Stock still here</p>
+            <h2>{{ return.strandedUnits }} unit(s) arrived and were refused</h2>
+            <p class="lead">
+                They are in <strong>returned</strong> at
+                <strong>{{ return.warehouse ? return.warehouse.name : 'an unrecorded warehouse' }}</strong>,
+                counted in the quarantine bucket and not sellable. Declining this return did not
+                dispose of them and did not write a disposition on the lines, because what happens to
+                refused goods &mdash; shipped back at the customer&rsquo;s cost, scrapped, sold as
+                B-stock &mdash; is a commercial decision this document cannot make.
+            </p>
+            <p class="field-hint">
+                Find the rows on each product&rsquo;s stock page, listed below. See the returns note
+                under the lines for what the adjustment screen can and cannot currently do with them.
+            </p>
+        </section>
+    {% endif %}
+
+    <section class="form-card">
+        <div class="form-grid">
+            <div>
+                <p class="eyebrow">Requested</p>
+                <p><strong>{{ return.requestedAt|date('Y-m-d') }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Authorised</p>
+                <p><strong>{{ return.authorisedAt ? return.authorisedAt|date('Y-m-d') : '—' }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Received</p>
+                <p><strong>{{ return.receivedAt ? return.receivedAt|date('Y-m-d') : '—' }}</strong></p>
+            </div>
+            <div>
+                <p class="eyebrow">Units</p>
+                <p><strong>{{ return.totalUnits }}</strong>{% if return.warehouse %} at {{ return.warehouse.name }}{% endif %}</p>
+            </div>
+        </div>
+        <p class="field-hint">
+            {# The three stamps are the history — there is no sales_return_log, deliberately, because
+               each one is written by exactly one named transition and nothing else. The gap between
+               "received" and whatever date the credit note carries is the thing #596 exists to make
+               expressible. #}
+            {% if return.hasBeenReceived %}
+                The goods arrived on {{ return.receivedAt|date('Y-m-d') }} and were recorded as
+                <strong>returned</strong> stock &mdash; present, counted in quarantine, and
+                <em>not</em> sellable until somebody rules on them. Receiving moved no money and did
+                not touch <code>received_quantity</code>: the shipment never decremented it, so
+                crediting it on the way back would count those units as arriving twice.
+            {% else %}
+                No goods have arrived yet. Nothing has moved in inventory.
+            {% endif %}
+        </p>
+    </section>
+
+    <section class="table-card">
+        <div class="table-header"><h2>Lines</h2></div>
+        <div class="wide-table-wrap">
+        <table class="admin-grid-table">
+            <thead><tr><th>Item</th><th>SKU</th><th>From</th><th>Qty</th><th>Reason</th><th>Disposition</th><th>Stock</th></tr></thead>
+            <tbody>
+                {% for line in return.lines %}
+                    <tr>
+                        <td data-label="Item">{{ line.name }}</td>
+                        <td data-label="SKU">{{ line.sku|default('-') }}</td>
+                        <td data-label="From">
+                            {% if line.invoiceLine %}
+                                <a href="{{ path('admin_invoice_detail', {id: line.invoiceLine.invoice.id}) }}">{{ line.invoiceLine.invoice.documentNumber }}</a>
+                            {% else %}
+                                &mdash;
+                            {% endif %}
+                        </td>
+                        <td data-label="Qty">{{ line.quantity }}</td>
+                        <td data-label="Reason">{{ line.reason|default('-') }}</td>
+                        <td data-label="Disposition">
+                            {% if return.status.value == 'Authorised' %}
+                                {# Recorded WITH the receipt, in the same POST, because it is a fact
+                                   about opening the box. It moves no stock — see SalesReturnLine. #}
+                                <select form="receive-form" name="dispositions[{{ line.id }}]">
+                                    <option value="">&mdash; not said &mdash;</option>
+                                    {% for disposition in dispositions %}
+                                        <option value="{{ disposition }}">{{ disposition }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                {{ line.disposition|default('-') }}
+                            {% endif %}
+                        </td>
+                        <td data-label="Stock">
+                            <a class="table-action" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: line.product.id}) }}">Rows</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-table-cell"><span>This return names nothing. Authorising it will be refused.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if return.hasBeenReceived %}
+            <div class="table-footer">
+                <p class="field-hint">
+                    A disposition records what the receiver saw. It moves no stock and nothing acts on
+                    it: every unit went into <strong>returned</strong> whatever was written here,
+                    because a receiving clerk noting &ldquo;looks fine&rdquo; is not the business
+                    deciding those goods may be sold to somebody else.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if creditNotes|length > 0 %}
+        <section class="table-card">
+            <div class="table-header"><h2>Credit notes raised against this return</h2></div>
+            <div class="wide-table-wrap">
+            <table class="admin-grid-table">
+                <thead><tr><th>Note</th><th>Total</th><th>Balance</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for note in creditNotes %}
+                        <tr>
+                            <td data-label="Note"><a href="{{ path('admin_credit_memo_detail', {id: note.id}) }}">{{ note.documentNumber }}</a></td>
+                            <td data-label="Total">${{ note.total|amount }}</td>
+                            <td data-label="Balance">${{ note.balance|amount }}</td>
+                            <td data-label="Status"><span class="badge">{{ note.status }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            <div class="table-footer">
+                <p class="field-hint">
+                    {# The behavioural change #596 makes to #586, stated where an operator meets it. #}
+                    A note carrying this return may not also tick &ldquo;the goods came back&rdquo;.
+                    This return&rsquo;s receipt is what put them back; letting the note do it as well
+                    would enter the same units twice and make quarantine read double.
+                </p>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-actions">
+            {% if return.status.value == 'Requested' %}
+                <form method="post" action="{{ path('admin_sales_return_action', {id: return.id, action: 'authorise'}) }}" id="authorise-form">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Authorise</button>
+                </form>
+            {% endif %}
+
+            {% if return.status.value == 'Authorised' %}
+                {# The warehouse is asked for HERE and the transition refuses without it: "the goods
+                   arrived" and "they arrived here" are one fact, and a receipt that does not record
+                   where the stock landed cannot be turned into inventory rows. #}
+                <label>
+                    Arrived at
+                    <select form="receive-form" name="warehouse_id" required>
+                        {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button form="receive-form" class="button primary" type="submit">Receive goods</button>
+            {% endif %}
+
+            {% if return.status.value == 'Received' %}
+                <form method="post" action="{{ path('admin_sales_return_action', {id: return.id, action: 'close'}) }}" id="close-form">
+                    {{ csrf_field() }}
+                    <button class="button primary" type="submit">Close</button>
+                </form>
+                <a class="button" href="{{ path('admin_credit_memo_new', return.invoice ? {invoice: return.invoice.id, sales_return: return.id} : {company: return.company.id, sales_return: return.id}) }}">Raise credit note</a>
+            {% endif %}
+
+            {# Offered from Requested too, which is how a mistaken draft is abandoned. One verb and
+               one terminal state rather than a second "Cancel" button: SalesReturnStatus argues the
+               case — "a return the customer changed their mind about is Declined, with the reason
+               saying so" — and two terminal not-happening states would be a choice with no
+               consequence attached to it. The note decline() writes records the from-state, so "was
+               Requested" and "was Received" stay legible as the different events they are. #}
+            {% if return.status.value in ['Requested', 'Authorised', 'Received'] %}
+                <input form="decline-form" type="text" name="reason" placeholder="{{ return.status.value == 'Requested' ? 'Why is it being dropped?' : 'Why is it declined?' }}">
+                <button form="decline-form" class="button danger" type="submit">Decline</button>
+            {% endif %}
+        </div>
+
+        {% if return.status.value == 'Requested' %}
+            <p class="field-hint">
+                Nothing has been agreed with the customer and no goods have arrived, so this return
+                can be declined where it stands &mdash; a draft raised by mistake does not have to be
+                authorised first just to get rid of it. It keeps its number, and the note records that
+                it never got past Requested. Authorising is the promise to the customer about what
+                they may send back; after that its lines are fixed.
+            </p>
+        {% endif %}
+
+        {% if return.status.value == 'Received' %}
+            <p class="field-hint">
+                Closing says the RETURN is finished. It does not require a credit note and does not
+                check for one &mdash; an exchange, a warranty replacement shipped on a new order, or a
+                goodwill write-off handled elsewhere are all ordinary outcomes. It moves no stock
+                either: units still in <strong>returned</strong> stay there until somebody rules on
+                them, and closing the paperwork is not that ruling.
+            </p>
+        {% endif %}
+        {% if return.status.value == 'Authorised' %}
+            <p class="field-hint">
+                Declining a return whose goods have already arrived leaves those units in
+                <strong>returned</strong> on purpose. Nothing here scraps them, restocks them, or
+                writes a disposition claiming somebody inspected them.
+            </p>
+        {% endif %}
+    </section>
+
+    {#
+        The <form> shells sit outside the tables and the controls bind to them with the HTML5 `form`
+        attribute — the same shape the credit note and invoice payment screens use, and for the same
+        reason: a <form> inside a <tr> is invalid HTML and a parser foster-parents it away from its
+        own inputs.
+    #}
+    <form method="post" action="{{ path('admin_sales_return_action', {id: return.id, action: 'receive'}) }}" id="receive-form">{{ csrf_field() }}</form>
+    <form method="post" action="{{ path('admin_sales_return_action', {id: return.id, action: 'decline'}) }}" id="decline-form">{{ csrf_field() }}</form>
+{% endblock %}

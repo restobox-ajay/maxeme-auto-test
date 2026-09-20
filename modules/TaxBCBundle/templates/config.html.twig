@@ -1,0 +1,114 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}BC Tax | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps &rsaquo; Tax</p>
+                <h1>BC Tax</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_sales_tax') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <form method="post" class="form-grid">
+            {% for row in rows %}
+                <p class="section-label span-2">{{ row.taxType }}</p>
+                <label>
+                    Rate (%)
+                    <input type="number" step="0.001" min="0" name="rate_{{ row.slug }}" value="{{ (row.rate * 100)|number_format(3) }}">
+                </label>
+                <label>
+                    Status
+                    <select name="status_{{ row.slug }}">
+                        <option value="Active" {{ row.status == 'Active' ? 'selected' : '' }}>Active</option>
+                        <option value="Inactive" {{ row.status == 'Inactive' ? 'selected' : '' }}>Inactive</option>
+                    </select>
+                </label>
+            {% endfor %}
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Save</button>
+            </div>
+        </form>
+    </section>
+
+    {# Rates are read from the rows above rather than written out, so this stays true when they
+       are edited. Behaviour described here is BCTaxCalculator::calculate(). #}
+    {% set gstRow = rows|filter(r => r.taxType == 'GST')|first %}
+    {% set pstRow = rows|filter(r => r.taxType == 'PST')|first %}
+
+    <section class="panel">
+        <div class="panel-title-row">
+            <div>
+                <h2>How these rules apply</h2>
+                <p class="lead">These rates are used only when the order's <strong>shipping</strong> province is British Columbia. Orders to any other province are handled by a different tax bundle.</p>
+            </div>
+        </div>
+
+        <p class="section-label">Tax class decides what is charged</p>
+        <p class="field-hint">Every product carries a sales tax code. A product with no code is treated as exempt.</p>
+
+        <table class="admin-grid-table data-table">
+            <thead>
+                <tr>
+                    <th>Tax class</th>
+                    <th>GST{% if gstRow %} ({{ (gstRow.rate * 100)|number_format(3) }}%){% endif %}</th>
+                    <th>PST{% if pstRow %} ({{ (pstRow.rate * 100)|number_format(3) }}%){% endif %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>E</strong> — Exempt <span class="field-hint">(also: no code set)</span></td>
+                    <td>No</td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td><strong>G</strong> — GST only</td>
+                    <td>Yes</td>
+                    <td>No</td>
+                </tr>
+                <tr>
+                    <td><strong>S</strong> — Standard</td>
+                    <td>Yes</td>
+                    <td>Yes — <em>unless the customer has a PST number on file</em></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p class="section-label">A PST number exempts the customer from PST</p>
+        <p class="field-hint">
+            If a customer record has a PST number, PST is not charged on their orders even on class
+            <strong>S</strong> products — the reseller case. Two customers buying the same product are
+            therefore taxed differently depending on whether the customer has a PST number recorded.
+            GST is unaffected.
+        </p>
+
+        <p class="section-label">Tax is worked out per line, not on the order total</p>
+        <p class="field-hint">
+            Each order line is taxed on its own tax class, so a mixed cart can carry both taxed and
+            exempt lines. Fees are taxed the same way, on their own class.
+            <strong>Shipping is the exception:</strong> it is taxed at the highest class present in the
+            cart (S beats G beats E), so shipping on a cart containing a single class-S item is taxed
+            as S even if everything else is exempt.
+        </p>
+
+        <p class="section-label">Setting a row to Inactive</p>
+        <p class="field-hint">
+            The <strong>Status</strong> above is per tax row — you can leave GST Active and switch PST
+            off on its own. That is separate from the bundle's own on/off switch in Bundle Management.
+            If a rate is Inactive it is simply not added to the order.
+        </p>
+        <p class="field-hint">
+            Deactivating the whole bundle does not block BC orders — checkout continues and the order
+            is invoiced with no tax. Turning both rows off has the same effect.
+        </p>
+    </section>
+{% endblock %}

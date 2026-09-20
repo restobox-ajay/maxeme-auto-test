@@ -1,0 +1,45 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Returns | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_returns',
+        heading: 'Vendor Returns',
+        lead: 'Goods physically going back to a supplier. Shipping one moves stock out of inventory_detail; the money is a separate debit memo.',
+        createPath: path('admin_bundle_procurement_vendor_return_new'),
+        createLabel: 'Raise a return'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr><th>Return</th><th>Vendor</th><th>Requested</th><th>Shipped</th><th>Units</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for vendorReturn in returns %}
+                    <tr>
+                        <td data-label="Return">{{ vendorReturn.documentNumber }}</td>
+                        <td data-label="Vendor">{{ vendorReturn.vendor.name }}</td>
+                        <td data-label="Requested">{{ vendorReturn.requestedAt|date('Y-m-d') }}</td>
+                        <td data-label="Shipped">{{ vendorReturn.shippedAt ? vendorReturn.shippedAt|date('Y-m-d') : '-' }}</td>
+                        <td data-label="Units">{{ vendorReturn.totalUnits }}</td>
+                        <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: vendorReturn.status.value, loud: false} only %}</td>
+                        <td data-label="Actions" class="row-actions">
+                            <div class="row-action-menu">
+                                <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open vendor return actions"></button>
+                                <div class="row-action-dropdown">
+                                    <a href="{{ path('admin_bundle_procurement_vendor_return', {id: vendorReturn.id}) }}">Open</a>
+                                    {% if vendorReturn.status.value == 'Requested' %}
+                                        <a href="{{ path('admin_bundle_procurement_vendor_return_edit', {id: vendorReturn.id}) }}">Edit</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-table-cell"><span>No vendor returns raised yet.</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div></div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with { count: returns|length, total: total, currentPage: page, perPage: limit } only %}
+        </div>
+    </section>
+{% endblock %}

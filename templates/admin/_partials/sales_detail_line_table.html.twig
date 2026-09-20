@@ -1,0 +1,157 @@
+{# The line table on a sell-side document's VIEW screen: the header row, the product rows, the
+   main-line charge rows beside them, and the empty row when there is nothing to list.
+
+   Three copies existed — the order's Products table, the invoice's Lines table and the quote's
+   Products table — of the same ten columns in the same order, reading the same accessors off
+   three line classes that all extend the same base. Unlike the FORM side, nothing here posts and
+   no cell carries a field name, which is exactly why the row IS shareable here and was not there.
+
+   The columns are built from `showBatch` rather than passed in, because the three tables differ
+   by that ONE column and nothing else. The header, the empty row's colspan and any foot template
+   all count the same list, so a table cannot end up one cell out of alignment — which is the
+   defect a shared row invites and the one that shows up as a wonky table rather than as an error.
+
+   What is NOT here, and why:
+
+     The <section>, its heading and its padding. The order and the quote head this "Products" with
+     8px of top margin; the invoice heads it "Lines" with 20px, its own header padding and its own
+     heading type scale. That is four presentational parameters to rebuild a wrapper, which is
+     drift with extra steps. Each screen keeps its own chrome and includes the table into it.
+
+     The totals. The invoice carries them as a <tfoot> of this very table while the order and the
+     quote carry a box beside it, so the foot arrives as `footTemplate` — a path, not a pile of
+     parameters — and is handed the column count it needs for its colspans.
+
+   Parameters
+   ----------
+   lines            required  the document's lines, in sortOrder. perLineTax/perLineTaxLabel are
+                              POSITIONAL and the service that builds them reads the lines in the
+                              same order — the collections are mapped OrderBy(sortOrder, id) — so
+                              loop.index0 addresses the same row in both.
+   perLineTax       required  per-line tax amounts, positional. Pass [] for none.
+   perLineTaxLabel  required  per-line tax code labels, positional. Pass [] for none.
+   emptyMessage     required  what the empty row says. Each document names itself.
+   tableStyle       required  the <table> element's inline style. The invoice collapses its
+                              borders because it carries a foot; the order and the quote do not.
+   feeRows          optional  the MAIN-LINE charge rows to list beside the products, already
+                              filtered by the caller and each {label, amount, quantity}. Shipping
+                              rows are charges too but are named in the totals rather than listed
+                              as products, so every caller leaves them out. Defaults to [].
+   showBatch        optional  true to carry a Batch column — the lot actually shipped, which is
+                              what a recall or a warranty claim is traced by. The order and the
+                              invoice do; a quote has no lot to name because nothing has been
+                              picked. Defaults to false.
+   allowUnpriced    optional  true to print TBD instead of $0.00 wherever a line's price, subtotal
+                              or tax is null (#255). The quote passes it: shipping and price are
+                              figures a quote may legitimately leave unstated, and a stated $0.00
+                              would tell the customer it is free. An order and an invoice are
+                              priced by definition. Defaults to false.
+   showBackorderBadge optional  true to note under the product's name that the line promises units
+                              it does not have (#548). Only the order can: an invoice bills what
+                              shipped and a quote has ordered nothing. Every line of every SKU
+                              nobody has opted in is Fulfilled, so even there this usually renders
+                              nothing and the cell reads as it always did. Defaults to false.
+   showFeeQuantity  optional  true to print a charge row's quantity in the Quantity column when it
+                              is not 1. Only the invoice bills a FRACTION of a charge — "0.4 of
+                              the freight" — since #539 stage 5; an order's or a quote's charge
+                              row is always the whole charge, so they dash it. Defaults to false.
+   nameCellClass    optional  the first cell's class. 'order-product-name-cell' on the order and
+                              the invoice, where the CSS wraps a long product name instead of
+                              truncating it. Defaults to '' (no class attribute at all).
+   cellIdPrefix     optional  when given, the quantity and price cells carry
+                              `<prefix>-qty-<line id>` and `<prefix>-price-<line id>`. Only the
+                              order has them, and they are addressed by name elsewhere. Defaults
+                              to '' (no id attribute).
+   footTemplate     optional  a <tfoot> to render inside this table, as a template path. Only the
+                              invoice has one — the order and the quote carry a totals BOX beside
+                              the table instead — and it is a path rather than parameters because
+                              it is a dozen conditional money rows, not a value.
+   footContext      optional  what `footTemplate` is rendered with. `columns` is added to it
+                              automatically, holding how many columns the header just emitted, so
+                              the foot's colspans count the same list and cannot drift from it. #}
+
+{% set batch = showBatch|default(false) %}
+{% set unpriced = allowUnpriced|default(false) %}
+{% set idPrefix = cellIdPrefix|default('') %}
+{% set nameClass = nameCellClass|default('') %}
+{% set columns = [
+    {label: 'Name'},
+    {label: 'U/M'},
+    {label: 'SKU'},
+    {label: 'Weight'},
+    {label: 'Quantity', align: 'center'},
+    {label: 'Price', align: 'right'},
+    {label: 'Subtotal', align: 'right'},
+    {label: 'Tax Code'},
+    {label: 'Tax $', align: 'right'},
+]|merge(batch ? [{label: 'Batch'}] : []) %}
+
+<div class="wide-table-wrap">
+    <table class="user-manager-table order-products-table" style="{{ tableStyle }}">
+        <thead>
+            <tr>
+                {% for column in columns %}
+                    <th{% if column.align is defined %} style="text-align:{{ column.align }};"{% endif %}>{{ column.label }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in lines %}
+                <tr>
+                    <td{% if nameClass %} class="{{ nameClass }}"{% endif %}>
+                        <strong style="color:var(--admin-blue-hover);">{{ line.name }}</strong>
+                        {% if showBackorderBadge|default(false) and line.backorderedUnits > 0 %}
+                            <br><small class="order-line-backorder-badge">{{ line.fulfillmentStatus }}: {{ line.backorderedUnits }} of {{ line.quantity|qty }} awaiting stock{% if line.restockEta %}, ETA {{ line.restockEta|date('Y-m-d') }}{% endif %}</small>
+                        {% endif %}
+                    </td>
+                    {# The conventional line (#601, #659): the U/M is the term the line was
+                       written against, the quantity is counted in it, and the price is per it.
+                       A line entered in base units reads exactly as it always did. #}
+                    <td>{{ line.displayUnitLabel }}</td>
+                    <td>{{ line.sku|default('-') }}</td>
+                    <td>{{ line.weight|default('-') }}</td>
+                    {# `|qty` is the application's one quantity rule, and it lives in
+                       App\Service\DisplayNumber rather than in whichever template remembered it:
+                       up to four decimals — the scale `NUMERIC(14,4)` actually holds — and none at
+                       all when the figure is whole, so 2.5 reads "2.5" and 3 reads "3".
+                       `number_format(0)` is what the rule is NOT: it rounded a line of 2.5 cases
+                       to 3 while the column went on holding 2.5. Money is `|amount`, a unit price
+                       is `|price`. #}
+                    <td style="text-align:center;"{% if idPrefix %} id="{{ idPrefix }}-qty-{{ line.id }}"{% endif %}>
+                        {{ line.quantityEntered|qty }}
+                        {% if line.unitOfMeasure %}<br><small style="color:#94a3b8;">= {{ line.quantity|qty }} {{ line.baseUnitLabel }}</small>{% endif %}
+                    </td>
+                    <td style="text-align:right;"{% if idPrefix %} id="{{ idPrefix }}-price-{{ line.id }}"{% endif %}>{% if unpriced %}{{ line.displayUnitPrice is not null ? '$' ~ line.displayUnitPrice|price : 'TBD' }}{% else %}${{ line.displayUnitPrice|price }}{% endif %}</td>
+                    <td style="text-align:right;"><strong>{% if unpriced %}{{ line.subtotal is not null ? '$' ~ line.subtotal|amount : 'TBD' }}{% else %}${{ line.subtotal|amount }}{% endif %}</strong></td>
+                    <td>{{ perLineTaxLabel[loop.index0]|default('No tax') }}</td>
+                    {# TBD rather than $0.00 while the line is unpriced — see #255. #}
+                    <td style="text-align:right;">{% if unpriced %}{{ (perLineTax[loop.index0] ?? null) is not null ? '$' ~ perLineTax[loop.index0]|amount : 'TBD' }}{% else %}${{ perLineTax[loop.index0]|default(0)|amount }}{% endif %}</td>
+                    {% if batch %}<td class="order-batch-cell">{{ line.batch|default('-') }}</td>{% endif %}
+                </tr>
+            {% else %}
+                <tr><td colspan="{{ columns|length }}" class="empty-table-cell"><span>{{ emptyMessage }}</span></td></tr>
+            {% endfor %}
+            {# A main-line charge is a LINE ITEM by design, so it is a row of this table beside the
+               products — exactly as each of these documents' own PDFs renders it. It used to be
+               dumped into the invoice's footer with the other two placements, where it read as a
+               total rather than as something billed. #}
+            {% for feeLine in feeRows|default([]) %}
+                <tr class="fee-line-row">
+                    <td{% if nameClass %} class="{{ nameClass }}"{% endif %}><strong style="color:var(--admin-blue-hover);">{{ feeLine.label }}</strong></td>
+                    <td>&mdash;</td>
+                    <td>&mdash;</td>
+                    <td>&mdash;</td>
+                    <td style="text-align:center;">{% if showFeeQuantity|default(false) and feeLine.quantity != 1 %}{{ feeLine.quantity|qty }}{% else %}&mdash;{% endif %}</td>
+                    <td style="text-align:right;">&mdash;</td>
+                    <td style="text-align:right;"><strong>${{ feeLine.amount|amount }}</strong></td>
+                    <td>&mdash;</td>
+                    <td style="text-align:right;">&mdash;</td>
+                    {% if batch %}<td>&mdash;</td>{% endif %}
+                </tr>
+            {% endfor %}
+        </tbody>
+        {% if footTemplate is defined and footTemplate is not null %}
+            {% include footTemplate with footContext|default({})|merge({columns: columns|length}) only %}
+        {% endif %}
+    </table>
+</div>

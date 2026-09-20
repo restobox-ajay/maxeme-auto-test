@@ -1,0 +1,201 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}Customer Registration | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+    {# Country and province options come from geo_country/geo_province via region_*; the literals
+       that used to be set here were a seventh copy of the same list. #}
+
+    <section class="auth-center auth-center--top">
+        <section class="auth-card-solo registration-card">
+            <p class="eyebrow">Customer Registration</p>
+            <h1 style="margin: 0 0 8px 0;">Request access</h1>
+            <p style="margin-top: 0;">Create your company profile and primary user. An admin may review your registration before pricing and private SKUs appear.</p>
+
+            <form class="form-grid" method="post" autocomplete="on" novalidate>
+                {{ csrf_field() }}
+                {% for message in app.flashes('success') %}
+                    <div class="span-2 alert success">{{ message }}</div>
+                {% endfor %}
+                {% for message in app.flashes('error') %}
+                    <div class="span-2 alert error">{{ message }}</div>
+                {% endfor %}
+
+                {% if formError|default('') %}
+                    <div class="span-2 alert error" style="scroll-margin-top: 24px;">
+                        <strong>{{ formError }}</strong>
+                    </div>
+                {% endif %}
+
+                {% if errors is defined and errors is not empty %}
+                    <div class="span-2 alert error" id="form-errors" style="scroll-margin-top: 24px;">
+                        <strong>Please fix the following:</strong>
+                        <ul style="margin: 8px 0 0 18px;">
+                            {% for msg in errors %}
+                                <li>{{ msg }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <h2 class="span-2 reg-section-title">Company Information</h2>
+                <label class="span-2">Registered Company Name <span class="req">*</span><input name="company_name" value="{{ data.company_name|default('') }}" required>{% if fieldErrors.company_name|default('') %}<span class="error-message">{{ fieldErrors.company_name }}</span>{% endif %}</label>
+                <label>DBA / Tradename (optional)<input name="trade_name" value="{{ data.trade_name|default('') }}"></label>
+                <label>Business License (optional)<input name="business_license" value="{{ data.business_license|default('') }}"></label>
+                <label>Company Email <span class="req">*</span><input type="email" name="company_email" value="{{ data.company_email|default('') }}" required>{% if fieldErrors.company_email|default('') %}<span class="error-message">{{ fieldErrors.company_email }}</span>{% endif %}</label>
+                <h2 class="span-2 reg-section-title">Primary Contact</h2>
+                <label>First Name <span class="req">*</span><input name="first_name" value="{{ data.first_name|default('') }}" required>{% if fieldErrors.first_name|default('') %}<span class="error-message">{{ fieldErrors.first_name }}</span>{% endif %}</label>
+                <label>Last Name <span class="req">*</span><input name="last_name" value="{{ data.last_name|default('') }}" required>{% if fieldErrors.last_name|default('') %}<span class="error-message">{{ fieldErrors.last_name }}</span>{% endif %}</label>
+                <label>Phone Number <span class="req">*</span><input type="tel" name="user_phone" value="{{ data.user_phone|default(data.phone|default('')) }}" required>{% if fieldErrors.user_phone|default('') %}<span class="error-message">{{ fieldErrors.user_phone }}</span>{% endif %}</label>
+                <label>Email <span class="req">*</span><input type="email" name="user_email" value="{{ data.user_email|default(data.email|default('')) }}" required>{% if fieldErrors.user_email|default('') %}<span class="error-message">{{ fieldErrors.user_email }}</span>{% endif %}</label>
+                <label>Password <span class="req">*</span>
+                    <div class="customer-password-field">
+                        <input type="password" id="reg_password" name="password" required autocomplete="new-password">
+                        <button type="button" class="customer-password-toggle" onclick="togglePassword('reg_password', this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    {% if fieldErrors.password|default('') %}<span class="error-message">{{ fieldErrors.password }}</span>{% endif %}
+                </label>
+                <label>Confirm Password <span class="req">*</span>
+                    <div class="customer-password-field">
+                        <input type="password" id="reg_confirm_password" name="confirm_password" required autocomplete="new-password">
+                        <button type="button" class="customer-password-toggle" onclick="togglePassword('reg_confirm_password', this)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
+                    </div>
+                    <span id="password_match_msg" style="color: #ef4444; font-size: 0.75rem; display: none; margin-top: 4px; font-weight: 500;">Passwords do not match</span>
+                    {% if fieldErrors.confirm_password|default('') %}<span class="error-message">{{ fieldErrors.confirm_password }}</span>{% endif %}
+                </label>
+                <label class="span-2">Sales Rep (optional)<input name="sales_rep" value="{{ data.sales_rep|default('') }}"></label>
+
+                <h2 class="span-2 reg-section-title">Shipping Address</h2>
+                <label class="span-2">Shipping Address Name<input name="ship_address_name" value="{{ data.ship_address_name|default('') }}" placeholder="e.g. Main Office"></label>
+                <label>First Name<input name="ship_first_name" value="{{ data.ship_first_name|default(data.first_name|default('')) }}"></label>
+                <label>Last Name<input name="ship_last_name" value="{{ data.ship_last_name|default(data.last_name|default('')) }}"></label>
+                <label class="span-2">Address Line 1 <span class="req">*</span><input name="ship_address1" value="{{ data.ship_address1|default('') }}" required>{% if fieldErrors.ship_address1|default('') %}<span class="error-message">{{ fieldErrors.ship_address1 }}</span>{% endif %}</label>
+                <label class="span-2">Address Line 2<input name="ship_address2" value="{{ data.ship_address2|default('') }}"></label>
+                <label>City <span class="req">*</span><input name="ship_city" value="{{ data.ship_city|default('') }}" required>{% if fieldErrors.ship_city|default('') %}<span class="error-message">{{ fieldErrors.ship_city }}</span>{% endif %}</label>
+                <label>Province <span class="req">*</span>
+                    <select class="js-region-province" data-province-name="ship_province" name="ship_province" required>
+                        <option value=""></option>
+                        {% for code, label in region_provinces(data.ship_country|default('CA') ?: 'CA') %}
+                            <option value="{{ code }}" {{ data.ship_province|default('') == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if fieldErrors.ship_province|default('') %}<span class="error-message">{{ fieldErrors.ship_province }}</span>{% endif %}
+                </label>
+                <label>Country <span class="req">*</span>
+                    <select class="js-region-country" name="ship_country" required
+                            data-region-map="{{ region_map()|json_encode|e('html_attr') }}"
+                            data-province-target="ship_province">
+                        {% for code, label in region_countries() %}
+                            <option value="{{ code }}" {{ data.ship_country|default('CA') == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if fieldErrors.ship_country|default('') %}<span class="error-message">{{ fieldErrors.ship_country }}</span>{% endif %}
+                </label>
+                <label>Postal Code <span class="req">*</span><input name="ship_postal" value="{{ data.ship_postal|default('') }}" required>{% if fieldErrors.ship_postal|default('') %}<span class="error-message">{{ fieldErrors.ship_postal }}</span>{% endif %}</label>
+                <label class="span-2">Delivery Instructions<textarea name="delivery_instructions" rows="2">{{ data.delivery_instructions|default('') }}</textarea></label>
+
+                <h2 class="span-2 reg-section-title">Billing Address</h2>
+                <p class="span-2 field-hint">Address Line 1, City, Province, Country, and Postal Code below are required if you uncheck "same as shipping address".</p>
+                <label class="span-2 check-row customer-register-check-row customer-register-check-row--billing">
+                    <input type="checkbox" id="bill_same" name="bill_same" value="1" {{ (data.bill_same is defined ? data.bill_same : '1') ? 'checked' : '' }}>
+                    <span class="customer-register-check-text">Billing address is same as shipping address</span>
+                </label>
+                <label class="span-2 js-bill-field">Billing Address Name<input name="bill_address_name" value="{{ data.bill_address_name|default('') }}" placeholder="e.g. Head Office"></label>
+                <label class="js-bill-field">First Name<input name="bill_first_name" value="{{ data.bill_first_name|default('') }}"></label>
+                <label class="js-bill-field">Last Name<input name="bill_last_name" value="{{ data.bill_last_name|default('') }}"></label>
+                <label class="span-2 js-bill-field">Address Line 1<input name="bill_address1" value="{{ data.bill_address1|default('') }}">{% if fieldErrors.bill_address1|default('') %}<span class="error-message">{{ fieldErrors.bill_address1 }}</span>{% endif %}</label>
+                <label class="span-2 js-bill-field">Address Line 2<input name="bill_address2" value="{{ data.bill_address2|default('') }}"></label>
+                <label class="js-bill-field">City<input name="bill_city" value="{{ data.bill_city|default('') }}">{% if fieldErrors.bill_city|default('') %}<span class="error-message">{{ fieldErrors.bill_city }}</span>{% endif %}</label>
+                <label class="js-bill-field">Province
+                    <select class="js-region-province" data-province-name="bill_province" name="bill_province">
+                        <option value=""></option>
+                        {% for code, label in region_provinces(data.bill_country|default('CA') ?: 'CA') %}
+                            <option value="{{ code }}" {{ data.bill_province|default('') == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if fieldErrors.bill_province|default('') %}<span class="error-message">{{ fieldErrors.bill_province }}</span>{% endif %}
+                </label>
+                <label class="js-bill-field">Country
+                    <select class="js-region-country" name="bill_country"
+                            data-region-map="{{ region_map()|json_encode|e('html_attr') }}"
+                            data-province-target="bill_province">
+                        {% for code, label in region_countries() %}
+                            <option value="{{ code }}" {{ data.bill_country|default('CA') == code ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if fieldErrors.bill_country|default('') %}<span class="error-message">{{ fieldErrors.bill_country }}</span>{% endif %}
+                </label>
+                <label class="js-bill-field">Postal Code<input name="bill_postal" value="{{ data.bill_postal|default('') }}">{% if fieldErrors.bill_postal|default('') %}<span class="error-message">{{ fieldErrors.bill_postal }}</span>{% endif %}</label>
+
+                {% if customFieldFragment is defined and customFieldFragment %}
+                    <div class="span-2 custom-fields-section">
+                        {{ customFieldFragment|raw }}
+                    </div>
+                {% endif %}
+
+                <label class="span-2 check-row customer-register-check-row customer-register-check-row--terms">
+                    <input type="checkbox" name="agree_terms" value="1" {{ data.agree_terms|default('') == '1' ? 'checked' : '' }} required>
+                    <span class="req">*</span>
+                    <span class="customer-register-check-text">I agree to the <a href="#" target="_blank" rel="noopener">Delivery &amp; Payment Policy</a>, <a href="#" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="#" target="_blank" rel="noopener">Privacy Policy</a></span>
+                </label>
+                {% if fieldErrors.agree_terms|default('') %}
+                    <small class="span-2 error-message">{{ fieldErrors.agree_terms }}</small>
+                {% endif %}
+
+                <div class="span-2 auth-actions">
+                    <button class="button primary" type="submit">Submit</button>
+                    <a class="button" href="{{ path('customer_login') }}">Already have an account?</a>
+                </div>
+            </form>
+        </section>
+    </section>
+
+    <script>
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            
+            // Toggle icon (Eye slash / Eye)
+            if (type === 'text') {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>`;
+            } else {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const password = document.getElementById('reg_password');
+            const confirm = document.getElementById('reg_confirm_password');
+            const msg = document.getElementById('password_match_msg');
+            const errorBox = document.getElementById('form-errors');
+            if (errorBox) { errorBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            
+            function validatePassword() {
+                if (confirm.value !== '' && password.value !== confirm.value) {
+                    msg.style.display = 'block';
+                    confirm.style.borderColor = '#ef4444';
+                    confirm.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.12)';
+                } else {
+                    msg.style.display = 'none';
+                    confirm.style.borderColor = '';
+                    confirm.style.boxShadow = '';
+                }
+            }
+            
+            password.addEventListener('input', validatePassword);
+            confirm.addEventListener('input', validatePassword);
+
+            // Billing fields are pointless to show while "same as shipping" is checked (#354).
+            const billSame = document.getElementById('bill_same');
+            const billFields = document.querySelectorAll('.js-bill-field');
+            function toggleBillingFields() {
+                billFields.forEach(field => { field.style.display = billSame.checked ? 'none' : ''; });
+            }
+            billSame.addEventListener('change', toggleBillingFields);
+            toggleBillingFields();
+        });
+    </script>
+{% endblock %}

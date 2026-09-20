@@ -1,0 +1,13 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    ShippingPickupBundle\:
+        resource: '../src/'
+
+    ShippingPickupBundle\Shipping\PickupShippingCalculator:
+        tags: ['app.shipping_option']
+
+    ShippingPickupBundle\Bundle\ShippingPickupBundleDescriptor:
+        tags: ['app.bundle_descriptor']

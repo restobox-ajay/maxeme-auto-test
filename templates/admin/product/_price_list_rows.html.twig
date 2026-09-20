@@ -1,0 +1,24 @@
+{% for list in priceLists %}
+    <tr>
+        <td data-label="#">{{ list.id }}</td>
+        <td data-label="Group label"><strong>{{ list.name }}</strong></td>
+        <td data-label="Customers"><span class="companies-cell">{{ list.companies }}</span></td>
+        <td data-label="Assigned">{{ list.companyCount }}</td>
+        <td data-label="Status">
+            <span class="badge {{ list.status == 'Inactive' ? 'danger-soft' : '' }}">{{ list.status }}</span>
+        </td>
+        <td data-label="Actions">
+            <span class="action-group">
+                <a class="table-action" href="{{ path('admin_price_list_update', {id: list.id}) }}">Update</a>
+                <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_price_list_delete', {id: list.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ list.name }}">Delete</button>
+            </span>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="6" class="empty-table-cell">
+            <strong>No price lists found.</strong>
+            <span>Price lists will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

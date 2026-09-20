@@ -1,0 +1,120 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Units of Measure | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = pages|default(1) %}
+    {% set filters = filters|default({}) %}
+    {% set currentSort = currentSort|default('code') %}
+    {% set currentDir = currentDir|default('asc') %}
+    {% set routeQuery = {sort: currentSort, dir: currentDir, limit: currentLimit, filters: filters} %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products</p>
+                <h1>Units of Measure</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_product_detail_index') }}">Back</a>
+                <a class="button primary" href="{{ path('admin_product_unit_of_measure_new') }}">Add a unit</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}<div class="flash flash-success">{{ msg }}</div>{% endfor %}
+    {% for msg in app.flashes('error') %}<div class="flash flash-error">{{ msg }}</div>{% endfor %}
+
+    {% include 'admin/_row_actions_no_js.html.twig' %}
+
+    {# A list screen and nothing else. The add form used to sit here, between the header panel and
+       the grid, inside the `.content-frame` that app.css:7764 clamps to calc(100vh - 3rem) — and
+       that clamp hands whatever the form leaves to the one child that can give, which is this card.
+       See the controller docblock for the measurement that made the cost of it concrete.
+
+       The filters below DO stay, unlike the tracking policy grid's, because they answer something.
+       #659 made this the single table every conversion in the application is defined in, so it grows
+       with the packs an installation ships in — EA, KG, G, L, ML, and a BOX-n per pack size — and
+       "show me the weight units" or "find the one called CASE" is a question somebody actually has.
+       A tracking policy list is four named rules and never grows; this one does. #}
+    <section class="table-card unit-of-measure-grid no-paginate"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        {# Not wrapped around the table: each row carries its own delete <form>, and forms cannot
+           nest. The filter controls in the table reference this one by id instead. #}
+        <form id="unit-of-measure-filters" method="get" action="{{ path('admin_product_unit_of_measure_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+        </form>
+        <div class="table-header">
+            <h2>Units</h2>
+        </div>
+        <div class="table-scroll-region">
+            <div class="wide-table-wrap">
+                <table class="admin-grid-table">
+                    <thead>
+                        <tr>
+                            {% set nextDir = currentSort == 'code' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'code' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'code', dir: nextDir, page: 1})) }}">Code</a></th>
+                            {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'name', dir: nextDir, page: 1})) }}">Name</a></th>
+                            {% set nextDir = currentSort == 'family' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'family' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'family', dir: nextDir, page: 1})) }}">Family</a></th>
+                            {% set nextDir = currentSort == 'factor' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'factor' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'factor', dir: nextDir, page: 1})) }}">To family base</a></th>
+                            {% set nextDir = currentSort == 'precision' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                            <th class="is-sortable{% if currentSort == 'precision' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'precision', dir: nextDir, page: 1})) }}">Rounding</a></th>
+                            <th>Referenced by</th>
+                            <th>Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" name="filters[code]" value="{{ filters.code|default('') }}" form="unit-of-measure-filters" aria-label="Filter code"></th>
+                            <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" form="unit-of-measure-filters" aria-label="Filter name"></th>
+                            <th>
+                                <select name="filters[family]" form="unit-of-measure-filters" aria-label="Filter family">
+                                    <option value=""></option>
+                                    {% for family in families %}
+                                        <option value="{{ family }}"{{ filters.family|default('') == family ? ' selected' : '' }}>{{ family }}</option>
+                                    {% endfor %}
+                                </select>
+                            </th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th><button class="table-action" type="submit" form="unit-of-measure-filters">Filter</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include 'admin/unit_of_measure/_rows.html.twig' %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="table-footer">
+            <label class="per-page-label">
+                Per page
+                <select name="limit" form="unit-of-measure-filters" onchange="this.form.submit()">
+                    {% for size in pageSizes %}
+                        <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button class="table-action" type="submit" form="unit-of-measure-filters">Apply</button>
+            {% include 'admin/_table_count.html.twig' with {
+                count: rows|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_product_unit_of_measure_index',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+{% endblock %}

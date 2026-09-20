@@ -1,0 +1,14 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}New Quote Request{% endblock %}
+
+{% block body %}
+    <p>Hi,</p>
+    <h2 style="margin-top: 0; color: #0f172a;">Quote request received. Please review and provide a quote to the customer as soon as possible.</h2>
+
+    {% include 'emails/_quote_summary.html.twig' %}
+
+    <div style="text-align: center; margin-top: 10px;">
+        <a href="{{ admin_url|default('#') }}" class="button">Review Quote Request</a>
+    </div>
+{% endblock %}

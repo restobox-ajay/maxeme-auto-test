@@ -1,0 +1,32 @@
+{#
+    One row per credit note. Balance and status both come off the document — the balance is the same
+    sum that decides Open versus Closed, and a template adding it up itself would be a second answer
+    able to disagree with the badge in the next cell.
+#}
+{% for memo in memos %}
+    <tr>
+        <td data-label="Memo"><a href="{{ path('admin_credit_memo_detail', {id: memo.id}) }}">{{ memo.documentNumber }}</a></td>
+        <td data-label="Customer">{{ memo.company.name }}</td>
+        <td data-label="Invoice">{{ memo.invoice ? memo.invoice.documentNumber : '-' }}</td>
+        <td data-label="Type">{{ typeNames[memo.creditMemoTypeId]|default('-') }}</td>
+        <td data-label="Amount">${{ memo.total|amount }}</td>
+        <td data-label="Balance">${{ memo.balance|amount }}</td>
+        <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: memo.status, loud: false} only %}</td>
+        <td data-label="Actions"><span class="action-group"><a class="table-action" href="{{ path('admin_credit_memo_detail', {id: memo.id}) }}">View</a></span></td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="8" class="empty-table-cell">
+            {% if company is defined and company %}
+                <strong>No credit notes found for {{ company.name }}.</strong>
+                <span>This customer has no credit note matching the search above.</span>
+            {% elseif companyScopeMissingId is defined and companyScopeMissingId is not null %}
+                <strong>This customer does not exist.</strong>
+                <span>Nothing is listed, because the customer this link names could not be found.</span>
+            {% else %}
+                <strong>No credit notes found.</strong>
+                <span>Raise one from an invoice, or as a standalone credit against a customer.</span>
+            {% endif %}
+        </td>
+    </tr>
+{% endfor %}

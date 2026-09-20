@@ -1,0 +1,168 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+
+{% set locked = estimate.status in ['Accepted', 'Rejected'] %}
+
+{# No company-default fallback — see admin/order/detail.html.twig. A quote is priced against
+   the address it recorded, not whatever is default now. #}
+{% set billing  = estimate.billingAddress %}
+{% set shipping = estimate.shippingAddress %}
+
+{% set feeLines = estimate.feeLines|default('')|json_decode %}
+{% set feeTotalsMainLine = 0 %}
+{% set mainLineFeeRows = [] %}
+{% set beforeTaxFeeRows = [] %}
+{% set afterTaxFeeRows = [] %}
+{% for feeLine in feeLines %}
+    {% set placement = feeLine.placement|default('main_line') %}
+    {% if placement == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + feeLine.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: feeLine.label, amount: feeLine.amount, quantity: feeLine.quantity|default(1)}]) %}
+    {% elseif placement == 'before_tax_line' %}
+        {% set beforeTaxFeeRows = beforeTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount}]) %}
+    {% elseif placement == 'after_tax_line' %}
+        {% set afterTaxFeeRows = afterTaxFeeRows|merge([{label: feeLine.label, amount: feeLine.amount}]) %}
+    {% endif %}
+{% endfor %}
+
+{# The frame's parameters. #}
+{% set document = estimate %}
+{% set slotPrefix = 'admin_estimate_detail' %}
+{% set actionBarTemplate = 'admin/estimate/_tab_nav.html.twig' %}
+{% set actionBarContext = {estimate: estimate, locked: locked} %}
+
+{% block title %}Quote {{ estimate.documentNumber }} | Admin{% endblock %}
+
+{% block hero_eyebrow %}Quote detail{% endblock %}
+{% block hero_title %}{{ estimate.documentNumber }}{% endblock %}
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: estimate.status} only %}{% endblock %}
+{% block hero_actions %}<a class="button back-button" href="{{ path('admin_estimate_index') }}">Back</a>{% endblock %}
+
+{% block summary_info_heading %}Quote Info{% endblock %}
+{# The grid's classes, as the invoice's own Info card already uses — so the labelled field, the
+   loud badge in the hero and the row on /admin/estimate are one colour decided in one place
+   (queue item 41). #}
+{% block summary_info_status %}<span class="badge order-status order-status-{{ estimate.status|lower|replace({' ': '-'}) }}">{{ estimate.status }}</span>{% endblock %}
+
+{% block summary_info_rows %}
+    <div class="detail-row">
+        <label>Created:</label>
+        <strong>{{ estimate.createdAt|date('Y-m-d') }}</strong>
+    </div>
+
+    {% if estimate.convertedOrder %}
+        <div class="detail-row">
+            <label>Order:</label>
+            <strong><a href="{{ path('admin_order_detail', {id: estimate.convertedOrder.id}) }}" style="color:var(--admin-blue-hover);">{{ estimate.convertedOrder.orderNumber }}</a></strong>
+        </div>
+    {% endif %}
+
+    <div class="detail-row" style="margin-top:16px;">
+        <label>Quote Created By:</label>
+        <strong>{{ estimate.userName|default('-') }}</strong>
+    </div>
+
+    <div class="detail-row" style="margin-top:16px;">
+        <label>Customer Name:</label>
+        <strong><a href="{{ path('admin_company_detail_by_id', {id: estimate.company.id}) }}" style="color:var(--admin-blue-hover);">{{ estimate.companyIdentity.name }}</a></strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Email:</label>
+        <strong style="color:var(--admin-blue-hover);">{{ estimate.companyIdentity.email|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Customer Phone:</label>
+        <strong>{{ estimate.companyIdentity.phone|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>PO #:</label>
+        <strong>{{ estimate.poNumber|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Fulfillment Region:</label>
+        <strong>{{ estimate.fulfillmentRegion|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Source:</label>
+        <strong>{{ estimate.source }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Special Instructions:</label>
+        <strong>{{ estimate.specialInstructions|default('-') }}</strong>
+    </div>
+{% endblock %}
+
+{# The order's behaviour exactly: rows rather than a sentence when there is no address,
+   and a blank field on a recorded address left blank. #}
+{% block summary_billing %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: billing,
+        title: 'Billing Detail',
+        fallbacks: {
+            companyName: estimate.companyIdentity.name,
+            firstName: estimate.billingName|default('-'),
+            phone: estimate.companyIdentity.phone|default('-'),
+            country: 'Canada',
+            emailPrimary: estimate.companyIdentity.email|default('-'),
+        },
+    } only %}
+{% endblock %}
+
+{# Method is the QUOTE's field, not the address's — the only trailing row any of the
+   three screens carries — so it is passed in rather than reached for inside the card. #}
+{% block summary_shipping %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: shipping,
+        title: 'Shipping Detail',
+        deliverable: true,
+        fallbacks: {
+            companyName: estimate.shippingCompanyName|default(estimate.companyIdentity.name),
+            firstName: estimate.shippingName|default('-'),
+            country: 'Canada',
+        },
+        trailingRows: [{label: 'Method', value: estimate.shippingMethod|default('TBD')}],
+    } only %}
+{% endblock %}
+
+{% block line_items_table %}
+    {% include 'admin/_partials/sales_detail_line_table.html.twig' with {
+        lines: estimate.lines,
+        perLineTax: perLineTax|default([]),
+        perLineTaxLabel: perLineTaxLabel|default([]),
+        emptyMessage: 'No products on this estimate.',
+        tableStyle: 'min-width: 100%;',
+        feeRows: mainLineFeeRows,
+        allowUnpriced: true,
+    } only %}
+{% endblock %}
+
+{% block totals %}
+    {% include 'admin/_partials/sales_detail_totals_box.html.twig' with {
+        subtotal: estimate.subtotal is not null ? estimate.subtotal + feeTotalsMainLine : null,
+        shippingLines: estimate.shippingLines,
+        beforeTaxRows: beforeTaxFeeRows,
+        afterTaxRows: afterTaxFeeRows,
+        taxLines: taxLines|default([]),
+        tax: estimate.tax,
+        total: estimate.total,
+        allowUnstated: true,
+    } only %}
+{% endblock %}
+
+{# No `stock_overrides` block. There is no EstimateLineStockOverride entity and no quote line can
+   carry one: a quote holds no stock, so nothing can be sold past the shelf on it. This is an
+   absence in the data, not drift from the order screen. #}
+
+{% block add_message %}
+    {% include 'admin/_partials/sales_detail_add_message.html.twig' with {
+        addUrl: path('admin_estimate_log_add', {id: estimate.id}),
+    } only %}
+{% endblock %}
+
+{% block activity_log %}
+    {% include 'admin/_partials/sales_detail_activity_log.html.twig' with {
+        logs: logs,
+        deleteRoute: 'admin_estimate_log_delete',
+        documentId: estimate.id,
+        sectionStyle: 'margin-top:20px; margin-bottom:50px;',
+    } only %}
+{% endblock %}

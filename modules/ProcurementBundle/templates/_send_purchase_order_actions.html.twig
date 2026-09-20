@@ -1,0 +1,17 @@
+{# Expects: order (PurchaseOrder) — mirrors templates/admin/invoice/_send_invoice_actions.html.twig.
+
+   The send is a real form and not a GET link, for the same reason the invoice's is: it emails the
+   other party, and a link that mails somebody is a link a crawler, a prefetch or a double-click can
+   fire. Print and Download are GETs because they only render.
+
+   There is one send here, not the invoice's customer/self pair. The "self" copy exists on the sell
+   side so a seller can post themselves what the buyer got; on the buy side we ARE the buyer, and
+   the copy of the order we hold is this screen. #}
+<a class="button" href="{{ path('admin_bundle_procurement_purchase_order_print', {id: order.id}) }}">Print</a>
+<a class="button" href="{{ path('admin_bundle_procurement_purchase_order_print', {id: order.id, pdf: 1}) }}">Download PDF</a>
+{% if order.status not in ['Draft', 'Cancelled'] %}
+    <form method="post" action="{{ path('admin_bundle_procurement_purchase_order_send', {id: order.id}) }}" class="inline-form">
+        {{ csrf_field() }}
+        <button class="button" type="submit">Send to vendor</button>
+    </form>
+{% endif %}

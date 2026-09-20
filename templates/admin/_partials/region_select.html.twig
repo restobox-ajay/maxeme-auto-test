@@ -1,0 +1,98 @@
+{#
+    The country box and the province box every admin screen shares. Include it rather than copying
+    it — and never render a free-text province or country input again.
+
+    It lives in core for the reason `product_field.html.twig` does: `config/bundles.php` discovers
+    modules with glob() and `bundle_status` switches them off, so a partial owned by one bundle and
+    included by another is a 500 waiting for the day somebody removes the first. ProcurementBundle's
+    vendor address form includes this one.
+
+    ## Why this exists at all
+
+    A free-text province box accepts the COUNTRY code, and that is not a typo the application can
+    absorb. `CA` is not a Canadian province, so a country-blind resolver falls through the Canadian
+    table into the US one and resolves it to CALIFORNIA — a real province code, which therefore
+    passes every "is the province known" guard and is then claimed by no Canadian calculator. The
+    purchase order quotes $0.00 tax, and nothing on the document can tell that zero apart from a
+    genuine one. Preventing the entry is worth more than any guard downstream of it.
+
+    Parameters
+    ----------
+    kind        required  'country' or 'province'
+    name        required  the input name, e.g. 'province' or 'warehouse_country'
+    id          required  the element id — tests anchor to it (#627), and the <label> points at it
+    selected    optional  the stored or submitted value; '' for a new row
+    country     required for kind='province': the country code the list is scoped to
+    target      required for kind='country':  the NAME of the province field this country scopes,
+                          so a form holding two address blocks scopes each to its own partner
+    required    optional  defaults to false
+    label       optional  aria-label; defaults to 'Country' / 'Province or state'
+    blank       optional  label for the empty option; defaults to '' (an empty option is always
+                          rendered, so `required` has something to refuse)
+
+    ## The stranded value, which is the trap a <select> INTRODUCES
+
+    A select whose current value is not among its options renders with NOTHING selected, and the
+    browser then posts the FIRST option. That is how opening a Draft product to fix a typo once
+    silently ACTIVATED it. Here it would move a building to Alberta — and with it the tax on every
+    future purchase order against it — because somebody edited its city.
+
+    So a stored value the list does not offer is rendered as its own selected option rather than
+    dropped: the row still reads, the admin can see what is actually stored, and nothing is rewritten
+    behind them. It is labelled as not being in the list, because it is the thing they have to fix.
+    Saving it again is REFUSED by name server-side; refusing loudly is the opposite of the silent
+    substitution this guards against.
+
+    An INACTIVE row resolves through province_name()/country_name(), which include inactive rows on
+    purpose — a warehouse in a province you have stopped serving still shows that province's name
+    rather than a bare code.
+
+    ## No JavaScript
+
+    `app.js` re-scopes the province list when the country changes, and only when the server rendered
+    one option or fewer — so the options below are the server's, not the browser's. With scripting
+    off there is no change event, and the re-scope happens on the round trip instead: the country
+    that was submitted is what the next render scopes to, whether the save went through or was
+    refused. That is the document forms' behaviour and this matches it.
+#}
+{% set regionSelected = (selected|default(''))|trim %}
+{% set regionRequired = required|default(false) %}
+
+{% if kind == 'country' %}
+    {% set regionOptions = region_countries() %}
+    {% set regionStranded = regionSelected != '' and regionSelected not in regionOptions|keys %}
+    <select class="js-region-country" id="{{ id }}" name="{{ name }}"
+            data-region-map="{{ region_map()|json_encode|e('html_attr') }}"
+            data-province-target="{{ target }}"
+            {% if regionRequired %}required{% endif %}
+            aria-label="{{ label|default('Country') }}">
+        <option value="">{{ blank|default('') }}</option>
+        {% if regionStranded %}
+            {# Kept and SELECTED rather than dropped — see the note above. #}
+            <option value="{{ regionSelected }}" selected>{{ country_name(regionSelected) }} — not in the list</option>
+        {% endif %}
+        {% for code, countryLabel in regionOptions %}
+            <option value="{{ code }}" {{ regionSelected == code ? 'selected' : '' }}>{{ countryLabel }}</option>
+        {% endfor %}
+    </select>
+{% else %}
+    {% set regionCountry = (country|default(''))|trim %}
+    {% set regionOptions = region_provinces(regionCountry) %}
+    {% set regionStranded = regionSelected != '' and regionSelected not in regionOptions|keys %}
+    <select class="js-region-province" id="{{ id }}" name="{{ name }}"
+            data-province-name="{{ name }}"
+            data-selected="{{ regionSelected }}"
+            {% if regionRequired %}required{% endif %}
+            aria-label="{{ label|default('Province or state') }}">
+        <option value="">{{ blank|default('') }}</option>
+        {% if regionStranded %}
+            <option value="{{ regionSelected }}" selected>
+                {{- province_name(regionCountry, regionSelected) }} — not a province or state of
+                {{ regionCountry != '' ? country_name(regionCountry) : 'the selected country' -}}
+            </option>
+        {% endif %}
+        {% for code, provinceLabel in regionOptions %}
+            <option value="{{ code }}" {{ regionSelected == code ? 'selected' : '' }}>{{ provinceLabel }}</option>
+        {% endfor %}
+    </select>
+{% endif %}

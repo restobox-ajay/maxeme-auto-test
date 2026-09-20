@@ -1,0 +1,70 @@
+{# The totals box a purchase document's edit screen shows below its line-items table — Subtotal,
+   before-tax fees, tax lines, Total Tax, after-tax fees, Grand Total — the buy-side twin of
+   sales_totals_footer.html.twig. Reuses this app's own `.purchase-total-box`/`.purchase-total-row`
+   classes (_purchase_form_styles.html.twig), which is the one piece of this rewrite that was
+   already genuinely shared between PurchaseOrder and VendorBill before it.
+
+   No `hookPrefix`/js-*-total-* classes the sell side's carries: there is no live client-side
+   recalc on the buy side, so nothing needs to find these nodes after the page has rendered — the
+   server figure IS the figure, always.
+
+   What is NOT shared here either way, same reason as the sell side: the CHARGE-ROW EDITORS. Each
+   caller (_purchase_lines_footer.html.twig) renders its own and hands the finished markup in
+   through the three slots below.
+
+   Parameters
+   ----------
+   subtotalDisplay      required  pre-formatted string, e.g. "130.50" (no $ — the template adds it).
+   beforeTaxFeeLines    optional  list of {label, amount} shown between Subtotal and the tax lines.
+   taxLines             optional  list of {label, rate, amount} — the document's own tax breakdown.
+   beforeTotalTaxSlot   optional  pre-rendered HTML shown after the tax lines, before "Total Tax" —
+                                  PurchaseOrder's own "no tax province on this order" row, which has
+                                  no sell-side equivalent (buy-side tax is derived from the delivery
+                                  warehouse) and so is never passed by VendorBill.
+   taxLinesTotalDisplay required  pre-formatted string (no $), for "Total Tax".
+   afterTaxFeeLines     optional  list of {label, amount} shown after Total Tax.
+   grandTotalDisplay    required  pre-formatted string (no $), for "Grand Total".
+   beforeSubtotalSlot   optional  pre-rendered HTML for charge-row editors that belong ABOVE
+                                  Subtotal (freight + main-line fees).
+   afterTaxFeeSlot      optional  pre-rendered HTML for after-tax-fee charge-row editors.
+   taxSlot              optional  pre-rendered HTML for tax-type charge-row editors.
+   afterGrandTotalSlot  optional  pre-rendered HTML shown after Grand Total — VendorBill's own
+                                  Amount Paid and Balance rows, which PurchaseOrder has no use for
+                                  and so never passes (an order is never paid; its bills are).
+   currency             optional  shown in the Grand Total label, e.g. "Grand Total (CAD)". Empty
+                                  renders "Grand Total".
+   idPrefix             optional  the per-row tax-line id prefix — 'po' (default) or 'bill'. The
+                                  CSS classes below (`po-total-subtotal` etc.) stay hardcoded: both
+                                  documents already shared those as plain styling hooks before this
+                                  rewrite. Only the per-row id differs, because it is what a test —
+                                  or a link — points AT one specific row with, and PurchaseOrder's
+                                  and VendorBill's tax rows have always been addressed as
+                                  `#po-tax-line-*` and `#bill-tax-line-*` respectively.
+#}
+{% macro totals_footer(subtotalDisplay, beforeTaxFeeLines, taxLines, taxLinesTotalDisplay, afterTaxFeeLines, grandTotalDisplay, beforeSubtotalSlot, afterTaxFeeSlot, taxSlot, afterGrandTotalSlot, currency, beforeTotalTaxSlot, idPrefix) %}
+    {% set _idPrefix = idPrefix|default('po') %}
+    <div class="purchase-total-box">
+        {% if beforeSubtotalSlot is not empty %}{{ beforeSubtotalSlot|raw }}{% endif %}
+        {# `js-{idPrefix}-total-before-tax` is BOTH the live-recalc write target (recalcSellDocTotals()
+           overwrites this row with subtotal+freight+fees, same as the sell side's identically-named,
+           identically-labelled "Subtotal" row does — see sales_totals_footer.html.twig's own note)
+           AND the anchor sellDocChargeRowAnchor() inserts new main-line/before-tax charge rows
+           above (#full-parity, 2026-09-15). #}
+        <div class="purchase-total-row"><span>Subtotal:</span><strong class="po-total-subtotal js-{{ _idPrefix }}-total-before-tax">${{ subtotalDisplay }}</strong></div>
+        {% for feeLine in beforeTaxFeeLines|default([]) %}
+            <div class="purchase-total-row"><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+        {% endfor %}
+        {% for taxLine in taxLines|default([]) %}
+            <div class="purchase-total-row" id="{{ _idPrefix ~ '-tax-line-' ~ (taxLine.slug|default('unslugged')) }}"><span>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(0) }}%{% endif %}:</span><strong>${{ taxLine.amount|amount }}</strong></div>
+        {% endfor %}
+        {% if beforeTotalTaxSlot|default('') is not empty %}{{ beforeTotalTaxSlot|raw }}{% endif %}
+        <div class="purchase-total-row"><span>Total Tax:</span><strong class="po-total-tax js-{{ _idPrefix }}-total-tax">${{ taxLinesTotalDisplay }}</strong></div>
+        {% for feeLine in afterTaxFeeLines|default([]) %}
+            <div class="purchase-total-row"><span>{{ feeLine.label }}:</span><strong>${{ feeLine.amount|amount }}</strong></div>
+        {% endfor %}
+        {% if afterTaxFeeSlot is not empty %}{{ afterTaxFeeSlot|raw }}{% endif %}
+        {% if taxSlot is not empty %}{{ taxSlot|raw }}{% endif %}
+        <div class="purchase-total-row grand"><span>Grand Total{% if currency|default('') %} ({{ currency }}){% endif %}:</span><strong class="po-total-grand js-{{ _idPrefix }}-total-grand">${{ grandTotalDisplay }}</strong></div>
+        {% if afterGrandTotalSlot is not empty %}{{ afterGrandTotalSlot|raw }}{% endif %}
+    </div>
+{% endmacro %}

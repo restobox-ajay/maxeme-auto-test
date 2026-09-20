@@ -1,0 +1,51 @@
+{% extends 'customer/catalog/index.html.twig' %}
+{% block catalog_filters_panel %}
+    {% set facets = customFieldFacets|default([]) %}
+    {% set hasAdvanced = false %}
+    {% set basicFacets = [] %}
+    {% set advancedFacets = [] %}
+    {% for facet in facets %}
+        {% if facet.advanced %}
+            {% set hasAdvanced = true %}
+            {% set advancedFacets = advancedFacets|merge([facet]) %}
+        {% else %}
+            {% set basicFacets = basicFacets|merge([facet]) %}
+        {% endif %}
+    {% endfor %}
+    {# Basic facets always render first so revealing advanced ones never shifts an already-visible one. #}
+    {% set orderedFacets = basicFacets|merge(advancedFacets) %}
+    <div class="wheel-filter-panel">
+        {% if hasAdvanced %}
+            <input type="checkbox" id="wheel-advanced-toggle" class="wheel-advanced-toggle-input">
+        {% endif %}
+        <div class="wheel-facet-row">
+            {% for facet in orderedFacets %}
+                {% include '@Number1CategoryProductPage/_wheel_facet.html.twig' with {facet: facet} only %}
+            {% endfor %}
+            {% if hasAdvanced %}
+                <label for="wheel-advanced-toggle" class="wheel-advanced-toggle-label">Advanced View</label>
+            {% endif %}
+        </div>
+
+        <div class="wheel-filter-actions">
+            <button class="catalog-search-btn" type="submit" form="catalog-search-form">Search</button>
+            <a class="catalog-reset-btn" href="{{ path('customer_catalog', selectedRegion ? {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView, 'region': selectedRegion} : {'ProductSearch[category_id]': activeCategoryId, 'ProductSearch[view]': currentView}) }}">Reset</a>
+        </div>
+    </div>
+{% endblock %}
+{% block catalog_filters %}{% endblock %}
+{% block catalog_products %}
+    {% if isListView %}
+        <div class="product-grid product-grid-market catalog-products is-list-view is-wheel-list-view" aria-label="Products">
+            {% include '@Number1CategoryProductPage/_wheel_products.html.twig' with {products: products, selectedRegion: selectedRegion, listColumns: listColumns|default([])} only %}
+        </div>
+    {% else %}
+        {{ parent() }}
+    {% endif %}
+{% endblock %}
+{#
+    Hides the "Filter By Category" button inherited from
+    customer/catalog/index.html.twig. Restore it by deleting this block —
+    the markup itself still lives in the parent template.
+#}
+{% block catalog_category_menu %}<!-- Filter By Category hidden on the wheel category page -->{% endblock %}

@@ -1,0 +1,24 @@
+{#
+  Why goods whose expiry date is already past, or closer than the minimum, are being accepted
+  (items 68, 69).
+
+  One partial, included from every place an expiry box is rendered, so the control cannot differ
+  between the two branches of `_receive_row.html.twig` the way the batch and serial boxes once did.
+
+  It is a text box and not a checkbox on purpose. A tick records that somebody clicked; the only
+  question asked about such a delivery a fortnight later is on what grounds it was taken, and a tick
+  answers none of it. ReceivingService refuses a line with this blank when its date is already past
+  OR inside the minimum shelf life, and records it as a `procurement_short_dated_receipt` row — with
+  this text, the person, and the figures — when it is not. ONE box for both findings, because it is
+  one decision about one pallet.
+
+  No `required` attribute, for the same reason nothing else on this form has one: the row may not be
+  being received at all, and `required` cannot say "only if" without JavaScript.
+#}
+<br><input type="text" id="{{ idx }}-short-dated-reason" name="{{ idx }}[short_dated_reason]" maxlength="255"
+           value="{{ row.short_dated_reason|default('') }}" placeholder="Reason, if expired or short-dated">
+<br><small>
+    Only needed if the expiry above is <strong>already past</strong>, or closer than the minimum shelf life
+    &mdash; you will be told which, and nothing is booked in until then. Recorded against the receipt with your
+    name on it.
+</small>

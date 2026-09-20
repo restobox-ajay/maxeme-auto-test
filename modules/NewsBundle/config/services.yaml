@@ -1,0 +1,19 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    NewsBundle\:
+        resource: '../src/'
+
+    NewsBundle\Hook\CatalogScrollerProvider:
+        tags: ['app.injection_point']
+
+    NewsBundle\Hook\LoginScrollerProvider:
+        tags: ['app.injection_point']
+
+    NewsBundle\Menu\NewsMenuItem:
+        tags: ['app.injection_point_menu_item']
+
+    NewsBundle\Bundle\NewsBundleDescriptor:
+        tags: ['app.bundle_descriptor']

@@ -1,0 +1,95 @@
+{% extends 'customer/_main/layout.html.twig' %}
+{% block title %}My API Key | {{ site_name() }}{% endblock %}
+{% block customer_body %}
+
+    <section class="order-detail-header customer-profile-header">
+        <h1>My API Key</h1>
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <a href="{{ path('customer_home') }}">Home</a>
+            <span aria-hidden="true">&rsaquo;</span>
+            <a href="{{ path('customer_profile') }}">My Profile</a>
+            <span aria-hidden="true">&rsaquo;</span>
+            <span>My API Key</span>
+        </nav>
+    </section>
+
+    {% for message in app.flashes('success') %}
+        <div class="alert success" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert error" style="margin-bottom: 14px;">{{ message }}</div>
+    {% endfor %}
+
+    <section class="table-card customer-company-profile-card">
+        <div class="table-header">
+            <h2>API Access</h2>
+        </div>
+        <div class="customer-company-profile-body">
+
+            {# The two admin gates, reported separately: "your company has no API access" and "you
+               personally have not been given API access" are different problems with different
+               people to ask about them, so they must not collapse into one message. #}
+            {% if not companyEnabled %}
+                <div class="alert info">
+                    API access is not enabled for your company. Please contact support if you need it.
+                </div>
+            {% elseif not userEnabled %}
+                <div class="alert info">
+                    API access is not enabled for your account. Your company has API access, so ask
+                    an administrator to enable it for you.
+                </div>
+            {% else %}
+                <p>
+                    This key is yours alone. It acts as <strong>you</strong> — it can see and do
+                    exactly what you can see and do on this site, and nothing more. Nobody else at
+                    your company can view, regenerate or revoke it, and you cannot manage theirs.
+                </p>
+
+                {% if credential and credential.active %}
+                    <div class="form-grid">
+                        <label class="span-2">Your key
+                            <input class="form-control" value="{{ credential.apiKey }}" readonly onclick="this.select()">
+                        </label>
+                    </div>
+                    <p class="muted">
+                        Created {{ credential.createdAt|date('M j, Y') }}.
+                        Last used {{ credential.lastUsedAt ? credential.lastUsedAt|date('M j, Y g:i A') : 'never' }}.
+                    </p>
+
+                    <p class="muted">
+                        Send it as an <code>X-Api-Key</code> header — never in the URL, where it
+                        would end up in browser history and server logs:
+                    </p>
+                    <pre>curl -H "X-Api-Key: {{ credential.apiKey }}" {{ absolute_url(path('api_v1_product_list')) }}</pre>
+
+                    <div class="customer-company-profile-actions">
+                        <form method="post" action="{{ path('customer_api_key_generate') }}" class="ccu-inline-form">
+                            {{ csrf_field() }}
+                            {# See company_user/api_access.html.twig: a modifier-less .button is the
+                               ghost style and renders as plain grey text, which is the wrong
+                               affordance for something that invalidates the key on the same page. #}
+                            <button class="button info" type="submit">Regenerate</button>
+                        </form>
+                        <form method="post" action="{{ path('customer_api_key_revoke') }}" class="ccu-inline-form">
+                            {{ csrf_field() }}
+                            <button class="button outline danger" type="submit">Revoke</button>
+                        </form>
+                    </div>
+                    <p class="muted">Regenerating or revoking stops the current key working immediately.</p>
+                {% else %}
+                    <p class="muted">
+                        {{ credential ? 'Your key is revoked. Generate a new one to use the API again.' : 'You do not have an API key yet.' }}
+                    </p>
+                    <div class="customer-company-profile-actions">
+                        <form method="post" action="{{ path('customer_api_key_generate') }}">
+                            {{ csrf_field() }}
+                            <button class="button primary" type="submit">Generate API Key</button>
+                        </form>
+                    </div>
+                {% endif %}
+            {% endif %}
+
+        </div>
+    </section>
+
+{% endblock %}

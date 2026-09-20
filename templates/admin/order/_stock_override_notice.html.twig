@@ -1,0 +1,12 @@
+{# The paragraph inside the order's "Sold beyond stock" alert. A template rather than a string
+   parameter of sales_detail_stock_override_panel.html.twig because it carries its own markup —
+   see that partial's `noticeTemplate` note.
+
+   Parameters
+   ----------
+   count  required  how many lines on this order were sold past what the region had. #}
+<strong>{{ count }} line(s) on this order were sold for more than the region
+had available.</strong> That is a decision somebody took, not a mistake the system let through:
+the figures below are what they were shown at the time, and the reason is what they gave for
+going ahead. The figures are a <em>snapshot</em> &mdash; availability moves every time anything
+sells or arrives, and this row has to go on saying what the call was actually made against.

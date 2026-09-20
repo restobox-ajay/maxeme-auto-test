@@ -1,0 +1,122 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ return ? 'Edit ' ~ return.documentNumber : 'New vendor return' }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'vendor_returns',
+        heading: return ? 'Edit ' ~ return.documentNumber : 'New vendor return',
+        lead: receipt
+            ? 'Raised against receipt ' ~ receipt.receiptNumber ~ ', from ' ~ receipt.vendor.name ~ '.'
+            : 'A return with no receipt named — an ordinary case when nobody has pulled up which delivery the goods arrived on.'
+    } only %}
+
+    {# Queue item 51: the id in this screen's URL named a parent that does not exist. Loud, in the
+       page, above the form it is about. #}
+    {% include 'admin/_partials/bad_parent_notice.html.twig' with {parents: badParents} only %}
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_procurement_vendor_return_save') }}">
+            {{ csrf_field() }}
+            {# The posted id is what reaches the save's update branch. It used to be a hard-coded 0,
+               so every post was a create and the branch below it had no caller at all. #}
+            <input type="hidden" name="id" value="{{ return ? return.id : 0 }}">
+            <input type="hidden" name="goods_receipt_id" value="{{ receipt ? receipt.id : '' }}">
+
+            <div class="form-grid">
+                <label>Vendor
+                    <select name="vendor_id" required{{ receipt ? ' disabled' : '' }}>
+                        {% for v in vendors %}
+                            <option value="{{ v.id }}"{{ vendor and vendor.id == v.id ? ' selected' : '' }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if receipt %}<input type="hidden" name="vendor_id" value="{{ vendor.id }}">{% endif %}
+                </label>
+                <label class="full-width">Reason <input type="text" name="reason" maxlength="255" value="{{ return ? return.reason : '' }}" placeholder="Overstock, wrong item shipped, quality issue…"></label>
+                <label class="span-2">Internal notes <textarea name="notes" rows="2" placeholder="The vendor's RMA number, who authorised it by phone…">{{ return ? return.notes : '' }}</textarea></label>
+            </div>
+
+            <h2>What is going back</h2>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Product</th><th>Description</th><th>SKU</th><th>Qty</th><th>Reason</th></tr></thead>
+                <tbody>
+                    {% if return %}
+                        {# Editing: the document's own lines, with what it already says. The receipt
+                           line each row came off travels with it, so re-saving a draft does not
+                           quietly forget which delivery is going back. #}
+                        {% for line in return.lines %}
+                            <tr>
+                                <td>{{ include('@Procurement/_product_field.html.twig', {
+                                    field: 'lines[' ~ loop.index0 ~ '][product_id]',
+                                    products: productOptions,
+                                    remote: productsRemote,
+                                    selected: line.product,
+                                    vendorId: vendor ? vendor.id : null,
+                                    label: 'Product for line ' ~ loop.index0,
+                                }) }}
+                                    {% if line.goodsReceiptLine %}
+                                        <input type="hidden" name="lines[{{ loop.index0 }}][goods_receipt_line_id]" value="{{ line.goodsReceiptLine.id }}">
+                                    {% endif %}
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}" maxlength="255"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}" maxlength="80"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][quantity]" inputmode="decimal" value="{{ line.quantity }}"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][reason]" value="{{ line.reason }}"></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = return.lines|length %}
+                    {% elseif receipt %}
+                        {% for line in receipt.lines %}
+                            <tr>
+                                <td>{{ include('@Procurement/_product_field.html.twig', {
+                                field: 'lines[' ~ loop.index0 ~ '][product_id]',
+                                products: productOptions,
+                                remote: productsRemote,
+                                selected: line.product,
+                                vendorId: vendor ? vendor.id : null,
+                                label: 'Product for line ' ~ loop.index0,
+                            }) }}
+                                    {# The row the goods arrived on. The form already had it in its
+                                       hand — it is looping the receipt's lines to draw this table —
+                                       and used to drop it, which is why no return could say which of
+                                       three deliveries of the same SKU is going back. #}
+                                    <input type="hidden" name="lines[{{ loop.index0 }}][goods_receipt_line_id]" value="{{ line.id }}">
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ line.name }}" maxlength="255"></td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][sku]" value="{{ line.sku }}" maxlength="80"></td>
+                                <td>
+                                    <input type="number" step="0.01" min="0" max="{{ line.quantity }}" name="lines[{{ loop.index0 }}][quantity]" value="0.00">
+                                    <small>{{ line.quantity }} received</small>
+                                </td>
+                                <td><input type="text" name="lines[{{ loop.index0 }}][reason]"></td>
+                            </tr>
+                        {% endfor %}
+                        {% set spare = receipt.lines|length %}
+                    {% else %}
+                        {% set spare = 0 %}
+                    {% endif %}
+                    {% for blank in 1..5 %}
+                        {% set index = spare + blank - 1 %}
+                        <tr>
+                            <td>{{ include('@Procurement/_product_field.html.twig', {
+                                field: 'lines[' ~ index ~ '][product_id]',
+                                products: productOptions,
+                                remote: productsRemote,
+                                selected: null,
+                                vendorId: vendor ? vendor.id : null,
+                                label: 'Product for new line ' ~ blank,
+                            }) }}</td>
+                            <td><input type="text" name="lines[{{ index }}][name]" maxlength="255"></td>
+                            <td><input type="text" name="lines[{{ index }}][sku]" maxlength="80"></td>
+                            <td><input type="text" name="lines[{{ index }}][quantity]" inputmode="decimal"></td>
+                            <td><input type="text" name="lines[{{ index }}][reason]"></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+
+            <div class="form-actions">
+                <button class="button primary" type="submit">{{ return ? 'Save changes' : 'Raise return' }}</button>
+                <a class="button back-button" href="{{ return ? path('admin_bundle_procurement_vendor_return', {id: return.id}) : path('admin_bundle_procurement_vendor_returns') }}">Back</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

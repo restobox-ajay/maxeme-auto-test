@@ -1,0 +1,32 @@
+{# The Payment Status row of a sell-side document's Info card.
+
+   Small, and the highest-correctness thing on this screen to have exactly one copy of: it is the
+   one field where the badge's COLOUR is the answer. Paid is a green `badge success`; everything
+   else — Unpaid, Partially Paid, Overdue, and any status added later — is the same red
+   `badge danger-soft`, which is what both screens already did and what makes an unpaid document
+   findable by eye down a page of grey fields.
+
+   Two callers. The ORDER's value is rolled up from its invoices (OrderPaymentRollup): since #539
+   stage 4 the order carries no payment status of its own, because money is the invoice's
+   question. The INVOICE's is derived from its own payment rows. Two different derivations of one
+   vocabulary, which is why the value is passed in and never reached for here.
+
+   The quote has no such row and never will: nothing is owed on a document nobody has accepted.
+
+   Deliberately NOT the document-status badge beside it. That one is `js-order-status-badge` on
+   the order — the hook the status modal writes the new value into — and `badge order-status
+   order-status-<key>` on the invoice and the quote, and it is out of scope pending the wider
+   status overhaul.
+
+   Parameters
+   ----------
+   value  required  the payment status as a plain string — PaymentStatus::value, never the enum,
+                    so the two callers hand over the same kind of thing. #}
+<div class="detail-row">
+    <label>Payment Status:</label>
+    {% if value == 'Paid' %}
+        <span class="badge success">Paid</span>
+    {% else %}
+        <span class="badge danger-soft" style="color:#e11d48; background:#fff1f2;">{{ value }}</span>
+    {% endif %}
+</div>

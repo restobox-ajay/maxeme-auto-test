@@ -1,0 +1,66 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Cycle Count | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'count',
+        heading: 'Cycle Count',
+        lead: 'Count a bin, enter what was actually found, and the differences are written as adjustment movements with the count as the reason. A discrepancy is a movement like any other — there is no separate reconciliation table to go and look in.'
+    } only %}
+
+    <section class="panel">
+        <form method="get" class="form-grid">
+            <label>Bin
+                <select name="bin" onchange="this.form.submit()">
+                    <option value="0">Choose a bin…</option>
+                    {% for b in bins %}
+                        <option value="{{ b.id }}"{{ bin and bin.id == b.id ? ' selected' : '' }}>{{ b.warehouse.name }} — {{ b.code }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="form-actions"><button class="button" type="submit">Open</button></div>
+        </form>
+    </section>
+
+    {% if bin %}
+        <section class="table-card no-paginate">
+            <form method="post" action="{{ path('admin_bundle_inventory_depth_cycle_count_submit') }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="bin_id" value="{{ bin.id }}">
+
+                <div class="wide-table-wrap"><table class="admin-grid-table">
+                    <thead><tr><th>Product</th><th>Lot (code and expiry)</th><th>Serial</th><th>System says</th><th>Found</th></tr></thead>
+                    <tbody>
+                    {% for row in rows %}
+                        <tr class="data-item-row">
+                            <td data-label="Product">{{ row.product.sku ?: row.product.name }}</td>
+                            <td data-label="Lot">{{ row.lot ? row.lot.label : '—' }}</td>
+                            <td data-label="Serial">{{ row.serial ?: '—' }}</td>
+                            <td data-label="System says"><strong>{{ row.quantity }}</strong></td>
+                            <td data-label="Found">
+                                <input type="number" name="counted[{{ row.id }}]" min="0" step="1" value="{{ row.quantity }}">
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell">
+                            <strong>{{ bin.code }} holds nothing the system knows about.</strong>
+                            <span>Anything actually on this shelf is a surplus — record it through Stock Adjustment.</span>
+                        </td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+
+                <div class="form-grid">
+                    <label>Reference <input type="text" name="reference" maxlength="160" placeholder="Count sheet number"></label>
+                </div>
+
+                <div class="table-footer">
+                    <button class="button primary" type="submit">Record count</button>
+                </div>
+            </form>
+            <p class="lead">
+                A count that agrees writes nothing at all — a movement group recording "nothing moved" would bury the
+                counts that did find something.
+            </p>
+        </section>
+    {% endif %}
+{% endblock %}

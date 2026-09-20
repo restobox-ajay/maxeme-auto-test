@@ -1,0 +1,36 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    WarehouseOpsBundle\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Label/LabelSpec.php'
+            - '../src/Label/LabelTemplate.php'
+            - '../src/Pick/CompiledPickList.php'
+            - '../src/Pick/PickConfirmation.php'
+            - '../src/Pick/PickConfirmationException.php'
+            - '../src/Pick/PickSource.php'
+            - '../src/Pick/PickShipmentException.php'
+            - '../src/Scan/ScanMatch.php'
+            - '../src/Transfer/TransferException.php'
+            - '../src/WarehouseOpsBundle.php'
+
+    WarehouseOpsBundle\Bundle\WarehouseOpsBundleDescriptor:
+        tags: ['app.bundle_descriptor']
+
+    # The sidebar. This bundle's seven screens used to be seven `app.injection_point_menu_item`
+    # services here, appending flat lines under a "Warehouse" heading at the bottom of the Apps
+    # group. They now come from one provider on core's admin-menu seam (#439/#440), which makes
+    # Warehouse a REAL top-level group with the screens as children — see
+    # WarehouseOpsBundle\Menu\WarehouseOpsMenuOverrideProvider for the labels, routes and order
+    # (the negated old tag priorities), and for why BarcodeBundle declares the same group.
+    WarehouseOpsBundle\Menu\WarehouseOpsMenuOverrideProvider:
+        tags: ['app.admin_menu_override_provider']
+
+    # #706: this module's answer to core's InboundTransferResolver, discovered purely by tag — the
+    # reorder engine (InventoryDepthBundle) never imports this class or any other of this module's.
+    WarehouseOpsBundle\Hook\InboundTransferProvider:
+        tags: ['app.inbound_transfer_provider']

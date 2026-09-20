@@ -1,0 +1,71 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Release backorder {{ order.number }} | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Backorders</p>
+                <h1>{{ order.number }}</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_backorder_index') }}">Back</a>
+                <a class="button" href="{{ path('admin_order_detail', {id: order.id}) }}">Open order</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel admin-flat-panel">
+        <form method="post" action="{{ path('admin_backorder_release', {id: order.id}) }}">
+            {{ csrf_field() }}
+            <table class="admin-grid-table data-table">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Warehouse</th>
+                        <th>Ordered</th>
+                        <th>Fulfilled</th>
+                        <th>Still backordered</th>
+                        <th>Releasable now</th>
+                        <th>Restock ETA</th>
+                        <th>Release</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>{{ row.sku }}<br><small>{{ row.name }}</small></td>
+                            <td>{{ row.warehouse }}</td>
+                            <td>{{ row.ordered|qty }}</td>
+                            <td>{{ row.fulfilled|qty }}</td>
+                            <td>{{ row.backordered|qty }}</td>
+                            <td>{{ row.available|qty }}</td>
+                            <td>{{ row.restockEta ? row.restockEta|date('Y-m-d') : '-' }}</td>
+                            <td>
+                                {# Defaulted to everything coverable, capped at what is outstanding.
+                                   The max attribute is a courtesy: the amount is re-checked against
+                                   live numbers on submit, because availability moves between the
+                                   page load and the press of the button. #}
+                                <input type="number" name="release[{{ row.entryId }}]" min="0" step="{{ qty_step() }}"
+                                       max="{{ row.suggested }}" value="{{ row.suggested }}"
+                                       aria-label="Units to release for {{ row.sku }}">
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="empty-table-cell">
+                                <strong>Nothing on this order is waiting for stock.</strong>
+                                <span>Every line has been fulfilled or released.</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if rows|length %}
+                <div class="form-actions">
+                    <button type="submit" class="button primary-button">Release stock</button>
+                </div>
+            {% endif %}
+        </form>
+    </section>
+{% endblock %}

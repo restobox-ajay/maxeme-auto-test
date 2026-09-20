@@ -1,0 +1,54 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Database Console | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Database Console</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_settings') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for message in app.flashes('success') %}<div class="alert success">{{ message }}</div>{% endfor %}
+    {% for message in app.flashes('error') %}<div class="alert error">{{ message }}</div>{% endfor %}
+
+    <section class="form-card">
+        <p>
+            <strong>Status:</strong>
+            {% if enabled %}
+                <span class="badge">On</span>
+                <span class="muted">switches itself off in about {{ remainingMinutes }} minute{{ remainingMinutes == 1 ? '' : 's' }}</span>
+            {% else %}
+                <span class="badge danger-soft">Off</span>
+            {% endif %}
+        </p>
+
+        <p class="muted">
+            This exposes every table, including customer data and password hashes. Switching it on emails
+            a security alert and writes an audit entry naming you and your IP address. The console is then
+            reachable only from that same IP, and only until the window lapses — so leaving it on by
+            accident closes itself.
+        </p>
+
+        <div class="form-actions" style="gap:10px;">
+            <form method="post" action="{{ path('admin_db_enable') }}">
+                {{ csrf_field() }}
+                <button class="button primary" type="submit">
+                    {{ enabled ? 'Extend by ' ~ windowMinutes ~ ' minutes' : 'Switch on for ' ~ windowMinutes ~ ' minutes' }}
+                </button>
+            </form>
+
+            {% if enabled %}
+                {# rel="noopener" because the console opens in a new tab and must not get a handle back
+                   to this window. #}
+                <a class="button" href="{{ path('admin_db_open') }}" target="_blank" rel="noopener">Open Console</a>
+            {% endif %}
+        </div>
+    </section>
+
+{% endblock %}

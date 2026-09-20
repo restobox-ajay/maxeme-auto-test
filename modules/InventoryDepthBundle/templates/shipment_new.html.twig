@@ -1,0 +1,135 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Record a Shipment | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'shipments',
+        heading: 'Record a shipment',
+        lead: 'How much of each invoice line shipped, and on a tracked line, which real lot or serial — picked here, against what is actually on the shelf right now.'
+    } only %}
+
+    <section class="panel">
+        <h2>Invoices on this shipment</h2>
+        <p class="lead">
+            Add every invoice this shipment covers. A combined shipment may carry lines from more than one invoice, as
+            long as every one of them bills the same company — the first invoice added fixes which company.
+        </p>
+        <form method="get" action="{{ path('admin_bundle_inventory_depth_shipment_new') }}" class="form-grid">
+            {% for row in invoiceRows %}
+                <input type="hidden" name="invoice[]" value="{{ row.id }}">
+            {% endfor %}
+            <label>Invoice number
+                <input type="text" name="invoice_number" placeholder="INV-1234" autofocus>
+            </label>
+            <button class="button" type="submit">Add invoice</button>
+        </form>
+
+        {% if invoiceRows is not empty %}
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr><th>Invoice</th><th>Company</th><th>State</th><th>Row</th></tr></thead>
+                <tbody>
+                {% for row in invoiceRows %}
+                    <tr class="data-item-row{{ not row.included ? ' is-oversold' : '' }}">
+                        <td data-label="Invoice">{{ row.invoice ? row.invoice.documentNumber : ('#' ~ row.id ~ ' (no longer exists)') }}</td>
+                        <td data-label="Company">{{ row.invoice ? row.invoice.company.name : '—' }}</td>
+                        <td data-label="State">
+                            {% if not row.invoice %}
+                                Not found
+                            {% elseif row.included %}
+                                Included
+                            {% else %}
+                                Skipped — different company than {{ company ? company.name : 'the first invoice' }}
+                            {% endif %}
+                        </td>
+                        <td data-label="Row">
+                            <a class="table-action" href="{{ path('admin_bundle_inventory_depth_shipment_new', {invoice: row.removeIds}) }}">Remove</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+        {% endif %}
+    </section>
+
+    {% if lines is not empty %}
+        <section class="panel">
+            <h2>Lines still unshipped</h2>
+            <p class="lead">
+                A plain quantity defaults to the full remaining amount and may be fractional — leave it blank or zero
+                to skip a line for now.
+                A lot-tracked line shows every lot with real stock in this line's warehouse, FEFO-suggested, editable —
+                change which lot(s) and how much from each before submitting. A serial-tracked line lists every serial
+                actually available right now; tick the ones going on this shipment — the quantity is however many you
+                tick, never typed separately.
+            </p>
+            <form method="post" action="{{ path('admin_bundle_inventory_depth_shipment_create') }}" class="form-grid">
+                {{ csrf_field() }}
+                {% for row in invoiceRows %}
+                    {% if row.included %}<input type="hidden" name="invoice[]" value="{{ row.id }}">{% endif %}
+                {% endfor %}
+
+                {% for row in lines %}
+                    <fieldset class="panel compact-panel">
+                        <legend>
+                            {{ row.line.name }}{{ (row.line.sku or (row.line.product and row.line.product.sku)) ? ' (' ~ (row.line.sku ?: row.line.product.sku) ~ ')' : '' }}
+                            — {{ row.invoice.documentNumber }}, {{ row.remaining }} remaining
+                        </legend>
+
+                        {% if row.breakdown is null %}
+                            <label>Ship now
+                                {# step is the STORE'S configured quantity precision, from App\Service\QuantityScale
+                                   via DisplayNumber::qtyStep(). It was hardcoded 0.0001 here and "1" on the lot box
+                                   below — two different rounding rules living in HTML attributes, and the lot one
+                                   refused a fractional pick in the browser before the server ever saw it. #}
+                                <input type="number" step="{{ qty_step() }}" min="0" max="{{ row.remaining }}" name="lines[{{ row.line.id }}]" value="{{ row.remaining|qty }}">
+                            </label>
+                        {% elseif row.breakdown.type == 'lot' %}
+                            {% if row.breakdown.rows is empty %}
+                                <p class="lead"><strong>No lot has any stock in this line's warehouse right now.</strong> Nothing can be entered for it on this shipment.</p>
+                            {% else %}
+                                <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                                    <thead><tr><th>Lot</th><th>Available here</th><th>Ship from this lot</th></tr></thead>
+                                    <tbody>
+                                    {% for lotRow in row.breakdown.rows %}
+                                        <tr>
+                                            <td data-label="Lot">{{ lotRow.label }}</td>
+                                            <td data-label="Available here">{{ lotRow.available|qty }}</td>
+                                            <td data-label="Ship from this lot">
+                                                <input type="number" step="{{ qty_step() }}" min="0" max="{{ lotRow.available }}" name="allocations[{{ row.line.id }}][lot][{{ lotRow.lotId }}]" value="{{ lotRow.suggested|qty }}">
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table></div></div>
+                                <p class="lead">The lot quantities above must sum to exactly what's shipping for this line — the FEFO suggestion already does; change it and the total changes with it.</p>
+                            {% endif %}
+                        {% else %}
+                            {% if row.breakdown.serials is empty %}
+                                <p class="lead"><strong>No serial is available in this line's warehouse right now.</strong> Nothing can be entered for it on this shipment.</p>
+                            {% else %}
+                                <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                                    <thead><tr><th>Ship it</th><th>Serial</th></tr></thead>
+                                    <tbody>
+                                    {% for serial in row.breakdown.serials %}
+                                        <tr>
+                                            <td data-label="Ship it"><input type="checkbox" name="allocations[{{ row.line.id }}][serial][]" value="{{ serial }}"{{ loop.index0 < row.wholeUnits ? ' checked' : '' }}></td>
+                                            <td data-label="Serial">{{ serial }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table></div></div>
+                                <p class="lead">The quantity shipped for this line is however many serials are ticked — there is no separate number to enter.</p>
+                            {% endif %}
+                        {% endif %}
+                    </fieldset>
+                {% endfor %}
+
+                <label>Notes <textarea name="notes" rows="2"></textarea></label>
+                <button class="button primary" type="submit">Record shipment</button>
+            </form>
+        </section>
+    {% elseif invoiceRows is not empty %}
+        <section class="panel">
+            <p class="lead"><strong>Nothing left to ship</strong> on the invoice(s) added — every line is already fully covered by an earlier shipment.</p>
+        </section>
+    {% endif %}
+{% endblock %}

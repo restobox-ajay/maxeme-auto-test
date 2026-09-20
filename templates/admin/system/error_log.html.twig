@@ -1,0 +1,114 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Error Log | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">System</p>
+                <h1>Error Log</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
+    {% set routeQuery = {q: search|default(''), sort: currentSort|default('id'), dir: currentDir|default('desc'), limit: currentLimit} %}
+    <section class="table-card error-log-grid no-paginate" 
+             data-ajax-url="{{ path('admin_error_log') }}"
+             data-current-page="{{ currentPage }}"
+             data-per-page="{{ currentLimit }}"
+             data-total="{{ total }}"
+             data-pages="{{ pageCount }}">
+        <div class="table-scroll-region">
+        <div class="table-header">
+            <div class="table-tools">
+                <input class="table-search error-log-search" type="search" placeholder="Search errors..." aria-label="Search errors">
+                <button class="button primary js-error-log-search" type="button">Search</button>
+            </div>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="error-log-table">
+                <thead>
+                    <tr>
+                        <th data-sort-field="id">#</th>
+                        <th data-sort-field="createdAt">Created At</th>
+                        <th data-sort-field="method">Method</th>
+                        <th data-sort-field="summary">Summary</th>
+                        <th data-sort-field="message">Error Description</th>
+                        <th>IP</th>
+                        <th>User</th>
+                        <th>Meta Data</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" aria-label="Filter ID"></th>
+                        <th><input type="text" aria-label="Filter date"></th>
+                        <th><input type="text" aria-label="Filter method"></th>
+                        <th><input type="text" aria-label="Filter summary"></th>
+                        <th><input type="text" aria-label="Filter error description"></th>
+                        <th><input type="text" aria-label="Filter IP"></th>
+                        <th><input type="text" aria-label="Filter user"></th>
+                        <th><input type="text" aria-label="Filter meta data"></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in errors %}
+                        <tr>
+                            <td data-label="#">{{ error.id }}</td>
+                            <td data-label="Created At" class="log-date">{{ error.createdAt|date('Y-m-d H:i A') }}</td>
+                            <td data-label="Method"><span class="error-method">{{ error.method }}</span></td>
+                            <td data-label="Summary">{{ error.summary }}</td>
+                            <td data-label="Error Description">
+                                <div class="error-desc-cell">
+                                    <span class="error-file">{{ error.file }}</span>
+                                    {% if error.line %}<span class="error-line">Line: {{ error.line }}</span>{% endif %}
+                                    {% if error.message %}<span class="error-message">{{ error.message }}</span>{% endif %}
+                                </div>
+                            </td>
+                            <td data-label="IP">{{ error.ipAddress|default('') }}</td>
+                            <td data-label="User">
+                                <span class="badge">{{ error.userType|default('guest') }}</span>
+                                {% if error.userEmail %}
+                                    <span class="error-user-email">{{ error.userEmail }}{% if error.userId %} (#{{ error.userId }}){% endif %}</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Meta Data"><pre class="error-meta-preview">{{ error.metaData }}</pre></td>
+                            <td data-label="Actions" class="actions-cell">
+                                <a class="table-action info" href="{{ path('admin_error_detail', {id: error.id}) }}">View</a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-table-cell">
+                                <strong>No errors logged.</strong>
+                                <span>Application errors will appear here when they occur.</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            {% include 'admin/_table_count.html.twig' with {
+                count: errors|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_error_log',
+                routeQuery: routeQuery,
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+    </section>
+
+{% endblock %}

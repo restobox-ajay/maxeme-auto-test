@@ -1,0 +1,73 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Confirm Move | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'stock',
+        heading: 'Confirm move',
+        lead: 'Nothing has moved yet. Re-checked once more at confirm, in case any of this changed since this preview rendered.'
+    } only %}
+
+    <section class="panel">
+        <table class="admin-grid-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>From bin</th>
+                    <th>Lot</th>
+                    <th>Serial</th>
+                    <th>Quantity moving</th>
+                    <th>From bin after</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in lines %}
+                    {% set detail = line.detail %}
+                    <tr>
+                        <td data-label="Product">{{ detail.product.sku ?: detail.product.name }}</td>
+                        <td data-label="From bin">{{ detail.location ? detail.location.code : '—' }}</td>
+                        <td data-label="Lot">{{ detail.lot ? detail.lot.code : '—' }}</td>
+                        <td data-label="Serial">{{ detail.serial ?: '—' }}</td>
+                        <td data-label="Quantity moving">{{ line.qty|qty }}</td>
+                        <td data-label="From bin after">{{ (detail.quantity - line.qty)|qty }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if isTransfer %}
+            <p class="lead">
+                Different warehouses, so this is recorded as a warehouse transfer from
+                <strong>{{ sourceWarehouse.name }}</strong> to <strong>{{ toWarehouse.name }}</strong>:
+                a new transfer order, one line per row above, naming that row's own exact lot and serial.
+            </p>
+            <p class="lead">
+                <strong>{{ travelModeLabel }}</strong>{% if travelMode == 'send_and_receive' %} — dispatched and
+                received in this same step, landing in {{ toBin ? toBin.code : 'no bin (put away later)' }} at
+                {{ toWarehouse.name }}.{% else %} — dispatched now; stock sits in transit until received
+                separately from the Transfers screen.{% endif %}
+            </p>
+        {% else %}
+            <p class="lead" id="move-destination-summary">
+                Destination <strong>{{ toBin.code }}</strong> ({{ warehouse.name }}):
+                {{ destinationBefore|qty }} → {{ destinationAfter|qty }}.
+                No document is created — a move within one warehouse changes no bucket, only which bin the units sit in.
+            </p>
+        {% endif %}
+
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_move_confirm') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="op_id" value="{{ opId }}">
+            <input type="hidden" name="destination" value="{{ toBin ? 'bin:' ~ toBin.id : 'warehouse:' ~ toWarehouse.id }}">
+            {% if isTransfer %}
+                <input type="hidden" name="travel_mode" value="{{ travelMode }}">
+            {% endif %}
+            {% for line in lines %}
+                <input type="hidden" name="qty[{{ line.detail.id }}]" value="{{ line.qty }}">
+            {% endfor %}
+            <div class="form-actions">
+                <button class="button primary" type="submit">Confirm move</button>
+                <a class="button" href="{{ path('admin_bundle_warehouse_ops_stock') }}">Cancel, change nothing</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

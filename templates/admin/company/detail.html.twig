@@ -1,0 +1,265 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Customer Detail | Admin{% endblock %}
+{% block admin_body %}
+
+    <section class="company-detail-titlebar">
+        <div>
+            <h1>{{ company.name }}</h1>
+        </div>
+        <div class="company-detail-actions">
+            <a class="button back-button" href="{{ path('admin_company_index') }}">Back</a>
+            <a class="button outline" href="{{ path('admin_company_update', {id: company.id}) }}">Edit</a>
+            {% if company.status == 'Inactive' %}
+                <button class="button primary js-company-status" type="button"
+                        data-action="activate"
+                        data-url="{{ path('admin_company_activate', {id: company.id}) }}"
+                        data-redirect="{{ path('admin_company_index') }}"
+                        data-item="{{ company.name }}">Activate</button>
+            {% else %}
+                <button class="button danger js-company-status" type="button"
+                        data-action="deactivate"
+                        data-url="{{ path('admin_company_deactivate', {id: company.id}) }}"
+                        data-redirect="{{ path('admin_company_index') }}"
+                        data-item="{{ company.name }}">Deactivate</button>
+            {% endif %}
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav" aria-label="Customer detail actions">
+        <a class="button is-current" href="{{ path('admin_company_detail_by_id', {id: company.id}) }}">View</a>
+        <a class="button" href="{{ path('admin_company_update', {id: company.id}) }}">Edit Profile</a>
+        <a class="button" href="{{ path('admin_company_address_book', {id: company.id}) }}">Address Book</a>
+        <a class="button" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+        <span class="company-action-more row-action-menu">
+            <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More customer actions"></button>
+            <span class="row-action-dropdown company-action-dropdown">
+                <a href="{{ path('admin_order_index', {OrderSearch: {company_id: company.id}}) }}">View Orders</a>
+                <a href="{{ path('admin_order_create', {OrderSearch: {company_id: company.id}}) }}">Create Order</a>
+            </span>
+        </span>
+    </nav>
+
+    <section class="company-detail-layout">
+        <div class="company-detail-main">
+            {# The customer's documents, behind subtabs. The panel header carries the tab strip so
+               that switching document type swaps only this card and leaves Company Details, Users
+               and Notes on screen — you never lose sight of whose documents you are reading. The
+               tabs are plain links carrying ?docs=, so the screen works with scripting off and each
+               tab has a URL of its own. Every per-tab difference (label, link route, empty state,
+               footer link) comes from CompanyController::DOCUMENT_TABS; nothing here branches on
+               which document type it is rendering. #}
+            <section class="table-card company-detail-card company-documents-card">
+                <div class="table-header">
+                    <h2>Documents</h2>
+                    <nav class="company-action-links company-document-subtabs" aria-label="Customer documents">
+                        {% for tab in documentTabs %}
+                            <a class="button{{ tab.current ? ' is-current' }}" href="{{ tab.url }}"
+                               {%- if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                {# `company-po-table` is kept verbatim: it is where app.css sets this table's column
+                   widths, and app.css is core and frozen. The class name now reads as the wrong
+                   kind of "PO" — rename it together with its CSS rule when core reopens. #}
+                <table class="company-po-table">
+                    <thead>
+                        <tr>
+                            {# Neutral headers: one table serves all three tabs. "Order Date" would be
+                               wrong on an invoice, and "ID" was always wrong — the cell holds the
+                               document's NUMBER, never its row id. #}
+                            <th>Date</th>
+                            <th>Number</th>
+                            <th># of Items</th>
+                            <th>User</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in documentRows %}
+                            <tr>
+                                <td data-label="Date">{{ row.date }}</td>
+                                <td data-label="Number"><a href="{{ path(documentRoute, {id: row.id}) }}">{{ row.number }}</a></td>
+                                <td data-label="# of Items">{{ row.items }}</td>
+                                <td data-label="User">{{ row.user }}</td>
+                                <td data-label="Amount">{{ row.amount }}</td>
+                                <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: row.status, loud: false} only %}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6" class="empty-table-cell"><span>{{ documentEmptyText }}</span></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {# JS (app.js) fills pagination/footer controls here; .table-footer-actions stays on the right #}
+                <div class="table-footer">
+                    <span class="table-count"></span>
+                    {# Only the Sales Orders tab has a list screen that can be filtered to THIS
+                       customer by id; see the reasoning on CompanyController::detail(). #}
+                    {% if documentListUrl is not null %}
+                        <div class="table-footer-actions">
+                            <a class="button outline" href="{{ documentListUrl }}">{{ documentListLabel }}</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="table-card company-detail-card">
+                <div class="table-header">
+                    <h2>Address Book</h2>
+                    <a class="button primary company-card-action" href="{{ path('admin_company_address_create', {id: company.id}) }}">Add Address</a>
+                </div>
+                <div class="wide-table-wrap">
+                    <table class="company-address-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Company Name</th>
+                                <th>Primary Email</th>
+                                <th>Secondary Email</th>
+                                <th>Fax Number</th>
+                                <th>Phone Number</th>
+                                <th>Address</th>
+                                <th>Default Shipping</th>
+                                <th>Default Billing</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for address in addresses %}
+                                <tr>
+                                    <td data-label="Name">{{ address.name }}</td>
+                                    <td data-label="Company Name">{{ address.company }}</td>
+                                    <td data-label="Primary Email">{{ address.email }}</td>
+                                    <td data-label="Secondary Email">{{ address.secondary }}</td>
+                                    <td data-label="Fax Number">{{ address.fax }}</td>
+                                    <td data-label="Phone Number">{{ address.phone }}</td>
+                                    <td data-label="Address">{{ address.address|replace({'\\n': "\n"})|nl2br }}</td>
+                                    <td data-label="Default Shipping">{% if address.shipping %}<span class="badge">{{ address.shipping }}</span>{% endif %}</td>
+                                    <td data-label="Default Billing">{% if address.billing %}<span class="badge">{{ address.billing }}</span>{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <aside class="company-detail-side">
+            <article class="card company-summary-card">
+                <h2>Customer Details</h2>
+                <div class="company-summary-body">
+                    <h3>{{ company.name }}</h3>
+                    <p><strong>Customer Name (registered):</strong> {{ company.name }}</p>
+                    <p><strong>Account Type:</strong> {{ company.accountType }}</p>
+                    <p><strong>Primary Email:</strong> {{ company.email }}</p>
+                    <p><strong>Phone Number:</strong> {{ company.phoneNumber|default('') ?: '-' }}</p>
+                    <p><strong>External ID:</strong> {{ company.code|default('') ?: '-' }}</p>
+                    {% set paymentTermName = '-' %}
+                    {% for term in paymentTerms|default([]) %}
+                        {% if term.id == company.paymentTermId %}{% set paymentTermName = term.name %}{% endif %}
+                    {% endfor %}
+                    <p><strong>Payment Term:</strong> {{ paymentTermName }}</p>
+                    <p><strong>Sales Rep:</strong> {{ company.salesRepUserName|default('') ?: 'Unassigned' }}</p>
+                    {% if company.salesRepNote|default('') %}
+                        <p><strong>Entered at registration:</strong> "{{ company.salesRepNote }}"</p>
+                    {% endif %}
+                    {% set creditLimit = company.creditLimit|default('') %}
+                    <p>
+                        <strong>Credit Limit:</strong>
+                        {{ creditLimit ? '$' ~ creditLimit|amount : 'No limit' }}
+                    </p>
+                    {% if creditExposure is defined %}
+                        <p>
+                            <strong>Outstanding Balance:</strong>
+                            <span{% if creditLimit and creditExposure > creditLimit %} style="color:#e11d48;"{% endif %}>${{ creditExposure|amount }}</span>
+                            {% if creditLimit and creditExposure > creditLimit %}
+                                <span class="badge danger">Over limit</span>
+                            {% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="table-card company-detail-card no-search">
+                <div class="table-header">
+                    <h2>Users <span class="badge">{{ users|length }}</span></h2>
+                    <a class="button primary company-card-action" href="{{ path('admin_company_user_create', {id: company.id}) }}">Add User</a>
+                </div>
+                <table class="admin-grid-table">
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td data-label="Name">{{ user.name }}</td>
+                                <td data-label="Email">{{ user.email }}</td>
+                                <td data-label="Status"><span class="badge {{ user.status == 'Invited' ? 'warn' : '' }}">{{ user.status }}</span></td>
+                                <td data-label="Type">{{ user.type }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+
+            <article class="notes-card panel">
+                <div class="notes-card-head">
+                    <div>
+                        <h2>Notes</h2>
+                        <p>Only admin can see these. The customer cannot see these notes.</p>
+                    </div>
+                    <button class="button primary js-note-modal-open" type="button">Add Note</button>
+                </div>
+                <div class="notes-list" data-company-id="{{ company.id }}">
+                    {% if notes is not empty %}
+                        {% for entry in notes %}
+                            <div class="note-entry" data-id="{{ entry.id }}" data-note="{{ entry.note|e('html_attr') }}">
+                                <div class="note-entry-body">
+                                    {# No literal-\n unescaping any more: a note is a row, so a newline
+                                       in its text is just a newline. The old packed format converted
+                                       them to a visible "\n" on the way in to protect its one-entry-
+                                       per-line encoding, and this had to convert them back (#358). #}
+                                    <span class="note-entry-text">{{ entry.note|nl2br }}</span>
+                                    <span class="note-entry-date">{{ entry.date }}{% if entry.author %} — {{ entry.author }}{% endif %}</span>
+                                </div>
+                                <div class="note-entry-actions">
+                                    <button class="table-action js-note-edit" type="button">Edit</button>
+                                    <button class="table-action danger js-note-delete" type="button"
+                                        data-url="{{ path('admin_company_note_delete', {id: company.id}) }}"
+                                        data-id="{{ entry.id }}">Delete</button>
+                                </div>
+                                <button class="note-delete js-note-delete" type="button"
+                                    data-url="{{ path('admin_company_note_delete', {id: company.id}) }}"
+                                    data-id="{{ entry.id }}"
+                                    aria-label="Delete note">×</button>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="notes-empty">No notes yet.</p>
+                    {% endif %}
+                </div>
+                <div class="notes-add">
+                    <p class="notes-add-label">Add Note</p>
+                    <form class="notes-form" method="post" action="{{ path('admin_company_note_add', {id: company.id}) }}">
+                        {{ csrf_field() }}
+                        <input type="text" name="note" placeholder="Type a note…" autocomplete="off" required>
+                        <button class="button primary" type="submit">Save</button>
+                    </form>
+                </div>
+            </article>
+        </aside>
+    </section>
+
+    <div class="modal-backdrop note-modal" hidden>
+        <form class="modal-card note-modal-card" method="post" action="{{ path('admin_company_note_add', {id: company.id}) }}" data-create-action="{{ path('admin_company_note_add', {id: company.id}) }}" data-update-action="{{ path('admin_company_note_update', {id: company.id}) }}" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+            {{ csrf_field() }}
+            <h2 id="note-modal-title" data-create-title="{{ company.name }} - Create Note" data-edit-title="{{ company.name }} - Edit Note">{{ company.name }} - Create Note</h2>
+            <input class="note-modal-id" type="hidden" name="id" value="">
+            <label class="note-modal-field">
+                <span>Note</span>
+                <textarea class="note-modal-input" name="note" rows="5" required></textarea>
+            </label>
+            <div class="modal-actions">
+                <button class="button primary js-note-save" type="submit" data-create-label="Create" data-edit-label="Save">Create</button>
+                <button class="button outline js-note-modal-close" type="button">Close</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+

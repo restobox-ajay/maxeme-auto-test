@@ -1,0 +1,74 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Shipments | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@InventoryDepth/_nav.html.twig' with {
+        current: 'shipments',
+        heading: 'Shipments',
+        lead: 'What actually left the building, against one or more invoices for one customer. Recording a shipment never changes the invoice\'s reservation hold — approved/shipped already moved when the invoice reached Completed.',
+        createPath: path('admin_bundle_inventory_depth_shipment_new'),
+        createLabel: 'Record a shipment'
+    } only %}
+
+    <section class="table-card no-paginate">
+        <form method="get" id="shipments-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_shipments', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Shipment</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'company' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_shipments', {filters: filters, limit: limit, page: 1, sort: 'company', dir: currentSort == 'company' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Company</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'shippedAt' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_inventory_depth_shipments', {filters: filters, limit: limit, page: 1, sort: 'shippedAt', dir: currentSort == 'shippedAt' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Shipped</a>
+                        </th>
+                        <th>Lines</th>
+                        <th>State</th>
+                        <th>Row</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[number]" form="shipments-filters" value="{{ filters.number }}" placeholder="Shipment number" aria-label="Filter shipment number"></th>
+                        <th><input type="text" name="filters[company]" form="shipments-filters" value="{{ filters.company }}" placeholder="Company" aria-label="Filter company"></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_inventory_depth_shipments') }}">Reset</a>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr class="data-item-row{{ row.voided ? ' is-oversold' : '' }}">
+                        <td data-label="Shipment"><a href="{{ path('admin_bundle_inventory_depth_shipment_show', {id: row.id}) }}">{{ row.shipmentNumber }}</a></td>
+                        <td data-label="Company">{{ row.company.name }}</td>
+                        <td data-label="Shipped">{{ row.shippedAt ? row.shippedAt|date('Y-m-d H:i') : '—' }}</td>
+                        <td data-label="Lines">{{ row.lines|length }}</td>
+                        <td data-label="State">{{ row.voided ? 'Voided' : 'Recorded' }}</td>
+                        <td data-label="Row"><a class="table-action" href="{{ path('admin_bundle_inventory_depth_shipment_show', {id: row.id}) }}">View</a></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-table-cell"><strong>No shipments match.</strong></td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div></div>
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'shipments'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="shipments-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_inventory_depth_shipments',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{# The order's own facts, in sell_side_pdf_document.html.twig's left meta column.
+   Rendered with {order}. #}
+<p><strong>Order number:</strong> <span style="color:#408dfb;">{{ order.orderNumber }}</span></p>
+<p><strong>Order date:</strong> {{ order.documentDate }}</p>
+<p><strong>Order status:</strong> {{ order.status }}</p>
+{# The customer as they were when the order was taken, from the order's own identity snapshot —
+   never a live company lookup, or a document reprinted after a rebrand would name a customer who
+   did not place it. #}
+<p><strong>Customer:</strong> {{ order.companyIdentity.name }}</p>
+<p><strong>Customer number:</strong> {{ order.company.id }}</p>
+<p><strong>Purchase order:</strong> {{ order.poNumber|default('-') }}</p>
+<p><strong>Ordered by:</strong> {{ order.userName|default('-') }}</p>
+<p><strong>Payment terms:</strong> {{ order.paymentTerm|default('No payment terms') }}</p>

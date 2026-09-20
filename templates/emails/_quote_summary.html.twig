@@ -1,0 +1,158 @@
+{% set billing = estimate.effectiveBillingAddress %}
+{% set shipping = estimate.effectiveShippingAddress %}
+{# Shipping rows are fee rows, but they are named on their own line in the totals below, so the
+   main_line total and the item loop both leave them out. #}
+{% set feeLinesMainTotal = 0 %}
+{% for feeLine in fee_lines %}
+    {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+        {% set feeLinesMainTotal = feeLinesMainTotal + feeLine.amount %}
+    {% endif %}
+{% endfor %}
+
+<div class="quote-number-box" style="margin-bottom: 22px;">
+    <p style="margin: 0 0 6px 0; font-weight: 800; color: #0f172a; font-size: 16px;">Quote Number #{{ estimate.documentNumber }}</p>
+    <p style="margin: 0; font-size: 12.5px; color: #64748b;">Placed on {{ estimate.createdAt|date('F j, Y') }}</p>
+</div>
+
+<p class="detail-heading">Company Details</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="detail-table">
+    <tr><td class="detail-label">Company Name</td><td class="detail-value">{{ estimate.companyIdentity.name|default('-') }}</td></tr>
+    {% if estimate.companyIdentity.tradeName %}<tr><td class="detail-label">DBA/Tradename</td><td class="detail-value">{{ estimate.companyIdentity.tradeName }}</td></tr>{% endif %}
+    {% if estimate.companyIdentity.email %}<tr><td class="detail-label">Email</td><td class="detail-value">{{ estimate.companyIdentity.email }}</td></tr>{% endif %}
+    {% if estimate.companyIdentity.phone %}<tr><td class="detail-label">Phone number</td><td class="detail-value">{{ estimate.companyIdentity.phone }}</td></tr>{% endif %}
+    {# Live on purpose, unlike the four rows above: this is who to call about the quote now,
+       not a record of who was named on it. It is also the only place the company's contact
+       person is rendered anywhere in the app. #}
+    {% set contactName = ((estimate.company.firstName ?: '') ~ ' ' ~ (estimate.company.lastName ?: ''))|trim %}
+    {% if contactName %}<tr><td class="detail-label">Contact Person</td><td class="detail-value">{{ contactName }}</td></tr>{% endif %}
+</table>
+
+{#
+    border-collapse/width/margin and the billing column's padding-right are duplicated as inline
+    styles below, not just the addr-table/addr-box-left classes in layout.html.twig: Gmail webmail
+    scopes <style>-block rules to a per-message class hash, and has been seen serving a stale,
+    previously-cached version of a class's rules under that same hash (the exact border-spacing
+    layout this replaced, #412) rather than the current one. Inline styles aren't subject to that
+    scoping/caching, so they win regardless of whether the <style> block behaves.
+#}
+<table role="presentation" cellpadding="0" cellspacing="0" class="addr-table" style="border-collapse: collapse; width: 100%; margin: 0 0 22px;">
+    <tr>
+        <td class="addr-box addr-box-left" style="padding-right: 12px;">
+            <h4>Billing Address</h4>
+            {% if billing %}
+                <p class="addr-name">{{ ((billing.firstName ?: '') ~ ' ' ~ (billing.lastName ?: ''))|trim ?: (estimate.billingName ?: estimate.companyIdentity.name) }}</p>
+                {% if billing.addressLine1 %}<p>{{ billing.addressLine1 }}</p>{% endif %}
+                {% if billing.addressLine2 %}<p>{{ billing.addressLine2 }}</p>{% endif %}
+                <p>{{ billing.city ?: '' }}{% if billing.province %}, {{ billing_province_name }}{% endif %}</p>
+                <p>{{ billing.country ?: '' }}{% if billing.postalCode %}, {{ billing.postalCode }}{% endif %}</p>
+            {% else %}
+                <p class="addr-name">{{ estimate.billingName ?: estimate.companyIdentity.name }}</p>
+            {% endif %}
+        </td>
+        <td class="addr-box">
+            {% if is_pickup %}
+                <h4>Pickup</h4>
+                <p class="addr-name">Customer will pick up this order.</p>
+                {% if estimate.fulfillmentRegion %}<p>Fulfillment Region: {{ estimate.fulfillmentRegion }}</p>{% endif %}
+            {% else %}
+                <h4>Shipping Address</h4>
+                {% if shipping %}
+                    <p class="addr-name">{{ ((shipping.firstName ?: '') ~ ' ' ~ (shipping.lastName ?: ''))|trim ?: (estimate.shippingName ?: estimate.companyIdentity.name) }}</p>
+                    {% if shipping.addressLine1 %}<p>{{ shipping.addressLine1 }}</p>{% endif %}
+                    {% if shipping.addressLine2 %}<p>{{ shipping.addressLine2 }}</p>{% endif %}
+                    <p>{{ shipping.city ?: '' }}{% if shipping.province %}, {{ shipping_province_name }}{% endif %}</p>
+                    <p>{{ shipping.country ?: '' }}{% if shipping.postalCode %}, {{ shipping.postalCode }}{% endif %}</p>
+                {% else %}
+                    <p class="addr-name">{{ estimate.shippingName ?: estimate.companyIdentity.name }}</p>
+                {% endif %}
+            {% endif %}
+        </td>
+    </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" class="detail-table">
+    <tr><td class="detail-label">Expected Delivery Time</td><td class="detail-value">{{ expected_delivery ?: '-' }}</td></tr>
+    <tr><td class="detail-label">PO #</td><td class="detail-value">{{ estimate.poNumber ?: '-' }}</td></tr>
+    <tr><td class="detail-label">Special Instructions</td><td class="detail-value">{{ special_instructions ?: '-' }}</td></tr>
+    {% if estimate.companyIdentity.phone %}<tr><td class="detail-label">Company Phone</td><td class="detail-value">{{ estimate.companyIdentity.phone }}</td></tr>{% endif %}
+    {% if estimate.fulfillmentRegion %}<tr><td class="detail-label">Fulfillment Region</td><td class="detail-value">{{ estimate.fulfillmentRegion }}</td></tr>{% endif %}
+</table>
+
+<p class="detail-heading">Products</p>
+{#
+    QTY/Amount alignment used to come from `.line-table th:not(:first-child)` /
+    `td:not(:first-child)` in layout.html.twig. Gmail webmail (the client #386 was filed
+    against) strips :not() and most structural pseudo-selectors from <style> blocks, so every
+    client that does that renders all three columns left-aligned. Inlined here instead — the
+    one styling approach every mail client actually honors — rather than widened as a CSS
+    selector, since the same failure mode applies to every other :not()/:last-child rule this
+    file and its siblings relied on (#386: "look at other emails for similar issue").
+
+    The padding-left on QTY/Amount is inlined for the same reason: .line-table th/td have no
+    horizontal padding of their own (#412, so Product Details/Amount sit flush with the rest of
+    the content), which left QTY and Amount — both right-aligned, both narrow — butted straight
+    against each other with no gap between them.
+#}
+<table role="presentation" cellpadding="0" cellspacing="0" class="line-table">
+    <thead>
+        <tr>
+            <th>Product Details</th>
+            <th style="text-align: right; padding-left: 16px;">QTY</th>
+            <th style="text-align: right; padding-left: 16px;">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in estimate.lines %}
+            <tr>
+                {# The line as the document prints it (#644) — see _order_summary.html.twig. #}
+                <td>{{ line.name }}{% if line.sku %} ({{ line.sku }}){% endif %}{% if line.unitOfMeasure or line.unit %}, {{ line.displayUnitLabel }}{% endif %}</td>
+                <td id="email-line-qty-{{ line.id }}" style="text-align: right; padding-left: 16px;">x {{ line.quantityEntered|qty }}</td>
+                <td style="text-align: right; padding-left: 16px;"{% if line.subtotal is null %} class="tbd-text"{% endif %}>{{ line.subtotal is not null ? '$' ~ line.subtotal|amount : 'TBD' }}</td>
+            </tr>
+        {% endfor %}
+        {% for feeLine in fee_lines %}
+            {% if feeLine.placement|default('main_line') == 'main_line' and feeLine.type|default('fee') != 'shipping' %}
+                <tr>
+                    <td>{{ feeLine.label }}</td>
+                    <td style="text-align: right; padding-left: 16px;">&mdash;</td>
+                    <td style="text-align: right; padding-left: 16px;">${{ feeLine.amount|amount }}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+
+{#
+    Same :last-child alignment problem as the line-table above — inlined for the same reason.
+    Two variants because .tbd-text's muted italic color has to win for a TBD cell, and an inline
+    style always beats a class regardless of source order — so the bold/dark-text declarations
+    that used to ride along with :last-child's alignment are only inlined on the priced variant.
+#}
+{% set amountStyle = 'text-align: right; font-weight: 700; color: #1e293b;' %}
+{% set amountStyleTbd = 'text-align: right;' %}
+{# Grand Total's amount cell gets its own inline style rather than reusing amountStyle: the row's
+   distinct border/size/color (.totals-table tr.grand-row td) would otherwise be silently
+   overridden by an inline style that only knows the generic totals-row look. #}
+{% set grandAmountStyle = 'text-align: right; border-top: 2px solid #1d4ed8; padding-top: 12px; font-size: 16px; font-weight: 800; color: #1e3a8a;' %}
+<table role="presentation" cellpadding="0" cellspacing="0" class="totals-table" style="margin-top: 14px;">
+    <tr><td>Subtotal</td><td style="{{ estimate.subtotal is null ? amountStyleTbd : amountStyle }}"{% if estimate.subtotal is null %} class="tbd-text"{% endif %}>{{ estimate.subtotal is not null ? '$' ~ (estimate.subtotal + feeLinesMainTotal)|amount : 'TBD' }}</td></tr>
+    {% if estimate.shippingLines is empty %}
+        <tr><td>Shipping Fee</td><td style="{{ amountStyleTbd }}" class="tbd-text">TBD</td></tr>
+    {% endif %}
+    {% for shippingLine in estimate.shippingLines %}
+        <tr><td>{{ shippingLine.label }}</td><td style="{{ amountStyle }}">${{ shippingLine.amount|amount }}</td></tr>
+    {% endfor %}
+    {% if tax_lines is not empty %}
+        {% for taxLine in tax_lines %}
+            <tr><td>{{ taxLine.label }}{% if taxLine.rate is not null %} {{ (taxLine.rate * 100)|number_format(3) }}%{% endif %}</td><td style="{{ amountStyle }}">${{ taxLine.amount|amount }}</td></tr>
+        {% endfor %}
+    {% else %}
+        <tr><td>Tax</td><td style="{{ estimate.tax is null ? amountStyleTbd : amountStyle }}"{% if estimate.tax is null %} class="tbd-text"{% endif %}>{{ estimate.tax is not null ? '$' ~ estimate.tax|amount : 'TBD' }}</td></tr>
+    {% endif %}
+    {% for feeLine in fee_lines %}
+        {% if feeLine.placement|default('main_line') == 'after_tax_line' %}
+            <tr><td>{{ feeLine.label }}</td><td style="{{ amountStyle }}">${{ feeLine.amount|amount }}</td></tr>
+        {% endif %}
+    {% endfor %}
+    <tr class="grand-row"><td>Grand Total</td><td style="{{ grandAmountStyle }}{% if estimate.total is null %} color: #94a3b8; font-style: italic;{% endif %}">{{ estimate.total is not null ? '$' ~ estimate.total|amount : 'TBD' }}</td></tr>
+</table>

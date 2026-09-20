@@ -1,0 +1,57 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Add Fee | Admin{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Fees › User-Defined</p>
+                <h1>Add Fee</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_bundle_fee_user_defined_index') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <form method="post" action="{{ path('admin_bundle_fee_user_defined_new') }}" class="form-grid">
+            <label>
+                Fee Name
+                <input type="text" name="name" value="{{ data.name ?? '' }}">
+                {% if errors.name is defined %}<span class="field-error">{{ errors.name }}</span>{% endif %}
+            </label>
+
+            <label>
+                Default Value ($ per unit)
+                <input type="number" name="default_value" value="{{ data.default_value ?? '0.00' }}" step="0.01" min="0">
+                {% if errors.default_value is defined %}<span class="field-error">{{ errors.default_value }}</span>{% endif %}
+            </label>
+
+            <label>
+                Tax Class
+                <select name="tax_class">
+                    <option value="">-- Select --</option>
+                    {% for value, label in taxClasses %}
+                    <option value="{{ value }}" {{ (data.tax_class ?? '') == value ? 'selected' : '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.tax_class is defined %}<span class="field-error">{{ errors.tax_class }}</span>{% endif %}
+            </label>
+
+            <label>
+                Placement
+                <select name="placement">
+                    <option value="main_line" {{ (data.placement ?? 'main_line') == 'main_line' ? 'selected' : '' }}>Main Line Items</option>
+                    <option value="before_tax_line" {{ (data.placement ?? '') == 'before_tax_line' ? 'selected' : '' }}>Before Tax Fees</option>
+                    <option value="after_tax_line" {{ (data.placement ?? '') == 'after_tax_line' ? 'selected' : '' }}>After Tax Fees</option>
+                </select>
+                {% if errors.placement is defined %}<span class="field-error">{{ errors.placement }}</span>{% endif %}
+            </label>
+
+            <div class="form-actions">
+                {{ csrf_field() }}
+                <button type="submit" class="button primary">Save Fee</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

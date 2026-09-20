@@ -1,0 +1,194 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Vendor Bills | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'bills',
+        heading: 'Vendor Bills',
+    } only %}
+
+    {# Status tabs, in the order a bill moves through them, exactly as the Invoices grid carries its
+       own. Void has a tab for the reason Cancelled does over there: a voided bill keeps its number
+       forever and stays part of the record, so it is looked up rather than hidden. #}
+    {% set tabs = ['All Bills', 'Draft', 'Open', 'Partially Paid', 'Paid', 'Disputed', 'Void'] %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <h2>{{ total }} bill(s)</h2>
+                <p class="lead">A bill may be entered against a purchase order or on its own. What it may not do is charge for more of a purchase order line than that line has left.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button primary" href="{{ path('admin_bundle_procurement_bill_new') }}">Enter a bill</a>
+                <a class="button" href="{{ path('admin_bundle_procurement_bill_aging') }}">AP aging</a>
+                <a class="button back-button" href="{{ path('admin_bundle_procurement_purchase_orders') }}">Back to purchase orders</a>
+            </div>
+        </div>
+        <nav class="order-status-tabs">
+            {% for tab in tabs %}
+                {% set tabStatus = loop.first ? '' : tab %}
+                {% set tabFilters = filters|merge({status: tabStatus}) %}
+                <a class="{{ tabStatus == filters.status ? 'is-active' : '' }}"
+                   href="{{ path('admin_bundle_procurement_bills', {filters: tabFilters, limit: limit, page: 1, sort: currentSort, dir: currentDir}) }}">{{ tab }}</a>
+            {% endfor %}
+        </nav>
+    </section>
+
+    <section class="table-card no-paginate">
+        <form method="get" id="bill-filters">
+            <input type="hidden" name="page" value="1">
+            <div class="table-scroll-region"><div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'number' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'number', dir: currentSort == 'number' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Bill #</a>
+                        </th>
+                        <th>Their invoice</th>
+                        <th>PO #</th>
+                        <th class="is-sortable{% if currentSort == 'vendor' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'vendor', dir: currentSort == 'vendor' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Vendor</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'date' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'date', dir: currentSort == 'date' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Dated</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'due' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'due', dir: currentSort == 'due' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Due</a>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'total' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'total', dir: currentSort == 'total' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Total</a>
+                        </th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th class="is-sortable{% if currentSort == 'status' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <a href="{{ path('admin_bundle_procurement_bills', {filters: filters, limit: limit, page: 1, sort: 'status', dir: currentSort == 'status' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Status</a>
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th colspan="3"><input type="search" name="filters[q]" form="bill-filters" value="{{ filters.q }}" placeholder="Bill number, their invoice number, vendor" aria-label="Search bills"></th>
+                        <th>
+                            <select name="filters[vendor]" form="bill-filters" aria-label="Filter vendor" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for vendor in vendors %}
+                                    <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ? ' selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        {# The Dated column filters a RANGE, which is how the Invoices grid has
+                           always been read — "what did we take on in August" is a range question and
+                           paging is not an answer to it. Two real date inputs, submitted by the
+                           filter button like every other control in this row. #}
+                        <th>
+                            <input type="date" name="filters[dateFrom]" form="bill-filters" value="{{ filters.dateFrom }}" aria-label="Dated from">
+                            <input type="date" name="filters[dateTo]" form="bill-filters" value="{{ filters.dateTo }}" aria-label="Dated to">
+                        </th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>
+                            <label class="checkbox-label"><input type="checkbox" name="filters[payable]" form="bill-filters" value="1"{{ filters.payable == '1' ? ' checked' : '' }} onchange="this.form.submit()"> Still owed</label>
+                        </th>
+                        <th>
+                            <select name="filters[status]" form="bill-filters" aria-label="Filter status" onchange="this.form.submit()">
+                                <option value="">Any</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status.value }}"{{ filters.status == status.value ? ' selected' : '' }}>{{ status.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <button class="button" type="submit">Filter</button>
+                            <a class="button" href="{{ path('admin_bundle_procurement_bills') }}">Reset</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in rows %}
+                        <tr class="data-item-row" data-bill="{{ bill.id }}">
+                            <td data-label="Bill #"><a class="link-strong" href="{{ path('admin_bundle_procurement_bill', {id: bill.id}) }}">{{ bill.billNumber }}</a></td>
+                            <td data-label="Their invoice">{{ bill.vendorInvoiceNo ?? '—' }}</td>
+                            {# A bill raised outside a purchase order has nothing to link to, so the
+                               cell reads as empty rather than as a dead link — the same shape the
+                               Invoices grid uses for an invoice with no order. #}
+                            <td data-label="PO #">
+                                {% if bill.purchaseOrder %}
+                                    <a class="link-strong" href="{{ path('admin_bundle_procurement_purchase_order', {id: bill.purchaseOrder.id}) }}">{{ bill.purchaseOrder.poNumber }}</a>
+                                {% else %}
+                                    <span class="muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Vendor">{{ bill.vendorName }}</td>
+                            <td data-label="Dated">{{ bill.documentDate }}</td>
+                            <td data-label="Due">{{ bill.dueDate ?? '—' }}</td>
+                            <td data-label="Total">{{ bill.currency }} {{ bill.total|amount }}</td>
+                            <td data-label="Paid">{{ bill.currency }} {{ bill.amountPaid|amount }}</td>
+                            <td data-label="Balance">{{ bill.currency }} {{ bill.balance|amount }}</td>
+                            <td data-label="Status">
+                                {% include 'admin/_partials/document_status.html.twig' with {status: bill.status, loud: false} only %}
+                            </td>
+                            <td data-label="Actions" class="row-actions">
+                                {# One dropdown rather than three flat buttons, matching the Invoices
+                                   grid. No Delete anywhere: a bill is a document and keeps its number
+                                   forever. Withdrawing one is Void, refused once money has gone out
+                                   against it, because a bill with a payment on it is a real
+                                   accounting record — credited or refunded, never withdrawn. #}
+                                <div class="row-action-menu">
+                                    <button class="row-action-toggle" type="button" aria-expanded="false" aria-haspopup="true" aria-label="Open bill actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <a href="{{ path('admin_bundle_procurement_bill', {id: bill.id}) }}">View</a>
+                                        {% if bill.status == 'Draft' %}
+                                            <a href="{{ path('admin_bundle_procurement_bill_edit', {id: bill.id}) }}">Edit</a>
+                                        {% endif %}
+                                        <a href="{{ path('admin_bundle_procurement_bill_payments', {id: bill.id}) }}">Payments</a>
+                                        {# Print and PDF from the row, as the Invoices grid offers
+                                           them from its own. #}
+                                        <a href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id}) }}" target="_blank">Print bill</a>
+                                        <a href="{{ path('admin_bundle_procurement_bill_print', {id: bill.id, pdf: 1}) }}">Download bill</a>
+                                        {% if bill.purchaseOrder %}
+                                            <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                                            <a href="{{ path('admin_bundle_procurement_purchase_order', {id: bill.purchaseOrder.id}) }}">View purchase order</a>
+                                        {% endif %}
+                                        {% if bill.status in ['Draft', 'Open', 'Disputed'] and not bill.hasPaidAnything %}
+                                            <span class="row-action-divider" role="separator" aria-hidden="true"></span>
+                                            <button type="submit" class="table-action danger" form="void-bill-{{ bill.id }}">Void</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="11" class="empty-table-cell">
+                            <strong>No bills match.</strong>
+                            <span>Enter a bill, or widen the filters.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div></div>
+            {# A real submit button, so the filter row applies with JavaScript off. #}
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+            <div class="table-footer">
+                {% include 'admin/_table_count.html.twig' with {count: rows|length, total: total, currentPage: page, perPage: limit, label: 'bills'} only %}
+                <label class="per-page-label">Per page
+                    <select name="limit" form="bill-filters" onchange="this.form.submit()">
+                        {% for option in [20, 100, 200, 500] %}<option value="{{ option }}"{{ limit == option ? ' selected' : '' }}>{{ option }}</option>{% endfor %}
+                    </select>
+                </label>
+                {% include 'admin/_pagination.html.twig' with {
+                    routeName: 'admin_bundle_procurement_bills',
+                    routeQuery: {filters: filters, limit: limit, sort: currentSort, dir: currentDir},
+                    currentPage: page, pageCount: pages
+                } only %}
+            </div>
+        </form>
+        {% for bill in rows %}
+            {% if bill.status in ['Draft', 'Open', 'Disputed'] and not bill.hasPaidAnything %}
+                {# POST rather than a link, and nothing here needs JavaScript: the confirm is an
+                   onsubmit courtesy that does not run with scripting off, and the button still posts. #}
+                <form method="post" id="void-bill-{{ bill.id }}" hidden
+                      action="{{ path('admin_bundle_procurement_bill_void', {id: bill.id}) }}"
+                      onsubmit="return confirm('Void {{ bill.billNumber|e('js') }}? It is refused if any money has gone out against it.')">
+                    {{ csrf_field() }}
+                </form>
+            {% endif %}
+        {% endfor %}
+    </section>
+{% endblock %}

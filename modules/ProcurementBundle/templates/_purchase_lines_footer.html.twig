@@ -1,0 +1,105 @@
+{# The charges + totals footer: the charge rows (_purchase_charge_row.html.twig) an admin edits,
+   and the totals box (_purchase_totals_footer.html.twig) — the buy-side twin of
+   sales_lines_footer.html.twig.
+
+   `hook: 'po'` (#full-parity, 2026-09-15) wraps the server-rendered charge rows in the same
+   `<noscript class="no-js-charge-rows">` the sell side's does: with JS on, app.js's
+   hydrateSellDocChargeLinesFromData() rebuilds these same rows as real, live-editable clones from
+   `#po-charge-row-template` (see purchase_order/edit.html.twig's own form_attributes for
+   `data-po-charges`), and the noscript wrapper is what keeps a JS-enabled browser from showing
+   both copies at once. `hook: ''` (default, VendorBill's current state — its own JS parity is a
+   separate pass) renders exactly as before: no noscript wrapper, no JS twin, the server-rendered
+   rows are simply what shows.
+
+   Parameters
+   ----------
+   chargeLines          required  this document's stored freight/manual-tax/manual-fee lines, as
+                        one decoded list.
+   beforeTaxFeeLines, afterTaxFeeLines, taxLines
+                        the read-only fee/tax breakdown rows _purchase_totals_footer shows.
+   subtotalDisplay, taxLinesTotalDisplay, grandTotalDisplay
+                        pre-formatted strings (no $).
+   feeLinesTotalDisplay optional pre-formatted string (no $) for the hidden `.js-{hook}-fee-total`
+                        input app.js's live fee refresh writes into — only meaningful with `hook`.
+   taxClasses           required  the shared {code: label} map, forwarded to the charge rows' fee
+                        tax-class select.
+   afterGrandTotalSlot  optional raw HTML — VendorBill's Payment/Owed Balance rows, the buy-side
+                        mirror of Invoice's.
+   currency             optional  prefixed onto every total, matching the document's own currency.
+   beforeTotalTaxSlot   optional  forwarded to _purchase_totals_footer.html.twig as-is — see that
+                        macro's own docblock.
+   idPrefix             optional  forwarded to _purchase_totals_footer.html.twig as-is — 'po'
+                        (default) or 'bill'.
+   hook                 optional  'po' for live JS charge editing, '' (default) for the original
+                        no-JS-twin rendering.
+#}
+{%- import '@Procurement/_purchase_charge_row.html.twig' as charge_form -%}
+{%- import '@Procurement/_purchase_totals_footer.html.twig' as totals_footer -%}
+{% set _hook = hook|default('') %}
+{% set _beforeSubtotalRows %}
+    {% for charge in chargeLines|default([]) %}
+        {% if charge.type|default('tax') != 'tax' and not (charge.type|default('tax') == 'fee' and charge.placement|default('main_line') == 'after_tax_line') %}
+            {{ charge_form.charge_row(loop.index0, charge.label, charge.amount, charge.type, charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line'), taxClasses, _hook) }}
+        {% endif %}
+    {% endfor %}
+{% endset %}
+{% set _afterTaxFeeRows %}
+    {% for charge in chargeLines|default([]) %}
+        {% if charge.type|default('tax') == 'fee' and charge.placement|default('main_line') == 'after_tax_line' %}
+            {{ charge_form.charge_row(loop.index0, charge.label, charge.amount, charge.type, charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line'), taxClasses, _hook) }}
+        {% endif %}
+    {% endfor %}
+{% endset %}
+{% set _taxRows %}
+    {% for charge in chargeLines|default([]) %}
+        {% if charge.type|default('tax') == 'tax' %}
+            {{ charge_form.charge_row(loop.index0, charge.label, charge.amount, 'tax', charge.slug|default(''), charge.taxClass|default('E'), charge.placement|default('main_line'), taxClasses, _hook) }}
+        {% endif %}
+    {% endfor %}
+{% endset %}
+{% if _hook %}
+    <input type="hidden" class="js-{{ _hook }}-fee-total" value="{{ feeLinesTotalDisplay|default('0.00') }}">
+    <input type="hidden" class="js-{{ _hook }}-tax-total" value="{{ taxLinesTotalDisplay|default('0') == 'TBD' ? '0.00' : taxLinesTotalDisplay|default('0.00') }}">
+    <div class="js-{{ _hook }}-fee-lines-wrap" style="display:contents;"></div>
+    <div class="js-{{ _hook }}-tax-lines-wrap" style="display:contents;"></div>
+    {# The blank skeleton app.js's addSellDocChargeRow()/hydrateSellDocChargeLinesFromData() clone
+       and reveal, the buy-side twin of sales_line_js_templates.html.twig's own
+       `{hookPrefix}-charge-row-template` — copied field-for-field, only the wrapping class
+       (`purchase-charge-row`, matching _purchase_charge_row.html.twig's own server-rendered rows,
+       not `order-charge-line-row`) and the "slug" label text differ. #}
+    <template id="{{ _hook }}-charge-row-template">
+        <div class="purchase-charge-row">
+            <span>
+                <button type="button" class="mini-action danger js-{{ _hook }}-remove-charge" aria-label="Remove charge">&#10005;</button>
+                <span class="order-charge-label-text"></span>
+                <input type="text" class="purchase-charge-label order-charge-label-input" placeholder="Enter label..." style="display:none">
+                <input type="text" class="purchase-charge-slug js-{{ _hook }}-charge-slug" placeholder="slug (optional)" style="display:none">
+                <select class="purchase-charge-select js-{{ _hook }}-charge-tax-class" style="display:none" aria-label="Fee tax class">
+                    {% for code, taxLabel in (taxClasses|default({'E': 'Exempt', 'G': 'GST only', 'S': 'GST + PST'})) %}
+                        <option value="{{ code }}">{{ code }}</option>
+                    {% endfor %}
+                </select>
+                <span class="order-charge-placement-label" hidden></span>
+            </span>
+            <label>$ <input type="number" class="purchase-charge-amount js-{{ _hook }}-charge-amount" min="0" step="0.01" value="0"></label>
+        </div>
+    </template>
+{% endif %}
+{% set _beforeSubtotalSlot %}{% if _hook %}<noscript class="no-js-charge-rows">{{ _beforeSubtotalRows }}</noscript>{% else %}{{ _beforeSubtotalRows }}{% endif %}{% endset %}
+{% set _afterTaxFeeSlot %}{% if _hook %}<noscript class="no-js-charge-rows">{{ _afterTaxFeeRows }}</noscript>{% else %}{{ _afterTaxFeeRows }}{% endif %}{% endset %}
+{% set _taxSlot %}{% if _hook %}<noscript class="no-js-charge-rows">{{ _taxRows }}</noscript>{% else %}{{ _taxRows }}{% endif %}{% endset %}
+{{ totals_footer.totals_footer(
+    subtotalDisplay|default('0.00'),
+    beforeTaxFeeLines|default([]),
+    taxLines|default([]),
+    taxLinesTotalDisplay|default('0.00'),
+    afterTaxFeeLines|default([]),
+    grandTotalDisplay|default('0.00'),
+    _beforeSubtotalSlot,
+    _afterTaxFeeSlot,
+    _taxSlot,
+    afterGrandTotalSlot|default(''),
+    currency|default(''),
+    beforeTotalTaxSlot|default(''),
+    idPrefix|default('po'),
+) }}

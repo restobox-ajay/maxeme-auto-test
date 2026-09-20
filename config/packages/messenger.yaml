@@ -1,0 +1,38 @@
+# Needs a worker, same crontab-driven pattern as app:inventory-recalc and its sibling commands
+# (InventoryRecalcCommand's own docblock is the precedent) -- no supervisor/systemd unit needed:
+#
+#   * * * * * cd /path/to/app && mkdir -p var/log && php bin/console messenger:consume async --time-limit=55 --limit=100 >> var/log/messenger.log 2>&1
+#
+# The `mkdir -p var/log` is load-bearing, not defensive boilerplate: Symfony only creates
+# var/log/ lazily on the first real log write, so on a fresh deploy the shell's own `>>`
+# redirect has nothing to create the file in and the whole cron line fails silently, every
+# run, with no error surfaced anywhere -- which is exactly what happened on the first
+# number1tirecentre.ca deploy (var/log/.gitkeep in the repo covers the git-clone case; this
+# covers every other deploy path, e.g. files copied in individually rather than cloned fresh).
+#
+# --time-limit=55 makes each run self-terminate before the next minute's cron entry starts a new
+# one; --limit=100 bounds a single run's memory growth on a burst. A message that exhausts its
+# retries lands in the `failed` transport below rather than being lost -- inspect with
+# `bin/console messenger:failed:show` and replay with `bin/console messenger:failed:retry`.
+framework:
+    messenger:
+        failure_transport: failed
+
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            async: '%env(MESSENGER_TRANSPORT_DSN)%'
+            failed: 'doctrine://default?queue_name=failed'
+
+        routing:
+            # Every transactional email in the app goes through Symfony Mailer, which dispatches
+            # this message to the bus automatically once Messenger is installed and routed here (#337).
+            # No call site (~17 across 10 files) needs to change.
+            Symfony\Component\Mailer\Messenger\SendEmailMessage: async
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                # Delivered inline during the request, same as before Messenger existed, so
+                # seeEmailIsSent()/assertEmailAddressContains() keep working with no worker running.
+                async: 'sync://'

@@ -1,0 +1,144 @@
+{#
+    The bar under a sell-side document's line table: a [line type] select plus an Add Line control.
+    Include it rather than copying it.
+
+    It does not add PRODUCT rows. It adds a CHARGE row — shipping, tax or a one-off fee — which the
+    document posts back as charge_lines[] and SalesDocumentChargeLines turns into that document's
+    shipping lines, manual tax lines and manual fee lines. On the order and the quote it is the only
+    way to set shipping at all: the type=shipping rows ARE the document's shipping, so there is no
+    second mechanism left to double-count.
+
+    Three templates carried it — admin/order/form.html.twig, admin/estimate/form.html.twig and
+    admin/invoice/create_standalone.html.twig — and the literal <option> lines were identical in all
+    three, which is the whole vocabulary of the control. The invoice's copy had already drifted: it
+    dropped the carrier's delivery time from the shipping options its own controller computes. One
+    definition cannot drift.
+
+    "Custom Shipping" and "Empty Shipping Line" are two options for the same thing — a shipping row
+    with no fixed method — one with a preset label an admin cannot change, one free-text. Order and
+    the quote both pass `categoryFilter` (#669 for the order, extended to the quote per the sell-side
+    parity ruling — a quote's charge picker has no justified reason to differ from the order's), so
+    both drop the preset-label one and relabel the free-text one "Custom Shipping (Type anything)":
+    one way to add an unnamed shipping charge, not two that only differ in whether the label can be
+    edited. The standalone invoice does not pass it yet and keeps both, unchanged.
+
+    An include and not a macro, for the reason product_field.html.twig and region_select.html.twig
+    are includes: three callers with three different parameter sets, one of which passes no JS hook
+    at all, and `with_context = false` makes every one of them state what it wants in full.
+
+    Parameters
+    ----------
+    shippingOptions     required  the carrier options this document prices against — id, label,
+                                  amount, deliveryDays, taxClass. Pass [] for none.
+    submitLabel         required  the text on the submit that adds a row server-side. Plain text;
+                                  write '&' as '&', it is escaped here.
+    submitClass         required  that submit's class. The order and the quote use
+                                  'button primary no-js-inline' because their JS button below does
+                                  the same job when scripting is on, so the submit is hidden then;
+                                  a document with no line JS passes a class that is always visible.
+    hook                optional  'order' or 'estimate' — the document app.js keys its per-form
+                                  handlers off, as .js-<hook>-charge-type and .js-<hook>-bottom-add.
+                                  Pass '' (or omit) for a document with no line JS: the select then
+                                  carries no hook class and the JS "Add Line" button is not rendered
+                                  at all, because a type="button" nothing is bound to is a dead
+                                  control and this page's submit is the real one.
+    shippingOptionsUrl  optional  where app.js re-fetches carrier options when the document changes
+                                  under it. Only the order has an endpoint for this.
+    sentinel            optional  defaults to false. Emits the charge_lines_present hidden input.
+    categoryFilter       optional  defaults to false. Adds two JS-only controls above the full
+                                  choices select — a Tax/Fee/Shipping category picker that filters
+                                  it, and a Main Line/Before Tax/After Tax placement picker that
+                                  appears once a fee is chosen. Both are `.js-only`, so a no-JS admin
+                                  never sees them and keeps using the full select exactly as before.
+                                  Passed by the order (#669) and the quote (sell-side parity); left
+                                  false for the standalone invoice, which has no line JS at all.
+
+    ## charge_lines_present, and why the standalone invoice does not carry it
+
+    A document that is REBUILT from what its form posts cannot tell "the admin removed every charge
+    row" from "this post was never shown the charge rows" — both arrive as no charge_lines[] — and
+    guessing wrong wipes a stored document's shipping, tax adjustments and manual fees on the first
+    innocent save. So the forms that edit a stored document render this marker beside the control
+    that shows the rows, and only a post carrying it is allowed to clear charges. OrderController,
+    EstimateController and ProcurementBundle's PurchaseOrderController all read it that way.
+
+    The standalone invoice create page passes sentinel = false, deliberately. It is a CREATE screen
+    with no stored document behind it: InvoiceController::create() builds the charge rows from the
+    post and mints the invoice in the same request, so there is nothing to preserve and no ambiguity
+    to resolve. InvoiceController does not read `charge_lines_present` anywhere, so emitting it would
+    be markup that no code has an opinion about — and adding an input on the theory that three out of
+    four is a rule is how a convention becomes cargo. If that page ever grows an edit mode, the
+    marker comes with it.
+#}
+<div class="order-add-line-bar">
+    {% if categoryFilter|default(false) and hook|default('') %}
+        {# JS-only (#669): a quick Shipping/Tax/Fee filter in front of the full select below, which
+           it filters rather than replaces — the full select is what actually posts, with or without
+           this control's help, so hiding some of its <option>s here changes nothing about what a
+           no-JS admin sees or can choose. #}
+        <select class="js-{{ hook }}-charge-category js-only" aria-label="Filter line type by category">
+            <option value="">All types</option>
+            <option value="shipping">Shipping</option>
+            <option value="tax">Tax</option>
+            <option value="fee">Fee</option>
+        </select>
+    {% endif %}
+    {# `name` so the chosen type actually posts without JS. The JS path never reads it —
+       .js-<hook>-bottom-add takes the value straight off this element and then blanks it — so a JS
+       save always posts an empty one, and only the submit below asks the server to act on it. #}
+    <select{% if hook|default('') %} class="js-{{ hook }}-charge-type"{% endif %} name="charge_line_type" aria-label="Select line type to add"{% if shippingOptionsUrl|default('') %} data-shipping-options-url="{{ shippingOptionsUrl }}"{% endif %}>
+        <option value=""></option>
+        {% for opt in shippingOptions|default([]) %}
+            {# The delivery time is part of what an admin is choosing between — "$15.00" and
+               "$30.84" is not a choice until it reads "(5 days)" and "(2 days)". Every one of these
+               resolvers computes deliveryDays and every controller passes it through; the invoice's
+               own copy of this line was the one that dropped it on the floor. #}
+            <option value="shipping-method:{{ opt.label }}|{{ opt.amount }}">{{ opt.label }}{% if opt.deliveryDays %} ({{ opt.deliveryDays }} day{{ opt.deliveryDays != 1 ? 's' : '' }}){% endif %} — ${{ opt.amount|amount }}</option>
+        {% endfor %}
+        {% if not categoryFilter|default(false) %}
+            <option value="shipping:Custom Shipping">Custom Shipping</option>
+        {% endif %}
+        <option value="tax:Custom GST">Custom GST</option>
+        <option value="tax:Custom PST">Custom PST</option>
+        <option value="tax:Custom HST">Custom HST</option>
+        {# #669: this used to be a second, free-text way to add an unnamed shipping charge,
+           alongside "Custom Shipping" above with a fixed, uneditable label. Wherever the fixed one
+           is gone (see `categoryFilter` above — the order and the quote), this is the only way, so
+           it says so; the standalone invoice, with no `categoryFilter`, keeps the original wording
+           and both options. #}
+        <option value="empty-shipping:">{{ categoryFilter|default(false) ? 'Custom Shipping (Type anything)' : 'Empty Shipping Line (Type Anything)' }}</option>
+        {# Rewording under `categoryFilter` (#669): "Empty ... Line" read like a blank placeholder
+           rather than a free-text charge an admin types a name into. The standalone invoice keeps
+           the original wording. #}
+        <option value="empty-tax:">{{ categoryFilter|default(false) ? 'Custom Tax (Type Anything)' : 'Empty Tax Line (Type Anything)' }}</option>
+        {# The one-off charge that is neither tax nor shipping and isn't worth a reusable Fee
+           definition. It becomes a manual fee line in the fee_lines snapshot. #}
+        <option value="empty-fee:">{{ categoryFilter|default(false) ? 'Custom Fee (Type Anything)' : 'Empty Fee Line (Type Anything)' }}</option>
+    </select>
+    {% if categoryFilter|default(false) and hook|default('') %}
+        {# JS-only (#669): where a fee's total lands — as part of the line-item subtotal, or as a
+           flat addition before/after tax is applied — used to live on the row itself, edited any
+           time after the row existed. Nothing ever moved the row to match a changed choice, so
+           picking "After Tax" on an existing row did not do what it said. Asked once, here, before
+           the row exists, there is nothing left to get out of sync. #}
+        <select class="js-{{ hook }}-charge-placement-choice js-only" aria-label="Fee placement" hidden>
+            <option value="main_line">Main Line</option>
+            <option value="before_tax_line">Before Tax</option>
+            <option value="after_tax_line">After Tax</option>
+        </select>
+    {% endif %}
+    {% if hook|default('') %}
+        <button class="button primary js-{{ hook }}-bottom-add" type="button">Add Line</button>
+    {% endif %}
+    {# The real control. On a form whose JS button above is a type="button" — and therefore a dead
+       control without scripting — this is the no-JS twin, hidden by .no-js-inline whenever the JS
+       one works: it appends a charge row of the selected type, saves and recalculates in one POST,
+       landing back on the form with the new row's inputs on it. On a form with no JS button it is
+       simply the button, always visible. #}
+    <button class="{{ submitClass }}" type="submit" name="add_charge_line" value="1">{{ submitLabel }}</button>
+</div>
+{% if sentinel|default(false) %}
+    {# See the note above: only a form that REBUILDS a stored document needs to say that this post
+       had the charge rows in front of it. #}
+    <input type="hidden" name="charge_lines_present" value="1">
+{% endif %}

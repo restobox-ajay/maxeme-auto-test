@@ -1,0 +1,17 @@
+{#
+    Shown whenever the current session has an active cart hold (CartHoldBundle). The
+    countdown is computed client-side from a server-authoritative ISO-8601 timestamp — never
+    trust a client-computed duration. On reaching zero it doesn't try to remove cart items
+    itself (that's CartHoldSweepSubscriber's job on the next request); it just reloads the
+    page so the sweep + "items were released" flash notice take over.
+#}
+{% if cartHoldExpiresAt is defined and cartHoldExpiresAt is not null %}
+    <div class="cart-hold-banner" data-expires-at="{{ cartHoldExpiresAt.format('c') }}">
+        <p class="cart-hold-banner-text">
+            You have items in your cart. The items will be held for you for
+            <strong class="js-cart-hold-countdown">--:--</strong>.
+            If the cart has no activity within this time, the items will be released from the cart.
+        </p>
+        <a class="button primary cart-hold-banner-action" href="{{ path('customer_cart') }}">View Cart Here</a>
+    </div>
+{% endif %}

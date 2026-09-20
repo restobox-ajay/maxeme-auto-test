@@ -1,0 +1,214 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Procurement Exceptions | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@Procurement/_nav.html.twig' with {
+        current: 'exceptions',
+        heading: 'Exceptions',
+        lead: 'A clean match needs nobody. These are the rows that do — biggest money first, with the move on the row.'
+    } only %}
+
+    {# One sort for the whole screen, exactly as the filter above it is one filter for the whole
+       screen: all three tables answer the same question and are ranked by the same figure, so
+       "biggest first" that reordered one of them and left the others alone would be lying about
+       two thirds of the page. The direction is the only thing the header link changes. #}
+    {% set nextDir = dir == 'desc' ? 'asc' : 'desc' %}
+    {% set sortQuery = {sort: sort, dir: nextDir, filters: filters} %}
+
+    {# Each section carries an id so a link from elsewhere can land on the part of the screen it
+       counted — item 48's landing page links here with a count, and "48 exceptions" should arrive
+       at the exceptions and not at the top of a page with three tables on it. #}
+    <section class="table-card no-paginate" id="exceptions-on-bills">
+        {# The filter chooses what BOTH tables on this screen show, so it belongs in the card's
+           header rather than in either table's own filter row. #}
+        <div class="table-header">
+            <h2>On bills</h2>
+            <form class="table-tools" method="get" id="exception-filters">
+                {# Carried through the filter form so narrowing the rows does not silently throw the
+                   ordering away — the ordering is the point of the amount column. #}
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="dir" value="{{ dir }}">
+                <label class="per-page-label">Show
+                    <select name="filters[kind]" aria-label="Filter exception kind" onchange="this.form.submit()">
+                        {% for key, label in kinds %}
+                            <option value="{{ key }}"{{ kind == key ? ' selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="per-page-label">Vendor
+                    <select name="filters[vendor]" aria-label="Filter vendor" onchange="this.form.submit()">
+                        <option value="">Any</option>
+                        {% for vendor in vendors %}
+                            <option value="{{ vendor.id }}"{{ filters.vendor == vendor.id ? ' selected' : '' }}>{{ vendor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button class="button" type="submit">Filter</button>
+                <a class="button" href="{{ path('admin_bundle_procurement_exceptions') }}">Reset</a>
+            </form>
+        </div>
+        <div class="wide-table-wrap"><table class="admin-grid-table">
+            <thead><tr>
+                <th>Bill</th><th>Vendor</th><th>Line</th><th>Ordered</th><th>Received</th><th>Billed</th><th>Verdict</th>
+                <th class="is-sortable is-sorted-{{ dir }}" data-sort-field="amount"><a href="{{ path('admin_bundle_procurement_exceptions', sortQuery) }}">Value at risk</a></th>
+                {# The row's moves are gated on this: a bill that is Paid or already Disputed is not
+                   offered a dispute, because VendorBill::dispute() would refuse one. The state that
+                   decides which controls a row carries may not be the one thing the row does not
+                   say — queue item 41's ruling, in the pill and the colour every grid in the
+                   application already uses for a bill's status. #}
+                <th>Status</th>
+                <th>Actions</th>
+            </tr></thead>
+            <tbody>
+                {% for row in billExceptions %}
+                    <tr class="data-item-row" data-bill="{{ row.bill.id }}">
+                        <td data-label="Bill"><a href="{{ path('admin_bundle_procurement_bill', {id: row.bill.id}) }}">{{ row.bill.billNumber }}</a></td>
+                        <td data-label="Vendor">{{ row.bill.vendorName }}</td>
+                        <td data-label="Line">{{ row.line.description }}</td>
+                        <td data-label="Ordered">{{ row.line.quantityOrdered|qty }}</td>
+                        <td data-label="Received">{{ row.line.quantityReceived|qty }}</td>
+                        <td data-label="Billed">{{ row.line.quantityBilled|qty }}</td>
+                        <td data-label="Verdict">{{ row.line.describeExceptions }}</td>
+                        <td data-label="Value at risk">{{ row.currency }} {{ row.amount }}</td>
+                        <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: row.bill.status, loud: false} only %}</td>
+                        {% include '@Procurement/_exception_moves.html.twig' with {moves: row.moves} only %}
+                    </tr>
+                {% else %}
+                    {# What this empty state may and may not claim.
+
+                       It used to say "Every bill matches its purchase order and its receipts, within
+                       tolerance" — a statement about EVERY bill, written under a query that excludes
+                       Draft and Void. A real user opened a draft bill that said "10 exception(s)" on
+                       its own page, came here, and was told everything matched. Both numbers were
+                       right; neither screen admitted they were counting different populations.
+
+                       So the scope is stated first and the excluded population second, with the
+                       figure for it rather than a vague warning — "some drafts might have problems"
+                       is the sentence that makes a person go and check by hand, which is the work
+                       this screen exists to remove. `draftExceptionBills` is computed only when this
+                       branch is about to render; see ExceptionController::index(). #}
+                    <tr><td colspan="10" class="empty-table-cell">
+                        <strong>No exceptions on the bills this worklist covers.</strong>
+                        <span>Every approved bill matches its purchase order and its receipts, within tolerance. Draft and void bills are not on this list.</span>
+                        <span id="exceptions-drafts-excluded">
+                            {% if draftExceptionBills %}
+                                Not counted here: {{ draftExceptionBills }} draft bill(s) carry exceptions. Each one joins this list when it is approved.
+                            {% else %}
+                                No draft bill carries an exception either.
+                            {% endif %}
+                        </span>
+                    </td></tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% include '@Procurement/_exception_footer.html.twig' with {
+            count: billExceptionCount, total: billExceptionTotal, label: 'bill exceptions',
+            scan: billScan, scanLabel: 'bills', scanId: 'exceptions-on-bills-scan'
+        } only %}
+    </section>
+
+    {% if overBilled is not empty or kind in ['all', 'over_billed'] %}
+        <section class="table-card no-paginate" id="exceptions-over-billed">
+            <div class="table-header"><h2>Billed more than ordered or received</h2></div>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr>
+                    <th>PO</th><th>Vendor</th><th>Line</th><th>Ordered</th><th>Received</th><th>Billed</th>
+                    <th class="is-sortable is-sorted-{{ dir }}" data-sort-field="amount"><a href="{{ path('admin_bundle_procurement_exceptions', sortQuery) }}">Value at risk</a></th>
+                    {# The ORDER's status here, not a bill's: these rows are a fact about one
+                       purchase order line across several bills, and it is the order's state that
+                       decides whether "Record the receipt" is a move at all. #}
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for row in overBilled %}
+                        {# The purchase order LINE identifies the row: this list is per line, not per
+                           bill, because the thing being reported is what several bills did to one
+                           line. #}
+                        <tr class="data-item-row" data-po-line="{{ row.line.id }}">
+                            <td data-label="PO"><a href="{{ path('admin_bundle_procurement_purchase_order', {id: row.order.id}) }}">{{ row.order.poNumber }}</a></td>
+                            <td data-label="Vendor">{{ row.order.vendorName }}</td>
+                            <td data-label="Line">{{ row.line.name }}</td>
+                            <td data-label="Ordered">{{ row.line.quantityOrdered|qty }}</td>
+                            <td data-label="Received">{{ row.line.quantityReceived|qty }}</td>
+                            <td data-label="Billed">{{ row.charged|qty }}</td>
+                            <td data-label="Value at risk">{{ row.currency }} {{ row.amount }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: row.order.status, loud: false} only %}</td>
+                            {% include '@Procurement/_exception_moves.html.twig' with {moves: row.moves} only %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9" class="empty-table-cell">
+                            <strong>Nothing is billed beyond what was ordered or received.</strong>
+                            <span>Every purchase order line is charged for no more than one of those two supports.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+            {% include '@Procurement/_exception_footer.html.twig' with {
+                count: overBilledCount, total: overBilledTotal, label: 'over-billed lines',
+                scan: overBilledScan, scanLabel: 'purchase orders', scanId: 'exceptions-over-billed-scan'
+            } only %}
+        </section>
+    {% endif %}
+
+    {% if accruals is not empty or kind in ['all', 'received_not_billed'] %}
+        <section class="table-card no-paginate" id="exceptions-received-not-billed">
+            <div class="table-header"><h2>Received but not billed</h2></div>
+            <p class="lead">
+                Goods that arrived and that no live bill mentions — an accrual. We owe money nobody has asked for yet,
+                and a period close that only adds up the bills understates the liability. Built from the purchase order
+                lines rather than from the bills, because goods no bill mentions cannot be found from one.
+            </p>
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead><tr>
+                    <th>PO</th><th>Vendor</th><th>Line</th><th>Received</th><th>Unit cost</th>
+                    <th class="is-sortable is-sorted-{{ dir }}" data-sort-field="amount"><a href="{{ path('admin_bundle_procurement_exceptions', sortQuery) }}">Value at risk</a></th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for row in accruals %}
+                        <tr class="data-item-row" data-po-line="{{ row.line.id }}">
+                            <td data-label="PO"><a href="{{ path('admin_bundle_procurement_purchase_order', {id: row.order.id}) }}">{{ row.order.poNumber }}</a></td>
+                            <td data-label="Vendor">{{ row.order.vendorName }}</td>
+                            <td data-label="Line">{{ row.line.name }}</td>
+                            <td data-label="Received">{{ row.line.quantityReceived|qty }}</td>
+                            {# A RATE, not an amount, so four decimals — the same as the printed
+                               purchase order and the vendor quote — and the currency it never had.
+                               `row.amount` beside it is left exactly as item 49 renders it: the
+                               controller already returns it through MatchLine::money(), so it is
+                               two decimals before it reaches this template and item 46's defect
+                               (a raw DECIMAL column arriving as "4137.5") never applied to it. #}
+                            <td data-label="Unit cost">{{ row.currency }} {{ row.line.unitCost|price }}</td>
+                            <td data-label="Value at risk">{{ row.currency }} {{ row.amount }}</td>
+                            <td data-label="Status">{% include 'admin/_partials/document_status.html.twig' with {status: row.order.status, loud: false} only %}</td>
+                            {% include '@Procurement/_exception_moves.html.twig' with {moves: row.moves} only %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">
+                            <strong>Everything received has been billed.</strong>
+                            <span>There is nothing to accrue.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+            {% include '@Procurement/_exception_footer.html.twig' with {
+                count: accrualCount, total: accrualTotal, label: 'unbilled receipts',
+                scan: accrualScan, scanLabel: 'purchase orders', scanId: 'exceptions-received-not-billed-scan'
+            } only %}
+        </section>
+    {% endif %}
+
+    <section class="panel">
+        <h2>What each one means, and what it costs you</h2>
+        <ul>
+            <li><strong>Billed but not received</strong> — we are being asked to pay for goods we do not have. The most expensive one on this list. Worth the units nobody can find, at the price being charged for them. <em>Record the receipt if they are here; dispute the bill if they are not.</em></li>
+            <li><strong>Received but not billed</strong> — an accrual; money we owe that nobody has asked for yet. Worth the unbilled units at the price we agreed. <em>Enter the bill.</em></li>
+            <li><strong>Price variance</strong> — the vendor charged more than they quoted. Worth the overcharge across every unit billed. <em>Dispute the bill, or raise a debit memo for the difference.</em></li>
+            <li><strong>Quantity variance</strong> — they over- or under-shipped against the order. Worth the gap between ordered and received, at the agreed price. <em>Receive the balance when it lands, or send back what nobody ordered.</em></li>
+            <li><strong>Not on the purchase order</strong> — a charge with nothing to match it to at all. Worth the whole line. <em>Dispute it, or raise a debit memo.</em></li>
+        </ul>
+        <p class="lead">
+            Tolerances are set on <a href="{{ path('admin_bundle_procurement_settings') }}">Settings</a>.
+        </p>
+    </section>
+{% endblock %}

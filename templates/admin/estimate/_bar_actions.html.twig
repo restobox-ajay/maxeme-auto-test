@@ -1,0 +1,58 @@
+{# The QUOTE's own controls in the shared action bar — the slot
+   `admin/_partials/sales_document_action_bar.html.twig` renders after the fixed View / Edit / PDF
+   set. Expects: `document` (the Estimate), `locked` (Accepted or Rejected) and `frozen` (an
+   explicit document lock).
+
+   Accept stays HERE, in the bar, as a primary button. The owner's Zoho reference puts Mark as
+   Accepted and Mark as Declined in the overflow, which is a real observation and is in the report —
+   but moving them is a UX decision he has not made, and accepting on the customer's behalf is one
+   of the three blocks he has ruled on. #}
+{% if document.convertedOrder %}
+    <a id="quote-action-converted-order" class="button" href="{{ path('admin_order_detail', {id: document.convertedOrder.id}) }}">View Converted Order</a>
+{% endif %}
+{% if document.status == 'Priced' and not frozen %}
+    {# Admin accepts on the customer's behalf — e.g. the customer called/emailed to say
+       "proceed" and can't click their own Accept button. Only offered in Priced, same as the
+       customer's own Accept control, and gated separately from Reject (below), which stays
+       available more broadly (see the `locked` guard). See #392.
+
+       Accepting creates nothing. The sales order is the separate Convert control below, and
+       the invoice a third step on the order itself — so the confirm no longer promises an
+       order, which it did while accept() was also the conversion.
+
+       `not frozen` is the explicit lock: EstimateController::accept() calls
+       assertWritable($estimate, 'accepted'), so on a frozen quote this button has one outcome. #}
+    <form method="post" action="{{ path('admin_estimate_accept', {id: document.id}) }}" style="display:inline;" onsubmit="return confirm('Accept this quote on the customer\'s behalf? This cannot be undone.');">
+        {{ csrf_field() }}
+        <button id="quote-action-accept" class="button primary" type="submit">Accept Quote</button>
+    </form>
+{% endif %}
+{% if document.status == 'Accepted' and not document.convertedOrder and not frozen %}
+    {# Step two of three: Accepted quote → sales order. Hidden once an order exists, because
+       the "View Converted Order" link above is what an already-converted quote offers and a
+       second order must never be raised from one quote.
+
+       "Convert", not "Create": the order screen's own billing control says "Convert to
+       Invoice" and the link above says "View Converted Order", so this page and its
+       neighbour already speak of turning one document into another.
+
+       The confirm is UX only — a misclick mints a real document with a real order number.
+       It is NOT the guard: admin_estimate_convert refuses anything that is not an Accepted
+       quote with no order, and EstimateConversionService::claimForConversion() settles two
+       admins pressing it at the same moment. A POST that never opened this page is refused
+       by the same two — and by assertWritable($estimate, 'converted') when it is frozen,
+       which is what `not frozen` here declines to invite anybody into.
+
+       Deliberately the same plain-button-in-a-form shape as Accept above rather than a
+       dropdown: every control in this part of the nav is a plain button, and a second sibling
+       action later is one more form in this slot. #}
+    <form method="post" action="{{ path('admin_estimate_convert', {id: document.id}) }}" style="display:inline;" onsubmit="return confirm('Create a sales order from this quote?');">
+        {{ csrf_field() }}
+        <button id="quote-action-convert" class="button primary" type="submit">Convert to Sales Order</button>
+    </form>
+{% endif %}
+{% if not locked and not frozen %}
+    {# admin_estimate_update_status calls assertWritable($estimate, 'changed'), so a frozen quote
+       is refused a rejection exactly as it is refused an edit. #}
+    <button id="quote-action-reject" type="button" class="button danger js-estimate-reject" data-url="{{ path('admin_estimate_update_status', {id: document.id}) }}">Reject Quote</button>
+{% endif %}

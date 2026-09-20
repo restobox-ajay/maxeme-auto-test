@@ -1,0 +1,134 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ list.number }} | Admin{% endblock %}
+{% block admin_body %}
+    {% include '@WarehouseOps/_nav.html.twig' with {
+        current: 'picks',
+        heading: list.number,
+        lead: 'Bins in walking order, across every order on the round. What the picker reports back is written as movements through the same service a manual adjustment uses.'
+    } only %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p><strong>{{ list.warehouse.name }}</strong> · {{ list.status }} · {{ list.orderCount }} order(s)
+                   · staging {{ list.stagingLocation ? list.stagingLocation.code : 'not chosen' }}</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button" href="{{ path('admin_bundle_warehouse_ops_pick_list_print', {id: list.id}) }}" target="_blank">Print round</a>
+                {# The same round, walked with a scanner instead of a printout. It confirms through
+                   this screen's own route, so the two are one flow rather than two systems. #}
+                <a class="button" href="{{ path('admin_bundle_warehouse_ops_pick_list_scan', {id: list.id}) }}">Scan out</a>
+            </div>
+        </div>
+    </section>
+
+    {% if list.status == 'draft' %}
+        <section class="panel">
+            <h2>Release to a picker</h2>
+            <p class="lead">
+                Picked stock is put down in the staging bin, and stays <em>available</em> there: it has left the shelf,
+                not the building, so the product total does not move and the order's hold is still the only claim on
+                those units. Choosing the bin now rather than mid-aisle is why this is asked here.
+            </p>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_release', {id: list.id}) }}" class="form-grid">
+                {{ csrf_field() }}
+                <label>Staging bin
+                    <select name="staging_location_id" required>
+                        {% for bin in stagingBins %}<option value="{{ bin.id }}">{{ bin.code }} ({{ bin.type }})</option>{% endfor %}
+                    </select>
+                </label>
+                <label>Assign to <input type="text" name="assigned_to" maxlength="160" value="{{ list.assignedTo }}"></label>
+                <div class="form-actions span-2"><button class="button primary" type="submit">Release</button></div>
+            </form>
+        </section>
+    {% endif %}
+
+    <section class="panel">
+        <h2>The round</h2>
+        <p class="lead">
+            Enter what was actually found, and <strong>which shelf it came off</strong>. The bin the round printed is
+            already selected, so a picker who went where the paper said just types the number; a picker who went
+            somewhere else says so, and the units are taken off that shelf instead of off whichever one happens to hold
+            the earliest-expiring lot.
+        </p>
+        <p class="lead">A row that names no bin writes nothing off, since nothing says which shelf was counted.</p>
+        <form method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_confirm', {id: list.id}) }}">
+            {{ csrf_field() }}
+            <div class="wide-table-wrap"><table class="admin-grid-table">
+                <thead>
+                    <tr>
+                        <th>Route</th><th>Bin</th><th>Order</th><th>SKU</th><th>Item</th>
+                        <th>Asked</th><th>Picked</th><th>Missing</th><th>Still needed</th>
+                        <th>Picked from</th><th>Found</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.sortKey >= 1000000000 ? '—' : task.sortKey }}</td>
+                            <td>{{ task.suggestedLocation ? task.suggestedLocation.code : 'no stock' }}</td>
+                            <td>{{ task.orderNumber }}</td>
+                            <td>{{ task.sku ?? '—' }}</td>
+                            <td>{{ task.name }}</td>
+                            <td>{{ task.quantityRequested }}</td>
+                            <td>{{ task.quantityPicked }}</td>
+                            <td>{{ task.quantityMissing }}</td>
+                            <td>{{ task.outstanding }}</td>
+                            <td>
+                                {% set options = sources[task.id]|default([]) %}
+                                {% if list.isOpen and options is not empty %}
+                                    <select name="picked_from[{{ task.id }}]">
+                                        {% for option in options %}
+                                            <option value="{{ option.value }}"{{ option.selected ? ' selected' : '' }}>{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if list.isOpen %}
+                                    <input type="number" name="picked[{{ task.id }}]" min="0" max="{{ task.quantityRequested }}" placeholder="{{ task.quantityRequested }}">
+                                {% else %}—{% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="11" class="empty-table-cell">
+                            <strong>Nothing on this round.</strong>
+                            <span>Every line was left off — the compile screen says why.</span>
+                        </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+
+            {% if list.isOpen %}
+                <div class="form-actions"><button class="button primary" type="submit">Confirm what was picked</button></div>
+            {% endif %}
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Staged, per order</h2>
+        <p class="lead"><strong>There is no ship button here.</strong> Record a shipment on the Inventory Depth adjustment screen.</p>
+        <table class="admin-grid-table compact">
+            <thead><tr><th>Order</th><th>Staged</th></tr></thead>
+            <tbody>
+                {% for entry in orders %}
+                    <tr><td>{{ entry.number }}</td><td>{{ entry.picked }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if list.isOpen %}
+        <section class="panel">
+            <h2>Close the round</h2>
+            <p class="lead">Closing writes no movements. Whatever was picked is already recorded, and whatever was not is still on the shelf.</p>
+            <form method="post" action="{{ path('admin_bundle_warehouse_ops_pick_list_close', {id: list.id}) }}">
+                {{ csrf_field() }}
+                <div class="form-actions">
+                    <button class="button primary" type="submit" name="action" value="close">Close</button>
+                    <button class="button" type="submit" name="action" value="cancel">Cancel the round</button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

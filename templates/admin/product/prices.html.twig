@@ -1,0 +1,1255 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Products Price Overview | Admin{% endblock %}
+{% block admin_body %}
+    {% set currentPage = page|default(1) %}
+    {% set currentLimit = limit|default(100) %}
+    {% set currentSort = currentSort|default('id') %}
+    {% set currentDir = currentDir|default('asc') %}
+    {% set filters = filters|default({}) %}
+    {% set listsValue = selectedPriceListIds|default([])|join(',') %}
+    {% set pageCount = (total / (currentLimit ?: 1))|round(0, 'ceil') %}
+    {% if pageCount < 1 %}
+        {% set pageCount = 1 %}
+    {% endif %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Products price overview</p>
+                <div class="title-with-action">
+                    <h1>Product Pricing</h1>
+                    <button class="button outline js-open-price-group" type="button">Choose price group</button>
+                </div>
+                <p class="lead">Review default product pricing and compare each price group in one admin grid.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+                {% include 'admin/_product_grid_nav.html.twig' with {
+                    addProductRedirect: 'admin_product_price_index',
+                    currentSort: currentSort,
+                    currentDir: currentDir,
+                    currentLimit: currentLimit,
+                    currentPage: currentPage,
+                    filters: filters
+                } only %}
+            </div>
+        </div>
+    </section>
+
+    {# One token per write endpoint on this page; the inline fetch() calls below read them back
+       off this element, the same way company_fulfillment_region/index.html.twig does. #}
+    <div id="price-write-tokens" hidden
+         data-price-update-token="{{ csrf_token_value() }}"
+         data-core-price-update-token="{{ csrf_token_value() }}"
+         data-suggested-price-update-token="{{ csrf_token_value() }}"
+         data-bulk-apply-token="{{ csrf_token_value() }}"></div>
+
+    <section class="table-card price-matrix-grid no-search no-paginate"
+             data-link-controls="true">
+        <form method="get" action="{{ path('admin_product_price_index') }}">
+            <input type="hidden" name="page" value="1">
+            <input type="hidden" name="sort" value="{{ currentSort }}">
+            <input type="hidden" name="dir" value="{{ currentDir }}">
+            <input type="hidden" name="lists" value="{{ listsValue }}">
+            <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="wide-price-table">
+                <colgroup>
+                    <col style="width: 54px">
+                    <col style="width: 140px">
+                    <col style="width: 70px">
+                    <col style="width: 120px">
+                    <col style="width: 90px">
+                    <col style="width: 90px">
+                    <col style="width: 90px">
+                    <col style="width: 70px">
+                    <col style="width: 80px">
+                    {% for priceList in priceLists %}
+                        <col style="width: 70px">
+                        <col style="width: 55px">
+                        <col style="width: 80px">
+                    {% endfor %}
+                </colgroup>
+                <thead>
+                    <tr class="column-groups">
+                        {% set nextDir = currentSort == 'id' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'id' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="id"><a href="{{ path('admin_product_price_index', {sort: 'id', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">ID</a></th>
+                        {% set nextDir = currentSort == 'name' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'name' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="name"><a href="{{ path('admin_product_price_index', {sort: 'name', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Product name</a></th>
+                        {% set nextDir = currentSort == 'sku' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'sku' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="sku"><a href="{{ path('admin_product_price_index', {sort: 'sku', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">SKU</a></th>
+                        {% set nextDir = currentSort == 'category' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'category' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="category"><a href="{{ path('admin_product_price_index', {sort: 'category', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Category</a></th>
+                        {% set nextDir = currentSort == 'price' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'price' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="price"><a href="{{ path('admin_product_price_index', {sort: 'price', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Product Price</a></th>
+                        {% set nextDir = currentSort == 'default_price' and currentDir == 'asc' ? 'desc' : 'asc' %}
+                        <th rowspan="2" class="is-sortable{% if currentSort == 'default_price' %} is-sorted-{{ currentDir }}{% endif %}" data-sort-field="default_price"><a href="{{ path('admin_product_price_index', {sort: 'default_price', dir: nextDir, limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Default Price</a></th>
+                        <th colspan="3" class="price-group-title is-suggested">Suggested Price</th>
+                        {% for priceList in priceLists %}
+                            <th colspan="3" class="price-group-title {{ loop.index is odd ? 'is-warm' : 'is-cool' }}">{{ priceList.name }}</th>
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        <th class="is-sortable{% if currentSort == 'suggested_type' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <span class="th-label">
+                                <span><a href="{{ path('admin_product_price_index', {sort: 'suggested_type', dir: currentSort == 'suggested_type' and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Type</a></span>
+                            </span>
+                        </th>
+                        <th class="is-sortable{% if currentSort == 'suggested_value' %} is-sorted-{{ currentDir }}{% endif %}">
+                            <span class="th-label">
+                                <span><a href="{{ path('admin_product_price_index', {sort: 'suggested_value', dir: currentSort == 'suggested_value' and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Value</a></span>
+                            </span>
+                        </th>
+                        <th class="price-group-end is-sortable{% if currentSort == 'suggested_effective' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_price_index', {sort: 'suggested_effective', dir: currentSort == 'suggested_effective' and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Effective</a></th>
+                        {% for priceList in priceLists %}
+                            <th class="is-sortable{% if currentSort == 'pl_type_' ~ priceList.id %} is-sorted-{{ currentDir }}{% endif %}">
+                                <span class="th-label">
+                                    <span><a href="{{ path('admin_product_price_index', {sort: 'pl_type_' ~ priceList.id, dir: currentSort == 'pl_type_' ~ priceList.id and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Type</a></span>
+                                </span>
+                            </th>
+                            <th class="is-sortable{% if currentSort == 'pl_value_' ~ priceList.id %} is-sorted-{{ currentDir }}{% endif %}">
+                                <span class="th-label">
+                                    <span><a href="{{ path('admin_product_price_index', {sort: 'pl_value_' ~ priceList.id, dir: currentSort == 'pl_value_' ~ priceList.id and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Value</a></span>
+                                </span>
+                            </th>
+                            <th class="price-group-end is-sortable{% if currentSort == 'pl_effective_' ~ priceList.id %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_price_index', {sort: 'pl_effective_' ~ priceList.id, dir: currentSort == 'pl_effective_' ~ priceList.id and currentDir == 'asc' ? 'desc' : 'asc', limit: currentLimit, page: 1, lists: listsValue, filters: filters}) }}">Effective</a></th>
+                        {% endfor %}
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" name="filters[id]" value="{{ filters.id|default('') }}" data-filter-field="id" aria-label="Filter by id"></th>
+                        <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" data-filter-field="name" aria-label="Filter by product name"></th>
+                        <th><input type="text" name="filters[sku]" value="{{ filters.sku|default('') }}" data-filter-field="sku" aria-label="Filter by sku"></th>
+                        <th>
+                            {# A real <select> of category ids (issue #424), enhanced client-side by
+                               initSearchableSelect(). This supersedes the earlier <input>+<datalist>,
+                               whose option values had to carry the category *name* so the box didn't
+                               read "3" after a pick -- a <select> shows the label and submits the id,
+                               so the name-vs-id workaround (and the backend's name-LIKE branch) is
+                               gone. `label` stays the visible text for its "— " depth prefix. #}
+                            <select name="filters[category]" class="js-searchable-select" data-placeholder="All categories" data-filter-field="category" aria-label="Filter by category">
+                                <option value="">All categories</option>
+                                {% for category in categories|default([]) %}
+                                    <option value="{{ category.id }}" {{ filters.category|default('') == category.id ? 'selected' : '' }}>{{ category.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" name="filters[price]" value="{{ filters.price|default('') }}" data-filter-field="price" aria-label="Filter by product price"></th>
+                        <th><input type="text" name="filters[default_price]" value="{{ filters.default_price|default('') }}" data-filter-field="default_price" aria-label="Filter by default price"></th>
+                        <th class="has-dual-icons price-bulk-cell">
+                            <span class="th-icons">
+                            <button
+                            class="th-iconbox th-iconbox-page js-bulk-apply"
+                            type="button"
+                            title="Apply first row value to items on this page"
+                            aria-label="Apply first row value to items on this page"
+                            data-bulk-scope="page"
+                            data-bulk-field="type"
+                            data-suggested="1"
+                            data-price-list-name="Suggested Price">1</button>
+                            <button
+                            class="th-iconbox th-iconbox-all js-bulk-apply"
+                            type="button"
+                            title="Apply first row value to items on all pages"
+                            aria-label="Apply first row value to items on all pages"
+                            data-bulk-scope="all"
+                            data-bulk-field="type"
+                            data-suggested="1"
+                            data-price-list-name="Suggested Price">A</button>
+                            </span>
+                        </th>
+                        <th class="has-dual-icons price-bulk-cell">
+                            <span class="th-icons">
+                            <button
+                            class="th-iconbox th-iconbox-page js-bulk-apply"
+                            type="button"
+                            title="Apply first row value to items on this page"
+                            aria-label="Apply first row value to items on this page"
+                            data-bulk-scope="page"
+                            data-bulk-field="value"
+                            data-suggested="1"
+                            data-price-list-name="Suggested Price">1</button>
+                            <button
+                            class="th-iconbox th-iconbox-all js-bulk-apply"
+                            type="button"
+                            title="Apply first row value to items on all pages"
+                            aria-label="Apply first row value to items on all pages"
+                            data-bulk-scope="all"
+                            data-bulk-field="value"
+                            data-suggested="1"
+                            data-price-list-name="Suggested Price">A</button>
+                            </span>
+                        </th>
+                        <th class="price-group-end"></th>
+                        {% for priceList in priceLists %}
+                            <th class="has-dual-icons price-bulk-cell">
+                                <span class="th-icons">
+                                <button
+                                class="th-iconbox th-iconbox-page js-bulk-apply"
+                                type="button"
+                                title="Apply first row value to items on this page"
+                                aria-label="Apply first row value to items on this page"
+                                data-bulk-scope="page"
+                                data-bulk-field="type"
+                                data-price-list-id="{{ priceList.id }}"
+                                data-price-list-name="{{ priceList.name }}">1</button>
+                                <button
+                                class="th-iconbox th-iconbox-all js-bulk-apply"
+                                type="button"
+                                title="Apply first row value to items on all pages"
+                                aria-label="Apply first row value to items on all pages"
+                                data-bulk-scope="all"
+                                data-bulk-field="type"
+                                data-price-list-id="{{ priceList.id }}"
+                                data-price-list-name="{{ priceList.name }}">A</button>
+                                </span>
+                            </th>
+                            <th class="has-dual-icons price-bulk-cell">
+                                <span class="th-icons">
+                                <button
+                                class="th-iconbox th-iconbox-page js-bulk-apply"
+                                type="button"
+                                title="Apply first row value to items on this page"
+                                aria-label="Apply first row value to items on this page"
+                                data-bulk-scope="page"
+                                data-bulk-field="value"
+                                data-price-list-id="{{ priceList.id }}"
+                                data-price-list-name="{{ priceList.name }}">1</button>
+                                <button
+                                class="th-iconbox th-iconbox-all js-bulk-apply"
+                                type="button"
+                                title="Apply first row value to items on all pages"
+                                aria-label="Apply first row value to items on all pages"
+                                data-bulk-scope="all"
+                                data-bulk-field="value"
+                                data-price-list-id="{{ priceList.id }}"
+                                data-price-list-name="{{ priceList.name }}">A</button>
+                                </span>
+                            </th>
+                            <th class="price-group-end"></th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% include 'admin/product/_price_rows.html.twig' %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <div class="table-footer">
+            <label class="per-page-label">
+                Per page
+                <select name="limit" onchange="this.form.submit()">
+                    {% for size in [20, 100, 200, 500] %}
+                        <option value="{{ size }}" {{ currentLimit == size ? 'selected' : '' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'admin/_table_count.html.twig' with {
+                count: products|length,
+                total: total,
+                currentPage: currentPage,
+                perPage: currentLimit
+            } only %}
+            {% include 'admin/_pagination.html.twig' with {
+                routeName: 'admin_product_price_index',
+                routeQuery: {sort: currentSort, dir: currentDir, limit: currentLimit, lists: listsValue, filters: filters},
+                currentPage: currentPage,
+                pageCount: pageCount
+            } only %}
+        </div>
+        </form>
+    </section>
+
+    <div class="admin-modal-overlay" id="price-group-modal" style="display:none;">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Choose Price Group</h2>
+            </div>
+            <div class="admin-modal-body">
+                <form id="price-group-form">
+                    <div style="display:grid; gap:10px;">
+                        {% if allPriceLists is not empty %}
+                            {% for pl in allPriceLists %}
+                                <label style="display:flex; align-items:center; gap:10px; font-weight:500;">
+                                    <input type="checkbox" name="lists[]" value="{{ pl.id }}"
+                                           {{ pl.id in selectedPriceListIds ? 'checked' : '' }}>
+                                    <span>
+                                        {{ pl.name }} ({{ pl.currency }})
+                                    </span>
+                                </label>
+                            {% endfor %}
+                        {% else %}
+                            <div style="color:#64748b; font-size:0.9rem; padding:8px 0;">
+                                No price groups available.
+                            </div>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            <div class="admin-modal-footer" style="display:flex; justify-content:flex-end; gap:12px; margin-top:30px;">
+                <button class="button primary js-price-group-submit" type="button" style="min-width:100px;">Submit</button>
+                <button class="button outline js-price-group-close" type="button" style="min-width:80px;">Close</button>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function () {
+    var PRICE_LISTS_STORAGE_KEY = 'wc_admin_product_pricing_lists';
+
+    function writeToken(name) {
+        var holder = document.getElementById('price-write-tokens');
+        return holder ? (holder.getAttribute('data-' + name + '-token') || '') : '';
+    }
+
+    function readSavedLists() {
+        try {
+            if (!window.localStorage) return null;
+            var raw = window.localStorage.getItem(PRICE_LISTS_STORAGE_KEY);
+            raw = (raw || '').toString().trim();
+            return raw ? raw : null;
+        } catch (e) { return null; }
+    }
+
+    function saveLists(value) {
+        try {
+            if (!window.localStorage) return;
+            window.localStorage.setItem(PRICE_LISTS_STORAGE_KEY, (value || '').toString());
+        } catch (e) { /* ignore */ }
+    }
+
+    // Persist selected pricing groups across reloads.
+    // If the URL has no `lists` param, restore the last saved selection.
+    try {
+        var bootUrl = new URL(window.location.href);
+        if (bootUrl.searchParams.has('lists')) {
+            saveLists(bootUrl.searchParams.get('lists') || '');
+        } else {
+            var saved = readSavedLists();
+            if (saved !== null) {
+                bootUrl.searchParams.set('lists', saved);
+                bootUrl.searchParams.delete('page');
+                window.location.replace(bootUrl.toString());
+                return;
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    var activeRow = null;
+    var iconSelectors = '.wide-price-table th.has-dual-icons .th-icons, .wide-price-table th.has-dual-icons .th-iconbox, .wide-price-table th.has-dual-icons .js-bulk-apply';
+
+    function findRow(el) {
+        return el ? el.closest('tr') : null;
+    }
+
+    function setRowEditing(row, editing) {
+        if (!row) return;
+        row.classList.toggle('is-editing', !!editing);
+    }
+
+    function deactivateRow() {
+        if (!activeRow) return;
+        setRowEditing(activeRow, false);
+        activeRow = null;
+    }
+
+    function activateRow(row) {
+        if (!row) return;
+        if (activeRow && activeRow !== row) {
+            setRowEditing(activeRow, false);
+        }
+        activeRow = row;
+        setRowEditing(activeRow, true);
+    }
+
+    // The one place this script turns a field's text into a number, and the client half of #464.
+    //
+    // Every price and rule value the server keeps is gated on App\Service\Pricing\PriceNumber, and
+    // anything that fails that gate is treated as ABSENT — not as zero, and certainly not as the
+    // number it looks a bit like. parseFloat() asks a different question entirely: it takes the
+    // longest numeric prefix, so "12abc" is 12 here and nothing at all there, and the grid would
+    // show a figure the server was never going to store. Number() is closer but still disagrees on
+    // three counts — it reads "" as 0, accepts 0x/0b/0o literals that is_numeric() rejects, and
+    // returns Infinity for "1e999".
+    //
+    // So this is PHP's numeric-string grammar written out, minus the exponent: optional surrounding
+    // whitespace (PHP 8 allows it on both sides, and the callers on the server trim first anyway),
+    // optional sign, digits with an optional fractional part or a bare fractional part. The
+    // exponent is left out on purpose and is the one thing the SERVER changed to match rather than
+    // the other way round — see PriceNumber::isPrice(). Everything else — blank included — comes
+    // back NaN, so every isFinite() check below now reads as "a value the server would accept too".
+    function numericValue(raw) {
+        if (raw === null || raw === undefined) return NaN;
+        if (!/^[ \t\n\r\v\f]*[+-]?(\d+(\.\d*)?|\.\d+)[ \t\n\r\v\f]*$/.test(String(raw))) {
+            return NaN;
+        }
+        var n = Number(raw);
+        return isFinite(n) ? n : NaN;
+    }
+
+    function formatMoney(val) {
+        var n = numericValue(val);
+        if (!isFinite(n)) return '-';
+        return n.toFixed(2);
+    }
+
+    /**
+     * The base price a rule is applied to, resolved exactly as the server resolves it.
+     *
+     * Server-side this chain lives in three places that agree with each other —
+     * SuggestedPriceCalculator::getBasePrice(), the opening of updatePrice(), and
+     * Admin\ProductController::productToPriceRow() — and it is: default_price if that field holds a
+     * number, otherwise original_price if THAT holds a number, otherwise no base at all. The two
+     * fields arrive here as `.js-core-price-input` (rendered from defaultPriceRaw) and the hidden
+     * `.js-product-price-base` (rendered from priceRaw, which is getOriginalPrice()), so the DOM
+     * chain lines up with the PHP chain field for field.
+     *
+     * Neither step asks whether the number is positive, and that is the whole of #464's first half.
+     * The client used to fall back on `!isFinite(base) || base <= 0` and then accept the substitute
+     * only when `productPrice > 0`, so a product priced at 0.00 computed one way on screen and
+     * another on save, and a negative base survived or was silently replaced depending on which of
+     * the two fields it happened to come from. is_numeric('0') and is_numeric('-5') are both true;
+     * the fallback means "not a number", not "not a price I like the look of".
+     */
+    function resolveBasePrice(row) {
+        var baseInput = row.querySelector('.js-core-price-input');
+        var base = baseInput ? numericValue(baseInput.value) : NaN;
+        if (isFinite(base)) return base;
+
+        var productBase = row.querySelector('.js-product-price-base');
+        return productBase ? numericValue(productBase.value) : NaN;
+    }
+
+    function setCellDisplayText(inputEl, text) {
+        if (!inputEl) return;
+        var cell = inputEl.closest('td');
+        if (!cell) return;
+        var btn = cell.querySelector('.js-price-display');
+        if (btn) btn.textContent = text;
+    }
+
+    function recomputeRowEffective(row, options) {
+        if (!row) return;
+        options = options || {};
+
+        var base = resolveBasePrice(row);
+
+        var hiddenPrices = Array.prototype.slice.call(row.querySelectorAll('.js-price-input[data-price-list-id]'));
+        hiddenPrices.forEach(function (hidden) {
+            var priceListId = hidden.getAttribute('data-price-list-id');
+            if (!priceListId) return;
+
+            var typeEl = row.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+            var valEl = row.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+            if (!typeEl || !valEl) return;
+
+            var type = typeEl.value;
+
+            if (type === 'No Price' || type === 'Hide') {
+                valEl.value = '';
+                valEl.disabled = true;
+                setCellDisplayText(valEl, '—');
+
+                hidden.value = '0.00';
+                var effSpanNoPrice = row.querySelector('.js-price-effective[data-price-list-id="' + priceListId + '"]');
+                if (effSpanNoPrice) effSpanNoPrice.textContent = (type === 'Hide') ? 'Hidden' : 'Unavailable';
+
+                if (options.save) {
+                    postUpdate(hidden);
+                }
+                return;
+            }
+            valEl.disabled = false;
+
+            // A negative Discount%/Discount$ value is a deliberate premium (customer pays MORE than
+            // base), not an error — only reject truly non-numeric input. A discount bigger than the
+            // base is equally deliberate and yields a negative effective price, which is displayed
+            // and posted as-is (#458).
+            var v = numericValue(valEl.value);
+
+            // This mirrors updatePrice()'s three-way resolution, and the shape matters as much as
+            // the arithmetic. The rule is a calculator: whatever it CAN answer, it answers, and a
+            // rule that resolves to nothing at all — blank or unusable value, an unrecognised type,
+            // a discount with no base to discount — resolves to the BASE PRICE rather than being
+            // abandoned. This whole block used to be a set of early `return`s instead (#464), which
+            // is the worst of the divergences in that issue: the server computed and saved one
+            // figure while the cell on screen kept showing the previous one, with nothing to say
+            // the two had parted company.
+            var effective = null;
+            if (isFinite(v)) {
+                if (type === 'Discount%') {
+                    // Only the ABSENCE of a base stops these two; a base of 0 or below is a base.
+                    // `Discount% 10` on 0 is 0.00 and `Discount$ 5` on 0 is -5.00, both legitimate
+                    // answers since #458/#462 removed the floors.
+                    effective = isFinite(base) ? base * (1 - (v / 100)) : null;
+                } else if (type === 'Discount$') {
+                    effective = isFinite(base) ? base - v : null;
+                } else if (type === 'Number') {
+                    // "Number" means the effective price directly — no base involved.
+                    effective = v;
+                }
+                // Any other type falls through with effective still null. updatePrice() only ever
+                // applies Discount%/Discount$/Number, so an unrecognised type is not a rule and
+                // lands on the base price below, same as a blank one.
+            }
+
+            if (effective === null) {
+                if (!isFinite(base)) {
+                    // No rule and no base: the server's last resort is the `price` field the POST
+                    // carried, which is this very hidden input. Leaving it untouched is what makes
+                    // the two agree — recomputing it from nothing is what would not.
+                    return;
+                }
+                effective = base;
+            }
+
+            effective = Math.round(effective * 100) / 100;
+
+            hidden.value = effective.toFixed(2);
+
+            var effSpan = row.querySelector('.js-price-effective[data-price-list-id="' + priceListId + '"]');
+            if (effSpan) effSpan.textContent = effective.toFixed(2);
+
+            if (options.save) {
+                postUpdate(hidden);
+            }
+        });
+    }
+
+    function showToast(msg, type) {
+        var toast = document.querySelector('.toast');
+        if (!toast) return;
+        if (toast._timer) { clearTimeout(toast._timer); }
+        toast.classList.remove('is-success', 'is-error');
+        toast.textContent = msg;
+        if (type) { toast.classList.add('is-' + type); }
+        toast.classList.add('is-visible');
+        toast._timer = setTimeout(function () {
+            toast.classList.remove('is-visible', 'is-success', 'is-error');
+        }, 2200);
+    }
+
+    var bulkApplying = false;
+
+    function recomputeSuggestedEffective(row, options) {
+        if (!row) return;
+        options = options || {};
+
+        var typeEl = row.querySelector('.js-suggested-type');
+        var valEl = row.querySelector('.js-suggested-value');
+        var effSpan = row.querySelector('.js-suggested-effective');
+        if (!typeEl || !valEl) return;
+
+        var base = resolveBasePrice(row);
+
+        var type = typeEl.value;
+        var v = numericValue(valEl.value);
+
+        var effective = null;
+        // These branches must stay a mirror of SuggestedPriceCalculator::getEffectivePrice(). This
+        // column is computed twice — here for immediate feedback, and on the server for what is
+        // actually stored — and the save handler below deliberately recomputes from the DOM rather
+        // than taking the server's answer, so any disagreement is not self-correcting: it survives
+        // on screen until the page is reloaded.
+        if (type === '') {
+            // A blank type is the absence of a rule, not a rule. The value is deliberately not
+            // consulted: a row can carry a leftover value from a rule that was later cleared, and
+            // reading it back would resurrect a rule nobody chose. (Server: #446.)
+            effective = isFinite(base) ? base : null;
+        } else if (type === 'Number') {
+            // Number is a rule the admin picked on purpose, so what they typed is the answer — only
+            // an ABSENT value falls back to the base price. A present 0 is a price ("suggested at
+            // nothing"), and a negative one is shown as the negative it is — neither discarded nor
+            // floored (#458), matching the Markup$/Markup% branches below, which have never floored.
+            // This used to be `isFinite(v) && v > 0`, which folded unset, zero and negative into one
+            // silent fallback. (Server: #445.)
+            effective = isFinite(v) ? v : (isFinite(base) ? base : null);
+        } else if (isFinite(base)) {
+            if (!isFinite(v)) {
+                // getEffectivePrice() returns the base price whenever the value is unusable, and
+                // "unusable" is the same test as the server's: blank, "12abc", "0x1A" and "1e3"
+                // are all absent values here (#464).
+                effective = base;
+            } else if (type === 'Markup$') {
+                effective = base + v;
+            } else if (type === 'Markup%') {
+                effective = base + (base * v / 100);
+            } else {
+                // An unrecognised type. getEffectivePrice() falls off the end of its branches and
+                // returns the base price; this used to fall off the end of its branches and render
+                // a dash instead (#464). Only reachable through bad data, but the two sides must
+                // still answer bad data the same way.
+                effective = base;
+            }
+        }
+
+        if (effective === null || !isFinite(effective)) {
+            if (effSpan) effSpan.textContent = '-';
+        } else {
+            if (effSpan) effSpan.textContent = (Math.round(effective * 100) / 100).toFixed(2);
+        }
+
+        if (options.save) {
+            postSuggestedUpdate(row);
+        }
+    }
+
+    function postSuggestedUpdate(row) {
+        var typeEl = row.querySelector('.js-suggested-type');
+        var valEl = row.querySelector('.js-suggested-value');
+        if (!typeEl || !valEl) return Promise.resolve();
+
+        var form = new URLSearchParams();
+        form.set('product_id', typeEl.getAttribute('data-product-id'));
+        form.set('type', typeEl.value);
+        form.set('value', valEl.value);
+        form.set('_token', writeToken('suggested-price-update'));
+
+        return fetch("{{ path('admin_product_suggested_price_update') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+              if (!data || !data.ok) {
+                  showToast((data && data.message) ? data.message : 'Save failed.', 'error');
+                  return;
+              }
+              // Don't blindly trust data.effective here: it reflects whatever base price the server saw
+              // at the moment this request was sent. If the user changed Default Price while this save
+              // was still in flight, a late response would stomp the newer, correct value. Recomputing
+              // from the row's current DOM state instead always reflects the latest edit, regardless of
+              // network arrival order.
+              recomputeSuggestedEffective(row, { save: false });
+              if (!bulkApplying) {
+                  showToast('Saved', 'success');
+              }
+          })
+          .catch(function () {
+              showToast('Network error.', 'error');
+          });
+    }
+
+    function postUpdate(input) {
+        var productId = input.getAttribute('data-product-id');
+        var coreField = input.getAttribute('data-core-field');
+        var priceListId = input.getAttribute('data-price-list-id');
+        var value = input.value;
+
+        var form = new URLSearchParams();
+        form.set('product_id', productId);
+        if (coreField) {
+            form.set('field', coreField);
+        } else {
+            form.set('price_list_id', priceListId);
+        }
+        form.set('price', value);
+
+        // Persist the UI rule (type/value) so it doesn't "change back" when you paginate.
+        if (!coreField && priceListId) {
+            var row = findRow(input);
+            if (row) {
+                var typeEl = row.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+                var valEl = row.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+                if (typeEl) form.set('rule_type', String(typeEl.value || ''));
+                if (valEl) form.set('rule_value', String(valEl.value || ''));
+            }
+        }
+
+        input.disabled = true;
+        input.classList.remove('is-error');
+
+        var endpoint = coreField ? "{{ path('admin_product_core_price_update') }}" : "{{ path('admin_product_price_update') }}";
+        form.set('_token', writeToken(coreField ? 'core-price-update' : 'price-update'));
+        return fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) { return r.json(); })
+          .then(function (data) {
+              if (!data || !data.ok) {
+                  input.classList.add('is-error');
+                  showToast((data && data.message) ? data.message : 'Save failed.', 'error');
+                  return;
+              }
+              input.value = data.price || '';
+              var cell = input.closest('td');
+              if (cell) {
+                  var btn = cell.querySelector('.js-price-display');
+                  if (btn) {
+                      if (input.value === '') {
+                          btn.textContent = coreField ? '' : '-';
+                      } else {
+                          btn.textContent = formatMoney(input.value);
+                      }
+                  }
+              }
+              if (!bulkApplying) {
+                  showToast('Saved', 'success');
+              }
+          })
+          .catch(function () {
+              input.classList.add('is-error');
+              showToast('Network error.', 'error');
+          })
+          .finally(function () {
+              input.disabled = false;
+          });
+    }
+
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.classList && (t.classList.contains('js-price-input') || t.classList.contains('js-core-price-input'))) {
+            postUpdate(t);
+        }
+
+        // When base (product) price changes, recompute effective prices in this row and persist them.
+        if (t && t.classList && t.classList.contains('js-core-price-input')) {
+            var rowBase = findRow(t);
+            recomputeRowEffective(rowBase, { save: true });
+            // Suggested Price's Effective is derived from this same base price — nothing to save here
+            // (type/value are unchanged), just refresh the displayed number.
+            recomputeSuggestedEffective(rowBase, { save: false });
+        }
+
+        // Type/value changes compute effective and save.
+        if (t && t.classList && (t.classList.contains('js-price-type') || t.classList.contains('js-price-value'))) {
+            var row = findRow(t);
+            if (!row) return;
+
+            var productId = t.getAttribute('data-product-id');
+            var priceListId = t.getAttribute('data-price-list-id');
+            if (!productId || !priceListId) return;
+
+            var typeEl = row.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+            var valEl = row.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+            if (typeEl) {
+                setCellDisplayText(typeEl, typeEl.value);
+            }
+            if (valEl) {
+                setCellDisplayText(valEl, valEl.value === '' ? '-' : formatMoney(valEl.value));
+            }
+
+            // Recompute and save for the edited list only.
+            recomputeRowEffective(row, { save: false });
+            var hiddenOne = row.querySelector('.js-price-input[data-price-list-id="' + priceListId + '"]');
+            if (hiddenOne) {
+                postUpdate(hiddenOne);
+            }
+        }
+
+        // Suggested Price: type/value changes recompute effective and save both fields together.
+        if (t && t.classList && (t.classList.contains('js-suggested-type') || t.classList.contains('js-suggested-value'))) {
+            var suggestedRow = findRow(t);
+            if (!suggestedRow) return;
+
+            setCellDisplayText(t, t.classList.contains('js-suggested-value')
+                ? (t.value === '' ? '-' : formatMoney(t.value))
+                : (t.value === '' ? '-' : t.value));
+
+            recomputeSuggestedEffective(suggestedRow, { save: true });
+        }
+    });
+
+    // Live preview while typing (no save until change/Enter)
+    document.addEventListener('input', function (e) {
+        var t = e.target;
+        if (!t || !t.classList) return;
+
+        if (t.classList.contains('js-suggested-value')) {
+            var suggestedRow = findRow(t);
+            if (!suggestedRow) return;
+            setCellDisplayText(t, t.value === '' ? '-' : formatMoney(t.value));
+            recomputeSuggestedEffective(suggestedRow, { save: false });
+            return;
+        }
+
+        if (!(t.classList.contains('js-price-value') || t.classList.contains('js-price-type') || t.classList.contains('js-core-price-input'))) return;
+
+        var row = findRow(t);
+        if (!row) return;
+
+        // Keep display text in sync for value/type.
+        if (t.classList.contains('js-price-type')) {
+            setCellDisplayText(t, t.value);
+        }
+        if (t.classList.contains('js-price-value')) {
+            setCellDisplayText(t, t.value === '' ? '-' : formatMoney(t.value));
+        }
+
+        recomputeRowEffective(row, { save: false });
+        if (t.classList.contains('js-core-price-input')) {
+            recomputeSuggestedEffective(row, { save: false });
+        }
+    });
+
+    // Persist base price on blur (covers the common case of typing then paging/refreshing).
+    document.addEventListener('blur', function (e) {
+        var t = e.target;
+        if (!t || !t.classList) return;
+        if (t.classList.contains('js-suggested-value')) {
+            recomputeSuggestedEffective(findRow(t), { save: true });
+            return;
+        }
+        if (!t.classList.contains('js-core-price-input')) return;
+        postUpdate(t);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (!t || !t.classList) return;
+        if (t.classList.contains('js-suggested-value')) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                recomputeSuggestedEffective(findRow(t), { save: true });
+                t.blur();
+            }
+            return;
+        }
+        if (!(t.classList.contains('js-price-input') || t.classList.contains('js-core-price-input'))) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            postUpdate(t);
+            t.blur();
+        }
+    });
+
+    // Click-to-edit: show inputs only for the clicked row
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t) return;
+
+        // Activate edit mode when clicking the display value
+        if (t.classList && t.classList.contains('js-price-display')) {
+            var row = findRow(t);
+            activateRow(row);
+            recomputeRowEffective(row, { save: false });
+            recomputeSuggestedEffective(row, { save: false });
+
+            var targetId = t.getAttribute('data-target-input');
+            if (targetId) {
+                var input = document.getElementById(targetId);
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
+            return;
+        }
+
+        // If clicking inside an input, keep the row active
+        if (t.classList && (t.classList.contains('js-price-input') || t.classList.contains('js-core-price-input') || t.classList.contains('js-price-type') || t.classList.contains('js-price-value') || t.classList.contains('js-suggested-type') || t.classList.contains('js-suggested-value'))) {
+            activateRow(findRow(t));
+            return;
+        }
+
+        // Click outside the active row closes edit mode
+        if (activeRow && !t.closest('tr.is-editing')) {
+            deactivateRow();
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            deactivateRow();
+        }
+    });
+
+    // Prevent header icon interactions from blurring active inputs (which can trigger saves/toasts).
+    document.addEventListener('mousedown', function (e) {
+        var t = e.target && e.target.nodeType === 3 ? e.target.parentElement : e.target;
+        if (!t) return;
+        if (t.closest && t.closest(iconSelectors)) {
+            e.preventDefault();
+        }
+    }, true);
+
+    function getFirstDataRow(tableEl) {
+        var tbody = tableEl && tableEl.tBodies ? tableEl.tBodies[0] : null;
+        if (!tbody) return null;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.data-item-row'));
+        return rows.length ? rows[0] : null;
+    }
+
+    function getAllDataRows(tableEl) {
+        var tbody = tableEl && tableEl.tBodies ? tableEl.tBodies[0] : null;
+        if (!tbody) return [];
+        return Array.prototype.slice.call(tbody.querySelectorAll('tr.data-item-row'));
+    }
+
+    function bulkApplyToPage(tableEl, priceListId, field) {
+        var firstRow = getFirstDataRow(tableEl);
+        if (!firstRow) return Promise.resolve({ updated: 0 });
+
+        var sourceType = firstRow.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+        var sourceValue = firstRow.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+        if (!sourceType || !sourceValue) return Promise.resolve({ updated: 0 });
+
+        var typeVal = String(sourceType.value || '');
+        var valueVal = String(sourceValue.value || '');
+
+        var rows = getAllDataRows(tableEl);
+        if (!rows.length) return Promise.resolve({ updated: 0 });
+
+        bulkApplying = true;
+        var promises = [];
+        var updated = 0;
+
+        rows.forEach(function (row) {
+            var typeEl = row.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+            var valEl = row.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+            if (!typeEl || !valEl) return;
+
+            if (field === 'type') {
+                typeEl.value = typeVal;
+                setCellDisplayText(typeEl, typeEl.value);
+            } else if (field === 'value') {
+                valEl.value = valueVal;
+                setCellDisplayText(valEl, valEl.value === '' ? '-' : formatMoney(valEl.value));
+            }
+
+            var hiddenOne = row.querySelector('.js-price-input[data-price-list-id="' + priceListId + '"]');
+            if (hiddenOne) {
+                if (field === 'value' && valueVal === '') {
+                    hiddenOne.value = '';
+                    var effSpan = row.querySelector('.js-price-effective[data-price-list-id="' + priceListId + '"]');
+                    if (effSpan) effSpan.textContent = '-';
+                } else {
+                    recomputeRowEffective(row, { save: false });
+                }
+                promises.push(postUpdate(hiddenOne));
+                updated += 1;
+            }
+        });
+
+        return Promise.all(promises)
+            .then(function () { return { updated: updated }; })
+            .finally(function () { bulkApplying = false; });
+    }
+
+    function bulkApplyToPageSuggested(tableEl, field) {
+        var firstRow = getFirstDataRow(tableEl);
+        if (!firstRow) return Promise.resolve({ updated: 0 });
+
+        var sourceType = firstRow.querySelector('.js-suggested-type');
+        var sourceValue = firstRow.querySelector('.js-suggested-value');
+        if (!sourceType || !sourceValue) return Promise.resolve({ updated: 0 });
+
+        var typeVal = String(sourceType.value || '');
+        var valueVal = String(sourceValue.value || '');
+
+        var rows = getAllDataRows(tableEl);
+        if (!rows.length) return Promise.resolve({ updated: 0 });
+
+        bulkApplying = true;
+        var promises = [];
+        var updated = 0;
+
+        rows.forEach(function (row) {
+            var typeEl = row.querySelector('.js-suggested-type');
+            var valEl = row.querySelector('.js-suggested-value');
+            if (!typeEl || !valEl) return;
+
+            if (field === 'type') {
+                typeEl.value = typeVal;
+                setCellDisplayText(typeEl, typeEl.value === '' ? '-' : typeEl.value);
+            } else if (field === 'value') {
+                valEl.value = valueVal;
+                setCellDisplayText(valEl, valEl.value === '' ? '-' : formatMoney(valEl.value));
+            }
+
+            recomputeSuggestedEffective(row, { save: false });
+            promises.push(postSuggestedUpdate(row));
+            updated += 1;
+        });
+
+        return Promise.all(promises)
+            .then(function () { return { updated: updated }; })
+            .finally(function () { bulkApplying = false; });
+    }
+
+    function bulkApplyToAllPagesSuggested(field, typeVal, valueVal) {
+        var form = new URLSearchParams();
+        // Only the column that was clicked is sent, so the server leaves the other one alone (#529).
+        // Mirrors bulkApplyToAllPages() below; the endpoint defaults to 'both' when field is absent,
+        // which keeps any older caller behaving as it did.
+        form.set('field', String(field || 'both'));
+        if (field !== 'value') {
+            form.set('type', String(typeVal || ''));
+        }
+        if (field !== 'type') {
+            form.set('value', String(valueVal || ''));
+        }
+
+        // Preserve current filters/search/lists/sort from URL.
+        var url = new URL(window.location.href);
+        url.searchParams.forEach(function (v, k) {
+            form.append(k, v);
+        });
+        form.set('_token', writeToken('bulk-apply'));
+
+        return fetch("{{ path('admin_product_suggested_price_bulk_apply') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+            }
+            return r.text().then(function (t) {
+                try { return JSON.parse(t); } catch (e) { throw new Error(t || 'Invalid response'); }
+            });
+        });
+    }
+
+    function bulkApplyToAllPages(priceListId, field, typeVal, valueVal) {
+        var form = new URLSearchParams();
+        form.set('price_list_id', String(priceListId));
+        form.set('field', String(field || ''));
+        if (field === 'type') {
+            form.set('type', String(typeVal || ''));
+        } else if (field === 'value') {
+            form.set('value', String(valueVal || ''));
+        } else {
+            form.set('type', String(typeVal || ''));
+            form.set('value', String(valueVal || ''));
+        }
+
+        // Preserve current filters/search/lists/sort from URL.
+        var url = new URL(window.location.href);
+        url.searchParams.forEach(function (v, k) {
+            form.append(k, v);
+        });
+        form.set('_token', writeToken('bulk-apply'));
+
+        return fetch("{{ path('admin_product_price_bulk_apply') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: form.toString()
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+            }
+            return r.text().then(function (t) {
+                try { return JSON.parse(t); } catch (e) { throw new Error(t || 'Invalid response'); }
+            });
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target && e.target.nodeType === 3 ? e.target.parentElement : e.target;
+        if (!t) return;
+
+        var th = t.closest ? t.closest('th') : null;
+        if (!th) return;
+        // (no spacer columns)
+
+        // Only apply to the price matrix table.
+        var table = th.closest ? th.closest('table.wide-price-table') : null;
+        if (!table) return;
+
+        // Bulk apply icons
+        var bulkBtn = t.closest ? t.closest('button.js-bulk-apply') : null;
+        if (bulkBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var isSuggested = bulkBtn.hasAttribute('data-suggested');
+            var priceListId = bulkBtn.getAttribute('data-price-list-id');
+            var scope = bulkBtn.getAttribute('data-bulk-scope') || 'page';
+            var field = bulkBtn.getAttribute('data-bulk-field') || '';
+            var priceListName = bulkBtn.getAttribute('data-price-list-name') || 'this price list';
+            if (!isSuggested && !priceListId) return;
+
+            var fieldLabel = field === 'type' ? 'Type' : (field === 'value' ? 'Value' : 'Type and Value');
+            var confirmMessage = scope === 'all'
+                ? 'Apply the first row\'s ' + fieldLabel + ' to every product across all pages for "' + priceListName + '"?\n\nThis will overwrite existing pricing for every matching product and cannot be undone.'
+                : 'Apply the first row\'s ' + fieldLabel + ' to all products on this page for "' + priceListName + '"?\n\nThis will overwrite existing values for those rows.';
+            if (!window.confirm(confirmMessage)) return;
+
+            var firstRow = getFirstDataRow(table);
+            if (!firstRow) return;
+
+            if (isSuggested) {
+                var suggestedSourceType = firstRow.querySelector('.js-suggested-type');
+                var suggestedSourceValue = firstRow.querySelector('.js-suggested-value');
+                if (!suggestedSourceType || !suggestedSourceValue) return;
+
+                var suggestedTypeVal = String(suggestedSourceType.value || '');
+                var suggestedValueVal = String(suggestedSourceValue.value || '');
+
+                if (scope === 'all') {
+                    bulkApplying = true;
+                    bulkApplyToAllPagesSuggested(field, suggestedTypeVal, suggestedValueVal)
+                        .then(function (data) {
+                            if (!data || !data.ok) {
+                                showToast((data && data.message) ? data.message : 'Bulk apply failed.', 'error');
+                                return;
+                            }
+                            showToast('Applied to all pages (' + (data.updated || 0) + ' updated, ' + (data.processed || 0) + ' processed)', 'success');
+                            setTimeout(function () { window.location.reload(); }, 600);
+                        })
+                        .catch(function (err) {
+                            var msg = err && err.message ? String(err.message) : 'Network error.';
+                            showToast(msg.length > 120 ? (msg.slice(0, 120) + '…') : msg, 'error');
+                        })
+                        .finally(function () { bulkApplying = false; });
+                    return;
+                }
+
+                bulkApplyToPageSuggested(table, field)
+                    .then(function (res) {
+                        showToast('Applied to this page (' + (res.updated || 0) + ' rows)', 'success');
+                    })
+                    .catch(function () { showToast('Bulk apply failed.', 'error'); });
+                return;
+            }
+
+            var sourceType = firstRow.querySelector('.js-price-type[data-price-list-id="' + priceListId + '"]');
+            var sourceValue = firstRow.querySelector('.js-price-value[data-price-list-id="' + priceListId + '"]');
+            if (!sourceType || !sourceValue) return;
+
+            var typeVal = String(sourceType.value || '');
+            var valueVal = String(sourceValue.value || '');
+
+            if (scope === 'all') {
+                bulkApplying = true;
+                // The column the button sits in, not "both" — [A] on Type must leave Value alone and
+                // vice versa, exactly like [1] already does. Overriding it here was half of #529;
+                // the other half was every [A] carrying a bulk-field of "both" in the markup.
+                // (Spelled that way deliberately: the inline script is part of the rendered page, so
+                // writing the attribute literally would make markup assertions match this comment.)
+                bulkApplyToAllPages(priceListId, field, typeVal, valueVal)
+                    .then(function (data) {
+                        if (!data || !data.ok) {
+                            showToast((data && data.message) ? data.message : 'Bulk apply failed.', 'error');
+                            return;
+                        }
+                        if (typeof console !== 'undefined' && console.log) {
+                            console.log('[bulk-apply] response', data);
+                        }
+                        showToast('Applied to all pages (' + (data.updated || 0) + ' updated, ' + (data.processed || 0) + ' processed)', 'success');
+                        setTimeout(function () { window.location.reload(); }, 600);
+                    })
+                    .catch(function (err) {
+                        var msg = err && err.message ? String(err.message) : 'Network error.';
+                        showToast(msg.length > 120 ? (msg.slice(0, 120) + '…') : msg, 'error');
+                    })
+                    .finally(function () { bulkApplying = false; });
+                return;
+            }
+
+            bulkApplyToPage(table, priceListId, field)
+                .then(function (res) {
+                    showToast('Applied to this page (' + (res.updated || 0) + ' rows)', 'success');
+                })
+                .catch(function () { showToast('Bulk apply failed.', 'error'); });
+            return;
+        }
+
+    }, true);
+
+    // Price group modal
+    var modal = document.getElementById('price-group-modal');
+    function openModal() { if (modal) { modal.style.display = 'flex'; } }
+    function closeModal() { if (modal) { modal.style.display = 'none'; } }
+
+    // Filter row: URL-driven server filters (like other admin list pages)
+    function applyFiltersFromRow() {
+        var table = document.querySelector('table.wide-price-table');
+        if (!table) return;
+        var inputs = Array.prototype.slice.call(table.querySelectorAll('thead .filter-row [data-filter-field]'));
+        if (!inputs.length) return;
+
+        var url = new URL(window.location.href);
+        inputs.forEach(function (el) {
+            var field = (el.getAttribute('data-filter-field') || '').toString();
+            if (!field) return;
+            var v = (el.value || '').toString().trim();
+            var key = 'filters[' + field + ']';
+            if (v) url.searchParams.set(key, v);
+            else url.searchParams.delete(key);
+        });
+        url.searchParams.delete('page');
+        window.location.href = url.toString();
+    }
+
+    document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (!t || !t.getAttribute) return;
+        if (!t.closest || !t.closest('table.wide-price-table thead .filter-row')) return;
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        applyFiltersFromRow();
+    });
+
+    // Bound through jQuery rather than addEventListener (#528). The category filter is a
+    // .js-searchable-select, and app.js commits a pick with `$select.val(v).trigger('change')` —
+    // a jQuery-simulated event, which never reaches a native listener, so choosing a category did
+    // nothing until something else triggered a reload. Other admin pages happen to work because
+    // their selects use an inline onchange="", which jQuery's trigger does invoke.
+    //
+    // One handler, not two: jQuery binds natively under the hood, so this also receives the real
+    // change events the plain text filters emit on blur. Adding it alongside the native listener
+    // would have run applyFiltersFromRow() twice for those.
+    if (window.jQuery) {
+        window.jQuery(document).on('change', 'table.wide-price-table thead .filter-row [data-filter-field]', function () {
+            applyFiltersFromRow();
+        });
+    } else {
+        document.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t || !t.getAttribute) return;
+            if (!t.closest || !t.closest('table.wide-price-table thead .filter-row')) return;
+            applyFiltersFromRow();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (!t) return;
+        if (t.classList && t.classList.contains('js-open-price-group')) { openModal(); }
+        if (t.classList && t.classList.contains('js-price-group-close')) { closeModal(); }
+        if (modal && t === modal) { closeModal(); }
+        if (t.classList && t.classList.contains('js-price-group-submit')) {
+            var form = document.getElementById('price-group-form');
+            if (!form) return;
+            var checked = Array.prototype.slice.call(form.querySelectorAll('input[name=\"lists[]\"]:checked'))
+                .map(function (el) { return el.value; });
+
+            var url = new URL(window.location.href);
+            if (checked.length) {
+                url.searchParams.set('lists', checked.join(','));
+            } else {
+                // Use a sentinel so the server can distinguish "none selected" from "default selection".
+                url.searchParams.set('lists', '0');
+            }
+            saveLists(url.searchParams.get('lists') || '');
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeModal(); }
+    });
+}());
+</script>
+{% endblock %}

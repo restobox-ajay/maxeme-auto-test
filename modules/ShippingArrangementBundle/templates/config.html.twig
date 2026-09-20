@@ -1,0 +1,156 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Shipping Upon Existing Arrangement — Shipping Bundle | Admin{% endblock %}
+{% block admin_body %}
+    <style>
+        .arrangement-intro { margin: 0 0 1rem; color: var(--text-muted, #6b7280); font-size: 0.9rem; }
+        .arrangement-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .arrangement-search-form { display: flex; gap: 0.5rem; }
+        .arrangement-table-wrap { overflow-x: auto; }
+        .arrangement-table { width: 100%; border-collapse: collapse; }
+        .arrangement-table thead th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            border-bottom: 2px solid var(--border-color, #e5e7eb);
+        }
+        .arrangement-table thead th a { color: inherit; text-decoration: none; }
+        .arrangement-table thead th a:hover { color: var(--accent, #047857); }
+        .arrangement-table thead th .sort-arrow { font-size: 0.75em; opacity: 0.6; margin-left: 0.25rem; }
+        .arrangement-group { border-bottom: 1px solid var(--border-color, #e5e7eb); }
+        .arrangement-group:nth-child(odd) { background: var(--panel-alt, #f9fafb); }
+        .arrangement-row { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.55rem 0.75rem; cursor: pointer; flex-wrap: wrap; }
+        .arrangement-row input[type="checkbox"] { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: 0.15rem; }
+        .arrangement-row .js-address-short,
+        .arrangement-row .js-address-full { white-space: normal; word-break: break-word; overflow-wrap: break-word; flex-wrap: wrap; }
+        .arrangement-company-row { font-weight: 600; }
+        .arrangement-address-row { padding-left: 2.25rem; position: relative; color: var(--text-muted, #6b7280); font-size: 0.92em; }
+        .arrangement-address-row::before {
+            content: '';
+            position: absolute;
+            left: 1rem;
+            top: 0;
+            bottom: 50%;
+            width: 0.75rem;
+            border-left: 2px solid var(--border-color, #d1d5db);
+            border-bottom: 2px solid var(--border-color, #d1d5db);
+        }
+        .arrangement-empty-row td { padding: 1.5rem 0.75rem; text-align: center; color: var(--text-muted, #6b7280); }
+        /* Below 760px, app.css's generic responsive card-view rule (td::before + justify-content:
+           space-between, meant for tables using data-label attributes) turns our data-label-less
+           <td> into a two-item flex row with an invisible first item, shoving our real content to
+           the right. Neutralize both, since this table intentionally isn't that card-view pattern. */
+        .arrangement-table td { justify-content: flex-start; }
+        .arrangement-table td::before { content: none; }
+    </style>
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Apps › Shipping</p>
+                <h1>Shipping Upon Existing Arrangement</h1>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ path('admin_dashboard') }}">Back</a>
+            </div>
+        </div>
+    </section>
+
+    {% for msg in app.flashes('success') %}
+        <div class="flash flash-success">{{ msg }}</div>
+    {% endfor %}
+
+    <section class="panel">
+        <p class="arrangement-intro">
+            Check a <strong>customer</strong> to make every one of its addresses eligible, or check just a
+            specific <strong>address</strong> to limit it to that one destination. This is a single form —
+            nothing is saved until you click <strong>Save Changes</strong>, which applies every checkbox
+            change on this page at once.
+        </p>
+
+        <div class="arrangement-toolbar">
+            <form method="get" action="{{ path('admin_bundle_shipping_arrangement_index') }}" class="arrangement-search-form">
+                <input type="hidden" name="dir" value="{{ currentDir|default('asc') }}">
+                <input class="table-search" type="search" name="q" value="{{ search|default('') }}" placeholder="Search customers…" aria-label="Search customers">
+                <button type="submit" class="button">Search</button>
+            </form>
+        </div>
+
+        <form method="post" action="{{ path('admin_bundle_shipping_arrangement_index') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="q" value="{{ search|default('') }}">
+            <input type="hidden" name="dir" value="{{ currentDir|default('asc') }}">
+
+            <div class="arrangement-table-wrap">
+                <table class="admin-grid-table arrangement-table">
+                    {% set nextDir = currentDir|default('asc') == 'asc' ? 'desc' : 'asc' %}
+                    <thead>
+                        <tr>
+                            <th>
+                                <a href="{{ path('admin_bundle_shipping_arrangement_index', {q: search|default(''), dir: nextDir}) }}">
+                                    Customer / Address
+                                    <span class="sort-arrow">{{ currentDir|default('asc') == 'asc' ? '▲' : '▼' }}</span>
+                                </a>
+                            </th>
+                        </tr>
+                    </thead>
+                    {% for company in companies %}
+                    <tbody class="arrangement-group">
+                        <tr>
+                            <td>
+                                <label class="arrangement-row arrangement-company-row">
+                                    <input type="checkbox" name="company[{{ company.id }}]" value="1" {{ companyChecked[company.id] ? 'checked' : '' }}>
+                                    <input type="hidden" name="visible_company_ids[]" value="{{ company.id }}">
+                                    {% if company.name|length > 60 %}
+                                        <span class="js-address-short" style="display: inline-flex; align-items: center; gap: 6px;">{{ company.name|slice(0, 60) }}... <button type="button" class="mini-action info js-expand-address" title="Show full name" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; font-size: 15px; line-height: 1; border-radius: 4px; font-weight: bold;">+</button></span>
+                                        <span class="js-address-full" style="display:none; line-height: 1.4;">{{ company.name }}</span>
+                                    {% else %}
+                                        {{ company.name }}
+                                    {% endif %}
+                                </label>
+                            </td>
+                        </tr>
+                        {% for address in company.addresses %}
+                            {% set addressParts = [] %}
+                            {% if address.addressLine1 %}{% set addressParts = addressParts|merge([address.addressLine1]) %}{% endif %}
+                            {% if address.city %}{% set addressParts = addressParts|merge([address.city]) %}{% endif %}
+                            {% if address.province %}{% set addressParts = addressParts|merge([address.province]) %}{% endif %}
+                            {% if address.country %}{% set addressParts = addressParts|merge([address.country]) %}{% endif %}
+                            {% set addressDisplay = addressParts is not empty ? addressParts|join(', ') : ('Address #' ~ address.id) %}
+                            <tr>
+                                <td>
+                                    <label class="arrangement-row arrangement-address-row">
+                                        <input type="checkbox" name="address[{{ address.id }}]" value="1" {{ addressChecked[address.id] ? 'checked' : '' }}>
+                                        <input type="hidden" name="visible_address_ids[]" value="{{ address.id }}">
+                                        {% if addressDisplay|length > 60 %}
+                                            <span class="js-address-short" style="display: inline-flex; align-items: center; gap: 6px;">{{ addressDisplay|slice(0, 60) }}... <button type="button" class="mini-action info js-expand-address" title="Show full address" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; font-size: 15px; line-height: 1; border-radius: 4px; font-weight: bold;">+</button></span>
+                                            <span class="js-address-full" style="display:none; line-height: 1.4;">{{ addressDisplay }}</span>
+                                        {% else %}
+                                            {{ addressDisplay }}
+                                        {% endif %}
+                                    </label>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% else %}
+                    <tbody>
+                        <tr class="arrangement-empty-row">
+                            <td>No customers match your search.</td>
+                        </tr>
+                    </tbody>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="panel-actions" style="margin-top:1rem">
+                <button type="submit" class="button primary">Save Changes</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

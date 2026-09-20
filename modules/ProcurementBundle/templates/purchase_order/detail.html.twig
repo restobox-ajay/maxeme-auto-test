@@ -1,0 +1,260 @@
+{% extends 'admin/_base/commercial_document_view.html.twig' %}
+
+{# Built from templates/admin/order/detail.html.twig, copied then adapted (#full-parity,
+   2026-09-13) — replaces the independently-written purchase_order_detail.html.twig this session
+   deleted rather than patch again. Customer→Vendor, Company→Vendor, Order→Purchase Order,
+   Fulfillment Region→Warehouse throughout.
+
+   PurchaseOrder has no fulfilment-region concept (that is a sell-side inventory-sourcing idea with
+   nothing to source here) and no invoices-raised-against-it table — a PO's own downstream document
+   is the vendor bill, shown under `related_documents` below alongside the three-way match, exactly
+   the role Order's own Invoices table plays.
+
+   `order` is read directly for every figure here — the controller passes only `order` plus the
+   frozen tax breakdown (taxLines/perLineTax/perLineTaxLabel), the same shape Order's own detail()
+   action uses. #}
+
+{% set isOrderLocked = order.status in ['Closed', 'Cancelled'] %}
+
+{% set feeLines = order.chargeLineRows %}
+{% set feeTotalsMainLine = 0 %}
+{% set mainLineFeeRows = [] %}
+{% set beforeTaxFeeRows = [] %}
+{% set afterTaxFeeRows = [] %}
+{% set shippingLines = [] %}
+{% for charge in feeLines %}
+    {% if charge.type == 'freight' and charge.placement == 'main_line' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + charge.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass}]) %}
+    {% elseif charge.type == 'fee' and charge.placement == 'main_line' %}
+        {% set feeTotalsMainLine = feeTotalsMainLine + charge.amount %}
+        {% set mainLineFeeRows = mainLineFeeRows|merge([{label: charge.label, amount: charge.amount, taxClass: charge.taxClass}]) %}
+    {% elseif charge.type == 'freight' %}
+        {% set shippingLines = shippingLines|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% elseif charge.type == 'fee' and charge.placement == 'after_tax_line' %}
+        {% set afterTaxFeeRows = afterTaxFeeRows|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% elseif charge.type == 'fee' %}
+        {% set beforeTaxFeeRows = beforeTaxFeeRows|merge([{label: charge.label, amount: charge.amount}]) %}
+    {% endif %}
+{% endfor %}
+{% set document = order %}
+{% set slotPrefix = 'admin_purchase_order_detail' %}
+{# Corrected (#full-parity, 2026-09-15): a prior version of this claimed PurchaseOrder "has only
+   one GET route" and pointed `actionBarTemplate` at a partial that printed flash messages instead
+   of a real tab bar. That was false — detail/edit/PDF are three real GET routes, same as Order's
+   own tab bar is built from — see _purchase_order_tab_nav.html.twig's own docblock. #}
+{% set actionBarTemplate = '@Procurement/_purchase_order_tab_nav.html.twig' %}
+{% set actionBarContext = {order: order} %}
+
+{% block title %}{{ order.poNumber }} | Admin{% endblock %}
+
+{% block hero_eyebrow %}Purchase order detail{% endblock %}
+{% block hero_title %}{{ order.poNumber }}{% endblock %}
+
+{# Order's own detail screen leaves `document_actions` empty and puts its actions in the tab bar
+   instead (#full-parity, 2026-09-15, corrected: a prior version put a whole second action panel
+   here, below the address cards — a slot Order's detail page simply does not have). PurchaseOrder's
+   own workflow actions (Receive/Scan/Enter a bill/Issue-or-Send/Close short/Cancel) now live in
+   `_purchase_order_tab_nav.html.twig`'s own right-aligned cluster, the same row View/Edit/PDF are
+   in — see that file's own note. #}
+{% block document_actions %}{% endblock %}
+
+{% block hero_status %}{% include 'admin/_partials/document_status.html.twig' with {status: order.status} only %}{% endblock %}
+{% block hero_actions %}<a class="button back-button" href="{{ path('admin_bundle_procurement_purchase_orders') }}">Back</a>{% endblock %}
+
+{% block summary_info_heading %}Purchase Order Info{% endblock %}
+{% block summary_info_rows %}
+    <div class="detail-row">
+        <label>Document Date:</label>
+        <strong>{{ order.documentDate }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Expected Date:</label>
+        <strong>{{ order.expectedDate ?: '-' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Name:</label>
+        <strong><a href="{{ path('admin_bundle_procurement_vendor', {id: order.vendor.id}) }}" style="color:var(--admin-blue-hover);">{{ order.vendorName ?: order.vendor.name }}</a></strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Email:</label>
+        <strong style="color:var(--admin-blue-hover);">{{ order.vendor.email|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Vendor Phone:</label>
+        <strong>{{ order.vendor.phone|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Deliver to:</label>
+        <strong>{{ order.warehouse.name }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Payment Term:</label>
+        <strong>{{ order.paymentTerm ?: 'No payment terms' }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Notes:</label>
+        <strong>{{ order.notes|default('-') }}</strong>
+    </div>
+    <div class="detail-row">
+        <label>Outstanding:</label>
+        <strong>{{ order.quantityOutstanding }} unit(s) still outstanding</strong>
+    </div>
+    {# The tax-province explanatory sentence, via `_purchase_tax_province_note_view.html.twig` — a
+       genuine PurchaseOrder-domain concept with no sell-side counterpart (Order never derives its
+       tax province from a warehouse). Its remedy sits behind Draft since issue() is what freezes
+       the province for good. #}
+    <div class="detail-row" id="po-delivery-province">
+        <label>Tax province:</label>
+        <strong>
+            {% include '@Procurement/_purchase_tax_province_note_view.html.twig' with {
+                documentNoun: 'order',
+                hasProvince: order.taxProvince,
+                provinceDisplay: order.taxProvince,
+                provinceTail: 'frozen onto this order when it was issued.',
+                warehouse: order.warehouse,
+                showWarehouseClause: order.warehouse and not order.warehouse.province,
+                warehouseClauseText: order.warehouse.name ~ ' has no province on file',
+                cannotFreezeSentence: 'An order with taxable goods and no province cannot be issued.',
+                cannotFreezeInDraftBlock: true,
+                showDraftRemedy: order.status == 'Draft' and order.warehouse,
+            } only %}
+        </strong>
+    </div>
+{% endblock %}
+
+{# "Order To" is where WE want the vendor to deliver this order — the delivery warehouse's own
+   address, not a fact about the vendor at all (#full-parity, 2026-09-15, corrected: a prior
+   version sourced this from the vendor's own address book, which read as an address the vendor
+   had told US, not one we were telling THEM — and duplicated the Ship From card whenever a
+   vendor's book happened to carry the same row under both purposes). The warehouse itself is
+   already frozen at issue (see the edit form's own "Deliver to warehouse" field), so there is
+   nothing to snapshot here beyond reading its current address — editing it means editing the
+   warehouse record under Config > Warehouses, not this document. `address: null` + `fallbacks`
+   is exactly the mechanism this partial already has for "no per-document snapshot, show these
+   values instead" — no company/contact fields, since a warehouse is a place, not a person. #}
+{% block summary_billing %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: null,
+        title: 'Order To',
+        fallbacks: {
+            companyName: '-',
+            addressLine1: order.warehouse.addressLine1|default('-'),
+            addressLine2: order.warehouse.addressLine2|default('-'),
+            city: order.warehouse.city|default('-'),
+            province: order.warehouse.province|default('-'),
+            country: order.warehouse.country|default('-'),
+            postalCode: order.warehouse.postalCode|default('-'),
+        },
+    } only %}
+{% endblock %}
+
+{% block summary_shipping %}
+    {% include 'admin/_partials/sales_detail_address_panel.html.twig' with {
+        address: order.effectiveShipFromAddress ?? order.vendor.shipFromAddress,
+        title: 'Ship From',
+        deliverable: true,
+        fallbacks: {
+            companyName: order.warehouse.name,
+            country: 'Canada',
+        },
+    } only %}
+{% endblock %}
+
+{% block line_items_heading %}Lines{% endblock %}
+{% block line_items_table %}
+    {{ include('@Procurement/_purchase_detail_line_table.html.twig', {
+        lines: order.lines,
+        perLineTax: perLineTax,
+        perLineTaxLabel: perLineTaxLabel,
+        emptyMessage: 'No lines on this order.',
+        tableStyle: '',
+        feeRows: mainLineFeeRows,
+        showFulfillment: true,
+        currency: '',
+    }, with_context = false) }}
+{% endblock %}
+
+{# Order's own `totals` block is a bare include — no wrapping `<section>`/heading of its own. The
+   frame already wraps `totalsBody` in its own `<div style="...justify-content:flex-end...">`
+   (commercial_document_view.html.twig's own "totals — FIXED" comment says so outright), so a
+   second wrapper here would be a card inside the frame's own placement div that no sell-side
+   document has. `order.subtotal + feeTotalsMainLine` mirrors Order's identical adjustment:
+   `PurchaseOrder::recalculateTotals()` — read directly — stores `subtotal` as the line items
+   alone, folding charges in only at `total`, exactly as `SalesOrder`'s own subtotal column does;
+   the displayed Subtotal row has to add them back for the same reason Order's does. #}
+{% block totals %}
+    {% include '@Procurement/purchase_detail_totals_box.html.twig' with {
+        subtotal: order.subtotal + feeTotalsMainLine,
+        shippingLines: shippingLines,
+        beforeTaxRows: beforeTaxFeeRows,
+        afterTaxRows: afterTaxFeeRows,
+        taxLines: taxLines,
+        tax: order.tax,
+        total: order.total,
+        taxRowIds: true,
+    } only %}
+{% endblock %}
+
+{# No stock_overrides block: that is sell-side inventory reservation (selling past the shelf) —
+   PurchaseOrder is the SOURCE of stock, not a draw against it, so there is no analogous decision
+   to record here. A genuine "no equivalent", not a gap. #}
+
+{% block add_message %}
+    {% include '@Procurement/_purchase_detail_add_message.html.twig' with {
+        addUrl: path('admin_bundle_procurement_purchase_order_log_add', {id: order.id}),
+    } only %}
+{% endblock %}
+
+{# Vendor bills raised against this order — the buy-side mirror of Order's own Invoices table. #}
+{% block related_documents %}
+    <section class="table-card no-search no-paginate detail-page-card" style="margin-top:20px;">
+        <div class="table-header" style="padding:20px 20px 16px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+            <div>
+                <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Bills</h2>
+                <p style="margin:4px 0 0; font-size:0.78rem; color:#64748b;">
+                    This order's receiving and billing status is worked out from these.
+                </p>
+            </div>
+        </div>
+        <div class="wide-table-wrap">
+            <table class="user-manager-table" style="min-width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:170px;">Bill</th>
+                        <th style="width:150px;">Status</th>
+                        <th style="width:140px;">Bill date</th>
+                        <th style="text-align:right; width:110px;">Total</th>
+                        <th style="width:80px; text-align:center;">Documents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in order.lines %}
+                        {% for billLine in line.billLines %}
+                            {% if billLine.isAttached %}
+                                <tr>
+                                    <td><a href="{{ path('admin_bundle_procurement_bill', {id: billLine.bill.id}) }}" style="font-weight:600; font-size:0.875rem;">{{ billLine.bill.billNumber }}</a></td>
+                                    <td><span class="badge order-status order-status-{{ billLine.bill.status|lower|replace({' ': '-'}) }}">{{ billLine.bill.status }}</span></td>
+                                    <td style="font-size:0.83rem; color:#64748b;">{{ billLine.bill.documentDate ?: '—' }}</td>
+                                    <td style="text-align:right; font-size:0.875rem;">{{ billLine.bill.total }}</td>
+                                    <td style="text-align:center;"><a href="{{ path('admin_bundle_procurement_bill', {id: billLine.bill.id}) }}">View</a></td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell"><span>No bills have been raised against this order yet.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}
+
+{% block activity_log %}
+    {% include '@Procurement/_purchase_detail_activity_log.html.twig' with {
+        logs: logs,
+        deleteRoute: 'admin_bundle_procurement_purchase_order_log_delete',
+        documentId: order.id,
+        sectionStyle: 'margin-top:20px; margin-bottom:50px;',
+    } only %}
+{% endblock %}

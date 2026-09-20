@@ -1,0 +1,473 @@
+{
+  "info": {
+    "_postman_id": "b7c1d2e4-5a63-4f18-9c20-1f3a5d8e0c41",
+    "name": "Wholesale B2B — Customer API v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Read API over the same catalog you see when you sign in to the website.\n\n## Set this up in 30 seconds\n\n1. Open the collection's **Variables** tab.\n2. Set `baseUrl` to your store's address, e.g. `https://example.com` (no trailing slash).\n3. Set `apiKey` to the key from **My Profile › My API Key** on the site.\n4. Send **Catalog › List products**.\n\nAuthentication is set once at the collection level, so every request inherits it — you never paste the key into an individual request.\n\n## The one thing to understand\n\n**Your key is you.** A request authenticates as your own user account and then runs through the same code the website runs. You see your company's prices, your company's products, your fulfillment region, and nothing you could not see by logging in. A colleague's key can legitimately return different prices and a different product list from the identical request.\n\nThat also means an administrator switching your access off takes effect on your next call, and switching it back on makes your existing key work again — there is nothing to regenerate.\n\n## Keep the key in the header\n\nThe API accepts the key only as an `X-Api-Key` header, never in the URL, so it cannot leak into browser history, `Referer` headers or server access logs. Postman is configured that way below; please keep it that way.\n\n## Limits\n\n60 requests per minute per key. Over that you get `429` with a `Retry-After` header telling you how many seconds to wait — read it rather than retrying blind.\n\nFull reference: `docs/api/openapi.yaml` in the product repository, or ask your administrator for the OpenAPI file."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-Api-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://example.com",
+      "type": "string",
+      "description": "Your store's address, without a trailing slash."
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string",
+      "description": "From My Profile › My API Key on the site. Yours alone — nobody else can see or issue it."
+    },
+    {
+      "key": "region",
+      "value": "",
+      "type": "string",
+      "description": "Only needed if your company has more than one fulfillment region. Leave blank otherwise; a 400 response will tell you the accepted values if it turns out to be required."
+    },
+    {
+      "key": "categoryId",
+      "value": "1",
+      "type": "string",
+      "description": "A product category id, used by the category-filter example."
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level checks, so every request below is validated without repeating this.",
+          "// Deliberately turns the common failures into readable messages rather than letting a",
+          "// downstream JSON parse error be the first sign that something is wrong.",
+          "",
+          "if (pm.response.code === 401) {",
+          "    console.log('401 — ' + (pm.response.json().error || 'not identified.') +",
+          "        ' Check the apiKey collection variable, and that the key has not been revoked.');",
+          "}",
+          "if (pm.response.code === 403) {",
+          "    console.log('403 — ' + JSON.stringify(pm.response.json()) +",
+          "        ' Either an administrator switched API access off for you or your company, or the region is not one you may browse.');",
+          "}",
+          "if (pm.response.code === 400) {",
+          "    var body = pm.response.json();",
+          "    console.log('400 — ' + body.error + ' Set the \"' + body.parameter + '\" variable to one of: ' +",
+          "        (body.allowedValues || []).join(', '));",
+          "}",
+          "if (pm.response.code === 429) {",
+          "    console.log('429 — rate limited. Wait ' + pm.response.headers.get('Retry-After') + 's.');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Catalog",
+      "description": "Every request here is the same endpoint with different query parameters. Unknown parameters are ignored rather than rejected, so you can leave one in place while you experiment.",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?page=1&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "page", "value": "1", "description": "1-based. Walk until page reaches pages." },
+                { "key": "region", "value": "{{region}}", "description": "Only required if your company has more than one fulfillment region.", "disabled": false }
+              ]
+            },
+            "description": "The starting point. Returns 24 products plus `total`, `page`, `pages` and `perPage` so you can page without assuming a page size."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "",
+                  "var body = pm.response.json();",
+                  "",
+                  "pm.test('has a products array and paging metadata', function () {",
+                  "    pm.expect(body.products).to.be.an('array');",
+                  "    pm.expect(body).to.include.keys('total', 'page', 'pages', 'perPage');",
+                  "});",
+                  "",
+                  "// Prices are numbers or null — never display strings, and null is not zero.",
+                  "// An integration that imports null as 0.00 prices everything at free, which is",
+                  "// why this is asserted rather than assumed.",
+                  "pm.test('prices are numbers or null, never strings', function () {",
+                  "    body.products.forEach(function (p) {",
+                  "        ['companyPrice', 'retailPrice'].forEach(function (field) {",
+                  "            if (p[field] !== null) { pm.expect(p[field]).to.be.a('number'); }",
+                  "        });",
+                  "    });",
+                  "});",
+                  "",
+                  "if (body.products.length) { console.log('First product:', JSON.stringify(body.products[0], null, 2)); }"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 — one page of the catalog",
+              "originalRequest": {
+                "method": "GET",
+                "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/products?page=1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "products"],
+                  "query": [{ "key": "page", "value": "1" }]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"products\": [\n    {\n      \"id\": 4821,\n      \"sku\": \"TR-225-45-17\",\n      \"name\": \"All-Season Touring 225/45R17\",\n      \"category\": \"Tires\",\n      \"unit\": \"EA\",\n      \"size\": \"225/45R17\",\n      \"description\": \"Touring all-season, H-rated.\",\n      \"remarks\": \"\",\n      \"image\": \"https://example.com/uploads/products/tr-225-45-17.jpg\",\n      \"inStock\": true,\n      \"availableQuantity\": 42,\n      \"companyPrice\": 128.5,\n      \"retailPrice\": 189.99\n    },\n    {\n      \"id\": 4822,\n      \"sku\": \"TR-235-40-18\",\n      \"name\": \"Performance Summer 235/40R18\",\n      \"category\": \"Tires\",\n      \"unit\": \"EA\",\n      \"size\": \"235/40R18\",\n      \"description\": \"\",\n      \"remarks\": \"Special order\",\n      \"image\": null,\n      \"inStock\": false,\n      \"availableQuantity\": 0,\n      \"companyPrice\": null,\n      \"retailPrice\": 214.0\n    }\n  ],\n  \"total\": 137,\n  \"page\": 1,\n  \"pages\": 6,\n  \"perPage\": 24,\n  \"region\": \"WEST\",\n  \"query\": \"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Search by keyword",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?q=winter&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "q", "value": "winter", "description": "Matched the same way the site's catalog search box matches it." },
+                { "key": "region", "value": "{{region}}" }
+              ]
+            },
+            "description": "The response echoes the term back as `query`, so a logged response is self-describing."
+          }
+        },
+        {
+          "name": "Filter by category",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?category={{categoryId}}&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "category", "value": "{{categoryId}}", "description": "Category id (a number). A non-numeric value is ignored, which returns the unfiltered catalog — check `total` if that would surprise you." },
+                { "key": "region", "value": "{{region}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter by facet",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?cf[rim_pcd][]=5x112&cf[rim_pcd][]=5x114.3&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "cf[rim_pcd][]", "value": "5x112", "description": "Repeat the same slug to OR values within one facet. Use cf[slug]=value for a single value." },
+                { "key": "cf[rim_pcd][]", "value": "5x114.3" },
+                { "key": "region", "value": "{{region}}" }
+              ]
+            },
+            "description": "Facet slugs are whatever this store has configured for the category you are browsing — the same ones the category page's filter checkboxes use. `rim_pcd` here is only an example; ask your administrator which slugs your catalog has. An unknown slug matches nothing rather than erroring."
+          }
+        },
+        {
+          "name": "Sort and page",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?sort=sku&dir=desc&page=2&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "sort", "value": "sku", "description": "One of: description, sku, unit, size, price, stock, remarks. Anything else — including `name` — is ignored and the default name-ascending order applies." },
+                { "key": "dir", "value": "desc", "description": "asc or desc. Anything other than desc reads as asc." },
+                { "key": "page", "value": "2" },
+                { "key": "region", "value": "{{region}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Walk every page",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products?page={{cursorPage}}&region={{region}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"],
+              "query": [
+                { "key": "page", "value": "{{cursorPage}}" },
+                { "key": "region", "value": "{{region}}" }
+              ]
+            },
+            "description": "Run this one with Postman's **Collection Runner** (or Run folder) — on its own it fetches a single page.\n\nIt sets `cursorPage` itself and re-queues itself until `page` reaches `pages`, collecting every product into the `allProducts` variable. That is the whole pagination pattern: there are no cursors or tokens, just `page` and `pages`."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// First run of the loop: start at page 1 with an empty accumulator.",
+                  "if (!pm.variables.get('cursorPage')) {",
+                  "    pm.variables.set('cursorPage', 1);",
+                  "    pm.variables.set('allProducts', '[]');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "",
+                  "var body = pm.response.json();",
+                  "var collected = JSON.parse(pm.variables.get('allProducts') || '[]').concat(body.products);",
+                  "pm.variables.set('allProducts', JSON.stringify(collected));",
+                  "",
+                  "console.log('Page ' + body.page + ' of ' + body.pages + ' — ' + collected.length + '/' + body.total + ' products collected.');",
+                  "",
+                  "if (body.page < body.pages) {",
+                  "    pm.variables.set('cursorPage', body.page + 1);",
+                  "    // Re-queue this same request. Only has an effect under the Collection Runner.",
+                  "    postman.setNextRequest('Walk every page');",
+                  "} else {",
+                  "    pm.test('collected every product the server counted', function () {",
+                  "        pm.expect(collected.length).to.eql(body.total);",
+                  "    });",
+                  "    pm.variables.unset('cursorPage');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Troubleshooting",
+      "description": "What each refusal looks like, so you can recognise one from its response instead of guessing.\n\nThe status codes are deliberately distinct: `401` means we could not identify you, `403` means we did and the answer is still no, `400` means the request needs one more parameter, `429` means slow down.",
+      "item": [
+        {
+          "name": "401 — no key sent",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"]
+            },
+            "description": "Overrides the collection auth to send nothing. Expect `401 {\"error\": \"Missing X-Api-Key header.\"}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 with a readable reason', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    pm.expect(pm.response.json().error).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "401",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Missing X-Api-Key header.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "401 — key not recognised",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Api-Key", "type": "string" },
+                { "key": "value", "value": "not-a-real-key", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"]
+            },
+            "description": "`Invalid API key.` and `This API key has been revoked.` are separate messages on purpose — the first means you typed it wrong, the second means it was yours and you turned it off. Regenerate from My Profile › My API Key."
+          },
+          "response": [
+            {
+              "name": "401",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Invalid API key.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "403 — access switched off",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"]
+            },
+            "description": "A valid key being refused. The message says whether it is your company's access or your own that was switched off, because those are different people to go and ask. Nothing needs regenerating — re-enabling makes this same key work again."
+          },
+          "response": [
+            {
+              "name": "403 — company",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Your company's API access has been disabled, please contact support to re-enable.\"\n}"
+            },
+            {
+              "name": "403 — this user",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Your API access has been disabled by an administrator, please contact your company owner or support.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "400 — region required",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"]
+            },
+            "description": "Only companies with more than one fulfillment region see this. The response lists the values that would have worked, so set the `region` collection variable to one of them and retry — you should not have to go and look them up."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 400) {",
+                  "    var body = pm.response.json();",
+                  "    pm.test('names the parameter and the values that would work', function () {",
+                  "        pm.expect(body.parameter).to.eql('region');",
+                  "        pm.expect(body.allowedValues).to.be.an('array');",
+                  "    });",
+                  "} else {",
+                  "    console.log('Your company has a single region, so `region` is inferred and this case cannot occur.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Your company has more than one fulfillment region, so \\\"region\\\" must be specified.\",\n  \"parameter\": \"region\",\n  \"allowedValues\": [\n    \"WEST\",\n    \"EAST\"\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "429 — rate limited",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "products"]
+            },
+            "description": "60 requests per minute per key. The `Retry-After` header carries the number of seconds to wait — honour it rather than retrying immediately, which just extends the window."
+          },
+          "response": [
+            {
+              "name": "429",
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api", "v1", "products"] }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" },
+                { "key": "Retry-After", "value": "37" }
+              ],
+              "body": "{\n  \"error\": \"Rate limit exceeded.\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{# The Message box above a sell-side document's Activity Log — a comment, who it is for, and
+   whether to e-mail it to the customer.
+
+   The order's and the quote's copies were byte-identical eighteen lines, differing only in the
+   endpoint the Send button posts to. The invoice has none, deliberately: its timeline is written
+   by its own transitions and there is no admin_invoice_log_add route, so there is no third
+   caller to serve.
+
+   NOT folded into `sales_detail_activity_log.html.twig`, though the two are adjacent on the
+   quote. On the ORDER they are not adjacent — the Invoices table sits between them — so merging
+   the two would move this box down the order's page, which is a layout change dressed up as a
+   refactor. Two partials, each included where its section already is.
+
+   The ids are document-neutral (`log-message`, `log-type`, `log-notify`) because app.js binds
+   them page-wide and both screens already drove the same handler through the same names, which
+   is the reason one partial can serve both. Renaming them breaks Send Message on BOTH screens
+   silently: the markup still renders, the button just stops posting.
+
+   Parameters
+   ----------
+   addUrl  required  where the Send Message button posts — the document's own log-add endpoint. #}
+
+<section class="table-card no-search no-paginate detail-page-card" style="margin-top:30px; padding:20px;">
+    <div class="table-header" style="border-bottom:none; padding-bottom:10px; margin-bottom:20px;">
+        <h2 style="font-size:0.95rem; font-weight:700; color:#1e293b;">Message</h2>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 220px auto; gap:16px; align-items:flex-end;">
+        <textarea id="log-message" class="form-control" style="min-height:45px; border-radius:8px; border:1px solid #e2e8f0; padding:10px 12px; font-size:0.875rem; background:#f8fafc;" placeholder="Type your message here…"></textarea>
+        <div class="form-group" style="margin:0;">
+            <select id="log-type" class="form-control" style="height:45px; border-radius:8px; border:1px solid #e2e8f0; font-size:0.875rem; width:100%;">
+                <option value="For Internal" selected>For Internal</option>
+                <option value="For Client">For Client</option>
+            </select>
+            <label id="log-notify-container" style="display:none; align-items:center; gap:8px; font-size:0.75rem; margin-top:8px; cursor:pointer; color:#64748b; font-weight:500;">
+                <input type="checkbox" id="log-notify" style="width:15px; height:15px; margin:0;">
+                Send e-mail notification to client
+            </label>
+        </div>
+        <button class="button primary js-add-log" data-url="{{ addUrl }}">Send Message</button>
+    </div>
+</section>

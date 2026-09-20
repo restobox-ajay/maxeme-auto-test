@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../vendor/symfony/routing/Loader/schema/routing.schema.json
+
+# Route collections keep admin URLs on the admin host.
+admin_controllers:
+    resource:
+        path: ../src/Controller/Admin/
+        namespace: App\Controller\Admin
+    type: attribute
+
+customer_controllers:
+    resource:
+        path: ../src/Controller/Customer/
+        namespace: App\Controller\Customer
+    type: attribute
+
+# The customer API. Every controller under here is a wrapper: it converts query params into the
+# shape the matching HTML form submits, forwards to the customer controller that already serves
+# that page, and returns its JSON. Authentication (App\Security\Api\ApiKeyAuthenticator, on the
+# stateless `api` firewall) is as a real CustomerUser, which is what makes that possible.
+api_controllers:
+    resource:
+        path: ../src/Controller/Api/
+        namespace: App\Controller\Api
+    type: attribute
+
+# Every module's own admin/customer controllers are discovered by
+# App\Routing\BundleControllerLoader (see config/routes/bundle_controllers.yaml) — a bundle
+# never needs an entry here.

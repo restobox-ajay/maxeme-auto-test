@@ -1,0 +1,12 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    TaxBundle\:
+        resource: '../src/'
+
+    TaxBundle\Tax\TaxCalculatorResolver:
+        arguments:
+            $calculators: !tagged_iterator app.tax_calculator
+            $menuItems: !tagged_iterator app.tax_menu_item

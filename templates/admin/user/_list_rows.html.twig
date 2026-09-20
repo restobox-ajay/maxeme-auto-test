@@ -1,0 +1,60 @@
+{% for user in users %}
+    {% set group = userGroup|default('all') %}
+    {% set routeType = group == 'staff' ? 'admin' : 'customer' %}
+    <tr>
+        {% if group == 'customer' %}
+            <td data-label="Customer name">
+                {% if user.companyId is defined and user.companyId %}
+                    <a href="{{ path('admin_company_index', {q: user.company}) }}" title="View customer">{{ user.company }}</a>
+                {% else %}
+                    {{ user.company }}
+                {% endif %}
+            </td>
+        {% endif %}
+        <td data-label="First Name">{{ user.firstName }}</td>
+        <td data-label="Last Name">{{ user.lastName }}</td>
+        <td data-label="Email">{{ user.email }}</td>
+        <td data-label="Phone">{{ user.phone }}</td>
+        <td data-label="Role">{{ user.role }}</td>
+        <td data-label="Status">
+            <button
+                class="badge user-status-badge-button js-user-status-open {{ user.status == 'Invited' ? 'warn' : (user.status == 'Inactive' ? 'danger-soft' : '') }}"
+                type="button"
+                data-user-id="{{ user.id }}"
+                data-user-type="{{ routeType }}"
+                data-user-email="{{ user.email }}"
+                data-user-status="{{ user.status }}"
+                data-status-url="{{ path('admin_user_status', {type: routeType, id: user.id}) }}"
+                data-status-token="{{ csrf_token_value() }}"
+            >{{ user.status }}</button>
+        </td>
+        <td data-label="ID">{{ user.id }}</td>
+        <td data-label="Actions" style="text-align: center;">
+            <div class="row-action-menu" style="margin: 0 auto;">
+                <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open user actions"></button>
+                <div class="row-action-dropdown">
+                    {% if group == 'staff' %}
+                        <a href="{{ path('admin_user_staff_update', {id: user.id}) }}">Update</a>
+                    {% else %}
+                        <a href="{{ path('admin_user_customer_update', {id: user.id}) }}">Update</a>
+                    {% endif %}
+                    <button class="js-action" type="button" data-url="{{ path('admin_user_resend_invite', {type: routeType, id: user.id}) }}" data-token="{{ csrf_token_value() }}">Send User Invite</button>
+                    <button class="js-action" type="button" data-url="{{ path('admin_user_reset_password', {type: routeType, id: user.id}) }}" data-token="{{ csrf_token_value() }}">PW Reset Link</button>
+                    {# Sits next to PW Reset Link because they are the two answers to the same problem:
+                       that one emails a link and the admin never learns the password, this one sets it
+                       and shows it. Carries the user, so the page it opens is about exactly one
+                       account and has no finder of its own. #}
+                    <a href="{{ path('admin_user_set_password', {type: routeType, id: user.id}) }}">Set Password&hellip;</a>
+                    <button class="js-delete danger" type="button" data-url="{{ path('admin_user_delete', {type: routeType, id: user.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ user.email }}">Delete</button>
+                </div>
+            </div>
+        </td>
+    </tr>
+{% else %}
+    <tr>
+        <td colspan="{{ userGroup|default('all') == 'customer' ? '9' : '8' }}" class="empty-table-cell">
+            <strong>No users found.</strong>
+            <span>Users will appear here once created.</span>
+        </td>
+    </tr>
+{% endfor %}

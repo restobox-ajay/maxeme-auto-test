@@ -1,0 +1,61 @@
+{# The charge region of the invoice create screen raising an invoice AGAINST A SALES ORDER — the
+   `chargeTemplate` admin/invoice/create.html.twig delegates to.
+
+   A charge is a quantified row like any other (#539 stage 5). A flat fee is a row of quantity 1:
+   bill 0.4 of it here and 0.6 stays on the order for the next invoice. Nothing is apportioned — the
+   remainder is offered, and the person raising the invoice decides. Clearing a row's quantity leaves
+   that charge off this invoice entirely.
+
+   This is the half of the sales-order field being set that could not be a parameter: these rows DRAW
+   DOWN charges that already exist and post `charges[N][slug|quantity|amount]`, while the standalone
+   screen MINTS them and posts `charge_lines[N][...]` through the shared charge row. Two contracts,
+   read by two saves — not two spellings of one.
+
+   The whole section is absent where the order has nothing left to charge, which is why the caller
+   passes no rows rather than this file hiding an empty table.
+
+   Rendered with {chargeRows}. #}
+{% if chargeRows is not empty %}
+    <h2>Charges to invoice</h2>
+    <p class="lead" style="margin:0 0 12px;">
+        Shipping, fees and discounts are quantified rows too. A flat charge is one whole unit: bill
+        part of it here and the rest stays on the order. Clear a quantity to leave that charge off
+        this invoice. The amount follows the quantity unless you type one over it. Nothing here is
+        apportioned for you.
+    </p>
+    <div class="wide-table-wrap">
+        <table class="wide-price-table invoice-charge-table">
+            <thead>
+                <tr>
+                    <th>Charge</th>
+                    <th>Kind</th>
+                    <th style="text-align:right;">Ordered</th>
+                    <th style="text-align:right;">Invoiced</th>
+                    <th>Now</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i, charge in chargeRows %}
+                    <tr class="invoice-charge-row">
+                        <td data-label="Charge">
+                            {{ charge.label }}
+                            <input type="hidden" name="charges[{{ i }}][slug]" value="{{ charge.slug }}">
+                            <small class="field-hint">${{ charge.unitAmount|amount }} per whole charge</small>
+                        </td>
+                        <td data-label="Kind">{{ charge.type }}</td>
+                        <td data-label="Ordered" style="text-align:right;">{{ charge.ordered }}</td>
+                        <td data-label="Invoiced" style="text-align:right;">{{ charge.invoiced }}</td>
+                        <td data-label="Now">
+                            <input class="form-control" type="number" step="0.01" min="0" max="{{ charge.remaining }}"
+                                   name="charges[{{ i }}][quantity]" value="{{ charge.remaining }}">
+                        </td>
+                        <td data-label="Amount">
+                            <input class="form-control" type="text" name="charges[{{ i }}][amount]" value="{{ charge.amount|number_format(2, '.', '') }}">
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
