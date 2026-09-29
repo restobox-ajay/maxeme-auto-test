@@ -1,0 +1,80 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Reminder Todo's | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canManage = is_granted('ROLE_MANAGER') %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: "Reminder Todo's", lead: 'Clients whose last service was 6 months ago and who have nothing booked yet.' } only %}
+
+    <section class="table-card no-paginate">
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table class="reminder-table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        {% if canManage %}<th>Appointment</th>{% endif %}
+                        <th>Client Info</th><th>Vehicle</th><th>Previous Appointment</th><th>Reminder note</th><th>Phone number</th>
+                        {% if canManage %}<th>Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reminder in reminders %}
+                        {% set client = reminder.client %}
+                        {% set invoice = reminder.invoice %}
+                        <tr id="reminder_{{ reminder.id }}">
+                            <td class="reminder-{{ reminder.status.value }}"><span class="badge">{{ reminder.status.value }}</span></td>
+                            {% if canManage %}
+                                <td><a class="button outline xs" href="{{ path('maxeme_client_show', { id: client.id }) }}" target="_blank" rel="noopener">Book an appointment</a></td>
+                            {% endif %}
+                            <td><strong>{{ client.fullName }}</strong>{% if client.note %}<div class="muted-line">{{ client.note }}</div>{% endif %}</td>
+                            <td>{{ reminder.vehicle.fullName }}{% if reminder.vehicle.mileage %}<div class="muted-line">{{ reminder.vehicle.mileage }} km</div>{% endif %}</td>
+                            <td>
+                                {% if invoice and invoice.appointment %}Date: {{ invoice.appointment.endTime|date('m/d/Y') }}{% endif %}
+                                {% if invoice and invoice.serviceLines|length %}<ul>{% for line in invoice.serviceLines %}<li>{{ line.name }}</li>{% endfor %}</ul>{% endif %}
+                            </td>
+                            <td>{{ reminder.note }}</td>
+                            <td>
+                                {% for label, number in { Home: client.homeNumber, Cell: client.cellNumber, Work: client.workNumber } %}
+                                    {% if number %}<div class="phone-line" title="{{ label }}">{{ mx_icon('phone') }} {{ number }}</div>{% endif %}
+                                {% endfor %}
+                            </td>
+                            {% if canManage %}
+                                <td>
+                                    <div class="reminder-actions">
+                                        <button type="button" class="button xs mx-success js-post-action" data-remove-row="#reminder_{{ reminder.id }}"
+                                                data-url="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-token="{{ csrf_token_value() }}" data-params="{{ { status: 'booked' }|json_encode }}">Resolved</button>
+                                        <button type="button" class="button xs mx-warning" data-modal-open="#reminder-modal"
+                                                data-form-action="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-form-values="{{ { note: '' }|json_encode }}">Delayed</button>
+                                        <button type="button" class="button xs danger js-post-action" data-remove-row="#reminder_{{ reminder.id }}"
+                                                data-url="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-token="{{ csrf_token_value() }}" data-params="{{ { status: 'declined' }|json_encode }}">Declined</button>
+                                    </div>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ canManage ? 8 : 6 }}" class="empty-table-cell">No reminders to follow up.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+    </section>
+
+    {% if canManage %}
+        <div class="admin-modal-overlay" id="reminder-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-modal-title">
+            <div class="admin-modal">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <div class="admin-modal-header"><h2 id="reminder-modal-title">Enter reason for delay:</h2></div>
+                <form method="post" action="">
+                    {{ csrf_field() }}{{ mx.return_field() }}
+                    <input type="hidden" name="status" value="delayed">
+                    <div class="admin-modal-body"><textarea name="note" placeholder="Enter note" rows="7"></textarea></div>
+                    <div class="admin-modal-footer-split">
+                        <button type="button" class="button outline js-modal-close">Close</button>
+                        <button type="submit" class="button primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

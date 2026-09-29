@@ -1,0 +1,7 @@
+{# The document's header band: company name, and the document's own label. Vars: label, detail (optional). #}
+<div class="inv-band">
+    <table><tr>
+        <td class="site">{{ maxeme_company.name }}</td>
+        <td class="label">{{ label }}{% if detail|default(null) %}<small>{{ detail }}</small>{% endif %}</td>
+    </tr></table>
+</div>

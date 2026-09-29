@@ -1,0 +1,8 @@
+{# A part a service uses. Vars: base (its item's field name), index (or "__PART__"), part {id, name, quantity}. #}
+{% set name = base ~ '[parts][' ~ index ~ ']' %}
+<li class="part-row">
+    <div class="mx-name-group"><input class="part-name-search" type="text" name="{{ name }}[name]" value="{{ part.name }}" placeholder="Enter item name here" autocomplete="off"></div>
+    <input class="part-value" type="hidden" name="{{ name }}[id]" value="{{ part.id }}">
+    <input type="number" class="part-quantity-field" name="{{ name }}[quantity]" value="{{ part.quantity }}" min="1" max="99" step="1" aria-label="Part quantity">
+    <button type="button" class="mini-action danger part-remove" title="remove part">&minus;</button>
+</li>

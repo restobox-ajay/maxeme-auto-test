@@ -1,0 +1,168 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Invoice {{ invoice.saved ? '#' ~ invoice.displayedId : '(new)' }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set appointment = invoice.appointment %}
+    {% set backUrl = invoice.client ? path('maxeme_client_show', { id: invoice.client.id, tab: 'appointments' }) : path('maxeme_appointment_calendar') %}
+    {% set action = invoice.saved ? path('maxeme_invoice_edit', { invoiceKey: invoice.invoiceKey }) : path('maxeme_invoice_for_appointment', { id: appointment.id }) %}
+
+    <section class="panel compact-panel">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Accounting · Invoice builder</p>
+                <div class="title-with-status">
+                    <h1>Invoice {{ invoice.saved ? '#' ~ invoice.displayedId : '(not saved yet)' }}</h1>
+                    <span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>
+                </div>
+                <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if appointment %} · Appointment #{{ appointment.id }}, {{ appointment.startTime|date('M j, Y g:i a') }}{% endif %}</p>
+            </div>
+            <div class="panel-actions"><a class="button back-button" href="{{ backUrl }}">Back</a></div>
+        </div>
+    </section>
+
+    <nav class="company-action-links order-tab-nav" aria-label="Invoice builder actions">
+        <button class="button" type="button" id="order-part" data-modal-open="#order-part-modal">Order new part</button>
+        <button class="button" type="submit" form="invoice-builder-form" name="intent" value="work_order" id="view_work_sheet">Work Order</button>
+        <button class="button" type="submit" form="invoice-builder-form" name="intent" value="save" id="save_invoice">Save</button>
+        {% if invoice.saved %}
+            <a class="button" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
+            <button class="button" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
+        {% endif %}
+        <button class="button is-current" type="submit" form="invoice-builder-form" name="intent" value="complete" id="print_invoice">Complete</button>
+    </nav>
+
+    <form id="invoice-builder-form" method="post" action="{{ action }}" data-invoice-builder="{{ { itemsUrl: path('maxeme_invoice_items') }|json_encode }}">
+        {{ csrf_field() }}
+        <div class="mx-builder-body">
+            {{ mx.form_errors(errors) }}
+
+            {% if invoice.lastModified %}
+                <div class="mx-created-on">
+                    <section class="form-card">
+                        <div class="form-grid">
+                            <label>Invoice created on:<input type="text" name="invoice_date" value="{{ invoice.lastModified|date('m/d/Y h:i a') }}" placeholder="Date this invoice was created"></label>
+                        </div>
+                    </section>
+                </div>
+            {% endif %}
+
+            <div class="mx-builder-cards">
+                <section class="form-card">
+                    <div class="form-grid">
+                        <div class="section-label">Client Info</div>
+                        <label>First name:<input type="text" name="client_first_name" value="{{ invoice.clientFirstName }}" placeholder="Client firstname"></label>
+                        <label>Last name:<input type="text" name="client_last_name" value="{{ invoice.clientLastName }}" placeholder="Client lastname"></label>
+                        <label>Preferred name:<input type="text" name="client_preferred_name" value="{{ invoice.clientPreferredName }}" placeholder="Client preferred name"></label>
+                        <label>Home number:<input type="text" name="client_home_number" value="{{ invoice.clientHomeNumber }}" placeholder="Client home number"></label>
+                        <label>Address:<textarea name="client_address" placeholder="Client address">{{ invoice.clientAddress }}</textarea></label>
+                        <label>Client Note:<textarea name="client_note" placeholder="Client note">{{ invoice.clientNote }}</textarea></label>
+                    </div>
+                </section>
+                <section class="form-card">
+                    <div class="form-grid">
+                        <div class="section-label">Vehicle Info</div>
+                        <label>Year:<input type="text" name="vehicle_year" value="{{ invoice.vehicleYear }}" placeholder="Vehicle year"></label>
+                        <label>Manufacturer:<input type="text" name="vehicle_manufacturer" value="{{ invoice.vehicleManufacturer }}" placeholder="Vehicle manufacturer"></label>
+                        <label>Model:<input type="text" name="vehicle_model" value="{{ invoice.vehicleModel }}" placeholder="Vehicle model"></label>
+                        <label>License:<input type="text" name="vehicle_license" value="{{ invoice.vehicleLicense }}" placeholder="Vehicle license"></label>
+                        <label>Vin number:<input type="text" name="vehicle_vin" value="{{ invoice.vehicleVin }}" placeholder="Vehicle VIN"></label>
+                        <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage"><span>KM</span></span></label>
+                        <label>Appointment Note:<textarea name="note" placeholder="Note">{{ invoice.note }}</textarea></label>
+                    </div>
+                </section>
+            </div>
+
+            <section class="table-card no-paginate detail-page-card">
+                <div class="table-header"><h2>Invoice Items</h2></div>
+                <div class="table-scroll-region">
+                    <table class="item-table mx-item-table">
+                        <thead><tr><th>Item</th><th class="num">Quantity</th><th class="num">Price</th><th class="ctl"></th></tr></thead>
+                        <tbody id="mx-item-body">
+                            {% set index = 0 %}
+                            {% for line in invoice.serviceLines %}
+                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Services', id: line.service ? line.service.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: line.parts } only %}
+                                {% set index = index + 1 %}
+                            {% endfor %}
+                            {% for line in invoice.standalonePartLines %}
+                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Parts', id: line.part ? line.part.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: [] } only %}
+                                {% set index = index + 1 %}
+                            {% endfor %}
+                            {% if index == 0 %}
+                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: 0, type: 'Services', id: null, name: null, quantity: 1, price: null, parts: [] } only %}
+                            {% endif %}
+
+                            <tr id="discount-row" class="tfoot">
+                                <td>Discount:</td>
+                                <td class="num"><input id="total-discount-amount" name="discount_amount" type="text" value="{{ invoice.discountAmount }}" inputmode="decimal"></td>
+                                <td class="amount" id="total-discount-display"></td><td></td>
+                            </tr>
+                            <tr id="subtotal-row" class="tfoot"><td>Subtotal:</td><td></td><td class="amount" id="total-subtotal"></td><td></td></tr>
+                            <tr id="gst-tax-row" class="tfoot">
+                                <td>GST:</td>
+                                <td class="num"><input id="tax-gst-amount" class="mx-tax-input" type="number" name="gst" value="{{ invoice.gstRate }}" min="0" max="{{ settings.gstRate }}" step="{{ settings.gstRate }}"><strong>%</strong></td>
+                                <td class="amount" id="tax-gst"></td><td></td>
+                            </tr>
+                            <tr id="pst-tax-row" class="tfoot">
+                                <td>PST:</td>
+                                <td class="num"><input id="tax-pst-amount" class="mx-tax-input" type="number" name="pst" value="{{ invoice.pstRate }}" min="0" max="{{ settings.pstRate }}" step="{{ settings.pstRate }}"><strong>%</strong></td>
+                                <td class="amount" id="tax-pst"></td><td></td>
+                            </tr>
+                            <tr id="total-row" class="tfoot"><td>Total:</td><td></td><td class="amount" id="total-sum-display"></td><td></td></tr>
+                            <tr id="payment-row" class="tfoot">
+                                <td>Payment method:</td>
+                                <td class="num">
+                                    <select name="payment_method" aria-label="Payment method">
+                                        {% for method in paymentMethods %}<option value="{{ method.value }}" {{ invoice.paymentMethod == method ? 'selected' }}>{{ method.label }}</option>{% endfor %}
+                                    </select>
+                                </td>
+                                <td class="num"><input id="paid-amount" type="text" name="payment_amount" value="{{ invoice.paymentAmount }}" inputmode="decimal" aria-label="Paid amount"></td>
+                                <td class="ctl"><label class="check-row"><input id="paid-input" type="checkbox" name="paid" value="1" {{ invoice.paid ? 'checked' }}> Paid</label></td>
+                            </tr>
+                            <tr id="payment-change-row" class="tfoot"><td>Change:</td><td></td><td class="amount" id="total-change-display"></td><td></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="form-card">
+                <div class="form-grid">
+                    <label class="span-2">Recommendations:<textarea name="recommendations" rows="3" placeholder="Recommendations">{{ invoice.recommendations }}</textarea></label>
+                </div>
+            </section>
+        </div>
+    </form>
+
+    <template id="item-row-template">{% include 'maxeme/invoice/_item_row.html.twig' with { index: '__ROW__', type: 'Services', id: null, name: null, quantity: 1, price: null, parts: [] } only %}</template>
+    <template id="part-row-template">{% include 'maxeme/invoice/_part_row.html.twig' with { base: '__BASE__', index: '__PART__', part: { id: null, name: null, quantity: 1 } } only %}</template>
+
+    <div class="admin-modal-overlay" id="order-part-modal" role="dialog" aria-modal="true" aria-labelledby="order-part-title">
+        <div class="admin-modal" style="max-width:620px">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <h2 id="order-part-title" style="margin-top:0">Order a part</h2>
+            <form id="order-parts-form" class="form-grid" method="post" action="{{ path('maxeme_part_order') }}">
+                {{ csrf_field() }}
+                <label>Quantity<input type="number" name="quantity" value="1" min="1" max="100"></label>
+                <label>PO #<input type="text" name="po_number" placeholder="PO Number"></label>
+                <label>Part name<input type="text" name="name" placeholder="Part Name"></label>
+                <label>Vin<input type="text" name="vin" placeholder="Part ID"></label>
+                <label>Type<input type="text" name="type" placeholder="Part Type"></label>
+                <label>Vendor<input type="text" name="vendor" placeholder="Part Vendor"></label>
+                <label>Unit Price<input type="text" name="unit_price" placeholder="Part Unit Price" inputmode="decimal"></label>
+                <label>Sale Price<input type="text" name="sale_price" placeholder="Part Sale Price" inputmode="decimal"></label>
+                <label class="span-2">Note<textarea name="note" placeholder="Note"></textarea></label>
+                <div class="form-actions span-2">
+                    <button class="button outline js-modal-close" type="button">Close</button>
+                    <button class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if invoice.saved %}
+        {% include 'maxeme/invoice/_email_modal.html.twig' with { id: 'email-invoice-modal', title: 'Email PDF', action: path('maxeme_invoice_email', { invoiceKey: invoice.invoiceKey }), invoice: invoice } only %}
+    {% endif %}
+{% endblock %}
+{% block javascripts %}
+    {{ parent() }}
+    <script src="/assets/js/maxeme-invoice.js?v=1"></script>
+{% endblock %}

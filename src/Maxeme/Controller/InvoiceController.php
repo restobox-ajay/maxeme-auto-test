@@ -1,0 +1,191 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Maxeme\Controller;
+
+use App\Maxeme\Accounting\InvoiceSettings;
+use App\Maxeme\Document\DocumentKind;
+use App\Maxeme\Document\DocumentMailer;
+use App\Maxeme\Document\PdfRenderer;
+use App\Maxeme\Dto\InvoiceData;
+use App\Maxeme\Entity\Appointment;
+use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Enum\InvoiceSaveIntent;
+use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Repository\InvoiceRepository;
+use App\Maxeme\Repository\PartRepository;
+use App\Maxeme\Repository\ServiceItemRepository;
+use App\Maxeme\Schedule\CalendarView;
+use App\Maxeme\Security\InvoiceVoter;
+use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Service\InvoiceService;
+use App\Maxeme\Service\RecordWriter;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+/**
+ * The invoice builder and the printable invoice (legacy AccountingBundle InvoiceController).
+ *
+ * Which screen opens (legacy invoiceViewAction): Staff get the work order; someone who may edit the
+ * invoice (InvoiceVoter) gets the builder while it is unpaid, or always through Edit; everyone
+ * else gets the printable invoice.
+ */
+#[IsGranted(StaffRole::STAFF)]
+final class InvoiceController extends AbstractMaxemeController
+{
+    /** Legacy calendar alerts, shown by Schedule › Appointments. */
+    private const NO_WORK_ORDER = 'No work order has been created for this appointment yet.';
+    private const NOT_EDITABLE = 'This appointment / invoice is completed. You cannot make edits to it.';
+    private const NOT_FOUND = 'Invoice not found.';
+
+    public function __construct(
+        private readonly InvoiceService $invoices,
+        private readonly InvoiceRepository $repository,
+        private readonly RecordWriter $records,
+        private readonly InvoiceSettings $settings,
+    ) {
+    }
+
+    /** The calendar's $ icon and the profile's Invoice buttons: the appointment's invoice, created on first save. */
+    #[Route('/admin/appointments/{id}/invoice', name: 'maxeme_invoice_for_appointment', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    public function forAppointment(#[MapEntity] Appointment $appointment, Request $request): Response
+    {
+        $invoice = $this->invoices->forAppointment($appointment);
+
+        if (!$this->isGranted(StaffRole::MANAGER)) {
+            return $invoice->isSaved()
+                ? $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()])
+                : $this->calendarAlert(self::NO_WORK_ORDER);
+        }
+
+        return $request->isMethod('POST') ? $this->save($invoice, $request) : $this->open($invoice, false);
+    }
+
+    #[Route('/admin/invoices/{invoiceKey}', name: 'maxeme_invoice_show', methods: ['GET'])]
+    public function show(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
+    {
+        if (!$this->isGranted(StaffRole::MANAGER)) {
+            return $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+        }
+
+        return $this->open($invoice, false);
+    }
+
+    /** The print view's Edit (Super admin): the builder even for a paid invoice. */
+    #[Route('/admin/invoices/{invoiceKey}/edit', name: 'maxeme_invoice_edit', methods: ['GET', 'POST'])]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function edit(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request): Response
+    {
+        return $request->isMethod('POST') ? $this->save($invoice, $request) : $this->open($invoice, true);
+    }
+
+    #[Route('/admin/invoices/{invoiceKey}/print', name: 'maxeme_invoice_print', methods: ['GET'])]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function print(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
+    {
+        return $this->render('maxeme/invoice/print.html.twig', ['invoice' => $invoice, 'kind' => DocumentKind::Invoice]);
+    }
+
+    #[Route('/admin/invoices/{invoiceKey}/pdf', name: 'maxeme_invoice_pdf', methods: ['GET'])]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf): Response
+    {
+        return $this->pdfResponse($pdf->render($invoice, DocumentKind::Invoice), DocumentKind::Invoice->filename($invoice));
+    }
+
+    #[Route('/admin/invoices/{invoiceKey}/email', name: 'maxeme_invoice_email', methods: ['POST'])]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function email(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, DocumentMailer $mailer): RedirectResponse
+    {
+        return $this->emailDocument($invoice, DocumentKind::Invoice, $request, $mailer);
+    }
+
+    /** The item name autocomplete: active parts and services matching `q` (legacy invoiceItemSearching). */
+    #[Route('/admin/invoices/items', name: 'maxeme_invoice_items', methods: ['GET'], priority: 10)]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function items(Request $request, PartRepository $parts, ServiceItemRepository $services): JsonResponse
+    {
+        $term = trim((string) $request->query->get('q', ''));
+        $type = (string) $request->query->get('type', '');
+        $items = [];
+
+        if ($type !== 'services') {
+            foreach ($parts->search($term) as $part) {
+                $items[] = ['label' => $part->getName(), 'category' => 'Parts', 'value' => $part->getId(), 'price' => $part->getSalePrice()];
+            }
+        }
+        if ($type !== 'parts') {
+            foreach ($services->search($term) as $service) {
+                $items[] = ['label' => $service->getFullName(), 'category' => 'Services', 'value' => $service->getId(), 'price' => $service->getPrice()];
+            }
+        }
+
+        return $this->json($items);
+    }
+
+    /** The sidebar "Find invoice" (legacy searchAction's searchInvoiceNumber). */
+    #[Route('/admin/invoices/find', name: 'maxeme_invoice_find', methods: ['GET'], priority: 10)]
+    #[IsGranted(StaffRole::MANAGER)]
+    public function find(Request $request): RedirectResponse
+    {
+        $invoice = $this->repository->findOneByNumber((string) $request->query->get('searchInvoiceNumber', ''));
+
+        return $invoice !== null
+            ? $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()])
+            : $this->calendarAlert(self::NOT_FOUND);
+    }
+
+    private function open(Invoice $invoice, bool $forceEdit): Response
+    {
+        if (!$this->isGranted(InvoiceVoter::EDIT, $invoice) || ($invoice->isPaid() && !$forceEdit)) {
+            return $this->render('maxeme/invoice/print.html.twig', ['invoice' => $invoice, 'kind' => DocumentKind::Invoice]);
+        }
+
+        return $this->render('maxeme/invoice/form.html.twig', [
+            'invoice' => $invoice,
+            'errors' => [],
+            'settings' => $this->settings,
+            'paymentMethods' => PaymentMethod::cases(),
+        ]);
+    }
+
+    private function save(Invoice $invoice, Request $request): Response
+    {
+        if (!$this->isGranted(InvoiceVoter::EDIT, $invoice)) {
+            return $this->calendarAlert(self::NOT_EDITABLE);
+        }
+
+        $data = InvoiceData::fromRequest($request);
+        if (($errors = $this->records->validate($data)) !== []) {
+            return $this->render('maxeme/invoice/form.html.twig', [
+                'invoice' => $invoice,
+                'errors' => $errors,
+                'settings' => $this->settings,
+                'paymentMethods' => PaymentMethod::cases(),
+            ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
+        }
+
+        $intent = InvoiceSaveIntent::tryFrom((string) $request->request->get('intent')) ?? InvoiceSaveIntent::Save;
+        $this->invoices->save($invoice, $data, $intent);
+        $this->addFlash('success', sprintf('Invoice #%s saved.', $invoice->getDisplayedId()));
+
+        return match ($intent) {
+            InvoiceSaveIntent::Save => $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
+            InvoiceSaveIntent::Complete => $this->redirectToRoute('maxeme_invoice_print', ['invoiceKey' => $invoice->getInvoiceKey()]),
+            InvoiceSaveIntent::WorkOrder => $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
+        };
+    }
+
+    private function calendarAlert(string $message): RedirectResponse
+    {
+        $this->addFlash(ScheduleController::ALERT, $message);
+
+        return $this->redirectToRoute('maxeme_appointment_calendar', ['view' => CalendarView::Day->value]);
+    }
+}

@@ -1,0 +1,24 @@
+{# One row of the builder's item table. Vars: index (row number or "__ROW__" for the JS template),
+   type ('Services' | 'Parts'), id, name, quantity, price, parts (the service's InvoicePartLines). #}
+{% set base = 'items[' ~ index ~ ']' %}
+<tr class="item-row">
+    <td class="item-name">
+        <div class="mx-name-group">
+            <input class="item-name-search" type="text" name="{{ base }}[name]" value="{{ name }}" placeholder="Enter item name here" autocomplete="off">
+            <input class="item-value" type="hidden" name="{{ base }}[id]" value="{{ id }}">
+            <input class="item-type" type="hidden" name="{{ base }}[type]" value="{{ type }}">
+            <button type="button" class="button outline mx-btn-sm add_part" {{ type == 'Parts' ? 'hidden' }}>Add Parts</button>
+        </div>
+        <ul class="mx-parts-list" data-base="{{ base }}">
+            {% for line in parts %}
+                {% include 'maxeme/invoice/_part_row.html.twig' with { base: base, index: loop.index0, part: { id: line.part ? line.part.id, name: line.name, quantity: line.quantity } } only %}
+            {% endfor %}
+        </ul>
+    </td>
+    <td class="item-quantity num"><input type="number" class="item-quantity-field" name="{{ base }}[quantity]" value="{{ quantity }}" min="1" max="99" step="1" aria-label="Quantity"></td>
+    <td class="item-price num"><input type="text" class="item-price-field" name="{{ base }}[price]" value="{{ price }}" inputmode="decimal" aria-label="Price"></td>
+    <td class="item-controls ctl">
+        <button type="button" class="mini-action danger item-remove" title="remove item">&minus;</button>
+        <button type="button" class="mini-action item-add" title="add item">+</button>
+    </td>
+</tr>

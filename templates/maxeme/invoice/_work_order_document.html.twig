@@ -1,0 +1,57 @@
+{# The repair order for the technicians (legacy invoice_workorder / invoice_workorder_pdf): each
+   service and standalone part, the parts to use, and a Technician line. Vars: invoice,
+   vehicles (optional: the blank work order's vehicle switch). #}
+<div class="invoice-document">
+    {% include 'maxeme/invoice/_band.html.twig' with { label: 'REPAIR ORDER', detail: maxeme_company.address ~ ' · Company Phone: ' ~ maxeme_company.phone } only %}
+    <div class="invoice-body">
+        <table class="wo-table">
+            <tr>
+                <td style="width:50%"><strong>Invoice Number:</strong> {{ invoice.displayedId }}</td>
+                <td style="width:50%"><strong>Last Modified On:</strong> {{ (invoice.saved ? invoice.documentDate : 'now')|date('m/d/Y h:i a') }}</td>
+            </tr>
+            <tr>
+                <td>
+                    <p><strong>Bill to</strong><br>{{ invoice.clientFullName }}<br>Home: {{ invoice.clientHomeNumber }}<br>{{ invoice.clientAddress }}</p>
+                    {% if invoice.saved %}<p><strong>Appointment Note:</strong> {{ invoice.note }}</p>{% endif %}
+                </td>
+                <td>
+                    <p><strong>Vehicle</strong><br>
+                        {% if vehicles|default([])|length > 1 %}
+                            Name : <select class="no-print-border" onchange="location.search = '?vehicle=' + this.value" aria-label="Vehicle">
+                                {% for vehicle in vehicles %}<option value="{{ vehicle.id }}" {{ vehicle == invoice.vehicle ? 'selected' }}>{{ vehicle.fullName }}</option>{% endfor %}
+                            </select><br>
+                        {% else %}
+                            Name : {{ invoice.vehicleFullName }}<br>
+                        {% endif %}
+                        VIN: {{ invoice.vehicleVin }}<br>
+                        License: {{ invoice.vehicleLicense }}<br>
+                        Mileage: {{ invoice.vehicleMileage }} KM
+                    </p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">Repair Items</div>
+        <table class="wo-table wo-items item-table">
+            <thead><tr><th style="width:50%">Repair Items</th><th>Results</th></tr></thead>
+            <tbody>
+                {% for line in invoice.serviceLines|merge(invoice.standalonePartLines) %}
+                    <tr>
+                        <td>{{ line.name }}</td>
+                        <td>
+                            {% if line.parts is defined %}{% for part in line.parts %}<div>x{{ part.quantity }} {{ part.name }}</div>{% endfor %}{% endif %}
+                            <div class="wo-tech">Technician:</div>
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for i in 1..5 %}<tr><td></td><td><div class="wo-tech">Technician:</div></td></tr>{% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="wo-agreement">
+            <p>I here by authorize the above repaid work to be done along with necessary materials. You and your employees may operate above vehicle for purpose of testing, inspection or delivery at my risk.</p>
+            <table class="wo-sign"><tr><td>Signature:</td><td class="gap"></td><td>Date:</td></tr></table>
+        </div>
+    </div>
+</div>

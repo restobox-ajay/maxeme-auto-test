@@ -1,0 +1,34 @@
+{# The on-screen page around a printable document (invoice or work order): title, action bar,
+   the document itself, and print styles. Blocks: actions, modals. Vars: invoice, kind, vehicles. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ kind.title }} {{ invoice.saved ? '#' ~ invoice.displayedId }} | {{ site_name() }}{% endblock %}
+{% block head_extra %}
+    <style>
+        {% include 'maxeme/invoice/_document_styles.html.twig' only %}
+    </style>
+{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel no-print">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">Accounting · {{ kind.title }}</p>
+                <div class="title-with-status">
+                    <h1>{{ kind.title }}{{ invoice.saved ? ' #' ~ invoice.displayedId }}</h1>
+                    {% if invoice.saved %}<span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>{% endif %}
+                </div>
+                <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if invoice.lastModified %} · completed {{ invoice.lastModified|date('m/d/Y h:i a') }}{% endif %}</p>
+            </div>
+            <div class="panel-actions">
+                {% if invoice.client %}<a class="button back-button" href="{{ path('maxeme_client_show', { id: invoice.client.id, tab: 'appointments' }) }}">Back</a>{% endif %}
+            </div>
+        </div>
+    </section>
+    <nav class="company-action-links order-tab-nav no-print" aria-label="{{ kind.title }} actions">
+        <button class="button is-current" type="button" onclick="window.print()">Print</button>
+        {% block actions %}{% endblock %}
+    </nav>
+    <div class="invoice-page-container">
+        {% include kind.template with { invoice: invoice, vehicles: vehicles|default([]) } only %}
+    </div>
+    {% block modals %}{% endblock %}
+{% endblock %}

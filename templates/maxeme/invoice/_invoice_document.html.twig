@@ -1,0 +1,78 @@
+{# The printed invoice (legacy invoice_print / invoice_pdf): services and standalone parts (a
+   service's parts are not billed, so not listed), then the totals. Vars: invoice. #}
+{% import 'maxeme/_macros.html.twig' as mx %}
+<div class="invoice-document">
+    {% include 'maxeme/invoice/_band.html.twig' with { label: 'INVOICE' } only %}
+    <div class="invoice-body">
+        <table class="inv-meta-table">
+            <tr>
+                <td class="inv-meta-col">
+                    <p><strong>Invoice Number:</strong> {{ invoice.displayedId }}</p>
+                    <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
+                    <p><strong>Invoice Completed On:</strong> {{ invoice.documentDate|date('m/d/Y h:i a') }}</p>
+                </td>
+                <td class="inv-meta-col">
+                    <p><strong>{{ maxeme_company.name }}</strong></p>
+                    <p>{{ maxeme_company.address }}</p>
+                </td>
+                <td class="inv-meta-col last">
+                    <p><strong>Company Phone:</strong> {{ maxeme_company.phone }}</p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">Customer Information</div>
+        <table class="inv-addr-table">
+            <tr>
+                <td class="address-box">
+                    <h3>Bill to</h3>
+                    <p><strong>{{ invoice.clientFullName }}</strong></p>
+                    <p>Home: {{ invoice.clientHomeNumber }}</p>
+                    <p>{{ invoice.clientAddress }}</p>
+                </td>
+                <td class="address-box">
+                    <h3>Vehicle</h3>
+                    <p><strong>{{ invoice.vehicleFullName }}</strong></p>
+                    <p>{{ invoice.vehicleMileage }}KM</p>
+                    <p>{{ invoice.vehicleLicense }}</p>
+                    <p>{{ invoice.vehicleVin }}</p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">Invoice Items</div>
+        <table class="invoice-table item-table">
+            <thead><tr><th style="width:64%">Item</th><th class="r" style="width:16%">Quantity</th><th class="r" style="width:20%">Price</th></tr></thead>
+            <tbody>
+                {% set rows = invoice.serviceLines|merge(invoice.standalonePartLines) %}
+                {% for line in rows %}
+                    <tr class="item-row"><td>{{ line.name }}</td><td class="r">{{ line.quantity }}</td><td class="r">{{ (line.totalCents / 100)|number_format(2, '.', ',') }}</td></tr>
+                {% else %}
+                    <tr class="item-row"><td></td><td class="r">1</td><td class="r">0.00</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <table class="inv-footer-table">
+            <tr>
+                <td class="footer-note">
+                    {% if invoice.recommendations %}
+                        <strong>Recommendations:</strong>
+                        <p>{{ invoice.recommendations|nl2br }}</p>
+                    {% endif %}
+                </td>
+                <td class="footer-totals">
+                    <table class="totals-inner">
+                        {% if invoice.discountAmount != 0 %}<tr><td>Discount:</td><td class="r"><strong>{{ mx.money(invoice.discountAmount) }}</strong></td></tr>{% endif %}
+                        <tr><td>Subtotal:</td><td class="r"><strong>{{ mx.money(invoice.subtotal) }}</strong></td></tr>
+                        <tr><td>GST: <strong>{{ invoice.gstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.gstAmount) }}</strong></td></tr>
+                        <tr><td>PST: <strong>{{ invoice.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.pstAmount) }}</strong></td></tr>
+                        <tr class="grand-total-row"><td>Total:</td><td class="r">{{ mx.money(invoice.totalPrice) }}</td></tr>
+                        <tr><td>Payment method: {{ invoice.paymentMethod ? invoice.paymentMethod.label }}</td><td class="r"><strong>{{ mx.money(invoice.paymentAmount) }}</strong></td></tr>
+                        <tr><td>Change:</td><td class="r"><strong>{{ mx.money(invoice.changeAmount) }}</strong></td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>

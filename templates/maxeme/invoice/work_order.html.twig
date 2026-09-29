@@ -1,0 +1,21 @@
+{# The repair order (legacy invoice_workorder.html.twig); for a saved invoice or the blank one. Vars: invoice, kind, vehicles. #}
+{% extends 'maxeme/invoice/_document_page.html.twig' %}
+{% block actions %}
+    {% if invoice.saved %}
+        <a class="button" id="save-pdf-work-order" href="{{ path('maxeme_work_order_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save Work Order as PDF</a>
+        <button class="button" type="button" id="save-and-email-work-order" data-modal-open="#email-work-order-modal">Save and Email Work Order PDF</button>
+        {% if is_granted('ROLE_MANAGER') %}
+            <a class="button" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
+            <button class="button" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
+            <a class="button" id="edit-invoice-btn" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Invoice</a>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+{% block modals %}
+    {% if invoice.saved %}
+        {% include 'maxeme/invoice/_email_modal.html.twig' with { id: 'email-work-order-modal', title: 'Email WorkOrder PDF', action: path('maxeme_work_order_email', { invoiceKey: invoice.invoiceKey }), invoice: invoice } only %}
+        {% if is_granted('ROLE_MANAGER') %}
+            {% include 'maxeme/invoice/_email_modal.html.twig' with { id: 'email-invoice-modal', title: 'Email Invoice PDF', action: path('maxeme_invoice_email', { invoiceKey: invoice.invoiceKey }), invoice: invoice } only %}
+        {% endif %}
+    {% endif %}
+{% endblock %}
