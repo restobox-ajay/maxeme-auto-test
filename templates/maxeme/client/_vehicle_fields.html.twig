@@ -1,0 +1,6 @@
+{# Vehicle form fields (legacy cns_vehicle_info_form). #}
+{% set labels = { manufacturer: 'Manufacturer', model: 'Model', year: 'Year', vin: 'Vin', license_plate: 'License plate', mileage: 'Mileage', color: 'Color' } %}
+{% for field, label in labels %}
+    <label>{{ label }}<input type="text" name="{{ field }}"></label>
+{% endfor %}
+<label class="span-2">Note<textarea name="note" rows="4" style="resize:none"></textarea></label>

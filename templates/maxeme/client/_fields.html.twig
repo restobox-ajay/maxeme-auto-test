@@ -1,0 +1,10 @@
+{# Client form fields (legacy cns_client_info_form). Vars: data (ClientData or null), only (field names, default all). #}
+{% set labels = { first_name: 'First name', last_name: 'Last name', preferred_name: 'Preferred name', email: 'Email', home_number: 'Home number', work_number: 'Work number', cell_number: 'Cell number', address: 'Address', note: 'Note' } %}
+{% for field in only|default(labels|keys) %}
+    {% set value = data ? attribute(data, constant('App\\Maxeme\\Dto\\ClientData::FIELDS')[field]) : '' %}
+    {% if field == 'note' %}
+        <label class="{{ noteClass|default('span-2') }}">Note<textarea name="note" rows="4" style="resize:none" {{ readonly|default(false) ? 'readonly' }}>{{ value }}</textarea></label>
+    {% else %}
+        <label>{{ labels[field] }}<input type="text" name="{{ field }}" value="{{ value }}" {{ readonly|default(false) ? 'readonly' }}></label>
+    {% endif %}
+{% endfor %}
