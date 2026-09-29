@@ -1,0 +1,22 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Edit Profile | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'Edit Profile', lead: 'Enter your current password to confirm the change.' } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_profile_show') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <section class="form-card">
+        <form class="form-grid" method="post" action="{{ path('maxeme_profile_edit') }}" novalidate>
+            {{ csrf_field() }}
+            {{ mx.form_errors(errors) }}
+            <label>Username<input type="text" name="username" value="{{ profile.username }}" required></label>
+            <label>Email<input type="email" name="email" value="{{ profile.email }}" required></label>
+            <label class="span-2">Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
+            <div class="form-actions span-2">
+                <button type="submit" class="button primary">Update</button>
+                <a class="button outline" href="{{ path('maxeme_profile_change_password') }}">Change Password</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

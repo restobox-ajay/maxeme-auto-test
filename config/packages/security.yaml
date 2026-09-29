@@ -4,15 +4,30 @@ security:
     # second gate to remember, which is the point of expressing it here rather than in code.
     role_hierarchy:
         ROLE_TECH_SUPPORT: [ROLE_SUPER_ADMIN]
+        # Maxeme's staff tiers (App\Maxeme\Security\StaffRole). AdminUser::getRoles() adds ROLE_ADMIN
+        # to every account for the /admin firewall, so the shop's own "Admin" tier is ROLE_MANAGER.
+        ROLE_SUPER_ADMIN: [ROLE_MANAGER]
+        ROLE_MANAGER: [ROLE_STAFF]
 
     password_hashers:
+        # The legacy Maxeme app's FOSUserBundle hash: sha512, base64, 5000 iterations, per-user salt.
+        # Imported accounts verify against it once and are rehashed to 'auto' on that login
+        # (AdminUserRepository::upgradePassword()). The AdminUser entry must come before the
+        # interface entry, because the first matching class wins.
+        maxeme_legacy:
+            algorithm: sha512
+            encode_as_base64: true
+            iterations: 5000
+        App\Entity\AdminUser:
+            algorithm: auto
+            migrate_from: [maxeme_legacy]
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
     providers:
+        # No `property`: AdminUserRepository::loadUserByIdentifier() accepts an email or a username.
         admin_users:
             entity:
                 class: App\Entity\AdminUser
-                property: email
         customer_users:
             entity:
                 class: App\Entity\CustomerUser
@@ -31,8 +46,9 @@ security:
             form_login:
                 login_path: admin_login
                 check_path: admin_login
-                username_parameter: email
-                password_parameter: password
+                # The legacy login form's field names (the username field also accepts an email).
+                username_parameter: _username
+                password_parameter: _password
                 default_target_path: /admin
                 always_use_default_target_path: false
                 enable_csrf: true
@@ -124,6 +140,8 @@ security:
         - { path: ^/admin/password-reset$, roles: PUBLIC_ACCESS }
         - { path: ^/admin/forgot-password$, roles: PUBLIC_ACCESS }
         - { path: ^/admin/setup-account$, roles: PUBLIC_ACCESS }
+        # Maxeme's forgot-password pages (App\Maxeme\Controller\PasswordResetController); the token is the credential.
+        - { path: ^/admin/resetting/, roles: PUBLIC_ACCESS }
         # Require admin role for all /admin routes (host restriction is enforced by AdminHostSubscriber).
         - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/checkout, roles: ROLE_CUSTOMER }

@@ -1,0 +1,7 @@
+# Maxeme Auto admin screens. Their paths sit under /admin, so the admin firewall, host check and
+# CSRF guard apply exactly as they do to core's admin controllers.
+maxeme_controllers:
+    resource:
+        path: ../../src/Maxeme/Controller/
+        namespace: App\Maxeme\Controller
+    type: attribute

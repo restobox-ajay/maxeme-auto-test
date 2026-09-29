@@ -98,3 +98,6 @@ API_MANAGER_REVIEW.md
 
 # Per-project SSH host config (see ~/.ssh/config Include). Never committed.
 .sshconfig
+
+# IDE (PhpStorm) project settings
+/.idea/

@@ -228,6 +228,9 @@ final class AdminMenuTreeBuilder
                 icon: isset($spec['icon']) && is_string($spec['icon']) ? $spec['icon'] : null,
                 parent: $parent,
                 order: self::sanitizeOrder($spec['order'] ?? 0),
+                // Optional, the same rendering-only role check core entries get from
+                // AdminMenuCatalog::REQUIRES_ROLE. Not authorization: the route enforces its own.
+                requiresRole: isset($spec['requiresRole']) && is_string($spec['requiresRole']) && $spec['requiresRole'] !== '' ? $spec['requiresRole'] : null,
                 custom: $route === null && !(isset($spec['group']) && $spec['group'] === true),
                 url: $url,
                 exactRoutes: $route !== null ? [$route] : [],

@@ -66,7 +66,8 @@ final class InstalledBundleDirectory
                 continue;
             }
 
-            if (str_starts_with($path, rtrim($modules, '/') . '/')) {
+            // DIRECTORY_SEPARATOR, not '/': realpath() answers with backslashes on Windows.
+            if (str_starts_with($path, rtrim($modules, '/\\') . DIRECTORY_SEPARATOR)) {
                 $sources[] = $bundle->getName();
             }
         }

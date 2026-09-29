@@ -6,13 +6,14 @@ use App\Contract\Status\HasStatus;
 use App\Repository\AdminUserRepository;
 use App\Status\HasStatusSeamTrait;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\LegacyPasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: AdminUserRepository::class)]
 #[ORM\Table(name: 'admin_user')]
 #[ORM\UniqueConstraint(name: 'uniq_admin_user_email', fields: ['email'])]
-class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface, HasStatus
+#[ORM\UniqueConstraint(name: 'uniq_admin_user_username', fields: ['username'])]
+class AdminUser implements UserInterface, LegacyPasswordAuthenticatedUserInterface, HasStatus
 {
     use HasStatusSeamTrait;
 
@@ -26,6 +27,10 @@ class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface, Ha
     #[ORM\Column(length: 180)]
     private string $email = '';
 
+    /** Optional second login name beside the email; the legacy Maxeme app signed in by username. */
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $username = null;
+
     /**
      * @var list<string>
      */
@@ -34,6 +39,13 @@ class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface, Ha
 
     #[ORM\Column]
     private string $password = '';
+
+    /**
+     * Per-user salt of a password hash imported from the legacy Maxeme app (FOSUserBundle sha512).
+     * Null for every password hashed here, and cleared once the imported hash is upgraded.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $legacySalt = null;
 
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $firstName = null;
@@ -85,6 +97,31 @@ class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface, Ha
     public function setEmail(string $email): self
     {
         $this->email = $email;
+
+        return $this;
+    }
+
+    public function getUsername(): ?string
+    {
+        return $this->username;
+    }
+
+    public function setUsername(?string $username): self
+    {
+        $username = $username !== null ? trim($username) : null;
+        $this->username = $username !== '' ? $username : null;
+
+        return $this;
+    }
+
+    public function getSalt(): ?string
+    {
+        return $this->legacySalt;
+    }
+
+    public function setLegacySalt(?string $legacySalt): self
+    {
+        $this->legacySalt = $legacySalt;
 
         return $this;
     }

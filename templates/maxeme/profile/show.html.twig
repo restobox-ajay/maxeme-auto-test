@@ -1,0 +1,25 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}My Profile | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'My Profile', lead: 'Your login account details.' } only %}
+
+    {% set fullName = [user.firstName, user.lastName]|filter(v => v)|join(' ') %}
+    <section class="panel profile-panel mx-profile-card">
+        <div class="profile-panel-head">
+            <div class="profile-panel-icon">{{ (user.firstName ?: user.userIdentifier)|first|upper }}</div>
+            <div>
+                <h2>{{ fullName ?: user.userIdentifier }}</h2>
+                <p>{{ staff_role(user).label }}</p>
+            </div>
+        </div>
+        <ul class="profile-detail-list">
+            <li><span>First name</span><strong>{{ user.firstName }}</strong></li>
+            <li><span>Last name</span><strong>{{ user.lastName }}</strong></li>
+            <li><span>Username</span><strong>{{ user.username }}</strong></li>
+            <li><span>Email</span><strong>{{ user.email }}</strong></li>
+        </ul>
+        <div class="panel-actions">
+            <a class="button primary" href="{{ path('maxeme_profile_edit') }}">Edit</a>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends 'maxeme/resetting/_layout.html.twig' %}
+{% set card_title = 'Choose a new password' %}
+{% block card %}
+    <p class="admin-login-sub">Account: {{ user.username ?: user.email }}</p>
+
+    {% for message in errors %}
+        <div class="admin-login-error">{{ message }}</div>
+    {% endfor %}
+
+    <form class="form-grid admin-login-form" method="post" action="{{ path('maxeme_resetting_reset', { token: token }) }}" novalidate>
+        {{ csrf_field() }}
+        <label class="span-2" for="new-password">
+            New password
+            <input type="password" id="new-password" name="password" required autocomplete="new-password">
+        </label>
+        <label class="span-2" for="new-password-repeat">
+            Repeat new password
+            <input type="password" id="new-password-repeat" name="password_confirm" required autocomplete="new-password">
+        </label>
+        <div class="span-2 auth-actions">
+            <button class="button primary full-width" type="submit">Change password</button>
+        </div>
+    </form>
+{% endblock %}

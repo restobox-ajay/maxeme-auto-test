@@ -120,6 +120,31 @@ A comprehensive wholesale e-commerce application built with Symfony 7.4, featuri
    - Or configure your local web server (e.g., WAMP) to point to the `public/` directory.
    - Admin area is under `/admin` (host-restricted via `ADMIN_HOST`).
 
+## Maxeme Auto
+
+This installation runs the Maxeme Auto shop admin on top of the core. Shop code lives in
+`src/Maxeme/`, templates in `templates/maxeme/`, and its configuration in `config/packages/maxeme.yaml`
+(shop name, reset-link window, active modules, sidebar menu).
+
+After migrating a fresh database:
+
+```bash
+php bin/console app:maxeme:setup            # shop name, reset window, switch off the B2B modules
+php bin/console app:maxeme:import-legacy    # copy data from the legacy app (LEGACY_DATABASE_URL in .env.local)
+php bin/console app:maxeme:import-legacy --only=clients,vehicles   # steps: users, clients, vehicles, parts, inventory-history, services, appointments, invoices, invoice-services, invoice-parts, reminders
+```
+
+Schedule `php bin/console app:maxeme:generate-reminders` daily (the Reminder page also runs it).
+PDFs use dompdf; to print Chinese names put a TrueType CJK font (e.g. Noto Sans TC) at
+`var/fonts/NotoSansTC-Regular.ttf` (`maxeme.pdf_font`).
+
+Legacy ids are kept, and the legacy database's double-encoded text (most Chinese names and
+notes) is repaired on the way in (`App\Maxeme\Legacy\LegacyText`).
+
+Both are safe to re-run. Imported staff keep their legacy passwords: the first login verifies the
+old FOSUserBundle hash and rehashes it. Staff tiers are `App\Maxeme\Security\StaffRole`
+(Staff / Admin = `ROLE_MANAGER` / Super admin).
+
 ## Preparing this app for E2E testing
 
 The [e2e-structured-b2b](https://github.com/axcelmediacorp/e2e-structured-b2b) suite drives this

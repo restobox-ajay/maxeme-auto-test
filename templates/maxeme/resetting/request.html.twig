@@ -1,0 +1,20 @@
+{% extends 'maxeme/resetting/_layout.html.twig' %}
+{% set card_title = 'Reset password' %}
+{% block card %}
+    <p class="admin-login-sub">Enter your username or email address and we will email you a reset link.</p>
+
+    <form class="form-grid admin-login-form" method="post" action="{{ path('maxeme_resetting_request') }}" role="form">
+        {{ csrf_field() }}
+        {% if invalidUsername is defined %}
+            <div class="admin-login-error span-2">The username or email address "{{ invalidUsername }}" does not exist.</div>
+        {% endif %}
+        <label class="span-2" for="username">
+            Username or email address
+            <input type="text" id="username" name="username" required placeholder="username or email">
+        </label>
+        <div class="span-2 auth-actions">
+            <button class="button primary" type="submit">Reset password</button>
+            <a class="button back-button cancel-reset-button" href="{{ path('admin_login') }}">Cancel</a>
+        </div>
+    </form>
+{% endblock %}

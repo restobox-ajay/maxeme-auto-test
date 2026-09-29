@@ -1,0 +1,26 @@
+{# The legacy side menu's two searches (_side_menu.html.twig), below the navigation: "Client
+   Information" and "Find invoice". Admin and above. #}
+{% macro field(icon, inputs, extra = '') %}
+    {% set values = app.request.attributes.get('_route') == 'maxeme_client_search' ? app.request.query.all : {} %}
+    <div class="mx-side-field {{ extra }}"><span class="mx-addon">{{ mx_icon(icon) }}</span><div class="mx-inputs">
+        {%- for name, placeholder in inputs -%}
+            <input type="text" name="{{ name }}" value="{{ values[name]|default('') }}" placeholder="{{ placeholder }}" aria-label="{{ placeholder }}">
+        {%- endfor -%}
+    </div></div>
+{% endmacro %}
+{% import _self as search %}
+<div class="mx-side-search">
+    <form method="get" action="{{ path('maxeme_client_search') }}">
+        <h5>Client Information</h5>
+        {{ search.field('user', { firstName: 'First Name', lastName: 'Last Name' }) }}
+        {{ search.field('user', { preferredName: 'Preferred Name' }) }}
+        {{ search.field('phone', { phoneNumber: 'Phone Number' }) }}
+        {{ search.field('car', { vin: 'VIN #', license_plate: 'License Plate #', manufacturer: 'Manufacturer', model: 'Model' }, 'mx-gap') }}
+        {{ search.field('money', { invoiceNumber: 'Invoice Number' }) }}
+        <button class="button primary" type="submit">{{ mx_icon('search') }} Find a customer</button>
+    </form>
+    <form method="get" action="{{ path('maxeme_invoice_find') }}">
+        {{ search.field('money', { searchInvoiceNumber: 'Invoice Number' }) }}
+        <button class="button primary" type="submit">{{ mx_icon('search') }} Find invoice</button>
+    </form>
+</div>

@@ -1,0 +1,20 @@
+{# The signed-out card every resetting page shares with the login page. #}
+{% extends 'base.html.twig' %}
+{% block title %}{{ card_title }} | {{ site_name() }}{% endblock %}
+{% block body_class %}site site-admin-login{% endblock %}
+{% block home_path %}/admin{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content_header %}{% endblock %}
+{% block body %}
+<div class="admin-login-shell">
+    <div class="admin-login-card">
+        <div class="admin-login-card-head">
+            <div>
+                <p class="eyebrow">{{ site_name() }} · Admin Console</p>
+                <h2>{{ card_title }}</h2>
+            </div>
+        </div>
+        {% block card %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

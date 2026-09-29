@@ -1,0 +1,94 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Manage Admins | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set isSuperAdmin = is_granted('ROLE_SUPER_ADMIN') %}
+    {# Read here, before base.html.twig's flash loop, so it opens the modal instead of becoming a toast. #}
+    {% set createdUsername = app.flashes(constant('App\\Maxeme\\Controller\\StaffController::FLASH_CREATED'))|first %}
+
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every enabled login account. De-activated accounts can no longer sign in.' } %}
+        {% block actions %}
+            <button id="add-new-admin-btn" class="button primary" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-paginate" id="admin-card">
+        <div class="wide-table-wrap">
+            <table id="admin-table">
+                <thead>
+                    <tr>
+                        <th>First name</th>
+                        <th>Last name</th>
+                        <th>Email</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        {% if isSuperAdmin %}<th style="width:80px; text-align:center;">Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr id="user-{{ user.id }}">
+                            <td data-label="First name">{{ user.firstName }}</td>
+                            <td data-label="Last name">{{ user.lastName }}</td>
+                            <td data-label="Email">{{ user.email }}</td>
+                            <td data-label="Username">{{ user.username }}</td>
+                            <td data-label="Role"><ul class="mx-role-list">{% for role in staff_role(user).legacyRoles %}<li>{{ role }}</li>{% endfor %}</ul></td>
+                            {% if isSuperAdmin %}
+                                <td data-label="Actions" style="text-align:center;">
+                                    <div class="row-action-menu" style="margin:0 auto;">
+                                        <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open user actions"></button>
+                                        <div class="row-action-dropdown">
+                                            <button type="button" class="js-post-action danger" data-remove-row="#user-{{ user.id }}"
+                                                    data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
+                                                    data-token="{{ csrf_token_value() }}">De-activate</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="admin-modal-overlay {{ errors is not empty ? 'is-visible' }}" id="register-modal" role="dialog" aria-modal="true" aria-labelledby="register-modal-title">
+        <div class="admin-modal">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">Manage Admins</p>
+                <h2 id="register-modal-title">Add a new admin</h2>
+                <p class="lead">New accounts get ROLE_USER only.</p>
+            </div>
+            <form id="register-form" class="form-grid" method="post" action="{{ path('maxeme_staff_create') }}" style="margin-top:18px" novalidate>
+                {{ csrf_field() }}
+                {{ mx.form_errors(errors, 'mx-form-error') }}
+                <label class="span-2">Email<input type="email" name="email" id="reg-email" value="{{ account.email }}" required></label>
+                <label class="span-2">Username<input type="text" name="username" id="reg-username" value="{{ account.username }}" required></label>
+                <label>Password<input type="password" name="password" id="reg-pass1" required autocomplete="new-password"></label>
+                <label>Repeat password<input type="password" name="password_confirm" id="reg-pass2" required autocomplete="new-password"></label>
+                <label>First name:<input type="text" name="first_name" id="reg-first" value="{{ account.firstName }}" required></label>
+                <label>Last name:<input type="text" name="last_name" id="reg-last" value="{{ account.lastName }}" required></label>
+                <div class="form-actions span-2">
+                    <button type="submit" class="button primary">Register</button>
+                    <button type="button" class="button outline cancel-back-button js-modal-close">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay {{ createdUsername ? 'is-visible' }}" id="register-confirmed-modal" role="dialog" aria-modal="true" aria-labelledby="register-confirmed-title">
+        <div class="admin-modal">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">Registration</p>
+                <h2 id="register-confirmed-title">The user has been created successfully</h2>
+            </div>
+            <p id="register-confirmed-text" style="margin-top:14px">Congrats {{ createdUsername }}, your account is now activated.</p>
+            <div class="admin-modal-footer-split" style="margin-top:22px">
+                <span></span>
+                <button class="button primary js-modal-close" type="button">Back to Manage Admins</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}

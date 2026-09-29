@@ -1,0 +1,103 @@
+# Maxeme Auto: the shop-specific configuration layered on top of core.
+#
+# Services live in config/services.yaml (App\Maxeme\ section); routes in config/routes/maxeme.yaml.
+
+parameters:
+    # Written to the app settings core reads for site_name() by `app:maxeme:setup`.
+    maxeme.app_name: 'Maxeme Auto'
+    maxeme.company_name: 'Maxeme Automotive Service Ltd.'
+    # The shop's timezone. Written to core's `timezone` setting (every date is stored in UTC and
+    # shown in this zone) by app:maxeme:setup, and the zone the legacy database's wall-clock times
+    # are read in by app:maxeme:import-legacy.
+    maxeme.timezone: 'America/Vancouver'
+
+    # Appointment calendar (legacy calendar-setting.js / AppointmentController), in shop time.
+    maxeme.schedule:
+        day_start: '07:00'          # first bookable slot
+        day_end: '19:00'            # the calendar's last hour ends here
+        slot_minutes: 15
+        busy_slot_count: 5          # a slot with this many appointments starting in it shows as full
+        default_duration_hours: 2   # the booking form's Duration
+
+    # How long a forgot-password link stays valid, and how long before another can be requested
+    # (the legacy FOSUserBundle token_ttl). Written to core's password_reset_expiry_hours.
+    maxeme.password_reset_hours: 24
+
+    # Modules under modules/ that stay Active. `app:maxeme:setup` switches every other installed
+    # module off (App Management's own kill switch: it deletes nothing, and each can be switched
+    # back on there or with app:bundle:activate). The B2B modules have no place in the shop.
+    maxeme.enabled_bundles: []
+
+    # Printed on invoices and work orders (the legacy app hard-coded these in four templates).
+    maxeme.company:
+        name: 'Maxeme Automotive Service Ltd.'
+        address: '2-2300 Simpson Rd, Richmond, BC V6X 2P9'
+        phone: '(604)285-8200'
+        pst_number: '1051 4680'
+
+    # Invoice taxes, in percent. The builder toggles each between 0 and its rate (legacy GST 5 / PST 7).
+    maxeme.invoice:
+        gst_rate: 5
+        pst_rate: 7
+
+    # PDFs are rendered by dompdf, whose bundled fonts have no Chinese glyphs. Point this at a
+    # TrueType font that has them (e.g. Noto Sans TC) to print Chinese names; when the file does not
+    # exist the PDFs use DejaVu Sans.
+    maxeme.pdf_font: '%kernel.project_dir%/var/fonts/NotoSansTC-Regular.ttf'
+
+    # Reminder Todo's: an appointment this many months ago, with nothing booked since, becomes a reminder.
+    maxeme.reminder_after_months: 6
+
+    # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
+    maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
+
+    # The admin sidebar (legacy _top_navigation.html.twig, same order). App\Maxeme\Menu\MaxemeAdminMenuProvider
+    # hides every core B2B entry and injects these instead.
+    #   role:  rendering-only role check (the route enforces its own access)
+    #   match: extra route-name prefixes that highlight the entry (its own route always does)
+    # Entries are added here as each screen is built.
+    maxeme.admin_menu:
+        - key: schedule
+          label: Schedule
+          icon: calendar
+          children:
+              - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, match: [maxeme_appointment_] }
+              - { key: reminders, label: Reminder, route: maxeme_reminder_index, match: [maxeme_reminder_] }
+        - key: parts
+          label: Parts & Services
+          icon: wrench
+          role: ROLE_MANAGER
+          children:
+              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, match: [maxeme_part_] }
+              - { key: services, label: Services, route: maxeme_service_index, match: [maxeme_service_] }
+        - key: accounting
+          label: Accounting
+          icon: chart
+          role: ROLE_MANAGER
+          children:
+              - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_] }
+        - key: people
+          label: People
+          icon: users
+          children:
+              - { key: clients, label: Client List, route: maxeme_client_index, match: [maxeme_client_, maxeme_vehicle_] }
+        - key: config
+          label: Config
+          icon: cog
+          role: ROLE_SUPER_ADMIN
+          children:
+              - { key: manage_admins, label: Manage Admins, route: maxeme_staff_index, match: [maxeme_staff_] }
+
+twig:
+    globals:
+        maxeme_company: '%maxeme.company%'
+
+doctrine:
+    orm:
+        mappings:
+            Maxeme:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Maxeme/Entity'
+                prefix: 'App\Maxeme\Entity'
+                alias: Maxeme

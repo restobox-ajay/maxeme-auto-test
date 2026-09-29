@@ -1,0 +1,42 @@
+{# Shared Maxeme template helpers. Import with: {% import 'maxeme/_macros.html.twig' as mx %} #}
+
+{# A form's validation errors, collected in one alert at the top of the form (as the mockup shows them). #}
+{% macro form_errors(errors, class = 'span-2') %}
+    {%- if errors is not empty -%}
+        <div class="alert error {{ class }}">{% for message in errors %}{{ message }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+    {%- endif -%}
+{% endmacro %}
+
+{# Hidden field that sends a modal form back to the page (and filters) it was opened from. #}
+{% macro return_field() %}
+    <input type="hidden" name="{{ constant('App\\Maxeme\\Controller\\AbstractMaxemeController::RETURN_FIELD') }}" value="{{ app.request.requestUri }}">
+{%- endmacro %}
+
+{# ── Server-side lists: core's URL-driven .table-card (app.js navigates, ListQuery reads it back) ── #}
+
+{# The attributes a .table-card needs for app.js's per-page select and pager. `page` is a ListPage. #}
+{% macro list_card_attrs(page) -%}
+    data-per-page="{{ page.query.limit }}" data-current-page="{{ page.query.page }}" data-pages="{{ page.pageCount }}" data-default-sort="{{ page.query.defaultSort }}" data-default-dir="{{ page.query.defaultDir }}"
+{%- endmacro %}
+
+{# A header app.js makes sortable, marked with the current sort. #}
+{% macro sort_th(page, key, label, attrs = '') -%}
+    <th data-sort-field="{{ key }}" class="{{ page.query.sort == key ? 'is-sorted-' ~ page.query.dir }}" {{ attrs|raw }}>{{ label }}</th>
+{%- endmacro %}
+
+{# The search box app.js submits as ?q=. #}
+{% macro list_search(page, label) -%}
+    <div class="table-tools"><input class="table-search" type="search" placeholder="Search" value="{{ page.query.search }}" aria-label="Search {{ label }}"></div>
+{%- endmacro %}
+
+{# "Showing x to y of z entries"; app.js adds the per-page select and pager around it. #}
+{% macro list_footer(page) -%}
+    <div class="table-footer">
+        {% include 'admin/_table_count.html.twig' with { count: page.items|length, total: page.total, currentPage: page.query.page, perPage: page.query.limit } only %}
+    </div>
+{%- endmacro %}
+
+{# A dollar amount (decimal string or null) shown with two decimals; blank when there is none. #}
+{% macro money(value) -%}
+    {{ value is null or value is same as('') ? '' : value|number_format(2, '.', ',') }}
+{%- endmacro %}

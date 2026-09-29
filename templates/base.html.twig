@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#1d4ed8">
+        <meta name="theme-color" content="#206eb8">
         <title>{% block title %}{{ site_name() }}{% endblock %}</title>
         {% set faviconUrl = app_setting('favicon_url', '') %}
         {% if faviconUrl %}<link rel="icon" href="{{ faviconUrl }}">{% endif %}
@@ -12,6 +12,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         {% block stylesheets %}
             <link rel="stylesheet" href="/assets/css/app.css?v=150-inventory-region-cards">
+            <link rel="stylesheet" href="/assets/css/maxeme-theme.css?v=5">
         {% endblock %}
         {# Read by the AJAX helper in app.js to set X-CSRF-TOKEN on the admin's JS-only
            endpoints. Ordinary forms never need it - they carry {{ csrf_field() }} server-side. #}
@@ -97,7 +98,8 @@
         </div>
         {% block javascripts %}
             <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-            <script src="/assets/js/app.js?v=157-lock-modal-all-docs"></script>
+            <script src="/assets/js/app.js?v=158-wc-confirm"></script>
+            <script src="/assets/js/maxeme.js?v=5"></script>
         {% endblock %}
         {% block body_end %}{% endblock %}
     </body>

@@ -1,0 +1,11 @@
+{% extends 'maxeme/resetting/_layout.html.twig' %}
+{% set card_title = 'Check your email' %}
+{% block card %}
+    {% if alreadyRequested %}
+        <div class="alert warn mx-auth-message">The password for this user has already been requested within the last {{ hours }} hours.</div>
+    {% else %}
+        <p class="mx-auth-message">An email has been sent to <strong>{{ email }}</strong>. It contains a link you must click to reset your password.</p>
+    {% endif %}
+
+    <a class="button outline full-width cancel-reset-button" href="{{ path('admin_login') }}">Back to login page</a>
+{% endblock %}

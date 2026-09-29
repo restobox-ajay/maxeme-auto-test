@@ -5136,6 +5136,8 @@
     /* Expose for inline use */
     window.WC = window.WC || {};
     window.WC.showToast = showToast;
+    // (title, beforeText, itemLabel, afterText, onConfirm) — the #delete-modal as a generic confirm.
+    window.WC.confirm = showConfirmModal;
 
     /* The inline pencil-edit handlers that lived here (.btn-trigger-edit, .btn-save-edit and the
        .js-order-time-input auto-save) are gone with the order detail page's editable Order Time
