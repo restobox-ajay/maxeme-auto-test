@@ -1,0 +1,31 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Appointments | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Appointments', lead: 'Click a day to open it, click an appointment for its actions, drag or resize to change its time.' } only %}
+
+    {# One-shot alerts (legacy displayAction session flags), e.g. "Invoice not found." #}
+    <div class="page-alerts">
+        {% for message in app.flashes(constant('App\\Maxeme\\Controller\\ScheduleController::ALERT')) %}
+            <div class="alert error" role="alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+
+    <section class="table-card calendar-card">
+        <div id="calendar_container">
+            <div id="calendar" class="mx-calendar" data-calendar="{{ {
+                view: view.fullCalendarView,
+                feedUrl: path('maxeme_appointment_feed'),
+                slotMinTime: settings.dayStart,
+                slotMaxTime: settings.dayEnd,
+                slotMinutes: settings.slotMinutes,
+                canManage: is_granted('ROLE_MANAGER'),
+                views: { dayGridMonth: 'month', timeGridWeek: 'agendaWeek', timeGridDay: 'agendaDay' },
+            }|json_encode }}"></div>
+        </div>
+    </section>
+{% endblock %}
+{% block javascripts %}
+    {{ parent() }}
+    {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
+    <script src="/assets/js/maxeme-calendar.js?v=2"></script>
+{% endblock %}
