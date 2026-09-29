@@ -1,0 +1,131 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Parts Inventory | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set columns = { vin: 'VIN #', name: 'Part name', manufacturer: 'Manufacturer', type: 'Type', description: 'Description', vendor: 'Vendor', unitPrice: 'Unit price (CDN)', salePrice: 'Sale price (CDN)', quantity: 'Quantity', notes: 'Notes' } %}
+    {% set typeOptions = {} %}
+    {% for type in types %}{% set typeOptions = typeOptions|merge({ (type.value): type.label }) %}{% endfor %}
+
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Inventory', lead: 'Active parts in stock. Click any cell to edit it in place; use Inventory to restock or adjust the quantity.' } %}
+        {% block actions %}
+            <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new part</button>
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card" id="product-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header">
+            <div>
+                <h2>Parts</h2>
+                <p class="mx-inline-hint">Click a cell to edit · Enter saves · Esc cancels</p>
+            </div>
+            {{ mx.list_search(page, 'parts') }}
+        </div>
+        <div class="table-scroll-region">
+        <div class="wide-table-wrap">
+            <table id="product-table">
+                <thead>
+                    <tr>
+                        {% for key, label in columns %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th style="width:80px; text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for part in page.items %}
+                        {% set values = form_values(part) %}
+                        <tr id="row_{{ part.id }}" data-inline-url="{{ path('maxeme_part_field', { id: part.id }) }}">
+                            {% for field, value in values %}
+                                <td data-label="{{ columns[constant('App\\Maxeme\\Dto\\PartData::FIELDS')[field]] }}" class="mx-inline{{ field in ['unit_price', 'sale_price', 'quantity'] ? ' num' }}"
+                                    data-inline-field="{{ field }}"
+                                    {% if field == 'type' %}data-inline-options="{{ typeOptions|json_encode }}"{% endif %}>{{ value }}</td>
+                            {% endfor %}
+                            <td data-label="Actions" style="text-align:center;">
+                                <div class="row-action-menu" style="margin:0 auto;">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Part actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <button type="button" data-modal-open="#manageQuantityModal"
+                                                data-form-action="{{ path('maxeme_part_restock', { id: part.id }) }}"
+                                                data-form-values="{{ { po_number: '', unit_price: values.unit_price, sale_price: values.sale_price, quantity: '0', note: '' }|json_encode }}">Inventory</button>
+                                        <button type="button" data-modal-open="#manageEditModal"
+                                                data-form-action="{{ path('maxeme_part_update', { id: part.id }) }}"
+                                                data-form-values="{{ values|json_encode }}">Edit</button>
+                                        <button type="button" class="danger js-post-action" data-remove-row="#row_{{ part.id }}"
+                                                data-url="{{ path('maxeme_part_delete', { id: part.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ part.displayName }}"
+                                                data-confirm-after="?">Delete</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="11" class="empty-table-cell">No data available in table</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+
+    <div class="admin-modal-overlay" id="manageAddModal" role="dialog" aria-modal="true" aria-labelledby="manageAddModalLabel">
+        <div class="admin-modal mx-modal-wide mx-modal-scroll">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">Parts Inventory</p>
+                <h2 id="manageAddModalLabel">Add New Part...</h2>
+            </div>
+            <form id="manageAddForm" class="form-grid" method="post" action="{{ path('maxeme_part_create') }}" style="margin-top:18px">
+                {{ csrf_field() }}{{ mx.return_field() }}
+                {% include 'maxeme/part/_fields.html.twig' with { types: types } only %}
+                <div class="admin-modal-footer-split span-2" style="margin-top:22px">
+                    <button id="manageAddModalCancel" class="button outline js-modal-close" type="button">Cancel</button>
+                    <button id="manageAddSubmit" class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="manageEditModal" role="dialog" aria-modal="true" aria-labelledby="manageEditModalLabel">
+        <div class="admin-modal mx-modal-wide mx-modal-scroll">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">Parts Inventory</p>
+                <h2 id="manageEditModalLabel">Edit the Part...</h2>
+            </div>
+            <form id="manageEditFormBody" class="form-grid" method="post" action="" style="margin-top:18px">
+                {{ csrf_field() }}{{ mx.return_field() }}
+                {% include 'maxeme/part/_fields.html.twig' with { types: types } only %}
+                <div class="admin-modal-footer-split span-2" style="margin-top:22px">
+                    <button id="manageEditModalCancel" class="button outline js-modal-close" type="button">Cancel</button>
+                    <button id="manageEditSubmit" class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="manageQuantityModal" role="dialog" aria-modal="true" aria-labelledby="manageQuantityModalLabel">
+        <div class="admin-modal mx-modal-wide mx-modal-scroll">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <div class="admin-modal-header">
+                <p class="eyebrow">Parts Inventory</p>
+                <h2 id="manageQuantityModalLabel">Edit the Part... — Inventory</h2>
+            </div>
+            <form id="manageQuantityFormBody" class="form-grid" method="post" action="" style="margin-top:18px">
+                {{ csrf_field() }}{{ mx.return_field() }}
+                <label>Po number<input type="text" name="po_number"></label>
+                <label>Unit price<input type="text" name="unit_price" inputmode="decimal"></label>
+                <label>Sale price<input type="text" name="sale_price" inputmode="decimal"></label>
+                <label>Quantity<input type="number" step="1" name="quantity" value="0">
+                    <small>Added to the current stock (use a negative number to remove stock).</small>
+                </label>
+                <label class="span-2">Note<textarea rows="4" name="note"></textarea></label>
+                <div class="admin-modal-footer-split span-2" style="margin-top:22px">
+                    <button class="button outline js-modal-close" type="button">Cancel</button>
+                    <button class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

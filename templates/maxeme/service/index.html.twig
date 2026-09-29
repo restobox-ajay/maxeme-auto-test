@@ -1,0 +1,79 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Services | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Labour and service items with their standard price, used on invoices and work orders.' } %}
+        {% block actions %}
+            <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new service</button>
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card" id="service-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header">
+            <h2>Services</h2>
+            {{ mx.list_search(page, 'services') }}
+        </div>
+        <div class="wide-table-wrap">
+            <table id="service-table">
+                <thead>
+                    <tr>
+                        {% for key, label in { name: 'Name', preferredName: 'Preferred name', price: 'Price (CDN)', lastUpdated: 'Last updated' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th style="width:80px; text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in page.items %}
+                        <tr id="row_{{ service.id }}">
+                            <td data-label="Name">{{ service.name }}</td>
+                            <td data-label="Preferred name">{{ service.preferredName }}</td>
+                            <td data-label="Price (CDN)" class="num">{{ mx.money(service.price) }}</td>
+                            <td data-label="Last updated">{{ service.lastUpdated|date('Y-m-d H:i:s') }}</td>
+                            <td data-label="Actions" style="text-align:center;">
+                                <div class="row-action-menu" style="margin:0 auto;">
+                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Service actions"></button>
+                                    <div class="row-action-dropdown">
+                                        <button type="button" data-modal-open="#manageEditModal"
+                                                data-form-action="{{ path('maxeme_service_update', { id: service.id }) }}"
+                                                data-form-values="{{ form_values(service)|json_encode }}">Edit</button>
+                                        <button type="button" class="danger js-post-action" data-remove-row="#row_{{ service.id }}"
+                                                data-url="{{ path('maxeme_service_delete', { id: service.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ service.name }}"
+                                                data-confirm-after="?">Delete</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell">No data available in table</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+
+    {% for modal in [{ id: 'manageAddModal', title: 'Add New Service...', action: path('maxeme_service_create') }, { id: 'manageEditModal', title: 'Edit the Service...', action: '' }] %}
+        <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
+            <div class="admin-modal">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <div class="admin-modal-header">
+                    <p class="eyebrow">Services</p>
+                    <h2 id="{{ modal.id }}Label">{{ modal.title }}</h2>
+                </div>
+                <form class="form-grid" method="post" action="{{ modal.action }}" style="margin-top:18px">
+                    {{ csrf_field() }}{{ mx.return_field() }}
+                    <label class="span-2">Name<input type="text" name="name" required></label>
+                    <label class="span-2">Preferred name<input type="text" name="preferred_name"></label>
+                    <label class="span-2">Price<input type="text" name="price" inputmode="decimal"></label>
+                    <div class="admin-modal-footer-split span-2" style="margin-top:22px">
+                        <button class="button outline js-modal-close" type="button">Cancel</button>
+                        <button class="button primary" type="submit">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+{% endblock %}
