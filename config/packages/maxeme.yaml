@@ -53,6 +53,15 @@ parameters:
     maxeme.rbac.role_permission_dirs:
         - '%kernel.project_dir%/config/rbac/role_permissions'
 
+    # Core's own admin pages (the hidden B2B screens) are Super Admin only
+    # (App\Maxeme\EventSubscriber\PermissionEnforcementSubscriber), except these, which a signed-out
+    # or any signed-in staff member needs.
+    maxeme.rbac.core_open_routes:
+        - admin_login
+        - admin_password_reset
+        - admin_forgot_password
+        - admin_account_setup
+
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
 
