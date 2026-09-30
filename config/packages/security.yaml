@@ -63,7 +63,8 @@ security:
                 interval: '2 minutes'
             remember_me:
                 secret: '%kernel.secret%'
-                lifetime: 1209600
+                # Maxeme: staff sign-ins last 1 day, "Remember me" included (was 14 days).
+                lifetime: 86400
                 path: /admin
                 # Persistent (not signature-based) tokens (#299): a signature-based cookie is
                 # self-contained and stateless, so there is no server-side record to delete —

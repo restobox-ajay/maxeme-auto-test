@@ -5,10 +5,10 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session:
         # CSRF tokens are session-backed (SessionTokenStorage), so session lifetime IS the CSRF
-        # token lifetime. 8 hours = one working day, so a form left open over a break still
-        # submits instead of being rejected as stale.
-        gc_maxlifetime: 28800
-        cookie_lifetime: 28800
+        # token lifetime. Maxeme: staff stay signed in for 1 day (24 hours), so a form left open
+        # over a break still submits instead of being rejected as stale.
+        gc_maxlifetime: 86400
+        cookie_lifetime: 86400
 
         # Must be project-local, not the shared /var/lib/php/sessions. The distro's `sessionclean`
         # timer sweeps that directory on the php.ini gc_maxlifetime (1440 = 24min) and ignores the
