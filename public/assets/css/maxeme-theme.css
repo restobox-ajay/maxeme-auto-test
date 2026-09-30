@@ -19,13 +19,21 @@
 
     /* Status colours — Bootstrap 3 contextual palette used across Maxeme */
     --mx-success: #5cb85c;
+    --mx-success-hover: #449d44;
     --mx-success-soft: #dff0d8;
     --mx-info: #5bc0de;
     --mx-info-soft: #d9edf7;
     --mx-warning: #f0ad4e;
+    --mx-warning-hover: #ec971f;
     --mx-warning-soft: #fcf8e3;
     --mx-danger: #d9534f;
+    --mx-danger-hover: #c9302c;
     --mx-danger-soft: #f2dede;
+    /* Bootstrap 3 .btn-default */
+    --mx-default-ink: #333333;
+    --mx-default-border: #cccccc;
+    --mx-default-hover: #e6e6e6;
+    --mx-default-hover-border: #adadad;
 
     /* Appointment status (calendar events) — #2 AppointmentController::convertAppointmentToArray() */
     --mx-appt-new: #00a3d6;
@@ -181,7 +189,34 @@ body.admin-sidebar-collapsed .mx-side-search { display: none; }
 .mx-grid-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mx-grid-tools label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.82rem; font-weight: 500; }
 .mx-modal-wide { max-width: 760px; }
-.mx-btn-sm { min-height: 30px; padding: 0 12px; font-size: 0.8rem; }
+/* One small-button spec wherever it sits (table header, form head, table cell): the same box
+   .table-header > .button gets, so Client Profile's Update, Vehicles' Add and the row buttons match. */
+/* ── Buttons: the legacy app's Bootstrap 3 colours ───────────────────────────
+   .primary = btn-primary (blue), .mx-success = btn-success (green), .mx-warning = btn-warning
+   (orange), .danger = btn-danger (red), .outline = btn-default (white). Staff pages and the
+   sign-in / reset pages alike. */
+:is(.site-admin, .site-admin-login) .button.mx-success { color: #fff; background: var(--mx-success); border-color: var(--mx-success); }
+:is(.site-admin, .site-admin-login) .button.mx-success:hover { color: #fff; background: var(--mx-success-hover); border-color: var(--mx-success-hover); }
+:is(.site-admin, .site-admin-login) .button.mx-warning { color: #fff; background: var(--mx-warning); border-color: var(--mx-warning); }
+:is(.site-admin, .site-admin-login) .button.mx-warning:hover { color: #fff; background: var(--mx-warning-hover); border-color: var(--mx-warning-hover); }
+:is(.site-admin, .site-admin-login) .button.danger { color: #fff !important; background: var(--mx-danger) !important; border-color: var(--mx-danger); }
+:is(.site-admin, .site-admin-login) .button.danger:hover { background: var(--mx-danger-hover) !important; border-color: var(--mx-danger-hover); }
+:is(.site-admin, .site-admin-login) .button.outline { color: var(--mx-default-ink); background: #fff; border-color: var(--mx-default-border); }
+:is(.site-admin, .site-admin-login) .button.outline:hover { color: var(--mx-default-ink); background: var(--mx-default-hover); border-color: var(--mx-default-hover-border); }
+.site-admin .mini-action.item-add { border-color: var(--mx-success); background: var(--mx-success); }
+.site-admin .mini-action.item-add:hover { border-color: var(--mx-success-hover); background: var(--mx-success-hover); }
+.site-admin .mini-action.danger { border-color: var(--mx-danger); background: var(--mx-danger); }
+.site-admin .mini-action.danger:hover { border-color: var(--mx-danger-hover); background: var(--mx-danger-hover); }
+
+/* An action group (table row or page toolbar): the first two actions show as buttons, the rest
+   go in core's ⋯ dropdown (maxeme.js moves them; hidden here until it does, so nothing jumps). */
+.mx-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+td .mx-actions { flex-wrap: nowrap; }
+.mx-actions:not(.is-grouped) > :nth-child(n+3) { display: none; }
+.mx-toolbar { display: flex; margin: 0 0 16px; }
+.site-admin .row-action-dropdown :is(a, button).danger, .site-admin .row-action-dropdown :is(a, button).danger:hover { color: var(--mx-danger); }
+
+.mx-btn-sm { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-height: 30px; padding: 0 12px; border-radius: 5px; font-size: 0.8rem; line-height: 1; }
 
 /* ── Client List ────────────────────────────────────────────────────────── */
 .client-table td { white-space: nowrap; }
@@ -323,12 +358,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .list-report-table tfoot td { border-top: 3px solid var(--ink-body); font-weight: 800; padding-top: 10px; padding-bottom: 10px; }
 
 /* ── Reminder Todo's ────────────────────────────────────────────────────── */
-.button.xs { min-height: 28px; padding: 0 10px; font-size: 0.78rem; }
-.button.mx-success { background: var(--mx-success); border-color: var(--mx-success); color: #fff; }
-.button.mx-warning { background: var(--mx-warning); border-color: var(--mx-warning); color: #fff; }
 .reminder-table td { vertical-align: top; }
 .reminder-table ul { margin: 4px 0 0; padding-left: 18px; }
-.reminder-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .phone-line { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .phone-line svg { color: var(--muted); }
 .muted-line { color: var(--muted); font-size: 0.82rem; }

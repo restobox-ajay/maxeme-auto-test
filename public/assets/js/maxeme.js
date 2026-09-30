@@ -17,9 +17,32 @@
  *                                            ask first, with app.js's #delete-modal. A .danger
  *                                            button (delete, de-activate, decline) always asks,
  *                                            with a generic text when it names none.
+ *
+ *   .mx-actions             an action group (row or toolbar): the first two actions stay buttons,
+ *                           the rest move into a ⋯ menu after them, the way wholesale core does it
  */
 (function ($) {
     'use strict';
+
+    $(function () {
+        $('.mx-actions').each(function () {
+            var $group = $(this);
+            var $extra = $group.children().slice(2);
+            if ($extra.length) {
+                var inRow = $group.closest('td').length > 0;
+                var $toggle = $('<button type="button" class="table-action row-action-toggle" aria-expanded="false" aria-haspopup="true" aria-label="More actions"></button>');
+                if (!inRow) {
+                    $toggle.addClass('load-endpoint-toggle').text('More');
+                }
+                // A menu item is a plain row; .danger keeps it red.
+                $extra.removeClass('button mx-btn-sm primary outline mx-success mx-warning');
+                $('<div class="row-action-menu"></div>')
+                    .append($toggle, $('<div class="row-action-dropdown"></div>').append($extra))
+                    .appendTo($group);
+            }
+            $group.addClass('is-grouped');
+        });
+    });
 
     $(document).on('click', '[data-modal-open]', function (event) {
         event.preventDefault();

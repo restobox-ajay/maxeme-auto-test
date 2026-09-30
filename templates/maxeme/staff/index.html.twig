@@ -10,7 +10,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every enabled login account. De-activated accounts can no longer sign in.' } %}
         {% block actions %}
             {% if canAdd %}
-                <button id="add-new-admin-btn" class="button primary" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
+                <button id="add-new-admin-btn" class="button mx-success" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
             {% endif %}
         {% endblock %}
     {% endembed %}
@@ -25,7 +25,7 @@
                         <th>Email</th>
                         <th>Username</th>
                         <th>Role</th>
-                        {% if canManage %}<th style="width:80px; text-align:center;">Actions</th>{% endif %}
+                        {% if canManage %}<th style="text-align:center;">Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -39,17 +39,14 @@
                             {% if canManage %}
                                 <td data-label="Actions" style="text-align:center;">
                                     {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
-                                    <div class="row-action-menu" style="margin:0 auto;">
-                                        <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open user actions"></button>
-                                        <div class="row-action-dropdown">
-                                            <button type="button" class="js-post-action danger" data-remove-row="#user-{{ user.id }}"
+                                    <div class="mx-actions">
+                                            <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#user-{{ user.id }}"
                                                     data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
                                                     data-token="{{ csrf_token_value() }}"
                                                     data-confirm-title="De-activate Confirmation"
                                                     data-confirm-before="Are you sure you want to de-activate "
                                                     data-item="{{ user.username ?? user.email }}"
                                                     data-confirm-after="? They will no longer be able to sign in.">De-activate</button>
-                                        </div>
                                     </div>
                                     {% endif %}
                                 </td>

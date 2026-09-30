@@ -7,7 +7,7 @@
             <input class="item-name-search" type="text" name="{{ base }}[name]" value="{{ name }}" placeholder="Enter item name here" autocomplete="off">
             <input class="item-value" type="hidden" name="{{ base }}[id]" value="{{ id }}">
             <input class="item-type" type="hidden" name="{{ base }}[type]" value="{{ type }}">
-            <button type="button" class="button outline mx-btn-sm add_part" {{ type == 'Parts' ? 'hidden' }}>Add Parts</button>
+            <button type="button" class="button mx-btn-sm primary add_part" {{ type == 'Parts' ? 'hidden' }}>Add Parts</button>
         </div>
         <ul class="mx-parts-list" data-base="{{ base }}">
             {% for line in parts %}

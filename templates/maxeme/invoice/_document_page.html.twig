@@ -23,9 +23,11 @@
             </div>
         </div>
     </section>
-    <nav class="company-action-links order-tab-nav no-print" aria-label="{{ kind.title }} actions">
-        <button class="button is-current" type="button" onclick="window.print()">Print</button>
-        {% block actions %}{% endblock %}
+    <nav class="mx-toolbar no-print" aria-label="{{ kind.title }} actions">
+        <div class="mx-actions">
+            <button class="button primary" type="button" onclick="window.print()">Print</button>
+            {% block actions %}{% endblock %}
+        </div>
     </nav>
     <div class="invoice-page-container">
         {% include kind.template with { invoice: invoice, vehicles: vehicles|default([]) } only %}

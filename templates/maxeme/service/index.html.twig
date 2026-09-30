@@ -4,7 +4,7 @@
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Labour and service items with their standard price, used on invoices and work orders.' } %}
         {% block actions %}
-            <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new service</button>
+            <button id="manageAddButton" class="button mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new service</button>
         {% endblock %}
     {% endembed %}
 
@@ -18,7 +18,7 @@
                 <thead>
                     <tr>
                         {% for key, label in { name: 'Name', preferredName: 'Preferred name', price: 'Price (CDN)', lastUpdated: 'Last updated' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        <th style="width:80px; text-align:center;">Actions</th>
+                        <th style="text-align:center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -29,20 +29,17 @@
                             <td data-label="Price (CDN)" class="num">{{ mx.money(service.price) }}</td>
                             <td data-label="Last updated">{{ service.lastUpdated|date('Y-m-d H:i:s') }}</td>
                             <td data-label="Actions" style="text-align:center;">
-                                <div class="row-action-menu" style="margin:0 auto;">
-                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Service actions"></button>
-                                    <div class="row-action-dropdown">
-                                        <button type="button" data-modal-open="#manageEditModal"
+                                <div class="mx-actions">
+                                        <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
                                                 data-form-action="{{ path('maxeme_service_update', { id: service.id }) }}"
                                                 data-form-values="{{ form_values(service)|json_encode }}">Edit</button>
-                                        <button type="button" class="danger js-post-action" data-remove-row="#row_{{ service.id }}"
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ service.id }}"
                                                 data-url="{{ path('maxeme_service_delete', { id: service.id }) }}"
                                                 data-token="{{ csrf_token_value() }}"
                                                 data-confirm-title="Delete Confirmation"
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ service.name }}"
                                                 data-confirm-after="?">Delete</button>
-                                    </div>
                                 </div>
                             </td>
                         </tr>

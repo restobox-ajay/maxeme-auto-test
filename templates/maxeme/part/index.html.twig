@@ -11,7 +11,7 @@
             {% if is_granted('/parts/edit') %}
                 <a id="physicalCountButton" class="button outline" href="{{ path('maxeme_part_count') }}">Physical count</a>
             {% endif %}
-            <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new part</button>
+            <button id="manageAddButton" class="button mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new part</button>
         {% endblock %}
     {% endembed %}
 
@@ -29,7 +29,7 @@
                 <thead>
                     <tr>
                         {% for key, label in columns %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        <th style="width:80px; text-align:center;">Actions</th>
+                        <th style="text-align:center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,23 +42,20 @@
                                     {% if field == 'type' %}data-inline-options="{{ typeOptions|json_encode }}"{% endif %}>{{ value }}</td>
                             {% endfor %}
                             <td data-label="Actions" style="text-align:center;">
-                                <div class="row-action-menu" style="margin:0 auto;">
-                                    <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Part actions"></button>
-                                    <div class="row-action-dropdown">
-                                        <button type="button" data-modal-open="#manageQuantityModal"
+                                <div class="mx-actions">
+                                        <button type="button" class="button mx-btn-sm primary" data-modal-open="#manageQuantityModal"
                                                 data-form-action="{{ path('maxeme_part_restock', { id: part.id }) }}"
                                                 data-form-values="{{ { po_number: '', unit_price: values.unit_price, sale_price: values.sale_price, quantity: '0', note: '' }|json_encode }}">Inventory</button>
-                                        <button type="button" data-modal-open="#manageEditModal"
+                                        <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
                                                 data-form-action="{{ path('maxeme_part_update', { id: part.id }) }}"
                                                 data-form-values="{{ values|json_encode }}">Edit</button>
-                                        <button type="button" class="danger js-post-action" data-remove-row="#row_{{ part.id }}"
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ part.id }}"
                                                 data-url="{{ path('maxeme_part_delete', { id: part.id }) }}"
                                                 data-token="{{ csrf_token_value() }}"
                                                 data-confirm-title="Delete Confirmation"
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ part.displayName }}"
                                                 data-confirm-after="?">Delete</button>
-                                    </div>
                                 </div>
                             </td>
                         </tr>

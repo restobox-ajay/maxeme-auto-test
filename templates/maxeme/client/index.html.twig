@@ -8,7 +8,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Client List', lead: 'All active clients. Open a profile to manage vehicles, appointments, invoices and work orders.' } %}
         {% block actions %}
             {% if canManage %}
-                <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new person</button>
+                <button id="manageAddButton" class="button mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new person</button>
             {% endif %}
         {% endblock %}
     {% endembed %}
@@ -25,7 +25,7 @@
                     <tr>
                         <th style="width:40px"></th>
                         {% for key, label in columns %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        {% if canManage %}<th style="width:65px"></th>{% endif %}
+                        {% if canManage %}<th></th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -46,20 +46,17 @@
                             <td data-label="Last updated">{{ client.lastUpdated|date('Y-m-d H:i:s') }}</td>
                             {% if canManage %}
                                 <td data-label="Actions">
-                                    <div class="row-action-menu">
-                                        <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Client actions"></button>
-                                        <div class="row-action-dropdown">
-                                            <button type="button" class="edit_client" data-modal-open="#manageEditModal"
+                                    <div class="mx-actions">
+                                            <button type="button" class="button mx-btn-sm mx-success edit_client" data-modal-open="#manageEditModal"
                                                     data-form-action="{{ path('maxeme_client_update', { id: client.id }) }}"
                                                     data-form-values="{{ form_values(client)|json_encode }}">Edit</button>
-                                            <button type="button" class="delete_client danger js-post-action" data-remove-row="#row_{{ client.id }}"
+                                            <button type="button" class="button mx-btn-sm danger delete_client js-post-action" data-remove-row="#row_{{ client.id }}"
                                                     data-url="{{ path('maxeme_client_delete', { id: client.id }) }}"
                                                     data-token="{{ csrf_token_value() }}"
                                                     data-confirm-title="Delete Confirmation"
                                                     data-confirm-before="Are you sure you want to delete "
                                                     data-item="{{ client.fullName }}"
                                                     data-confirm-after="?">Delete</button>
-                                        </div>
                                     </div>
                                 </td>
                             {% endif %}

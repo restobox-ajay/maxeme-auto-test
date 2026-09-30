@@ -1,14 +1,14 @@
 {# The printable invoice (legacy invoice_print.html.twig). Vars: invoice, kind. #}
 {% extends 'maxeme/invoice/_document_page.html.twig' %}
 {% block actions %}
-    <a class="button" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
+    <a class="button mx-success" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
     {% if is_granted('/accounting/edit') %}
-        <button class="button" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
+        <button class="button mx-success" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
     {% endif %}
     {% if is_granted('ROLE_SUPER_ADMIN') %}
-        <a class="button" id="edit-invoice-btn" href="{{ path('maxeme_invoice_edit', { invoiceKey: invoice.invoiceKey }) }}">Edit</a>
+        <a class="button mx-success" id="edit-invoice-btn" href="{{ path('maxeme_invoice_edit', { invoiceKey: invoice.invoiceKey }) }}">Edit</a>
     {% endif %}
-    <a class="button" id="view-work-sheet" href="{{ path('maxeme_work_order_show', { invoiceKey: invoice.invoiceKey }) }}">Work Order</a>
+    <a class="button mx-warning" id="view-work-sheet" href="{{ path('maxeme_work_order_show', { invoiceKey: invoice.invoiceKey }) }}">Work Order</a>
 {% endblock %}
 {% block modals %}
     {% if is_granted('/accounting/edit') %}

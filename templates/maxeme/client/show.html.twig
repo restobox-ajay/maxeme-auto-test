@@ -15,11 +15,11 @@
             <div class="panel-actions">
                 <a class="button back-button" href="{{ path('maxeme_client_index') }}">Back</a>
                 {% if is_granted('/appointment/edit') %}
-                    <a id="add_client_appointment" class="button primary" href="{{ path('maxeme_appointment_new', { id: client.id }) }}">+ Add new appointment for {{ client.fullName }}</a>
+                    <a id="add_client_appointment" class="button mx-success" href="{{ path('maxeme_appointment_new', { id: client.id }) }}">+ Add new appointment for {{ client.fullName }}</a>
                 {% endif %}
                 {% if is_granted('/work-order/view') %}
                     {# With no vehicles the link comes back here with "Client does not have any vehicles!", so it opens in place. #}
-                    <a id="client_empty_workorder" class="button outline" href="{{ path('maxeme_work_order_blank', { id: client.id }) }}" {{ client.vehicles|length ? 'target="_blank" rel="noopener"' }}>Empty Work Order (Print Only)</a>
+                    <a id="client_empty_workorder" class="button mx-warning" href="{{ path('maxeme_work_order_blank', { id: client.id }) }}" {{ client.vehicles|length ? 'target="_blank" rel="noopener"' }}>Empty Work Order (Print Only)</a>
                 {% endif %}
             </div>
         </div>
@@ -38,7 +38,7 @@
                 {{ csrf_field() }}
                 <div class="mx-form-head">
                     <h2>Client Profile</h2>
-                    {% if canManage %}<button id="manageEditSubmit" class="button primary mx-btn-sm edit_client" type="submit">Update</button>{% endif %}
+                    {% if canManage %}<button id="manageEditSubmit" class="button mx-btn-sm mx-success edit_client" type="submit">Update</button>{% endif %}
                 </div>
                 <div class="client-info-blocks">
                     <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['first_name', 'last_name', 'preferred_name'], readonly: not canManage } only %}</div>
@@ -53,7 +53,7 @@
             <div class="table-header">
                 <h2>Vehicles</h2>
                 {% if canManageVehicles %}
-                    <button class="button primary mx-btn-sm" type="button" data-modal-open="#manageAddModal">+ Add new vehicle to {{ client.fullName }}</button>
+                    <button class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add new vehicle to {{ client.fullName }}</button>
                 {% endif %}
                 {{ mx.list_search(vehicles, 'vehicles') }}
             </div>
@@ -62,7 +62,7 @@
                     <thead>
                         <tr>
                             {% for key, label in { manufacturer: 'Manufacturer', model: 'Model', year: 'Year', vin: 'Vin', color: 'Color', note: 'Note' } %}{{ mx.sort_th(vehicles, key, label) }}{% endfor %}
-                            {% if canManageVehicles %}<th style="width:65px"></th>{% endif %}
+                            {% if canManageVehicles %}<th></th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -76,20 +76,17 @@
                                 <td data-label="Note">{{ vehicle.note }}</td>
                                 {% if canManageVehicles %}
                                     <td data-label="Actions">
-                                        <div class="row-action-menu">
-                                            <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Vehicle actions"></button>
-                                            <div class="row-action-dropdown">
-                                                <button type="button" class="edit_client_vehicle" data-modal-open="#manageEditClientVehicleModal"
+                                        <div class="mx-actions">
+                                                <button type="button" class="button mx-btn-sm mx-success edit_client_vehicle" data-modal-open="#manageEditClientVehicleModal"
                                                         data-form-action="{{ path('maxeme_vehicle_update', { id: vehicle.id }) }}"
                                                         data-form-values="{{ form_values(vehicle)|json_encode }}">Edit</button>
-                                                <button type="button" class="delete_client_vehicle danger js-post-action" data-remove-row="#row_{{ vehicle.id }}"
+                                                <button type="button" class="button mx-btn-sm danger delete_client_vehicle js-post-action" data-remove-row="#row_{{ vehicle.id }}"
                                                         data-url="{{ path('maxeme_vehicle_delete', { id: vehicle.id }) }}"
                                                         data-token="{{ csrf_token_value() }}"
                                                         data-confirm-title="Delete Confirmation"
                                                         data-confirm-before="Are you sure you want to delete "
                                                         data-item="{{ vehicle.fullName }}"
                                                         data-confirm-after="?">Delete</button>
-                                            </div>
                                         </div>
                                     </td>
                                 {% endif %}

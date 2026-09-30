@@ -20,15 +20,18 @@
         </div>
     </section>
 
-    <nav class="company-action-links order-tab-nav" aria-label="Invoice builder actions">
-        <button class="button" type="button" id="order-part" data-modal-open="#order-part-modal">Order new part</button>
-        <button class="button" type="submit" form="invoice-builder-form" name="intent" value="work_order" id="view_work_sheet">Work Order</button>
-        <button class="button" type="submit" form="invoice-builder-form" name="intent" value="save" id="save_invoice">Save</button>
-        {% if invoice.saved %}
-            <a class="button" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
-            <button class="button" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
-        {% endif %}
-        <button class="button is-current" type="submit" form="invoice-builder-form" name="intent" value="complete" id="print_invoice">Complete</button>
+    {# Save and Complete stay buttons; the rest go in the More menu (.mx-actions). #}
+    <nav class="mx-toolbar" aria-label="Invoice builder actions">
+        <div class="mx-actions">
+            <button class="button mx-success" type="submit" form="invoice-builder-form" name="intent" value="save" id="save_invoice">Save</button>
+            <button class="button primary" type="submit" form="invoice-builder-form" name="intent" value="complete" id="print_invoice">Complete</button>
+            <button class="button outline" type="button" id="order-part" data-modal-open="#order-part-modal">Order new part</button>
+            {% if invoice.saved %}
+                <button class="button mx-success" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
+                <a class="button mx-success" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
+            {% endif %}
+            <button class="button mx-warning" type="submit" form="invoice-builder-form" name="intent" value="work_order" id="view_work_sheet">Work Order</button>
+        </div>
     </nav>
 
     <form id="invoice-builder-form" method="post" action="{{ action }}" data-invoice-builder="{{ { itemsUrl: path('maxeme_invoice_items') }|json_encode }}">
