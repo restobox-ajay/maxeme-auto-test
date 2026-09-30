@@ -1,0 +1,45 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Invoices | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Invoices', lead: 'Every invoice, newest first. Open one to see it printed, or in the builder while it can still be changed.' } only %}
+
+    <section class="table-card" id="invoice-list" {{ mx.list_card_attrs(page) }}>
+        {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_invoice_index' } only %}
+        <div class="table-header">
+            <h2>Invoices</h2>
+            {{ mx.list_search(page, 'invoices') }}
+        </div>
+        <div class="wide-table-wrap">
+            <table id="invoice-list-table">
+                <thead>
+                    <tr>
+                        {{ mx.sort_th(page, 'id', 'Invoice #') }}
+                        {{ mx.sort_th(page, 'createdOn', 'Date') }}
+                        {{ mx.sort_th(page, 'client', 'Client') }}
+                        {{ mx.sort_th(page, 'vehicle', 'Vehicle') }}
+                        {{ mx.sort_th(page, 'status', 'Status') }}
+                        {{ mx.sort_th(page, 'totalPrice', 'Total', 'class="num"') }}
+                        <th style="width:80px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in page.items %}
+                        <tr id="invoice_{{ invoice.id }}">
+                            <td data-label="Invoice #">{{ invoice.displayedId }}</td>
+                            <td data-label="Date">{{ invoice.createdOn|date('Y-m-d') }}</td>
+                            <td data-label="Client">{{ invoice.clientFullName }}</td>
+                            <td data-label="Vehicle">{{ invoice.vehicleFullName }}</td>
+                            <td data-label="Status"><span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span></td>
+                            <td data-label="Total" class="num">{{ mx.money(invoice.totalPrice) }}</td>
+                            <td data-label="Actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Open</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7" class="empty-table-cell">No invoices found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

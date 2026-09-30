@@ -14,6 +14,7 @@
     {% endembed %}
 
     <section class="table-card" id="client-grid" {{ mx.list_card_attrs(page) }}>
+        {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_client_index' } only %}
         <div class="table-header">
             <h2>Clients</h2>
             {{ mx.list_search(page, 'clients') }}

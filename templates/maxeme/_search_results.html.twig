@@ -1,0 +1,8 @@
+{# Above a list opened from a sidebar search box: what was searched, how many matched, and a way back
+   to the full list. Vars: find (SearchTerm), page (ListPage), clear (route of the unfiltered list). #}
+{% if not find.isEmpty %}
+    <div class="mx-search-results" role="status">
+        <span>{{ page.total }} {{ page.total == 1 ? 'match' : 'matches' }} for <strong>“{{ find.text }}”</strong></span>
+        <a class="button outline mx-btn-sm" href="{{ path(clear) }}">Clear search</a>
+    </div>
+{% endif %}

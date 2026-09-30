@@ -137,7 +137,7 @@
             {% endif %}
         {% endif %}
     {% endfor %}
-    {% if is_granted('/people/view') or is_granted('/accounting/view') %}{% include 'maxeme/_sidebar_search.html.twig' %}{% endif %}
+    {% if is_granted('/people/view') or is_granted('/car/view') or is_granted('/accounting/view') %}{% include 'maxeme/_sidebar_search.html.twig' %}{% endif %}
 {% endblock %}
 {% block sidebar_footer %}
     <button class="sidebar-footer sidebar-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true">

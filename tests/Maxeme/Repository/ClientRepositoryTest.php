@@ -4,72 +4,95 @@ declare(strict_types=1);
 
 namespace App\Tests\Maxeme\Repository;
 
-use App\Maxeme\Dto\ClientSearchCriteria;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\ClientRepository;
+use App\Maxeme\Repository\InvoiceRepository;
+use App\Maxeme\Repository\VehicleRepository;
 use App\Tests\DoctrineIntegrationTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-/** The sidebar "Find a customer" rules, as the legacy ClientRepository::getByParams() applied them. */
+/** The sidebar's three search boxes: Customer, Vehicle and Invoice #. */
 final class ClientRepositoryTest extends DoctrineIntegrationTestCase
 {
     private ClientRepository $clients;
+    private Invoice $invoice;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->clients = self::getContainer()->get(ClientRepository::class);
 
-        $singh = $this->client('Harpreet', 'Singh', cell: '604-555-0100');
+        $singh = $this->client('Harpreet', 'Singh', cell: '(604) 555-0100')->setAddress('12 Main St, Richmond');
         $this->vehicle($singh, 'Honda', 'Civic', 'VIN-AAA', 'PLATE1');
-        $singhera = $this->client('Amar', 'Singhera', home: '604-555-0200');
+        $singhera = $this->client('Amar', 'Singhera', home: '604.555.0200')->setPreferredName('Sonny');
         $this->vehicle($singhera, 'Toyota', 'RAV4', 'VIN-BBB', 'PLATE2')->deactivate();
         $this->client('Deleted', 'Singh')->deactivate();
+
+        $this->invoice = Invoice::forClient($singhera, null, 5, 7);
+        $this->em->persist($this->invoice);
         $this->em->flush();
     }
 
-    public function testNamesMatchByPrefixAndIgnoreDeletedClients(): void
+    public function testEveryWordHasToMatchAName(): void
     {
-        self::assertSame(['Singh', 'Singhera'], $this->lastNames(['lastName' => 'singh']));
-        self::assertSame(['Singhera'], $this->lastNames(['firstName' => 'AM']));
-        self::assertSame([], $this->lastNames(['lastName' => 'ingh']), 'starts with, not contains');
+        self::assertSame(['Singh', 'Singhera'], $this->customers('singh'), 'contains, any case; deleted clients never');
+        self::assertSame(['Singhera'], $this->customers('amar SINGH'), 'each word may match a different field');
+        self::assertSame(['Singhera'], $this->customers('sonny'), 'preferred name');
+        self::assertSame([], $this->customers('harpreet singhera'));
     }
 
-    public function testPhoneMatchesAnyNumberExactly(): void
+    public function testPhoneMatchesItsDigitsWhateverTheFormatting(): void
     {
-        self::assertSame(['Singh'], $this->lastNames(['phoneNumber' => '604-555-0100']));
-        self::assertSame(['Singhera'], $this->lastNames(['phoneNumber' => '604-555-0200']));
-        self::assertSame([], $this->lastNames(['phoneNumber' => '604-555']));
+        self::assertSame(['Singh'], $this->customers('6045550100'));
+        self::assertSame(['Singh'], $this->customers('555-0100'));
+        self::assertSame(['Singhera'], $this->customers('604 555 0200'));
     }
 
-    public function testVehicleFieldsMatchExactlyOnAnyVehicleIncludingDeletedOnes(): void
+    public function testAddressAndInvoiceNumberFindTheCustomer(): void
     {
-        self::assertSame(['Singh'], $this->lastNames(['vin' => 'vin-aaa']));
-        self::assertSame(['Singh'], $this->lastNames(['license_plate' => 'PLATE1']), 'the legacy license-plate criterion never matched; this one does');
-        self::assertSame(['Singhera'], $this->lastNames(['manufacturer' => 'toyota']), 'a deleted vehicle still finds its owner');
-        self::assertSame([], $this->lastNames(['model' => 'Civ']));
+        self::assertSame(['Singh'], $this->customers('richmond'));
+        self::assertSame(['Singhera'], $this->customers(str_pad((string) $this->invoice->getId(), 8, '0', STR_PAD_LEFT)));
     }
 
-    public function testCriteriaAreAnded(): void
+    public function testTheGridSearchBoxStillNarrowsTheList(): void
     {
-        self::assertSame(['Singh'], $this->lastNames(['lastName' => 'Singh', 'manufacturer' => 'Honda']));
-        self::assertSame([], $this->lastNames(['lastName' => 'Singhera', 'manufacturer' => 'Honda']));
-    }
-
-    public function testSearchBoxLooksInEveryColumn(): void
-    {
-        $page = $this->clients->findPage(new ClientSearchCriteria(), ListQuery::fromRequest(new Request(['q' => '0200']), array_keys(ClientRepository::SORTS)));
+        $page = $this->clients->findPage(SearchTerm::of(''), ListQuery::fromRequest(new Request(['q' => 'amar']), array_keys(ClientRepository::SORTS)));
 
         self::assertSame(1, $page->total);
     }
 
-    /** @param array<string, string> $query */
-    private function lastNames(array $query): array
+    public function testVehicleBoxSearchesActiveVehiclesByAnyOfTheirFields(): void
     {
-        $criteria = ClientSearchCriteria::fromRequest(new Request($query));
-        $page = $this->clients->findPage($criteria, ListQuery::fromRequest(new Request(['sort' => 'lastName']), array_keys(ClientRepository::SORTS)));
+        $vehicles = self::getContainer()->get(VehicleRepository::class);
+        $find = static fn (string $text): array => array_map(
+            static fn (Vehicle $vehicle): ?string => $vehicle->getVin(),
+            $vehicles->findPage(SearchTerm::of($text), ListQuery::fromRequest(new Request(), array_keys(VehicleRepository::LIST_SORTS)))->items,
+        );
+
+        self::assertSame(['VIN-AAA'], $find('plate1'));
+        self::assertSame(['VIN-AAA'], $find('honda civic'));
+        self::assertSame([], $find('toyota'), 'a deleted vehicle is not listed');
+    }
+
+    public function testInvoiceBoxMatchesTheNumberAsShown(): void
+    {
+        $invoices = self::getContainer()->get(InvoiceRepository::class);
+        $id = (int) $this->invoice->getId();
+
+        self::assertSame($this->invoice, $invoices->findOneByNumber(SearchTerm::of(str_pad((string) $id, 8, '0', STR_PAD_LEFT))));
+        self::assertSame($this->invoice, $invoices->findOneByNumber(SearchTerm::of('#' . $id)));
+        self::assertNull($invoices->findOneByNumber(SearchTerm::of('abc')));
+        self::assertSame(1, $invoices->findPage(SearchTerm::of((string) $id), ListQuery::fromRequest(new Request(), array_keys(InvoiceRepository::LIST_SORTS)))->total);
+    }
+
+    /** @return list<?string> matching last names, sorted */
+    private function customers(string $text): array
+    {
+        $page = $this->clients->findPage(SearchTerm::of($text), ListQuery::fromRequest(new Request(['sort' => 'lastName']), array_keys(ClientRepository::SORTS)));
 
         return array_map(static fn (Client $client): ?string => $client->getLastName(), $page->items);
     }

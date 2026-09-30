@@ -7,6 +7,9 @@ namespace App\Maxeme\Repository;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Listing\ListPage;
+use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -30,12 +33,37 @@ final class InvoiceRepository extends ServiceEntityRepository
         return $this->findOneBy(['appointment' => $appointment]);
     }
 
-    /** The sidebar "Find invoice": the invoice number as shown, leading zeros optional (legacy searchAction). */
-    public function findOneByNumber(string $number): ?Invoice
-    {
-        $number = ltrim(trim($number), '0');
+    /** Invoices list sort key => column (first = default sort). */
+    public const LIST_SORTS = [
+        'id' => 'i.id',
+        'createdOn' => 'i.createdOn',
+        'client' => 'i.clientLastName',
+        'vehicle' => 'i.vehicleManufacturer',
+        'status' => 'i.status',
+        'totalPrice' => 'i.totalPrice',
+    ];
 
-        return ctype_digit($number) ? $this->find((int) $number) : null;
+    /** The sidebar Invoice # box: the invoice number as shown, leading zeros and "#" optional. */
+    public function findOneByNumber(SearchTerm $find): ?Invoice
+    {
+        $number = $find->invoiceNumber();
+
+        return $number !== null ? $this->find($number) : null;
+    }
+
+    /**
+     * @return ListPage<Invoice> invoices whose number starts with the sidebar Invoice # box's digits
+     *                           (all of them when it is empty), and the grid's search box
+     */
+    public function findPage(SearchTerm $find, ListQuery $list): ListPage
+    {
+        $query = $this->createQueryBuilder('i');
+        if (!$find->isEmpty()) {
+            $number = $find->invoiceNumber();
+            $query->andWhere('i.id LIKE :number')->setParameter('number', $number !== null ? $number . '%' : '-');
+        }
+
+        return ListPage::paginate($query, $list, self::LIST_SORTS, ['i.clientFirstName', 'i.clientLastName', 'i.vehicleManufacturer', 'i.vehicleModel', 'i.vehicleLicense']);
     }
 
     /**

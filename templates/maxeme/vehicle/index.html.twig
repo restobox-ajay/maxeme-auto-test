@@ -1,0 +1,47 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Vehicles | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canOpenClient = is_granted('/people/view') %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles', lead: 'Every active vehicle. Open one to see it on its owner’s Vehicles tab.' } only %}
+
+    <section class="table-card" id="vehicle-list" {{ mx.list_card_attrs(page) }}>
+        {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_vehicle_index' } only %}
+        <div class="table-header">
+            <h2>Vehicles</h2>
+            {{ mx.list_search(page, 'vehicles') }}
+        </div>
+        <div class="wide-table-wrap">
+            <table id="vehicle-list-table">
+                <thead>
+                    <tr>
+                        {% for key, label in { manufacturer: 'Manufacturer', model: 'Model', year: 'Year', vin: 'VIN', licensePlate: 'License plate', color: 'Color' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        {% if canOpenClient %}<th>Owner</th>{% endif %}
+                        {{ mx.sort_th(page, 'lastUpdated', 'Last updated') }}
+                        {% if canOpenClient %}<th style="width:80px"></th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vehicle in page.items %}
+                        <tr id="vehicle_{{ vehicle.id }}">
+                            <td data-label="Manufacturer">{{ vehicle.manufacturer }}</td>
+                            <td data-label="Model">{{ vehicle.model }}</td>
+                            <td data-label="Year">{{ vehicle.year }}</td>
+                            <td data-label="VIN">{{ vehicle.vin }}</td>
+                            <td data-label="License plate">{{ vehicle.licensePlate }}</td>
+                            <td data-label="Color">{{ vehicle.color }}</td>
+                            {% if canOpenClient %}<td data-label="Owner">{{ vehicle.client.fullName }}</td>{% endif %}
+                            <td data-label="Last updated">{{ vehicle.lastUpdated|date('Y-m-d H:i:s') }}</td>
+                            {% if canOpenClient %}
+                                <td data-label="Actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">Open</a></td>
+                            {% endif %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ canOpenClient ? 9 : 7 }}" class="empty-table-cell">No vehicles found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

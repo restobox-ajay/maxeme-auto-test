@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Dto\ClientData;
-use App\Maxeme\Dto\ClientSearchCriteria;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\InvoiceRepository;
@@ -44,22 +44,22 @@ final class ClientController extends AbstractMaxemeController
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function index(Request $request): Response
     {
-        return $this->renderList($request, new ClientSearchCriteria());
+        return $this->renderList($request, SearchTerm::fromRequest($request));
     }
 
-    /** The sidebar "Find a customer" form: one match opens the profile, otherwise the filtered list. */
+    /** The sidebar Customer box: one match opens the profile, otherwise the Client List of matches. */
     #[Route('/search', name: 'search', methods: ['GET'])]
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function search(Request $request): Response
     {
-        $criteria = ClientSearchCriteria::fromRequest($request);
-        $matches = $this->clients->findPage($criteria, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS)));
+        $find = SearchTerm::fromRequest($request);
+        $matches = $this->clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS)));
 
         if ($matches->total === 1) {
             return $this->redirectToRoute('maxeme_client_show', ['id' => $matches->items[0]->getId()]);
         }
 
-        return $this->renderList($request, $criteria);
+        return $this->redirectToRoute('maxeme_client_index', [SearchTerm::PARAM => $find->text]);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -127,10 +127,11 @@ final class ClientController extends AbstractMaxemeController
         return $this->json(['message' => sprintf('%s deleted.', $client->getFullName())]);
     }
 
-    private function renderList(Request $request, ClientSearchCriteria $criteria): Response
+    private function renderList(Request $request, SearchTerm $find): Response
     {
         return $this->render('maxeme/client/index.html.twig', [
-            'page' => $this->clients->findPage($criteria, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS))),
+            'page' => $this->clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS))),
+            'find' => $find,
         ]);
     }
 

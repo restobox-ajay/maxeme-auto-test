@@ -85,10 +85,10 @@
     }
 }
 
-/* ── Sidebar client / invoice search (#2 _side_menu.html.twig) ───────────── */
+/* ── Sidebar searches: Customer, Vehicle, Invoice # (one box each) ────────── */
 .mx-side-search {
-    margin: 10px 4px 6px;
-    padding: 12px 10px 4px;
+    margin: 10px 0 6px;
+    padding: 12px 2px 4px;
     border-top: 1px solid var(--mx-side-panel-border);
 }
 .mx-side-search h5 {
@@ -100,9 +100,7 @@
     color: var(--admin-sidebar-muted);
 }
 .mx-side-search form + form {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px dashed var(--mx-side-panel-border);
+    margin-top: 10px;
 }
 .mx-side-field {
     display: flex;
@@ -113,7 +111,6 @@
     background: #fff;
     overflow: hidden;
 }
-.mx-side-field.mx-gap { margin-top: 12px; }
 .mx-side-field > .mx-addon {
     display: grid;
     place-items: center;
@@ -129,7 +126,7 @@
     width: 100%;
     min-height: 0;
     margin: 0;
-    padding: 6px 8px;
+    padding: 8px 10px;
     border: 0;
     border-radius: 0;
     font: inherit;
@@ -138,12 +135,30 @@
     background: transparent;
     box-shadow: none;
 }
-.mx-side-field input + input { border-top: 1px solid var(--line); }
 .mx-side-field input:focus { outline: 2px solid var(--mx-primary); outline-offset: -2px; }
-.mx-side-search .button {
-    width: 100%;
-    justify-content: center;
-    margin: 4px 0 8px;
+.mx-side-search .mx-side-go {
+    flex: 0 0 36px;
+    width: 36px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    display: grid;
+    place-items: center;
+}
+.mx-side-search .mx-side-go svg { width: 14px; height: 14px; }
+
+/* A list opened from a sidebar search: what matched, and back to the full list. */
+.mx-search-results {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--mx-warning-soft);
 }
 body.admin-sidebar-collapsed .mx-side-search { display: none; }
 

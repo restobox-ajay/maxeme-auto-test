@@ -89,13 +89,14 @@ parameters:
           icon: chart
           role: /accounting/view
           children:
+              - { key: invoices, label: Invoices, route: maxeme_invoice_index, match: [maxeme_invoice_index, maxeme_invoice_find] }
               - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_] }
         - key: people
           label: People
           icon: users
-          role: /people/view
           children:
-              - { key: clients, label: Client List, route: maxeme_client_index, match: [maxeme_client_, maxeme_vehicle_] }
+              - { key: clients, label: Client List, route: maxeme_client_index, role: /people/view, match: [maxeme_client_] }
+              - { key: vehicles, label: Vehicles, route: maxeme_vehicle_index, role: /car/view, match: [maxeme_vehicle_] }
         - key: config
           label: Config
           icon: cog
@@ -119,6 +120,10 @@ twig:
 
 doctrine:
     orm:
+        dql:
+            string_functions:
+                # Sidebar search: phone numbers compared without their punctuation (App\Maxeme\Listing\SearchTerm).
+                REPLACE: App\Maxeme\Doctrine\ReplaceFunction
         mappings:
             Maxeme:
                 type: attribute

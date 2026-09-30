@@ -14,6 +14,8 @@ use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceSaveIntent;
 use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Repository\PartRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
@@ -43,7 +45,6 @@ final class InvoiceController extends AbstractMaxemeController
     /** Legacy calendar alerts, shown by Schedule › Appointments. */
     private const NO_WORK_ORDER = 'No work order has been created for this appointment yet.';
     private const NOT_EDITABLE = 'This appointment / invoice is completed. You cannot make edits to it.';
-    private const NOT_FOUND = 'Invoice not found.';
 
     public function __construct(
         private readonly InvoiceService $invoices,
@@ -136,16 +137,38 @@ final class InvoiceController extends AbstractMaxemeController
         return $this->json($items);
     }
 
-    /** The sidebar "Find invoice" (legacy searchAction's searchInvoiceNumber). */
+    /** Accounting › Invoices: every invoice, newest first, and the sidebar Invoice # box's results. */
+    #[Route('/admin/invoices', name: 'maxeme_invoice_index', methods: ['GET'])]
+    #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
+    public function index(Request $request): Response
+    {
+        $find = SearchTerm::fromRequest($request);
+
+        return $this->render('maxeme/invoice/index.html.twig', [
+            'page' => $this->repository->findPage($find, ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc')),
+            'find' => $find,
+        ]);
+    }
+
+    /**
+     * The sidebar Invoice # box: that exact number opens the invoice; otherwise the numbers starting
+     * with it, and a single one of those opens too.
+     */
     #[Route('/admin/invoices/find', name: 'maxeme_invoice_find', methods: ['GET'], priority: 10)]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
     public function find(Request $request): RedirectResponse
     {
-        $invoice = $this->repository->findOneByNumber((string) $request->query->get('searchInvoiceNumber', ''));
+        $find = SearchTerm::fromRequest($request);
+        $invoice = $this->repository->findOneByNumber($find);
+
+        if ($invoice === null) {
+            $matches = $this->repository->findPage($find, ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc'));
+            $invoice = $matches->total === 1 ? $matches->items[0] : null;
+        }
 
         return $invoice !== null
             ? $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()])
-            : $this->calendarAlert(self::NOT_FOUND);
+            : $this->redirectToRoute('maxeme_invoice_index', [SearchTerm::PARAM => $find->text]);
     }
 
     private function open(Invoice $invoice, bool $forceEdit): Response

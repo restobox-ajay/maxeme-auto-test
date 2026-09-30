@@ -1,30 +1,22 @@
-{# The legacy side menu's two searches (_side_menu.html.twig), below the navigation: "Client
-   Information" (People view) and "Find invoice" (Accounting view). #}
-{% macro field(icon, inputs, extra = '') %}
-    {% set values = app.request.attributes.get('_route') == 'maxeme_client_search' ? app.request.query.all : {} %}
-    <div class="mx-side-field {{ extra }}"><span class="mx-addon">{{ mx_icon(icon) }}</span><div class="mx-inputs">
-        {%- for name, placeholder in inputs -%}
-            <input type="text" name="{{ name }}" value="{{ values[name]|default('') }}" placeholder="{{ placeholder }}" aria-label="{{ placeholder }}">
-        {%- endfor -%}
-    </div></div>
-{% endmacro %}
-{% import _self as search %}
+{# The sidebar searches, below the navigation: one box each for customers, vehicles and invoices, each
+   shown to a role that can see that area. One match opens the record, several open its list. #}
+{% set route = app.request.attributes.get('_route') %}
+{% set boxes = [
+    { permission: '/people/view', action: 'maxeme_client_search', title: 'Customer', placeholder: 'Name, phone, address…', hint: 'Name, preferred name, phone, address or invoice #', lists: ['maxeme_client_index', 'maxeme_client_search'] },
+    { permission: '/car/view', action: 'maxeme_vehicle_search', title: 'Vehicle', placeholder: 'VIN, plate, make…', hint: 'VIN, license plate, make, model, year or color', lists: ['maxeme_vehicle_index', 'maxeme_vehicle_search'] },
+    { permission: '/accounting/view', action: 'maxeme_invoice_find', title: 'Invoice #', placeholder: 'e.g. 15836', hint: 'The invoice number, leading zeros optional', lists: ['maxeme_invoice_index', 'maxeme_invoice_find'] },
+] %}
 <div class="mx-side-search">
-    {% if is_granted('/people/view') %}
-    <form method="get" action="{{ path('maxeme_client_search') }}">
-        <h5>Client Information</h5>
-        {{ search.field('user', { firstName: 'First Name', lastName: 'Last Name' }) }}
-        {{ search.field('user', { preferredName: 'Preferred Name' }) }}
-        {{ search.field('phone', { phoneNumber: 'Phone Number' }) }}
-        {{ search.field('car', { vin: 'VIN #', license_plate: 'License Plate #', manufacturer: 'Manufacturer', model: 'Model' }, 'mx-gap') }}
-        {{ search.field('money', { invoiceNumber: 'Invoice Number' }) }}
-        <button class="button primary" type="submit">{{ mx_icon('search') }} Find a customer</button>
-    </form>
-    {% endif %}
-    {% if is_granted('/accounting/view') %}
-    <form method="get" action="{{ path('maxeme_invoice_find') }}">
-        {{ search.field('money', { searchInvoiceNumber: 'Invoice Number' }) }}
-        <button class="button primary" type="submit">{{ mx_icon('search') }} Find invoice</button>
-    </form>
-    {% endif %}
+    {% for box in boxes|filter(box => is_granted(box.permission)) %}
+        <form method="get" action="{{ path(box.action) }}" role="search">
+            <h5>{{ box.title }}</h5>
+            <div class="mx-side-field">
+                <div class="mx-inputs">
+                    <input type="search" name="{{ constant('App\\Maxeme\\Listing\\SearchTerm::PARAM') }}" placeholder="{{ box.placeholder }}" title="{{ box.hint }}" aria-label="Search {{ box.title|lower }}: {{ box.hint }}"
+                           value="{{ route in box.lists ? app.request.query.get(constant('App\\Maxeme\\Listing\\SearchTerm::PARAM'))|default('') : '' }}" required>
+                </div>
+                <button class="button primary mx-side-go" type="submit" aria-label="Find {{ box.title|lower }}">{{ mx_icon('search') }}</button>
+            </div>
+        </form>
+    {% endfor %}
 </div>

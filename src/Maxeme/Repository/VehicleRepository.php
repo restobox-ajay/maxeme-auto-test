@@ -8,6 +8,7 @@ use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -27,6 +28,17 @@ final class VehicleRepository extends ServiceEntityRepository
         'note' => 'v.note',
     ];
 
+    /** Vehicles list sort key => column (first = default sort). */
+    public const LIST_SORTS = [
+        'manufacturer' => 'v.manufacturer',
+        'model' => 'v.model',
+        'year' => 'v.year',
+        'vin' => 'v.vin',
+        'licensePlate' => 'v.licensePlate',
+        'color' => 'v.color',
+        'lastUpdated' => 'v.lastUpdated',
+    ];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Vehicle::class);
@@ -40,5 +52,20 @@ final class VehicleRepository extends ServiceEntityRepository
             ->andWhere('v.active = true');
 
         return ListPage::paginate($query, $list, self::SORTS, ['v.manufacturer', 'v.model', 'v.vin', 'v.color', 'v.note']);
+    }
+
+    /**
+     * @return ListPage<Vehicle> active vehicles of active clients matching the sidebar Vehicle box
+     *                           (VIN, licence plate, make, model, year, colour) and the grid's search box
+     */
+    public function findPage(SearchTerm $find, ListQuery $list): ListPage
+    {
+        $query = $this->createQueryBuilder('v')
+            ->join('v.client', 'c')->addSelect('c')
+            ->andWhere('v.active = true')
+            ->andWhere('c.active = true');
+        $find->apply($query, ['v.vin', 'v.licensePlate', 'v.manufacturer', 'v.model', 'v.year', 'v.color']);
+
+        return ListPage::paginate($query, $list, self::LIST_SORTS, ['v.manufacturer', 'v.model', 'v.vin', 'v.licensePlate', 'v.color']);
     }
 }
