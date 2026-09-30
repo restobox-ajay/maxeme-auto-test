@@ -90,6 +90,7 @@ final class ActivityLoggingTest extends DoctrineIntegrationTestCase
         $activity->downloaded($invoice, DocumentKind::WorkOrder);
         $activity->emailed($invoice, DocumentKind::Invoice, 'someone@example.invalid');
         $activity->signedIn();
+        $activity->exported('people', 'Client', 'clients.csv', 12, 'all clients');
 
         $actions = [];
         foreach ($this->em->getRepository(AuditLog::class)->findBy(['actorRole' => 'Receptionist'], ['id' => 'ASC']) as $row) {
@@ -99,6 +100,7 @@ final class ActivityLoggingTest extends DoctrineIntegrationTestCase
         self::assertSame('Work Order', $actions[ActivityRecorder::DOWNLOADED] ?? null);
         self::assertSame('Accounting', $actions[ActivityRecorder::EMAILED] ?? null);
         self::assertSame(ActivityRecorder::AREA_SIGN_IN, $actions[ActivityRecorder::SIGNED_IN] ?? null);
+        self::assertSame('People', $actions[ActivityRecorder::EXPORTED] ?? null);
     }
 
     public function testARefusedPageIsLogged(): void

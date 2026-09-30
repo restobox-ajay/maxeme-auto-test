@@ -6,6 +6,7 @@ namespace App\Tests\Maxeme\Repository;
 
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\ClientAddress;
+use App\Maxeme\Entity\ClientNote;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Listing\ListQuery;
@@ -65,6 +66,33 @@ final class ClientRepositoryTest extends DoctrineIntegrationTestCase
         $page = $this->clients->findPage(SearchTerm::of(''), ListQuery::fromRequest(new Request(['q' => 'amar']), array_keys(ClientRepository::SORTS)));
 
         self::assertSame(1, $page->total);
+    }
+
+    public function testTheExportTakesTheWholeViewNotOnePage(): void
+    {
+        $view = ListQuery::fromRequest(new Request(['sort' => 'lastName', 'dir' => 'desc', 'limit' => 1, 'page' => 2]), array_keys(ClientRepository::SORTS));
+
+        self::assertSame(['Singhera', 'Singh'], array_map(static fn (Client $client): ?string => $client->getLastName(), $this->clients->findAllInView(SearchTerm::of('singh'), $view)), 'search and sort kept, paging ignored, deleted clients left out');
+        self::assertSame(['Singhera'], array_map(static fn (Client $client): ?string => $client->getLastName(), $this->clients->findAllInView(SearchTerm::of(''), ListQuery::fromRequest(new Request(['q' => 'amar']), array_keys(ClientRepository::SORTS)))), 'the grid search box too');
+    }
+
+    public function testTheColumnSearchBoxesNarrowTheListAndTheExport(): void
+    {
+        $this->em->persist((new ClientNote($this->client('Note', 'Holder')))->setText('Wants a call before pickup'));
+        $this->em->flush();
+        $filtered = fn (array $filters): array => array_map(
+            static fn (Client $client): ?string => $client->getLastName(),
+            $this->clients->findPage(SearchTerm::of(''), ListQuery::fromRequest(new Request(['filters' => $filters, 'sort' => 'lastName']), array_keys(ClientRepository::SORTS)))->items,
+        );
+
+        self::assertSame(['Singhera'], $filtered(['firstName' => 'ama']));
+        self::assertSame(['Singh'], $filtered(['phone' => '604 555-0100']), 'phone 3, compared on digits');
+        self::assertSame(['Singhera'], $filtered(['phone' => '0200']), 'phone 1');
+        self::assertSame(['Singh'], $filtered(['address' => 'RICHMOND']), 'any address in the book');
+        self::assertSame(['Holder'], $filtered(['note' => 'call before']));
+        self::assertSame([], $filtered(['firstName' => 'amar', 'lastName' => 'holder']), 'every box has to match');
+        self::assertCount(3, $filtered(['unknown' => 'x', 'email' => '']), 'unknown or blank boxes are ignored');
+        self::assertSame(['Holder'], array_map(static fn (Client $client): ?string => $client->getLastName(), $this->clients->findAllInView(SearchTerm::of(''), ListQuery::fromRequest(new Request(['filters' => ['note' => 'pickup']]), array_keys(ClientRepository::SORTS)))));
     }
 
     public function testVehicleBoxSearchesActiveVehiclesByAnyOfTheirFields(): void

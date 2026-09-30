@@ -9,8 +9,9 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * The server half of core's URL-driven admin tables: app.js turns a `.table-card`'s search box,
  * `th[data-sort-field]` headers, per-page select and pager into `q`, `sort`, `dir`, `page` and
- * `limit` query parameters, and this reads them back. The sort key is always one the list
- * declared, so it is safe to map onto a column.
+ * `limit` query parameters, and its header filter row (`thead .filter-row [data-filter-field]`)
+ * into `filters[field]`; this reads them back. The sort key is always one the list declared, so
+ * it is safe to map onto a column; a filter field is only a key the list looks up in its own map.
  */
 final class ListQuery
 {
@@ -25,6 +26,8 @@ final class ListQuery
         public readonly int $limit,
         public readonly string $defaultSort,
         public readonly string $defaultDir,
+        /** @var array<string, string> the header filter row's non-blank values, field => text */
+        public readonly array $filters = [],
     ) {
     }
 
@@ -34,6 +37,13 @@ final class ListQuery
         $sort = (string) $request->query->get('sort', '');
         $dir = strtolower((string) $request->query->get('dir', $defaultDir));
         $limit = $request->query->getInt('limit', self::LIMITS[0]);
+        $filters = [];
+        $raw = $request->query->all()['filters'] ?? [];
+        foreach (is_array($raw) ? $raw : [] as $field => $value) {
+            if (is_string($field) && is_string($value) && trim($value) !== '') {
+                $filters[$field] = trim($value);
+            }
+        }
 
         return new self(
             search: trim((string) $request->query->get('q', '')),
@@ -43,6 +53,7 @@ final class ListQuery
             limit: in_array($limit, self::LIMITS, true) ? $limit : self::LIMITS[0],
             defaultSort: $sortKeys[0],
             defaultDir: $defaultDir,
+            filters: $filters,
         );
     }
 

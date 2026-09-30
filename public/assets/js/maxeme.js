@@ -187,21 +187,28 @@
 /*
  * The sidebar "+" (MaxemeAdminMenuProvider) links to a list with the add modal's id as its fragment,
  * e.g. /admin/services#manageAddModal: arriving that way opens the modal through its own button, so
- * the form is set up exactly as a click would set it up.
+ * the form is set up exactly as a click would set it up. Clicking the "+" while already on that
+ * list only changes the fragment (no page load), so the fragment change opens it too.
  */
 (function () {
     'use strict';
 
-    var id = window.location.hash.slice(1);
-    if (!/^[A-Za-z][\w-]*$/.test(id) || !document.getElementById(id)) { return; }
+    function openFromHash() {
+        var id = window.location.hash.slice(1);
+        if (!/^[A-Za-z][\w-]*$/.test(id) || !document.getElementById(id)) { return; }
 
-    var trigger = document.querySelector('[data-modal-open="#' + id + '"]');
-    if (trigger) {
-        trigger.click();
-        if (window.history.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        var trigger = document.querySelector('[data-modal-open="#' + id + '"]');
+        if (trigger) {
+            trigger.click();
+            // Drop the fragment, so the next "+" click changes it again.
+            if (window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
         }
     }
+
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
 }());
 
 /*

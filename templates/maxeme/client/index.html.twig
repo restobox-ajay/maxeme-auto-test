@@ -3,14 +3,25 @@
 {% block title %}Client List | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/people/edit') %}
-    {# Sortable columns, then Address (the first in the book) and Note (the newest), then Last updated. #}
-    {% set columns = { firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', phone1: 'Phone number 1', phone2: 'Phone number 2', phone3: 'Phone number 3', phone4: 'Phone number 4' } %}
+    {# Column => [label, sort key or null, filter field or null], in order. Each column has a search box under its label (filters[field]). #}
+    {% set columns = [
+        ['First name', 'firstName', 'firstName'],
+        ['Last name', 'lastName', 'lastName'],
+        ['Preferred name', 'preferredName', 'preferredName'],
+        ['Email', 'email', 'email'],
+        ['Phone', 'phone', 'phone'],
+        ['Address', null, 'address'],
+        ['Note', null, 'note'],
+        ['Last updated', 'lastUpdated', null],
+    ] %}
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Client List', lead: 'All active clients. Open a profile to manage vehicles, appointments, invoices and work orders.' } %}
-        {% block actions %}
+        {% block title_actions %}
             {% if canManage %}
-                <button id="manageAddButton" class="button mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new person</button>
+                <button id="manageAddButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new person</button>
             {% endif %}
+            {# The current view (sidebar search, search box, column filters, sort), every page. #}
+            <a id="clientExportButton" class="button mx-btn-sm outline" href="{{ path('maxeme_client_export', app.request.query.all) }}">Export CSV</a>
         {% endblock %}
     {% endembed %}
 
@@ -18,60 +29,55 @@
         {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_client_index' } only %}
         <div class="table-header">
             <h2>Clients</h2>
-            {{ mx.list_search(page, 'clients') }}
         </div>
         <div class="wide-table-wrap">
             <table id="client-table" class="client-table">
                 <thead>
                     <tr>
-                        <th style="width:40px"></th>
-                        {% for key, label in columns %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        <th>Address</th><th>Note</th>{{ mx.sort_th(page, 'lastUpdated', 'Last updated') }}
-                        {% if canManage %}<th></th>{% endif %}
+                        {% for column in columns %}{% if column[1] %}{{ mx.sort_th(page, column[1], column[0]) }}{% else %}<th>{{ column[0] }}</th>{% endif %}{% endfor %}
+                        <th></th>
+                    </tr>
+                    <tr class="filter-row">
+                        {% for column in columns %}
+                            <th>{% if column[2] %}<input type="search" value="{{ page.query.filters[column[2]] ?? '' }}" data-filter-field="{{ column[2] }}" placeholder="Search" aria-label="Search {{ column[0]|lower }}">{% endif %}</th>
+                        {% endfor %}
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for client in page.items %}
+                        {% set profile = path('maxeme_client_show', { id: client.id }) %}
                         <tr id="row_{{ client.id }}">
-                            <td>
-                                <a class="mini-action client_info" href="{{ path('maxeme_client_show', { id: client.id }) }}" title="View client profile" aria-label="View {{ client.fullName }}">{{ mx_icon('search') }}</a>
-                            </td>
-                            <td data-label="First name">{{ client.firstName }}</td>
-                            <td data-label="Last name">{{ client.lastName }}</td>
-                            <td data-label="Preferred name">{{ client.preferredName }}</td>
+                            <td data-label="First name"><a class="mx-row-link" href="{{ profile }}">{{ client.firstName }}</a></td>
+                            <td data-label="Last name"><a class="mx-row-link" href="{{ profile }}">{{ client.lastName }}</a></td>
+                            <td data-label="Preferred name"><a class="mx-row-link" href="{{ profile }}">{{ client.preferredName }}</a></td>
                             <td data-label="Email">{{ client.email }}</td>
-                            {% for n in 1..4 %}<td data-label="Phone number {{ n }}">{{ attribute(client, 'phone' ~ n) }}</td>{% endfor %}
+                            <td data-label="Phone">{% for phone in client.phones %}<div class="phone-line">{{ phone }}</div>{% endfor %}</td>
                             <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
                             <td data-label="Note">{{ client.latestNote ? client.latestNote.text }}</td>
                             <td data-label="Last updated">{{ client.lastUpdated|date('Y-m-d H:i:s') }}</td>
-                            {% if canManage %}
-                                <td data-label="Actions">
-                                    <div class="mx-actions">
-                                            <button type="button" class="button mx-btn-sm mx-success edit_client" data-modal-open="#manageEditModal"
-                                                    data-form-action="{{ path('maxeme_client_update', { id: client.id }) }}"
-                                                    data-form-values="{{ form_values(client)|json_encode }}">Edit</button>
-                                            <button type="button" class="button mx-btn-sm danger delete_client js-post-action" data-remove-row="#row_{{ client.id }}"
-                                                    data-url="{{ path('maxeme_client_delete', { id: client.id }) }}"
-                                                    data-token="{{ csrf_token_value() }}"
-                                                    data-confirm-title="Delete Confirmation"
-                                                    data-confirm-before="Are you sure you want to delete "
-                                                    data-item="{{ client.fullName }}"
-                                                    data-confirm-after="?">Delete</button>
-                                    </div>
-                                </td>
-                            {% endif %}
+                            <td data-label="Actions">
+                                <div class="mx-actions">
+                                    <a class="button mx-btn-sm primary client_info" href="{{ profile }}">View</a>
+                                    {% if canManage %}
+                                        <button type="button" class="button mx-btn-sm mx-success edit_client" data-modal-open="#manageEditModal"
+                                                data-form-action="{{ path('maxeme_client_update', { id: client.id }) }}"
+                                                data-form-values="{{ form_values(client)|json_encode }}">Edit</button>
+                                        <button type="button" class="button mx-btn-sm danger delete_client js-post-action" data-remove-row="#row_{{ client.id }}"
+                                                data-url="{{ path('maxeme_client_delete', { id: client.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ client.fullName }}"
+                                                data-confirm-after="?">Delete</button>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ canManage ? 13 : 12 }}" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="{{ columns|length + 1 }}" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <th></th>
-                        {% for label in columns %}<th>{{ label }}</th>{% endfor %}<th>Address</th><th>Note</th><th>Last updated</th>
-                        {% if canManage %}<th></th>{% endif %}
-                    </tr>
-                </tfoot>
             </table>
         </div>
         {{ mx.list_footer(page) }}

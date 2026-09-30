@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\AppointmentRepository;
@@ -17,6 +19,7 @@ use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,6 +37,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/admin/clients', name: 'maxeme_client_')]
 final class ClientController extends AbstractMaxemeController
 {
+    /** The Client List's columns, as the export's header row. */
+    private const EXPORT_COLUMNS = ['First name', 'Last name', 'Preferred name', 'Email', 'Phone', 'Address', 'Note', 'Last updated'];
+
     public function __construct(
         private readonly ClientRepository $clients,
         private readonly RecordWriter $records,
@@ -60,6 +66,45 @@ final class ClientController extends AbstractMaxemeController
         }
 
         return $this->redirectToRoute('maxeme_client_index', [SearchTerm::PARAM => $find->text]);
+    }
+
+    /**
+     * Client List › Export CSV: every client of the current view (the sidebar search, the grid's
+     * search box, the column search boxes and sort), not just the page shown, in the list's columns.
+     */
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $find = SearchTerm::fromRequest($request);
+        $list = ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS));
+        $clients = $this->clients->findAllInView($find, $list);
+        $filename = sprintf('clients-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+
+        $view = array_filter([
+            $find->text !== '' ? sprintf('search "%s"', $find->text) : null,
+            $list->search !== '' ? sprintf('filter "%s"', $list->search) : null,
+            ...array_map(static fn (string $field, string $text): string => sprintf('%s "%s"', $field, $text), array_keys($list->filters), $list->filters),
+            sprintf('sorted by %s %s', $list->sort, $list->dir),
+        ]);
+        $activity->exported('people', 'Client', $filename, count($clients), implode(', ', $view));
+
+        $shopZone = new \DateTimeZone($timezone);
+
+        return CsvExport::response($filename, self::EXPORT_COLUMNS, (static function () use ($clients, $shopZone): \Generator {
+            foreach ($clients as $client) {
+                yield [
+                    $client->getFirstName(),
+                    $client->getLastName(),
+                    $client->getPreferredName(),
+                    $client->getEmail(),
+                    implode(' / ', $client->getPhones()),
+                    $client->getPrimaryAddress()?->getOneLine(),
+                    $client->getLatestNote()?->getText(),
+                    $client->getLastUpdated()->setTimezone($shopZone)->format('Y-m-d H:i:s'),
+                ];
+            }
+        })());
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

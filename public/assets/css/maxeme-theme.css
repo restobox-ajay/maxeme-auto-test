@@ -214,12 +214,20 @@ body.admin-sidebar-collapsed .mx-side-search { display: none; }
 td .mx-actions { flex-wrap: nowrap; }
 .mx-actions:not(.is-grouped) > :nth-child(n+3) { display: none; }
 .mx-toolbar { display: flex; margin: 0 0 16px; }
+.mx-title-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mx-title-actions h1 { margin: 0; }
 .site-admin .row-action-dropdown :is(a, button).danger, .site-admin .row-action-dropdown :is(a, button).danger:hover { color: var(--mx-danger); }
 
 .mx-btn-sm { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-height: 30px; padding: 0 12px; border-radius: 5px; font-size: 0.8rem; line-height: 1; }
 
 /* ── Client List ────────────────────────────────────────────────────────── */
 .client-table td { white-space: nowrap; }
+/* Names open the profile (as View does), without looking like a button. */
+.client-table a.mx-row-link { color: var(--mx-primary); font-weight: 600; text-decoration: none; }
+.client-table a.mx-row-link:hover { text-decoration: underline; }
+/* The header search boxes (core filter-row: filters[field] in the URL). */
+.client-table .filter-row th { padding: 6px 8px; background: #fbfcfe; }
+.client-table .filter-row input { width: 100%; min-width: 90px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 0.8rem; font-weight: 400; }
 .client-table td[data-label="Address"], .client-table td[data-label="Note"] { white-space: normal; min-width: 180px; }
 .client-table tfoot th, .table-card tfoot th { color: var(--muted); font-size: 0.78rem; font-weight: 500; background: #fbfcfe; }
 

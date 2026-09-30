@@ -1,12 +1,18 @@
 {# The heading panel at the top of every Maxeme screen.
    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: '…', title: '…', lead: '…' } %}
-       {% block actions %}<a class="button primary" href="…">…</a>{% endblock %}
+       {% block actions %}<a class="button primary" href="…">…</a>{% endblock %}         (right)
+       {% block title_actions %}<a class="button" href="…">…</a>{% endblock %}          (beside the title)
    {% endembed %} #}
 <section class="panel compact-panel">
     <div class="panel-title-row">
         <div>
             <p class="eyebrow">{{ eyebrow }}</p>
-            <h1>{{ title }}</h1>
+            {% set titleActions = block('title_actions') is defined ? block('title_actions')|trim : '' %}
+            {% if titleActions %}
+                <div class="mx-title-actions"><h1>{{ title }}</h1><div class="mx-actions">{{ titleActions|raw }}</div></div>
+            {% else %}
+                <h1>{{ title }}</h1>
+            {% endif %}
             {% if lead|default(null) %}<p class="lead">{{ lead }}</p>{% endif %}
         </div>
         <div class="panel-actions">{% block actions %}{% endblock %}</div>

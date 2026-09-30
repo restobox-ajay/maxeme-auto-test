@@ -90,7 +90,8 @@ final class SearchTerm
         }
     }
 
-    private static function stripped(string $column): string
+    /** $column in DQL with the phone punctuation removed, to compare digits only. */
+    public static function stripped(string $column): string
     {
         $sql = $column;
         foreach (self::PHONE_PUNCTUATION as $character) {

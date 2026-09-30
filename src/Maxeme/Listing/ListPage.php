@@ -24,8 +24,7 @@ final class ListPage
     }
 
     /**
-     * Applies the list's search box (a case-insensitive "contains" across $searchColumns), its sort
-     * (then the root alias's id, for a stable order) and its page to $queryBuilder.
+     * Applies the list's search box, its sort and its page to $queryBuilder (see filter()).
      *
      * @param array<string, string> $sorts sort key => DQL column (the keys ListQuery was built with)
      * @param list<string> $searchColumns DQL columns the search box looks in
@@ -33,6 +32,25 @@ final class ListPage
      * @return self<mixed>
      */
     public static function paginate(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns): self
+    {
+        self::filter($queryBuilder, $query, $sorts, $searchColumns)
+            ->setFirstResult($query->offset())
+            ->setMaxResults($query->limit);
+
+        $paginator = new Paginator($queryBuilder, fetchJoinCollection: false);
+
+        return new self(iterator_to_array($paginator, false), count($paginator), $query);
+    }
+
+    /**
+     * Applies the list's search box (a case-insensitive "contains" across $searchColumns) and its
+     * sort (then the root alias's id, for a stable order) to $queryBuilder, but no page: every row
+     * of the current view, e.g. for an export.
+     *
+     * @param array<string, string> $sorts
+     * @param list<string> $searchColumns
+     */
+    public static function filter(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns): QueryBuilder
     {
         if ($query->search !== '' && $searchColumns !== []) {
             $queryBuilder
@@ -44,15 +62,10 @@ final class ListPage
         }
 
         $alias = $queryBuilder->getRootAliases()[0];
-        $queryBuilder
+
+        return $queryBuilder
             ->orderBy($sorts[$query->sort], $query->dir)
-            ->addOrderBy($alias . '.id', 'ASC')
-            ->setFirstResult($query->offset())
-            ->setMaxResults($query->limit);
-
-        $paginator = new Paginator($queryBuilder, fetchJoinCollection: false);
-
-        return new self(iterator_to_array($paginator, false), count($paginator), $query);
+            ->addOrderBy($alias . '.id', 'ASC');
     }
 
     public function pageCount(): int

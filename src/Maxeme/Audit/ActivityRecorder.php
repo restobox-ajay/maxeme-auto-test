@@ -22,6 +22,7 @@ final class ActivityRecorder
     public const ACCESS_DENIED = 'access_denied';
     public const DOWNLOADED = 'downloaded';
     public const EMAILED = 'emailed';
+    public const EXPORTED = 'exported';
 
     public const AREA_SIGN_IN = 'Sign-in';
     public const AREA_SECURITY = 'Security';
@@ -59,6 +60,16 @@ final class ActivityRecorder
     public function emailed(Invoice $invoice, DocumentKind $kind, string $recipients): void
     {
         $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::EMAILED, sprintf('Emailed %s to %s.', $kind->filename($invoice), $recipients));
+    }
+
+    /**
+     * A list exported to CSV: which list, how many rows, and the view it was (search and sort).
+     *
+     * @param string $area a Permission::AREAS key, e.g. 'people'
+     */
+    public function exported(string $area, string $entityType, string $filename, int $rows, string $view): void
+    {
+        $this->auditLogger->log(Permission::AREAS[$area], $entityType, null, self::EXPORTED, sprintf('Exported %d rows to %s (%s).', $rows, $filename, $view));
     }
 
     private static function area(DocumentKind $kind): string
