@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Entity\ServiceItem;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +37,23 @@ final class ServiceItemController extends AbstractMaxemeController
         return $this->render('maxeme/service/index.html.twig', [
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS))),
         ]);
+    }
+
+    /** Services › Export CSV: every service of the current view (search boxes and sort), not just the page shown. */
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    #[RequiresPermission(Permission::SERVICE_VIEW)]
+    public function export(Request $request, ServiceItemRepository $repository, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS));
+        $services = $repository->findAllInView($list);
+        $filename = sprintf('services-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('service', 'ServiceItem', $filename, count($services), $list->describe());
+
+        return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour'], (static function () use ($services): \Generator {
+            foreach ($services as $service) {
+                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), null, null];
+            }
+        })());
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

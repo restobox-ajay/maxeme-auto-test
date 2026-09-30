@@ -125,9 +125,6 @@
                             <tr><td colspan="{{ canManageVehicles ? 7 : 6 }}" class="empty-table-cell">No data available in table</td></tr>
                         {% endfor %}
                     </tbody>
-                    <tfoot>
-                        <tr><th>Manufacturer</th><th>Model</th><th>Year</th><th>Vin</th><th>Color</th><th>Note</th>{% if canManageVehicles %}<th></th>{% endif %}</tr>
-                    </tfoot>
                 </table>
             </div>
             {{ mx.list_footer(vehicles) }}

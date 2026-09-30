@@ -81,13 +81,8 @@ final class ClientController extends AbstractMaxemeController
         $clients = $this->clients->findAllInView($find, $list);
         $filename = sprintf('clients-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
 
-        $view = array_filter([
-            $find->text !== '' ? sprintf('search "%s"', $find->text) : null,
-            $list->search !== '' ? sprintf('filter "%s"', $list->search) : null,
-            ...array_map(static fn (string $field, string $text): string => sprintf('%s "%s"', $field, $text), array_keys($list->filters), $list->filters),
-            sprintf('sorted by %s %s', $list->sort, $list->dir),
-        ]);
-        $activity->exported('people', 'Client', $filename, count($clients), implode(', ', $view));
+        $view = ($find->text !== '' ? sprintf('search "%s", ', $find->text) : '') . $list->describe();
+        $activity->exported('people', 'Client', $filename, count($clients), $view);
 
         $shopZone = new \DateTimeZone($timezone);
 

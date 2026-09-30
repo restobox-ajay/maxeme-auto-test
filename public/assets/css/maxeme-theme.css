@@ -225,9 +225,22 @@ td .mx-actions { flex-wrap: nowrap; }
 /* Names open the profile (as View does), without looking like a button. */
 .client-table a.mx-row-link { color: var(--mx-primary); font-weight: 600; text-decoration: none; }
 .client-table a.mx-row-link:hover { text-decoration: underline; }
+/* Every sortable header shows it can be sorted (core only draws the arrow on the sorted column):
+   a faint up/down pair, and the sorted column's arrow for its direction. */
+.site-admin thead th.is-sortable::after {
+    opacity: 0.45;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3Cpath d='m7 15 5 5 5-5'/%3E%3C/svg%3E");
+}
+.site-admin thead th.is-sortable:hover::after { opacity: 0.8; }
+.site-admin thead th.is-sorted-asc::after,
+.site-admin thead th.is-sorted-desc::after {
+    opacity: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+.mx-muted-cell { color: var(--muted); }
 /* The header search boxes (core filter-row: filters[field] in the URL). */
-.client-table .filter-row th { padding: 6px 8px; background: #fbfcfe; }
-.client-table .filter-row input { width: 100%; min-width: 90px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 0.8rem; font-weight: 400; }
+.table-card .filter-row th { padding: 6px 8px; background: #fbfcfe; }
+.table-card .filter-row input { width: 100%; min-width: 90px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 0.8rem; font-weight: 400; }
 .client-table td[data-label="Address"], .client-table td[data-label="Note"] { white-space: normal; min-width: 180px; }
 .client-table tfoot th, .table-card tfoot th { color: var(--muted); font-size: 0.78rem; font-weight: 500; background: #fbfcfe; }
 

@@ -24,16 +24,17 @@ final class ListPage
     }
 
     /**
-     * Applies the list's search box, its sort and its page to $queryBuilder (see filter()).
+     * Applies the list's search box, column search boxes, sort and page to $queryBuilder (see filter()).
      *
      * @param array<string, string> $sorts sort key => DQL column (the keys ListQuery was built with)
      * @param list<string> $searchColumns DQL columns the search box looks in
+     * @param array<string, string> $filterColumns column search box field => DQL column
      *
      * @return self<mixed>
      */
-    public static function paginate(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns): self
+    public static function paginate(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = []): self
     {
-        self::filter($queryBuilder, $query, $sorts, $searchColumns)
+        self::filter($queryBuilder, $query, $sorts, $searchColumns, $filterColumns)
             ->setFirstResult($query->offset())
             ->setMaxResults($query->limit);
 
@@ -43,15 +44,23 @@ final class ListPage
     }
 
     /**
-     * Applies the list's search box (a case-insensitive "contains" across $searchColumns) and its
-     * sort (then the root alias's id, for a stable order) to $queryBuilder, but no page: every row
-     * of the current view, e.g. for an export.
+     * Applies the list's search box (a case-insensitive "contains" across $searchColumns), its
+     * column search boxes (a case-insensitive "contains" on each filled box's column in
+     * $filterColumns; every one has to match) and its sort (then the root alias's id, for a stable
+     * order) to $queryBuilder, but no page: every row of the current view, e.g. for an export.
      *
      * @param array<string, string> $sorts
      * @param list<string> $searchColumns
+     * @param array<string, string> $filterColumns
      */
-    public static function filter(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns): QueryBuilder
+    public static function filter(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = []): QueryBuilder
     {
+        foreach (array_intersect_key($query->filters, $filterColumns) as $field => $text) {
+            $queryBuilder
+                ->andWhere(sprintf('LOWER(%s) LIKE :list_filter_%s', $filterColumns[$field], $field))
+                ->setParameter('list_filter_' . $field, '%' . mb_strtolower($text) . '%');
+        }
+
         if ($query->search !== '' && $searchColumns !== []) {
             $queryBuilder
                 ->andWhere($queryBuilder->expr()->orX(...array_map(

@@ -57,6 +57,16 @@ final class ListQuery
         );
     }
 
+    /** 'filter "x", name "y", sorted by name asc': the view, for the Activity Log line of an export. */
+    public function describe(): string
+    {
+        return implode(', ', [
+            ...($this->search !== '' ? [sprintf('filter "%s"', $this->search)] : []),
+            ...array_map(static fn (string $field, string $text): string => sprintf('%s "%s"', $field, $text), array_keys($this->filters), $this->filters),
+            sprintf('sorted by %s %s', $this->sort, $this->dir),
+        ]);
+    }
+
     public function offset(): int
     {
         return ($this->page - 1) * $this->limit;

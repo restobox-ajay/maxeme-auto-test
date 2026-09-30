@@ -8,6 +8,7 @@ use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -23,6 +24,14 @@ final class ServiceItemRepository extends ServiceEntityRepository
         'lastUpdated' => 's.lastUpdated',
     ];
 
+    /** The column search boxes (filters[field]) => column. */
+    public const FILTERS = [
+        'name' => 's.name',
+        'preferredName' => 's.preferredName',
+    ];
+
+    private const SEARCH_COLUMNS = ['s.name', 's.preferredName'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, ServiceItem::class);
@@ -31,12 +40,18 @@ final class ServiceItemRepository extends ServiceEntityRepository
     /** @return ListPage<ServiceItem> */
     public function findPage(ListQuery $list): ListPage
     {
-        return ListPage::paginate(
-            $this->createQueryBuilder('s')->andWhere('s.active = true'),
-            $list,
-            self::SORTS,
-            ['s.name', 's.preferredName'],
-        );
+        return ListPage::paginate($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
+    }
+
+    /** @return list<ServiceItem> every active service of the current view (search boxes and sort; no page) */
+    public function findAllInView(ListQuery $list): array
+    {
+        return ListPage::filter($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
+    }
+
+    private function active(): QueryBuilder
+    {
+        return $this->createQueryBuilder('s')->andWhere('s.active = true');
     }
 
     /** @return list<ServiceItem> active services whose name or preferred name contains $term */
