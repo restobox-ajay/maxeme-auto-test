@@ -1,0 +1,64 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ role.label }} | Roles & Access | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Roles & Access', title: role.label, lead: role.value ~ ' · config/rbac/role_permissions/' ~ role.permissionKey ~ '_role_permission.php' } %}
+        {% block actions %}
+            <a class="button back-button" href="{{ path('maxeme_role_index') }}">Back</a>
+        {% endblock %}
+    {% endembed %}
+
+    <nav class="detail-tabs mx-profile-tabs" aria-label="Roles">
+        {% for item in roles %}
+            <a href="{{ path('maxeme_role_show', { key: item.permissionKey, allowed: onlyAllowed ? 1 : null }) }}" class="{{ item == role ? 'is-active' }}" {{ item == role ? 'aria-current="page"' }}>{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+
+    <div class="mx-tab-stack">
+        <section class="table-card no-paginate" id="role-areas">
+            <div class="table-header"><h2>Access by area</h2></div>
+            <div class="wide-table-wrap">
+                <table>
+                    <thead><tr><th>Area</th><th>Access</th></tr></thead>
+                    <tbody>
+                        {% for area, label in areas|filter((label, area) => levels[area] is defined) %}
+                            <tr><td data-label="Area">{{ label }}</td><td data-label="Access">{% include 'maxeme/role/_level.html.twig' with { level: levels[area] } only %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel compact-panel" id="role-file">
+            <h2>Granted in the file</h2>
+            <p class="lead mx-code-list">{% for permission in permissions %}<code>{{ permission }}</code>{% endfor %}</p>
+            <p class="lead">Accounts with this role ({{ accounts|length }}):
+                {% for user in accounts %}{{ user.username ?? user.email }}{{ not loop.last ? ', ' }}{% else %}none{% endfor %}</p>
+        </section>
+
+        <section class="table-card no-paginate" id="role-routes">
+            <div class="table-header">
+                <h2>Route access · {{ allowedRoutes }} of {{ routeCount }} routes</h2>
+                <a class="button outline mx-btn-sm" href="{{ path('maxeme_role_show', { key: role.permissionKey, allowed: onlyAllowed ? null : 1 }) }}">{{ onlyAllowed ? 'Show every route' : 'Only allowed routes' }}</a>
+            </div>
+            <div class="wide-table-wrap">
+                <table id="role-route-table">
+                    <thead><tr><th>Route</th><th>Path</th><th>Methods</th><th>Requires</th><th>Access</th></tr></thead>
+                    {% for area, rows in routes %}
+                        <tbody>
+                            <tr class="mx-group-row"><th colspan="5">{{ areas[area] }}</th></tr>
+                            {% for row in rows %}
+                                <tr class="{{ row.allowed ? '' : 'mx-denied' }}">
+                                    <td data-label="Route"><code>{{ row.route.name }}</code></td>
+                                    <td data-label="Path"><code>{{ row.route.path }}</code></td>
+                                    <td data-label="Methods">{{ row.route.methods|join(', ') }}</td>
+                                    <td data-label="Requires">{% if row.route.public %}<span class="mx-muted">public</span>{% else %}<code>{{ row.route.permission }}</code>{% endif %}</td>
+                                    <td data-label="Access"><span class="badge {{ row.allowed ? 'success' : 'danger' }}">{{ row.allowed ? 'Allowed' : 'Denied' }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% endfor %}
+                </table>
+            </div>
+        </section>
+    </div>
+{% endblock %}

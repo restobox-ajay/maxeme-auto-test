@@ -1,0 +1,6 @@
+{# One area's access as a badge. Vars: level (Edit | View | a partial action list | null). #}
+{% if level is null %}
+    <span class="mx-muted">–</span>
+{% else %}
+    <span class="badge {{ level == 'Edit' ? 'success' : (level == 'View' ? 'info' : 'warn') }}">{{ level }}</span>
+{% endif %}

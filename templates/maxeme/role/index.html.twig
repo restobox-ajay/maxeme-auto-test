@@ -1,0 +1,35 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Roles & Access | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Roles & Access', lead: 'What each role can see and change. Read-only: a role changes in its file under config/rbac/role_permissions/.' } only %}
+
+    <section class="table-card no-paginate" id="role-matrix-card">
+        <div class="table-header"><h2>Role matrix</h2></div>
+        <div class="wide-table-wrap">
+            <table id="role-matrix">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Accounts</th>
+                        <th>Routes</th>
+                        {% for label in areas %}<th>{{ label }}</th>{% endfor %}
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr id="role-{{ row.role.permissionKey }}">
+                            <td data-label="Role"><strong>{{ row.role.label }}</strong><div class="muted-line">{{ row.role.value }}</div></td>
+                            <td data-label="Accounts">{{ row.accountCount }}</td>
+                            <td data-label="Routes">{{ row.allowedRoutes }} / {{ routeCount }}</td>
+                            {% for area, label in areas %}
+                                <td data-label="{{ label }}">{% include 'maxeme/role/_level.html.twig' with { level: row.levels[area] } only %}</td>
+                            {% endfor %}
+                            <td data-label="Actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_role_show', { key: row.role.permissionKey }) }}">Route access</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

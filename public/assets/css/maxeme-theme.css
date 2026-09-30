@@ -152,8 +152,6 @@ body.admin-sidebar-collapsed .mx-side-search { display: none; }
 .site-admin-login .admin-login-shell { background: var(--mx-navbar-border); }
 
 /* ── Manage Admins ──────────────────────────────────────────────────────── */
-.mx-role-list { margin: 0; padding-left: 16px; }
-.mx-role-list li { font-size: 0.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* ── My Profile ─────────────────────────────────────────────────────────── */
 .mx-profile-card { max-width: 640px; }
@@ -319,3 +317,10 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .phone-line { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
 .phone-line svg { color: var(--muted); }
 .muted-line { color: var(--muted); font-size: 0.82rem; }
+
+/* Config › Roles & Access */
+.mx-muted { color: var(--muted-soft); }
+.mx-code-list { display: flex; flex-wrap: wrap; gap: 6px; }
+#role-route-table .mx-group-row th { background: var(--line); text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+#role-route-table tr.mx-denied td { color: var(--muted-soft); }
+#role-matrix td, #role-matrix th { white-space: nowrap; }
