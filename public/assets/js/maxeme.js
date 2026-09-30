@@ -149,6 +149,26 @@
 }(jQuery));
 
 /*
+ * The sidebar "+" (MaxemeAdminMenuProvider) links to a list with the add modal's id as its fragment,
+ * e.g. /admin/services#manageAddModal: arriving that way opens the modal through its own button, so
+ * the form is set up exactly as a click would set it up.
+ */
+(function () {
+    'use strict';
+
+    var id = window.location.hash.slice(1);
+    if (!/^[A-Za-z][\w-]*$/.test(id) || !document.getElementById(id)) { return; }
+
+    var trigger = document.querySelector('[data-modal-open="#' + id + '"]');
+    if (trigger) {
+        trigger.click();
+        if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+    }
+}());
+
+/*
  * Browser errors into Logs › Error Log (ClientErrorController): script errors and unhandled promise
  * rejections on any admin page. At most 5 reports per page load, each distinct message once.
  */

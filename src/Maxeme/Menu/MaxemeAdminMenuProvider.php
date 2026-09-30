@@ -9,6 +9,7 @@ use App\Menu\Admin\AdminMenuCatalog;
 use App\Menu\Admin\AdminMenuIconSet;
 use App\Repository\BundleStatusRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * The Maxeme admin sidebar: hides every core (B2B) catalog entry and injects the shop's own groups
@@ -16,7 +17,11 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *
  * Hiding is presentational only; the core routes stay reachable and keep their own access rules.
  *
- * @phpstan-type MenuChild array{key: string, label: string, route: string, role?: string, match?: list<string>}
+ * A child's `add` becomes the row's "+" (core's row affordance): a link to `route`, opening the
+ * modal named by `modal` on arrival (maxeme.js), shown to `role` (default: the row's own).
+ *
+ * @phpstan-type MenuAdd array{label: string, route: string, modal?: string, role?: string}
+ * @phpstan-type MenuChild array{key: string, label: string, route: string, role?: string, match?: list<string>, add?: MenuAdd}
  * @phpstan-type MenuGroup array{key: string, label: string, icon: string, role?: string, children: list<MenuChild>}
  */
 final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterface
@@ -27,6 +32,7 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
     public function __construct(
         #[Autowire(param: 'maxeme.admin_menu')]
         private readonly array $menu,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -63,8 +69,9 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
             foreach ($group['children'] as $child) {
                 $matches = $child['match'] ?? [];
                 $groupMatches = [...$groupMatches, $child['route'], ...$matches];
+                $childKey = $groupKey . '.' . $child['key'];
                 $children[] = [
-                    'key' => $groupKey . '.' . $child['key'],
+                    'key' => $childKey,
                     'label' => $child['label'],
                     'url' => '',
                     'route' => $child['route'],
@@ -73,6 +80,21 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
                     'order' => $order += 10,
                     'requiresRole' => $child['role'] ?? null,
                 ];
+
+                if (isset($child['add'])) {
+                    $add = $child['add'];
+                    $children[] = [
+                        'key' => $childKey . '.add',
+                        'label' => $add['label'],
+                        'url' => $this->urls->generate($add['route'], isset($add['modal']) ? ['_fragment' => $add['modal']] : []),
+                        'parent' => $groupKey,
+                        'order' => $order += 10,
+                        'requiresRole' => $add['role'] ?? $child['role'] ?? null,
+                        'attachTo' => $childKey,
+                        'affordanceIcon' => 'plus',
+                        'accessibleName' => $add['label'],
+                    ];
+                }
             }
 
             // The group itself first, so the children's parent resolves when they are merged.

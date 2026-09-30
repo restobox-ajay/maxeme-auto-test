@@ -65,54 +65,54 @@ parameters:
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
 
-    # The admin sidebar (legacy _top_navigation.html.twig, same order). App\Maxeme\Menu\MaxemeAdminMenuProvider
-    # hides every core B2B entry and injects these instead.
+    # The admin sidebar. App\Maxeme\Menu\MaxemeAdminMenuProvider hides every core B2B entry and
+    # injects these instead.
     #   role:  rendering-only is_granted() check, a role or a permission such as /parts/view
     #          (each action enforces its own #[RequiresPermission])
     #   match: extra route-name prefixes that highlight the entry (its own route always does)
-    # Entries are added here as each screen is built.
+    #   add:   the row's "+": { label, route, modal (opened on arrival), role (default: the row's) }
+    # Pages built but not listed here (Vehicles, Invoices, Roles & Access, the logs) stay reachable
+    # by URL and from the sidebar search.
     maxeme.admin_menu:
         - key: schedule
           label: Schedule
           icon: calendar
           children:
-              - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_] }
-              - { key: reminders, label: Reminder, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_] }
+              - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_],
+                  add: { label: New repair order, route: maxeme_repair_order_index, role: /work-order/edit } }
+              - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_],
+                  add: { label: New appointment, route: maxeme_appointment_calendar, role: /appointment/edit } }
+              - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_],
+                  add: { label: New reminder, route: maxeme_reminder_index, role: /reminder/edit } }
         - key: parts
-          label: Parts & Services
+          label: Parts & Service
           icon: wrench
           children:
-              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, role: /parts/view, match: [maxeme_part_] }
-              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_] }
+              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_],
+                  add: { label: Add a new service, route: maxeme_service_index, modal: manageAddModal, role: /service/edit } }
+              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, role: /parts/view, match: [maxeme_part_],
+                  add: { label: Add a new part, route: maxeme_part_index, modal: manageAddModal, role: /parts/edit } }
+        - key: people
+          label: People
+          icon: users
+          role: /people/view
+          children:
+              - { key: clients, label: Client, route: maxeme_client_index, match: [maxeme_client_, maxeme_vehicle_],
+                  add: { label: Add a new client, route: maxeme_client_index, modal: manageAddModal, role: /people/edit } }
         - key: accounting
           label: Accounting
           icon: chart
           role: /accounting/view
           children:
-              - { key: invoices, label: Invoices, route: maxeme_invoice_index, match: [maxeme_invoice_index, maxeme_invoice_find] }
-              - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_] }
-        - key: people
-          label: People
-          icon: users
-          children:
-              - { key: clients, label: Client List, route: maxeme_client_index, role: /people/view, match: [maxeme_client_] }
-              - { key: vehicles, label: Vehicles, route: maxeme_vehicle_index, role: /car/view, match: [maxeme_vehicle_] }
+              - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_, maxeme_invoice_index, maxeme_invoice_find] }
         - key: config
           label: Config
           icon: cog
           role: /staff/view
           children:
-              - { key: manage_admins, label: Manage Admins, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_] }
-              - { key: roles, label: Roles & Access, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
-        - key: logs
-          label: Logs
-          icon: log
-          role: /log/view
-          children:
-              - { key: activity, label: Activity Log, route: maxeme_activity_log_index, match: [maxeme_activity_log_] }
-              # Core's own log screens (Super Admin only).
-              - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
-              - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_SUPER_ADMIN }
+              - { key: admin_users, label: Admin User, route: maxeme_staff_index, match: [maxeme_staff_, maxeme_role_],
+                  add: { label: Add a new admin user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
+              - { key: settings, label: Settings, route: maxeme_settings, role: /settings/manage, match: [maxeme_settings, maxeme_activity_log_] }
 
 twig:
     globals:

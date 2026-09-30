@@ -1,0 +1,10 @@
+{# A sidebar entry whose screen is not built yet. Vars: eyebrow, title. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: eyebrow, title: title, lead: 'This page is under construction...' } %}
+        {% block actions %}
+            <a class="button back-button" href="{{ path('maxeme_home') }}">Back</a>
+        {% endblock %}
+    {% endembed %}
+{% endblock %}

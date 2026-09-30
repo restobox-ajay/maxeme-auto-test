@@ -61,6 +61,9 @@ final class Permission
     /** Config › Roles & Access: every role and the routes it reaches (read-only; the files are the source). */
     public const ROLE_VIEW = '/role/view';
 
+    /** Config › Settings: the shop's own settings (Super Admin; the screen is not built yet). */
+    public const SETTINGS = '/settings/manage';
+
     /** Config › Activity Log: who did what, in which role, with the changes. */
     public const LOG_VIEW = '/log/view';
 
@@ -77,6 +80,7 @@ final class Permission
         'staff' => 'Manage Admins',
         'role' => 'Roles & Access',
         'log' => 'Activity Log',
+        'settings' => 'Settings',
         'account' => 'My Profile',
     ];
 

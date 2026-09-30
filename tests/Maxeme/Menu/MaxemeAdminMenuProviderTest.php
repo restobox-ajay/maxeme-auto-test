@@ -9,6 +9,7 @@ use App\Menu\Admin\AdminMenuCatalog;
 use App\Menu\Admin\AdminMenuTreeBuilder;
 use App\Repository\BundleStatusRepository;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class MaxemeAdminMenuProviderTest extends KernelTestCase
 {
@@ -23,7 +24,7 @@ final class MaxemeAdminMenuProviderTest extends KernelTestCase
 
     public function testHidesEveryCoreEntryAndIsAlwaysActive(): void
     {
-        $provider = new MaxemeAdminMenuProvider(self::MENU);
+        $provider = self::provider(self::MENU);
 
         self::assertSame(AdminMenuCatalog::keys(), $provider->getHiddenKeys());
         self::assertSame(BundleStatusRepository::CORE_SOURCE, $provider->getSource());
@@ -31,8 +32,7 @@ final class MaxemeAdminMenuProviderTest extends KernelTestCase
 
     public function testBuildsTheConfiguredGroupsInOrderWithRolesAndHighlighting(): void
     {
-        self::bootKernel();
-        $tree = self::getContainer()->get(AdminMenuTreeBuilder::class)->build([new MaxemeAdminMenuProvider(self::MENU)]);
+        $tree = self::getContainer()->get(AdminMenuTreeBuilder::class)->build([self::provider(self::MENU)]);
 
         self::assertSame(['maxeme.schedule', 'maxeme.config'], array_map(static fn (array $entry): string => $entry['node']->key, $tree));
 
@@ -46,5 +46,29 @@ final class MaxemeAdminMenuProviderTest extends KernelTestCase
         self::assertTrue($appointments->matchesRoute('maxeme_appointment_edit'), 'a child highlights for its match prefixes');
         self::assertTrue($schedule['node']->matchesRoute('maxeme_appointment_edit'), 'the group opens for its children');
         self::assertFalse($schedule['node']->matchesRoute('maxeme_staff_index'));
+    }
+
+    public function testARowAddGivesItAPlusThatOpensTheAddModal(): void
+    {
+        $menu = [['key' => 'parts', 'label' => 'Parts', 'icon' => 'wrench', 'children' => [
+            ['key' => 'services', 'label' => 'Services', 'route' => 'maxeme_service_index', 'role' => '/service/view',
+                'add' => ['label' => 'Add a new service', 'route' => 'maxeme_service_index', 'modal' => 'manageAddModal', 'role' => '/service/edit']],
+        ]]];
+        [$parts] = self::getContainer()->get(AdminMenuTreeBuilder::class)->build([self::provider($menu)]);
+
+        self::assertCount(1, $parts['children'], 'the + is not a row of its own');
+        $plus = $parts['affordances']['maxeme.parts.services'][0] ?? null;
+        self::assertNotNull($plus, 'the + sits on the Services row');
+        self::assertSame('/admin/services#manageAddModal', $plus->url);
+        self::assertSame('/service/edit', $plus->requiresRole);
+        self::assertSame('Add a new service', $plus->affordanceName());
+    }
+
+    /** @param list<array<string, mixed>> $menu */
+    private static function provider(array $menu): MaxemeAdminMenuProvider
+    {
+        self::bootKernel();
+
+        return new MaxemeAdminMenuProvider($menu, self::getContainer()->get(UrlGeneratorInterface::class));
     }
 }
