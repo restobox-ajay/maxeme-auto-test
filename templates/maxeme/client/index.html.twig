@@ -3,7 +3,8 @@
 {% block title %}Client List | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/people/edit') %}
-    {% set columns = { firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', homeNumber: 'Home number', workNumber: 'Work number', cellNumber: 'Cell number', address: 'Address', note: 'Note', lastUpdated: 'Last updated' } %}
+    {# Sortable columns, then Address (the first in the book) and Note (the newest), then Last updated. #}
+    {% set columns = { firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', phone1: 'Phone number 1', phone2: 'Phone number 2', phone3: 'Phone number 3', phone4: 'Phone number 4' } %}
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Client List', lead: 'All active clients. Open a profile to manage vehicles, appointments, invoices and work orders.' } %}
         {% block actions %}
@@ -25,6 +26,7 @@
                     <tr>
                         <th style="width:40px"></th>
                         {% for key, label in columns %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th>Address</th><th>Note</th>{{ mx.sort_th(page, 'lastUpdated', 'Last updated') }}
                         {% if canManage %}<th></th>{% endif %}
                     </tr>
                 </thead>
@@ -38,11 +40,9 @@
                             <td data-label="Last name">{{ client.lastName }}</td>
                             <td data-label="Preferred name">{{ client.preferredName }}</td>
                             <td data-label="Email">{{ client.email }}</td>
-                            <td data-label="Home number">{{ client.homeNumber }}</td>
-                            <td data-label="Work number">{{ client.workNumber }}</td>
-                            <td data-label="Cell number">{{ client.cellNumber }}</td>
-                            <td data-label="Address">{{ client.address }}</td>
-                            <td data-label="Note">{{ client.note }}</td>
+                            {% for n in 1..4 %}<td data-label="Phone number {{ n }}">{{ attribute(client, 'phone' ~ n) }}</td>{% endfor %}
+                            <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
+                            <td data-label="Note">{{ client.latestNote ? client.latestNote.text }}</td>
                             <td data-label="Last updated">{{ client.lastUpdated|date('Y-m-d H:i:s') }}</td>
                             {% if canManage %}
                                 <td data-label="Actions">
@@ -62,13 +62,13 @@
                             {% endif %}
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ canManage ? 12 : 11 }}" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="{{ canManage ? 13 : 12 }}" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr>
                         <th></th>
-                        {% for label in columns %}<th>{{ label }}</th>{% endfor %}
+                        {% for label in columns %}<th>{{ label }}</th>{% endfor %}<th>Address</th><th>Note</th><th>Last updated</th>
                         {% if canManage %}<th></th>{% endif %}
                     </tr>
                 </tfoot>

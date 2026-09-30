@@ -10,6 +10,7 @@ use App\Maxeme\Dto\InvoiceData;
 use App\Maxeme\Dto\InvoiceItemData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoicePartLine;
 use App\Maxeme\Entity\InvoiceServiceLine;
@@ -48,9 +49,9 @@ final class InvoiceService
     }
 
     /** The client's blank work order, for $vehicle or the client's first vehicle. Never saved. */
-    public function blankWorkOrder(Client $client, ?Vehicle $vehicle = null): Invoice
+    public function blankWorkOrder(Client $client, ?Vehicle $vehicle = null, ?ClientAddress $address = null): Invoice
     {
-        return Invoice::forClient($client, $vehicle ?? $client->getVehicles()->first() ?: null, $this->settings->gstRate, $this->settings->pstRate);
+        return Invoice::forClient($client, $vehicle ?? $client->getVehicles()->first() ?: null, $this->settings->gstRate, $this->settings->pstRate, $address);
     }
 
     /** @param InvoiceData $data already validated */

@@ -33,7 +33,7 @@
                     <input id="client_full_name" type="text" value="{{ client.fullName }}" readonly>
                 </label>
                 <label>Phone number:
-                    <input type="text" value="{{ client.homeNumber }}" readonly>
+                    <input type="text" value="{{ client.phones|join(' · ') }}" readonly>
                 </label>
                 <label for="client_vehicle_name">Vehicle:
                     <select id="client_vehicle_name" name="vehicle_id">

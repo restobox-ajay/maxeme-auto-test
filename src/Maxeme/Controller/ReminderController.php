@@ -9,6 +9,7 @@ use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\Reminder;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\ReminderStatus;
+use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\ReminderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -30,11 +31,18 @@ final class ReminderController extends AbstractMaxemeController
 {
     #[Route('/admin/reminders', name: 'maxeme_reminder_index', methods: ['GET'])]
     #[RequiresPermission(Permission::REMINDER_VIEW)]
-    public function index(ReminderGenerator $generator, ReminderRepository $reminders): Response
+    public function index(ReminderGenerator $generator, ReminderRepository $reminders, ClientRepository $clients): Response
     {
         $generator->generate();
+        $open = $reminders->findOpen();
+        // Each row shows its client's newest note.
+        $byId = [];
+        foreach ($open as $reminder) {
+            $byId[$reminder->getClient()->getId()] = $reminder->getClient();
+        }
+        $clients->loadAddressesAndNotes(array_values($byId));
 
-        return $this->render('maxeme/reminder/index.html.twig', ['reminders' => $reminders->findOpen()]);
+        return $this->render('maxeme/reminder/index.html.twig', ['reminders' => $open]);
     }
 
     /**

@@ -49,7 +49,7 @@ final class ScheduleCalendar
                 $appointment->getStatus()->label(),
                 $appointment->getVehicle()->getFullName(),
                 $client->getFullName(),
-                $client->getHomeNumber(),
+                $client->getPhone1(),
                 $appointment->getNote(),
             ),
             'start' => $this->local($appointment->getStartTime()),

@@ -129,8 +129,11 @@ final class ClientController extends AbstractMaxemeController
 
     private function renderList(Request $request, SearchTerm $find): Response
     {
+        $page = $this->clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS)));
+        $this->clients->loadAddressesAndNotes($page->items);
+
         return $this->render('maxeme/client/index.html.twig', [
-            'page' => $this->clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS))),
+            'page' => $page,
             'find' => $find,
         ]);
     }

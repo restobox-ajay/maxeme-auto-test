@@ -30,7 +30,7 @@ final class ScheduleCalendarTest extends DoctrineIntegrationTestCase
         $timezone->setSettingValue('America/Vancouver');
         $this->em->persist($timezone);
 
-        $client = (new Client())->setFirstName('Dan')->setLastName('Kovac')->setHomeNumber('604-555-0142');
+        $client = (new Client())->setFirstName('Dan')->setLastName('Kovac')->setPhone1('604-555-0142');
         $this->vehicle = (new Vehicle($client))->setYear(2016)->setManufacturer('Honda')->setModel('Civic');
         $this->em->persist($client);
         $this->em->persist($this->vehicle);

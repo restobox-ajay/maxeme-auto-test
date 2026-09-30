@@ -47,7 +47,11 @@ final class WorkOrderController extends AbstractMaxemeController
         return $this->emailDocument($invoice, DocumentKind::WorkOrder, $request, $mailer);
     }
 
-    /** "Empty Work Order (Print Only)": a blank repair order for the client, `?vehicle=` to switch vehicle. Nothing is saved. */
+    /**
+     * "Empty Work Order (Print Only)": a blank repair order for the client, `?vehicle=` to switch
+     * vehicle and `?address=` to pick one of the client's pickup addresses (listed in the client's
+     * order, the first one by default). Nothing is saved.
+     */
     #[Route('/admin/clients/{id}/work-order', name: 'maxeme_work_order_blank', requirements: ['id' => '\d+'], methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
     public function blank(#[MapEntity] Client $client, Request $request, InvoiceService $invoices): Response
@@ -66,10 +70,21 @@ final class WorkOrderController extends AbstractMaxemeController
             }
         }
 
+        $address = null;
+        foreach ($client->getAddresses() as $candidate) {
+            if ($candidate->getId() === $request->query->getInt('address')) {
+                $address = $candidate;
+            }
+        }
+
+        $invoice = $invoices->blankWorkOrder($client, $vehicle instanceof Vehicle ? $vehicle : null, $address);
+
         return $this->render('maxeme/invoice/work_order.html.twig', [
-            'invoice' => $invoices->blankWorkOrder($client, $vehicle instanceof Vehicle ? $vehicle : null),
+            'invoice' => $invoice,
             'kind' => DocumentKind::WorkOrder,
             'vehicles' => $vehicles,
+            'addresses' => $client->getAddresses()->getValues(),
+            'address' => $address ?? $client->getPrimaryAddress(),
         ]);
     }
 }

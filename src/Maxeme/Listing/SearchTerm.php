@@ -54,18 +54,24 @@ final class SearchTerm
     /**
      * Narrows $query to rows where every word matches: a case-insensitive "contains" on any of
      * $columns, a digits-only "contains" on any of $phoneColumns (for a word with 3+ digits), or,
-     * for a numeric word, whatever $number(QueryBuilder, param name) adds (e.g. an invoice number).
+     * for a numeric word, whatever $number(QueryBuilder, param name) adds (e.g. an invoice number),
+     * and for every word whatever $text(QueryBuilder, param name) adds, the param holding "%word%"
+     * (e.g. a match in a related table).
      *
      * @param list<string> $columns
      * @param list<string> $phoneColumns
      * @param (callable(QueryBuilder, string): string)|null $number
+     * @param (callable(QueryBuilder, string): string)|null $text
      */
-    public function apply(QueryBuilder $query, array $columns, array $phoneColumns = [], ?callable $number = null): void
+    public function apply(QueryBuilder $query, array $columns, array $phoneColumns = [], ?callable $number = null, ?callable $text = null): void
     {
         foreach ($this->words as $i => $word) {
             $param = 'find_' . $i;
             $or = array_map(static fn (string $column): string => sprintf('LOWER(%s) LIKE :%s', $column, $param), $columns);
             $query->setParameter($param, '%' . $word . '%');
+            if ($text !== null) {
+                $or[] = $text($query, $param);
+            }
 
             $digits = preg_replace('/\D+/', '', $word) ?? '';
             if (strlen($digits) >= 3 && $phoneColumns !== []) {

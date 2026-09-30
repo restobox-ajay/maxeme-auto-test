@@ -7,12 +7,14 @@ namespace App\Maxeme\Twig;
 use App\Entity\AdminUser;
 use App\Entity\AuditLog;
 use App\Maxeme\Audit\ActivityLog;
+use App\Maxeme\Dto\ClientAddressData;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Dto\FormData;
 use App\Maxeme\Dto\PartData;
 use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Part;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
@@ -25,6 +27,7 @@ final class MaxemeExtension
     /** Entity => the FormData its edit form uses. */
     private const FORMS = [
         Client::class => ClientData::class,
+        ClientAddress::class => ClientAddressData::class,
         Vehicle::class => VehicleData::class,
         Part::class => PartData::class,
         ServiceItem::class => ServiceItemData::class,

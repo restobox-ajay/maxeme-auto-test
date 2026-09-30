@@ -34,11 +34,13 @@ final class ClientPickerController extends AbstractMaxemeController
         }
 
         $find = SearchTerm::fromRequest($request);
+        $page = $clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS)));
+        $clients->loadAddressesAndNotes($page->items);
 
         return $this->render('maxeme/client/pick.html.twig', [
             'for' => $for,
             'find' => $find,
-            'page' => $clients->findPage($find, ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS))),
+            'page' => $page,
         ]);
     }
 }

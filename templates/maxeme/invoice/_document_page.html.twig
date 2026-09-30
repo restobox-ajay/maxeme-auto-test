@@ -1,5 +1,6 @@
 {# The on-screen page around a printable document (invoice or work order): title, action bar,
-   the document itself, and print styles. Blocks: actions, modals. Vars: invoice, kind, vehicles. #}
+   the document itself, and print styles. Blocks: actions, modals. Vars: invoice, kind, vehicles,
+   addresses + address (the blank work order's vehicle and pickup-address switches). #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}{{ kind.title }} {{ invoice.saved ? '#' ~ invoice.displayedId }} | {{ site_name() }}{% endblock %}
 {% block head_extra %}
@@ -30,7 +31,7 @@
         </div>
     </nav>
     <div class="invoice-page-container">
-        {% include kind.template with { invoice: invoice, vehicles: vehicles|default([]) } only %}
+        {% include kind.template with { invoice: invoice, vehicles: vehicles|default([]), addresses: addresses|default([]), address: address|default(null) } only %}
     </div>
     {% block modals %}{% endblock %}
 {% endblock %}

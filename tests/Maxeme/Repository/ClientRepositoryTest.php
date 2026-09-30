@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Maxeme\Repository;
 
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Listing\ListQuery;
@@ -26,9 +27,10 @@ final class ClientRepositoryTest extends DoctrineIntegrationTestCase
         parent::setUp();
         $this->clients = self::getContainer()->get(ClientRepository::class);
 
-        $singh = $this->client('Harpreet', 'Singh', cell: '(604) 555-0100')->setAddress('12 Main St, Richmond');
+        $singh = $this->client('Harpreet', 'Singh', phone3: '(604) 555-0100');
+        $this->em->persist((new ClientAddress($singh, 0))->setAddressLine1('12 Main St')->setCity('Richmond'));
         $this->vehicle($singh, 'Honda', 'Civic', 'VIN-AAA', 'PLATE1');
-        $singhera = $this->client('Amar', 'Singhera', home: '604.555.0200')->setPreferredName('Sonny');
+        $singhera = $this->client('Amar', 'Singhera', phone1: '604.555.0200')->setPreferredName('Sonny');
         $this->vehicle($singhera, 'Toyota', 'RAV4', 'VIN-BBB', 'PLATE2')->deactivate();
         $this->client('Deleted', 'Singh')->deactivate();
 
@@ -97,9 +99,9 @@ final class ClientRepositoryTest extends DoctrineIntegrationTestCase
         return array_map(static fn (Client $client): ?string => $client->getLastName(), $page->items);
     }
 
-    private function client(string $first, string $last, ?string $home = null, ?string $cell = null): Client
+    private function client(string $first, string $last, ?string $phone1 = null, ?string $phone3 = null): Client
     {
-        $client = (new Client())->setFirstName($first)->setLastName($last)->setHomeNumber($home)->setCellNumber($cell);
+        $client = (new Client())->setFirstName($first)->setLastName($last)->setPhone1($phone1)->setPhone3($phone3);
         $this->em->persist($client);
 
         return $client;

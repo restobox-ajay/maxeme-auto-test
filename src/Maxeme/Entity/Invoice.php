@@ -145,23 +145,34 @@ class Invoice
         return $invoice;
     }
 
-    /** An invoice for a client's vehicle with no appointment: the blank "Empty Work Order", never saved. */
-    public static function forClient(Client $client, ?Vehicle $vehicle, int $gstRate, int $pstRate): self
+    /**
+     * An invoice for a client's vehicle with no appointment: the blank "Empty Work Order", never saved.
+     * The address is $address, or the first in the client's address book; the invoice's two phone
+     * columns (legacy home / cell) take phone 1 and 2, its client note the newest note.
+     */
+    public static function forClient(Client $client, ?Vehicle $vehicle, int $gstRate, int $pstRate, ?ClientAddress $address = null): self
     {
         $invoice = new self($gstRate, $pstRate);
         $invoice->client = $client;
         $invoice->clientFirstName = $client->getFirstName();
         $invoice->clientLastName = $client->getLastName();
         $invoice->clientPreferredName = $client->getPreferredName();
-        $invoice->clientAddress = $client->getAddress();
-        $invoice->clientHomeNumber = $client->getHomeNumber();
-        $invoice->clientCellNumber = $client->getCellNumber();
-        $invoice->clientNote = $client->getNote();
+        $invoice->useAddress($address ?? $client->getPrimaryAddress());
+        $invoice->clientHomeNumber = $client->getPhone1();
+        $invoice->clientCellNumber = $client->getPhone2();
+        $note = $client->getLatestNote()?->getText();
+        $invoice->clientNote = $note !== null ? mb_substr($note, 0, 255) : null;
         if ($vehicle !== null) {
             $invoice->useVehicle($vehicle);
         }
 
         return $invoice;
+    }
+
+    /** Copies $address in, on one line (the blank work order's address switch). */
+    public function useAddress(?ClientAddress $address): void
+    {
+        $this->clientAddress = $address !== null ? mb_substr($address->getOneLine(), 0, 255) : null;
     }
 
     /** Copies $vehicle's details in (the blank work order's vehicle switch). */

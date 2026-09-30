@@ -8,7 +8,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * The client form (legacy cns_client_info_form): Add New Person, Edit the Client, and the profile's
- * Client Profile tab. Every field is optional, as in the legacy app.
+ * Client Profile tab. Every field is optional, as in the legacy app. Addresses and notes are their
+ * own records (ClientAddressData, NoteBook).
  */
 final class ClientData extends FormData
 {
@@ -17,11 +18,10 @@ final class ClientData extends FormData
         'last_name' => 'lastName',
         'preferred_name' => 'preferredName',
         'email' => 'email',
-        'home_number' => 'homeNumber',
-        'work_number' => 'workNumber',
-        'cell_number' => 'cellNumber',
-        'address' => 'address',
-        'note' => 'note',
+        'phone_1' => 'phone1',
+        'phone_2' => 'phone2',
+        'phone_3' => 'phone3',
+        'phone_4' => 'phone4',
     ];
 
     #[Assert\Length(max: 255)]
@@ -38,17 +38,14 @@ final class ClientData extends FormData
     public ?string $email = null;
 
     #[Assert\Length(max: 255)]
-    public ?string $homeNumber = null;
+    public ?string $phone1 = null;
 
     #[Assert\Length(max: 255)]
-    public ?string $workNumber = null;
+    public ?string $phone2 = null;
 
     #[Assert\Length(max: 255)]
-    public ?string $cellNumber = null;
+    public ?string $phone3 = null;
 
     #[Assert\Length(max: 255)]
-    public ?string $address = null;
-
-    #[Assert\Length(max: 65535)]
-    public ?string $note = null;
+    public ?string $phone4 = null;
 }

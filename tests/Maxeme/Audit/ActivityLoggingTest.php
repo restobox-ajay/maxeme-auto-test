@@ -60,7 +60,7 @@ final class ActivityLoggingTest extends DoctrineIntegrationTestCase
         $this->em->persist($client);
         $this->em->flush();
 
-        $client->setNote('Prefers mornings');
+        $client->setPhone4('604 555 0199');
         $this->em->flush();
 
         $this->em->remove($client);
@@ -75,7 +75,7 @@ final class ActivityLoggingTest extends DoctrineIntegrationTestCase
             self::assertSame($this->receptionist->getId(), $row->getActorId());
         }
 
-        self::assertSame(['note' => 'Prefers mornings'], array_intersect_key(json_decode((string) $rows[1]->getDataAfter(), true), ['note' => true]));
+        self::assertSame(['phone4' => '604 555 0199'], array_intersect_key(json_decode((string) $rows[1]->getDataAfter(), true), ['phone4' => true]));
     }
 
     public function testNamedActionsAreLoggedWithTheRole(): void

@@ -20,6 +20,9 @@
  *
  *   .mx-actions             an action group (row or toolbar): the first two actions stay buttons,
  *                           the rest move into a ⋯ menu after them, the way wholesale core does it
+ *
+ *   .js-sortable-config[data-reload-after-sort]   app.js's drag-to-reorder rows: reload once the new
+ *                           order is saved, so row numbers and Move up / Move down match it
  */
 (function ($) {
     'use strict';
@@ -41,6 +44,14 @@
                     .appendTo($group);
             }
             $group.addClass('is-grouped');
+        });
+    });
+
+    $(document).ajaxSuccess(function (event, xhr, settings) {
+        $('.js-sortable-config[data-reload-after-sort]').each(function () {
+            if (settings.url === $(this).data('reorder-url')) {
+                window.location.reload();
+            }
         });
     });
 

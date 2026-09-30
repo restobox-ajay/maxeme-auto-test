@@ -31,6 +31,8 @@ final class AuditLogEnricher
         'InvoicePartLine' => 'accounting',
         'InvoiceServiceLine' => 'accounting',
         'Client' => 'people',
+        'ClientAddress' => 'people',
+        'ClientNote' => 'people',
         'Vehicle' => 'car',
         'AdminUser' => 'staff',
     ];

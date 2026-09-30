@@ -1,0 +1,98 @@
+{# Client Profile › Address Book: every pickup address, in the client's order. Drag a row by its
+   handle (core app.js .js-sortable-config) or use Move up / Move down to change the order; the
+   profile shows the first two and the repair order lists them in this order. Vars: client, canManage. #}
+{% set addresses = client.addresses.values %}
+{% set ids = addresses|map(a => a.id) %}
+<section class="table-card no-paginate" id="address-book">
+    <div class="table-header">
+        <div>
+            <h2>Address Book</h2>
+            <p class="mx-inline-hint">{{ addresses|length }} pickup {{ addresses|length == 1 ? 'address' : 'addresses' }}{% if canManage and addresses|length > 1 %} · drag ☰ or use Move up / Move down to set the order; the first two show on the Client Profile{% endif %}</p>
+        </div>
+        {% if canManage %}
+            <button class="button mx-btn-sm mx-success" type="button" data-modal-open="#addressAddModal">+ Add new address for {{ client.fullName }}</button>
+        {% endif %}
+    </div>
+    <div class="wide-table-wrap">
+        <table id="address-book-table">
+            <thead>
+                <tr>{% if canManage %}<th class="sort-handle-column"></th>{% endif %}<th style="width:40px">#</th><th>Label</th><th>Address</th><th>Phone</th><th>Pickup instructions</th>{% if canManage %}<th></th>{% endif %}</tr>
+            </thead>
+            <tbody {% if canManage %}class="js-sortable-config" data-reorder-url="{{ path('maxeme_client_address_reorder', { id: client.id }) }}" data-reorder-token="{{ csrf_token_value() }}" data-reload-after-sort{% endif %}>
+                {% for address in addresses %}
+                    {% set i = loop.index0 %}
+                    <tr id="address_{{ address.id }}" class="js-sortable-row" data-config-id="{{ address.id }}">
+                        {% if canManage %}
+                            <td class="sort-handle-cell" data-label="Move">
+                                <button class="drag-handle js-drag-handle" type="button" draggable="true" aria-label="Drag {{ address.label ?: address.addressLine1 }} to reorder">☰</button>
+                            </td>
+                        {% endif %}
+                        <td data-label="#"><span class="badge">{{ loop.index }}</span></td>
+                        <td data-label="Label">{{ address.label }}</td>
+                        <td data-label="Address">{{ address.oneLine }}</td>
+                        <td data-label="Phone">{{ address.phone }}</td>
+                        <td data-label="Pickup instructions">{{ address.deliveryInstructions|nl2br }}</td>
+                        {% if canManage %}
+                            <td data-label="Actions">
+                                <div class="mx-actions">
+                                    <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#addressEditModal"
+                                            data-form-action="{{ path('maxeme_client_address_update', { id: client.id, addressId: address.id }) }}"
+                                            data-form-values="{{ form_values(address)|json_encode }}">Edit</button>
+                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#address_{{ address.id }}"
+                                            data-url="{{ path('maxeme_client_address_delete', { id: client.id, addressId: address.id }) }}"
+                                            data-token="{{ csrf_token_value() }}"
+                                            data-confirm-title="Delete Confirmation"
+                                            data-confirm-before="Are you sure you want to delete "
+                                            data-item="{{ address.oneLine }}"
+                                            data-confirm-after="?">Delete</button>
+                                    {% if not loop.first %}
+                                        <button type="button" class="js-post-action" data-reload
+                                                data-url="{{ path('maxeme_client_address_reorder', { id: client.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-params="{{ { ids: ids|slice(0, i - 1)|merge([ids[i], ids[i - 1]])|merge(ids|slice(i + 1)) }|json_encode }}">Move up</button>
+                                    {% endif %}
+                                    {% if not loop.last %}
+                                        <button type="button" class="js-post-action" data-reload
+                                                data-url="{{ path('maxeme_client_address_reorder', { id: client.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-params="{{ { ids: ids|slice(0, i)|merge([ids[i + 1], ids[i]])|merge(ids|slice(i + 2)) }|json_encode }}">Move down</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="{{ canManage ? 7 : 5 }}" class="empty-table-cell">No pickup addresses yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if canManage %}
+    {% for modal in [
+        { id: 'addressAddModal', title: 'Add A New Address for ' ~ client.fullName ~ '...', action: path('maxeme_client_address_create', { id: client.id }), submit: 'Add Address' },
+        { id: 'addressEditModal', title: 'Edit the Address...', action: '', submit: 'Save' },
+    ] %}
+        <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
+            <div class="admin-modal mx-modal-wide">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <h2 id="{{ modal.id }}Label" style="margin-top:0">{{ modal.title }}</h2>
+                <form class="form-grid" method="post" action="{{ modal.action }}">
+                    {{ csrf_field() }}
+                    {% for field, label in constant('App\\Maxeme\\Dto\\ClientAddressData::LABELS') %}
+                        {% if field == 'delivery_instructions' %}
+                            <label class="span-2">{{ label }}<textarea name="{{ field }}" rows="3" style="resize:none"></textarea></label>
+                        {% else %}
+                            <label {{ field in ['label', 'address_line1', 'address_line2'] ? 'class="span-2"' }}>{{ label }}{{ field == 'address_line1' ? ' *' }}<input type="{{ field == 'phone' ? 'tel' : 'text' }}" name="{{ field }}" {{ field == 'address_line1' ? 'required' }}></label>
+                        {% endif %}
+                    {% endfor %}
+                    <div class="modal-actions span-2">
+                        <button class="button outline js-modal-close" type="button">Cancel</button>
+                        <button class="button primary" type="submit">{{ modal.submit }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}

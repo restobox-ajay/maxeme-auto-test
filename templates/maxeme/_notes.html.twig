@@ -1,0 +1,59 @@
+{# Notes on any record that keeps them (App\Maxeme\Entity\HasNotes, written by NoteBook): Author,
+   Message, Timestamp, Edit / Delete. Add and Edit use core's note modal (app.js .js-note-modal-open /
+   .js-note-edit); Delete asks first (maxeme.js .js-post-action).
+   Vars: notes (newest first), owner (its name, for the modal title), createUrl, updateUrl,
+   deleteRoute + routeParams (the delete route takes those plus noteId), canEdit. #}
+<section class="table-card no-paginate mx-notes" id="notes-card">
+    <div class="table-header">
+        <h2>Notes</h2>
+        {% if canEdit %}<button class="button mx-btn-sm mx-success js-note-modal-open" type="button">+ Add Note</button>{% endif %}
+    </div>
+    <div class="wide-table-wrap">
+        <table class="mx-notes-table">
+            <thead><tr><th style="width:180px">Author</th><th>Message</th><th style="width:170px">Timestamp</th>{% if canEdit %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+                {% for note in notes %}
+                    <tr id="note_{{ note.id }}" class="note-entry" data-id="{{ note.id }}" data-note="{{ note.text }}">
+                        <td data-label="Author">{{ note.userName ?: '—' }}</td>
+                        <td data-label="Message" class="mx-note-text">{{ note.text|nl2br }}</td>
+                        <td data-label="Timestamp">{{ note.createdAt|date('m/d/Y h:i A') }}</td>
+                        {% if canEdit %}
+                            <td data-label="Actions">
+                                <div class="mx-actions">
+                                    <button type="button" class="button mx-btn-sm mx-success js-note-edit">Edit</button>
+                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#note_{{ note.id }}"
+                                            data-url="{{ path(deleteRoute, routeParams|merge({ noteId: note.id })) }}"
+                                            data-token="{{ csrf_token_value() }}"
+                                            data-confirm-title="Delete Confirmation"
+                                            data-confirm-before="Are you sure you want to delete "
+                                            data-item="this note"
+                                            data-confirm-after="?">Delete</button>
+                                </div>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% else %}
+                    <tr><td colspan="{{ canEdit ? 4 : 3 }}" class="empty-table-cell">No notes yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if canEdit %}
+    <div class="modal-backdrop note-modal" hidden>
+        <form class="modal-card note-modal-card" method="post" action="{{ createUrl }}" data-create-action="{{ createUrl }}" data-update-action="{{ updateUrl }}" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+            {{ csrf_field() }}
+            <h2 id="note-modal-title" data-create-title="{{ owner }} - Add Note" data-edit-title="{{ owner }} - Edit Note">{{ owner }} - Add Note</h2>
+            <input class="note-modal-id" type="hidden" name="id" value="">
+            <label class="note-modal-field">
+                <span>Message</span>
+                <textarea class="note-modal-input" name="note" rows="5" maxlength="{{ constant('App\\Entity\\AbstractPartyNote::MAX_LENGTH') }}" required></textarea>
+            </label>
+            <div class="modal-actions">
+                <button class="button outline js-note-modal-close" type="button">Close</button>
+                <button class="button primary js-note-save" type="submit" data-create-label="Save" data-edit-label="Save">Save</button>
+            </div>
+        </form>
+    </div>
+{% endif %}

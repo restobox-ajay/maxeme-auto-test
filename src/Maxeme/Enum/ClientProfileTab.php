@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 enum ClientProfileTab: string
 {
     case Info = 'info';
+    case Addresses = 'addresses';
     case Vehicles = 'vehicles';
     case Appointments = 'appointments';
 
@@ -17,6 +18,7 @@ enum ClientProfileTab: string
     {
         return match ($this) {
             self::Info => 'Client Profile',
+            self::Addresses => 'Address Book',
             self::Vehicles => 'Vehicles',
             self::Appointments => 'Appointments',
         };

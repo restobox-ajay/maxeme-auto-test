@@ -26,7 +26,7 @@
                         {{ mx.sort_th(page, 'lastName', 'Last name') }}
                         {{ mx.sort_th(page, 'preferredName', 'Preferred name') }}
                         <th>Phone</th>
-                        {{ mx.sort_th(page, 'address', 'Address') }}
+                        <th>Address</th>
                         <th style="width:90px"></th>
                     </tr>
                 </thead>
@@ -36,8 +36,8 @@
                             <td data-label="First name">{{ client.firstName }}</td>
                             <td data-label="Last name">{{ client.lastName }}</td>
                             <td data-label="Preferred name">{{ client.preferredName }}</td>
-                            <td data-label="Phone">{{ [client.cellNumber, client.homeNumber, client.workNumber]|filter(n => n)|join(' · ') }}</td>
-                            <td data-label="Address">{{ client.address }}</td>
+                            <td data-label="Phone">{{ client.phones|join(' · ') }}</td>
+                            <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
                             <td data-label="Actions"><a class="button primary mx-btn-sm" href="{{ path(for.route, { id: client.id }) }}">Choose</a></td>
                         </tr>
                     {% else %}

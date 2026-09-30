@@ -10,7 +10,7 @@
             <div>
                 <p class="eyebrow">Client</p>
                 <h1 id="client-fullname">{{ client.fullName }}</h1>
-                <p class="lead">Client #{{ client.id }}{{ client.address ? ' · ' ~ client.address }}</p>
+                <p class="lead">Client #{{ client.id }}{{ client.primaryAddress ? ' · ' ~ client.primaryAddress.oneLine }}</p>
             </div>
             <div class="panel-actions">
                 <a class="button back-button" href="{{ path('maxeme_client_index') }}">Back</a>
@@ -32,21 +32,51 @@
     </nav>
 
     {% if tab.value == 'info' %}
-        {# Client Profile tab (legacy _user_info.html.twig) #}
-        <section class="form-card">
-            <form id="manageEditFormBody" method="post" action="{{ path('maxeme_client_update', { id: client.id }) }}">
-                {{ csrf_field() }}
-                <div class="mx-form-head">
-                    <h2>Client Profile</h2>
-                    {% if canManage %}<button id="manageEditSubmit" class="button mx-btn-sm mx-success edit_client" type="submit">Update</button>{% endif %}
+        {# Client Profile tab (legacy _user_info.html.twig): details, the first two pickup addresses, notes. #}
+        <div class="mx-tab-stack">
+            <section class="form-card">
+                <form id="manageEditFormBody" method="post" action="{{ path('maxeme_client_update', { id: client.id }) }}">
+                    {{ csrf_field() }}
+                    <div class="mx-form-head">
+                        <h2>Client Profile</h2>
+                        {% if canManage %}<button id="manageEditSubmit" class="button mx-btn-sm mx-success edit_client" type="submit">Update</button>{% endif %}
+                    </div>
+                    <div class="client-info-blocks">
+                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['first_name', 'last_name', 'preferred_name', 'email'], readonly: not canManage } only %}</div>
+                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['phone_1', 'phone_2'], readonly: not canManage } only %}</div>
+                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['phone_3', 'phone_4'], readonly: not canManage } only %}</div>
+                    </div>
+                </form>
+            </section>
+
+            <section class="table-card no-paginate" id="pickup-addresses">
+                <div class="table-header">
+                    <h2>Pickup Addresses</h2>
+                    <a class="button mx-btn-sm outline" href="{{ path('maxeme_client_show', { id: client.id, tab: 'addresses' }) }}">Address Book ({{ client.addresses|length }})</a>
                 </div>
-                <div class="client-info-blocks">
-                    <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['first_name', 'last_name', 'preferred_name'], readonly: not canManage } only %}</div>
-                    <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['email', 'home_number', 'work_number', 'cell_number'], readonly: not canManage } only %}</div>
-                    <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['address', 'note'], readonly: not canManage, noteClass: '' } only %}</div>
-                </div>
-            </form>
-        </section>
+                {% if client.addresses is empty %}
+                    <p class="mx-empty-line">No pickup addresses yet.{% if canManage %} <a href="{{ path('maxeme_client_show', { id: client.id, tab: 'addresses' }) }}">Add one in the Address Book.</a>{% endif %}</p>
+                {% else %}
+                    <div class="mx-address-cards">
+                        {% for address in client.addresses|slice(0, 2) %}
+                            {% include 'maxeme/client/_address_card.html.twig' with { address: address, number: loop.index } only %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </section>
+
+            {% include 'maxeme/_notes.html.twig' with {
+                notes: client.notes,
+                owner: client.fullName,
+                createUrl: path('maxeme_client_note_create', { id: client.id }),
+                updateUrl: path('maxeme_client_note_update', { id: client.id }),
+                deleteRoute: 'maxeme_client_note_delete',
+                routeParams: { id: client.id },
+                canEdit: canManage,
+            } only %}
+        </div>
+    {% elseif tab.value == 'addresses' %}
+        {% include 'maxeme/client/_address_book.html.twig' with { client: client, canManage: canManage } only %}
     {% elseif tab.value == 'vehicles' %}
         {# Vehicles tab (legacy _vehicles.html.twig) #}
         <section class="table-card" id="vehicle-grid" {{ mx.list_card_attrs(vehicles) }}>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Entity\AbstractPartyNote;
 use App\Maxeme\Repository\ClientRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -15,11 +16,14 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Never hard-deleted: removing a client clears `active`, so their appointments and invoices keep
  * pointing at them. Ids are the legacy ids (see ClientImporter).
+ *
+ * Up to four phone numbers (the legacy home / work / cell became 1 / 2 / 3), an address book of
+ * pickup addresses in the client's order, and notes.
  */
 #[ORM\Entity(repositoryClass: ClientRepository::class)]
 #[ORM\Table(name: 'maxeme_client')]
 #[ORM\Index(name: 'idx_maxeme_client_active_name', columns: ['active', 'first_name', 'last_name'])]
-class Client implements SoftDeletable
+class Client implements SoftDeletable, HasNotes
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -39,20 +43,17 @@ class Client implements SoftDeletable
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $email = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $homeNumber = null;
+    #[ORM\Column(name: 'phone_1', length: 255, nullable: true)]
+    private ?string $phone1 = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $workNumber = null;
+    #[ORM\Column(name: 'phone_2', length: 255, nullable: true)]
+    private ?string $phone2 = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $cellNumber = null;
+    #[ORM\Column(name: 'phone_3', length: 255, nullable: true)]
+    private ?string $phone3 = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $address = null;
-
-    #[ORM\Column(type: 'text', nullable: true)]
-    private ?string $note = null;
+    #[ORM\Column(name: 'phone_4', length: 255, nullable: true)]
+    private ?string $phone4 = null;
 
     #[ORM\Column(options: ['default' => true])]
     private bool $active = true;
@@ -66,10 +67,22 @@ class Client implements SoftDeletable
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $vehicles;
 
+    /** @var Collection<int, ClientAddress> */
+    #[ORM\OneToMany(targetEntity: ClientAddress::class, mappedBy: 'client')]
+    #[ORM\OrderBy(['position' => 'ASC', 'id' => 'ASC'])]
+    private Collection $addresses;
+
+    /** @var Collection<int, ClientNote> */
+    #[ORM\OneToMany(targetEntity: ClientNote::class, mappedBy: 'client')]
+    #[ORM\OrderBy(['createdAt' => 'DESC', 'id' => 'DESC'])]
+    private Collection $notes;
+
     public function __construct()
     {
         $this->lastUpdated = new \DateTimeImmutable();
         $this->vehicles = new ArrayCollection();
+        $this->addresses = new ArrayCollection();
+        $this->notes = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -86,20 +99,45 @@ class Client implements SoftDeletable
     public function getEmail(): ?string { return $this->email; }
     public function setEmail(?string $email): self { $this->email = $email; return $this; }
 
-    public function getHomeNumber(): ?string { return $this->homeNumber; }
-    public function setHomeNumber(?string $homeNumber): self { $this->homeNumber = $homeNumber; return $this; }
+    public function getPhone1(): ?string { return $this->phone1; }
+    public function setPhone1(?string $phone1): self { $this->phone1 = $phone1; return $this; }
 
-    public function getWorkNumber(): ?string { return $this->workNumber; }
-    public function setWorkNumber(?string $workNumber): self { $this->workNumber = $workNumber; return $this; }
+    public function getPhone2(): ?string { return $this->phone2; }
+    public function setPhone2(?string $phone2): self { $this->phone2 = $phone2; return $this; }
 
-    public function getCellNumber(): ?string { return $this->cellNumber; }
-    public function setCellNumber(?string $cellNumber): self { $this->cellNumber = $cellNumber; return $this; }
+    public function getPhone3(): ?string { return $this->phone3; }
+    public function setPhone3(?string $phone3): self { $this->phone3 = $phone3; return $this; }
 
-    public function getAddress(): ?string { return $this->address; }
-    public function setAddress(?string $address): self { $this->address = $address; return $this; }
+    public function getPhone4(): ?string { return $this->phone4; }
+    public function setPhone4(?string $phone4): self { $this->phone4 = $phone4; return $this; }
 
-    public function getNote(): ?string { return $this->note; }
-    public function setNote(?string $note): self { $this->note = $note; return $this; }
+    /** @return array<int, string> phone number => its number (1-4), blanks left out */
+    public function getPhones(): array
+    {
+        return array_filter([1 => $this->phone1, 2 => $this->phone2, 3 => $this->phone3, 4 => $this->phone4], static fn (?string $phone): bool => $phone !== null && $phone !== '');
+    }
+
+    /** @return Collection<int, ClientAddress> the address book, in the client's order */
+    public function getAddresses(): Collection { return $this->addresses; }
+
+    /** The first address in the book, or null when it is empty. */
+    public function getPrimaryAddress(): ?ClientAddress
+    {
+        return $this->addresses->first() ?: null;
+    }
+
+    /** @return Collection<int, ClientNote> newest first */
+    public function getNotes(): Collection { return $this->notes; }
+
+    public function newNote(): AbstractPartyNote
+    {
+        return new ClientNote($this);
+    }
+
+    public function getLatestNote(): ?ClientNote
+    {
+        return $this->notes->first() ?: null;
+    }
 
     public function isActive(): bool { return $this->active; }
 

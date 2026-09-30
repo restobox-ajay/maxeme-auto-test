@@ -27,7 +27,7 @@
                             {% if canBook %}
                                 <td><a class="button mx-btn-sm mx-success" href="{{ path('maxeme_client_show', { id: client.id }) }}" target="_blank" rel="noopener">Book an appointment</a></td>
                             {% endif %}
-                            <td><strong>{{ client.fullName }}</strong>{% if client.note %}<div class="muted-line">{{ client.note }}</div>{% endif %}</td>
+                            <td><strong>{{ client.fullName }}</strong>{% if client.latestNote %}<div class="muted-line">{{ client.latestNote.text }}</div>{% endif %}</td>
                             <td>{{ reminder.vehicle.fullName }}{% if reminder.vehicle.mileage %}<div class="muted-line">{{ reminder.vehicle.mileage }} km</div>{% endif %}</td>
                             <td>
                                 {% if invoice and invoice.appointment %}Date: {{ invoice.appointment.endTime|date('m/d/Y') }}{% endif %}
@@ -35,8 +35,8 @@
                             </td>
                             <td>{{ reminder.note }}</td>
                             <td>
-                                {% for label, number in { Home: client.homeNumber, Cell: client.cellNumber, Work: client.workNumber } %}
-                                    {% if number %}<div class="phone-line" title="{{ label }}">{{ mx_icon('phone') }} {{ number }}</div>{% endif %}
+                                {% for n, number in client.phones %}
+                                    <div class="phone-line" title="Phone Number {{ n }}">{{ mx_icon('phone') }} {{ number }}</div>
                                 {% endfor %}
                             </td>
                             {% if canManage %}

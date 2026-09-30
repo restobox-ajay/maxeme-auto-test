@@ -1,0 +1,8 @@
+{# One pickup address as a card (Client Profile shows the first two). Vars: address (ClientAddress), number (its place in the book). #}
+<article class="mx-address-card">
+    <p class="mx-address-card-label"><span class="badge">{{ number }}</span> {{ address.label ?: 'Pickup address ' ~ number }}</p>
+    <p>{{ address.addressLine1 }}{% if address.addressLine2 %}<br>{{ address.addressLine2 }}{% endif %}
+        {% set place = [address.city, address.province, address.postalCode]|filter(v => v)|join(' ') %}{% if place %}<br>{{ place }}{% endif %}</p>
+    {% if address.phone %}<p class="muted-line">{{ mx_icon('phone') }} {{ address.phone }}</p>{% endif %}
+    {% if address.deliveryInstructions %}<p class="muted-line">{{ address.deliveryInstructions|nl2br }}</p>{% endif %}
+</article>

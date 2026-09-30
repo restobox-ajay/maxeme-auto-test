@@ -231,6 +231,13 @@ td .mx-actions { flex-wrap: nowrap; }
 @media (max-width: 900px) { .client-info-blocks { grid-template-columns: 1fr; } }
 .mx-form-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .mx-form-head h2 { margin: 0; font-size: 0.92rem; font-weight: 700; }
+.mx-address-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0 22px 20px; }
+@media (max-width: 700px) { .mx-address-cards { grid-template-columns: 1fr; } }
+.mx-address-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; background: #fff; }
+.mx-address-card p { margin: 0 0 6px; line-height: 1.45; }
+.mx-address-card-label { font-weight: 700; }
+.mx-empty-line { margin: 0; padding: 0 22px 20px; color: var(--muted); }
+.mx-notes-table .mx-note-text { white-space: normal; min-width: 240px; }
 /* legacy tr.in_progress td { background-color: #F5EBCC; font-weight: bold } */
 tr.in_progress td { background: var(--mx-warning-soft) !important; font-weight: 700; }
 
