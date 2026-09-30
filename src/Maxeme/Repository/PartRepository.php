@@ -7,6 +7,7 @@ namespace App\Maxeme\Repository;
 use App\Maxeme\Entity\Part;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -43,6 +44,15 @@ final class PartRepository extends ServiceEntityRepository
             self::SORTS,
             ['p.vin', 'p.name', 'p.manufacturer', 'p.type', 'p.description', 'p.vendor', 'p.notes'],
         );
+    }
+
+    /** @return list<Part> active parts for the Physical Count sheet, by name, narrowed by its search box */
+    public function findForCount(SearchTerm $find): array
+    {
+        $query = $this->createQueryBuilder('p')->andWhere('p.active = true')->orderBy('p.name', 'ASC')->addOrderBy('p.id', 'ASC');
+        $find->apply($query, ['p.vin', 'p.name', 'p.manufacturer', 'p.vendor', 'p.description']);
+
+        return $query->getQuery()->getResult();
     }
 
     /** @return list<Part> active parts whose name contains $term (the invoice builder's autocomplete) */

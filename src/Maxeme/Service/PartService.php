@@ -11,7 +11,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Parts Inventory changes (legacy InventoryBundle manageController): saving the part form,
- * editing one cell in place, and restocking. A typed quantity is recorded as a stock movement.
+ * editing one cell in place, restocking, and a physical count. A typed quantity is recorded as a
+ * stock movement.
  */
 final class PartService
 {
@@ -75,6 +76,45 @@ final class PartService
     }
 
     /** @param RestockData $data already validated */
+    /**
+     * A physical count (after wholesale-b2b's Cycle Count): each counted part's stock becomes what
+     * was found on the shelf, recorded through StockLedger with the count as the note, so the
+     * difference shows in the part's history like any other movement. A part that agrees records
+     * nothing. All or nothing, in one flush.
+     *
+     * @param array<int|string, mixed> $found part id => units found (blank or non-numeric: not counted)
+     */
+    public function recordCount(array $found, ?string $reference): PhysicalCountResult
+    {
+        $note = 'Physical count' . ($reference !== null && $reference !== '' ? ' ' . $reference : '');
+        $result = new PhysicalCountResult();
+
+        foreach ($found as $partId => $raw) {
+            $raw = trim((string) $raw);
+            $part = ctype_digit($raw) ? $this->entityManager->find(Part::class, (int) $partId) : null;
+            if ($part === null || !$part->isActive()) {
+                continue;
+            }
+
+            $result->counted++;
+            $movement = $this->stock->setQuantity($part, (int) $raw, $note);
+            if ($movement === null) {
+                continue;
+            }
+
+            if ($movement->getQuantity() > 0) {
+                $result->surplus += $movement->getQuantity();
+            } else {
+                $result->shortfall -= $movement->getQuantity();
+            }
+            $result->changed[] = $part;
+        }
+
+        $this->entityManager->flush();
+
+        return $result;
+    }
+
     public function restock(Part $part, RestockData $data): void
     {
         $this->stock->record($part, (int) $data->quantity, $data->note, $data->poNumber, $data->unitPrice, $data->salePrice);

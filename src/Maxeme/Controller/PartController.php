@@ -9,6 +9,7 @@ use App\Maxeme\Dto\RestockData;
 use App\Maxeme\Entity\Part;
 use App\Maxeme\Enum\PartType;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\PartRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -45,6 +46,31 @@ final class PartController extends AbstractMaxemeController
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys(PartRepository::SORTS))),
             'types' => PartType::cases(),
         ]);
+    }
+
+    /** Physical Count: the count sheet, every active part with what the system says and a Found box. */
+    #[Route('/count', name: 'count', methods: ['GET'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
+    public function count(Request $request, PartRepository $repository): Response
+    {
+        $find = SearchTerm::fromRequest($request);
+
+        return $this->render('maxeme/part/count.html.twig', [
+            'parts' => $repository->findForCount($find),
+            'find' => $find,
+        ]);
+    }
+
+    /** Records the count sheet: `found[part id]` (blank = not counted) and an optional `reference`. */
+    #[Route('/count', name: 'count_submit', methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
+    public function recordCount(Request $request): RedirectResponse
+    {
+        $reference = mb_substr(trim((string) $request->request->get('reference', '')), 0, 160);
+        $result = $this->parts->recordCount($request->request->all('found'), $reference !== '' ? $reference : null);
+        $this->addFlash('success', $result->summary());
+
+        return $this->redirectToRoute('maxeme_part_count', array_filter([SearchTerm::PARAM => (string) $request->request->get(SearchTerm::PARAM, '')]));
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

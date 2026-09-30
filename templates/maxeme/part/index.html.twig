@@ -8,6 +8,9 @@
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Inventory', lead: 'Active parts in stock. Click any cell to edit it in place; use Inventory to restock or adjust the quantity.' } %}
         {% block actions %}
+            {% if is_granted('/parts/edit') %}
+                <a id="physicalCountButton" class="button outline" href="{{ path('maxeme_part_count') }}">Physical count</a>
+            {% endif %}
             <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new part</button>
         {% endblock %}
     {% endembed %}

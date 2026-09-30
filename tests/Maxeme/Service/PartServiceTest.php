@@ -54,4 +54,32 @@ final class PartServiceTest extends DoctrineIntegrationTestCase
         $this->em->refresh($part);
         self::assertSame(40.0, (float) $part->getSalePrice());
     }
+
+    public function testAPhysicalCountRecordsOnlyTheDifferences(): void
+    {
+        $filters = new Part();
+        $pads = new Part();
+        $wipers = new Part();
+        $this->parts->save($filters, PartData::fromRequest(new Request(request: ['name' => 'Oil filter', 'quantity' => '10'])));
+        $this->parts->save($pads, PartData::fromRequest(new Request(request: ['name' => 'Pads', 'quantity' => '4'])));
+        $this->parts->save($wipers, PartData::fromRequest(new Request(request: ['name' => 'Wipers', 'quantity' => '6'])));
+
+        $result = $this->parts->recordCount([
+            $filters->getId() => '12',  // 2 more on the shelf
+            $pads->getId() => '1',      // 3 missing
+            $wipers->getId() => '',     // not counted
+            999999 => '5',              // no such part
+        ], 'SHEET-9');
+
+        self::assertSame([12, 1, 6], [$filters->getQuantity(), $pads->getQuantity(), $wipers->getQuantity()]);
+        self::assertSame([2, 2, 3], [$result->counted, $result->surplus, $result->shortfall]);
+        self::assertSame([$filters, $pads], $result->changed);
+
+        $latest = $this->em->getRepository(InventoryHistory::class)->findOneBy(['part' => $pads], ['id' => 'DESC']);
+        self::assertSame([-3, 'Physical count SHEET-9'], [$latest->getQuantity(), $latest->getNote()]);
+
+        $agreeing = $this->parts->recordCount([$filters->getId() => '12'], null);
+        self::assertSame([1, []], [$agreeing->counted, $agreeing->changed]);
+        self::assertStringContainsString('everything agreed', $agreeing->summary());
+    }
 }

@@ -353,3 +353,5 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 /* Choose a client (the sidebar "+" that needs a client first) */
 .mx-pick-search { display: flex; gap: 8px; }
 .mx-pick-search input { flex: 1; }
+.mx-count-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mx-count-footer label { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
