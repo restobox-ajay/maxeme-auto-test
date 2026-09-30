@@ -238,6 +238,10 @@ td .mx-actions { flex-wrap: nowrap; }
 .mx-address-card-label { font-weight: 700; }
 .mx-empty-line { margin: 0; padding: 0 22px 20px; color: var(--muted); }
 .mx-notes-table .mx-note-text { white-space: normal; min-width: 240px; }
+/* The rows carry core's .note-entry (app.js's Edit reads data-note from it), which core styles as
+   a flex card; here each note is a table row, so keep it one (below 760px core stacks every
+   table row as a block, which is right for notes too). */
+@media (min-width: 761px) { .mx-notes-table tr.note-entry { display: table-row; padding: 0; } }
 /* legacy tr.in_progress td { background-color: #F5EBCC; font-weight: bold } */
 tr.in_progress td { background: var(--mx-warning-soft) !important; font-weight: 700; }
 
