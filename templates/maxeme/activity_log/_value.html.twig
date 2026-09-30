@@ -1,0 +1,10 @@
+{# One logged field value. Vars: value (scalar, list or null). #}
+{%- if value is null or value is same as('') -%}
+    <span class="mx-muted">—</span>
+{%- elseif value is iterable -%}
+    {{ value|json_encode }}
+{%- elseif value is same as(true) or value is same as(false) -%}
+    {{ value ? 'yes' : 'no' }}
+{%- else -%}
+    {{ value }}
+{%- endif -%}

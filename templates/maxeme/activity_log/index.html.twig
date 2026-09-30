@@ -1,0 +1,101 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Activity Log | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set noRole = constant('App\\Maxeme\\Audit\\ActivityLogFilter::NO_ROLE') %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+
+    <section class="panel compact-panel">
+        <form method="get" action="{{ path('maxeme_activity_log_index') }}" class="mx-log-filters" id="activity-filters">
+            <label>Role
+                <select name="role">
+                    <option value="">All roles</option>
+                    {% for role in roles %}<option value="{{ role.label }}" {{ filter.role == role.label ? 'selected' }}>{{ role.label }}</option>{% endfor %}
+                    <option value="{{ noRole }}" {{ filter.role == noRole ? 'selected' }}>No role (system)</option>
+                </select>
+            </label>
+            <label>User
+                <select name="user">
+                    <option value="">Everyone</option>
+                    {% for user in users %}<option value="{{ user.id }}" {{ filter.userId == user.id ? 'selected' }}>{{ user.username ?? user.email }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Area
+                <select name="area">
+                    <option value="">All areas</option>
+                    {% for area in areas %}<option value="{{ area }}" {{ filter.area == area ? 'selected' }}>{{ area }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Action
+                <select name="action">
+                    <option value="">All actions</option>
+                    {% for action in actions %}<option value="{{ action }}" {{ filter.action == action ? 'selected' }}>{{ action|replace({ '_': ' ' }) }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>From<input type="date" name="from" value="{{ filter.from ? filter.from|date('Y-m-d') }}"></label>
+            <label>To<input type="date" name="to" value="{{ filter.to ? filter.to|date('Y-m-d') }}"></label>
+            <div class="mx-log-filter-actions">
+                <button class="button primary mx-btn-sm" type="submit">Filter</button>
+                <a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_index') }}">Reset</a>
+            </div>
+        </form>
+        {% if byRole is not empty %}
+            <div class="mx-role-chips">
+                {% for role, count in byRole %}
+                    {% set value = role ?: noRole %}
+                    <a class="badge {{ filter.role == value ? 'info' }}" href="{{ path('maxeme_activity_log_index', filter.toQuery|merge({ role: value })) }}">{{ role ?: 'No role' }} · {{ count }}</a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="table-card" id="activity-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header">
+            <h2>Activity</h2>
+            {{ mx.list_search(page, 'activity') }}
+        </div>
+        <div class="wide-table-wrap">
+            <table id="activity-table">
+                <thead>
+                    <tr>
+                        {{ mx.sort_th(page, 'occurredAt', 'When') }}
+                        {{ mx.sort_th(page, 'actorName', 'User') }}
+                        {{ mx.sort_th(page, 'actorRole', 'Role') }}
+                        {{ mx.sort_th(page, 'area', 'Area') }}
+                        {{ mx.sort_th(page, 'action', 'Action') }}
+                        <th>What</th>
+                        <th>Changes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in page.items %}
+                        {% set changes = audit_changes(entry) %}
+                        <tr id="log-{{ entry.id }}">
+                            <td data-label="When" class="mx-nowrap">{{ entry.occurredAt|date('Y-m-d H:i:s') }}</td>
+                            <td data-label="User">{{ entry.actorName }}</td>
+                            <td data-label="Role">{{ entry.actorRole ?? '—' }}</td>
+                            <td data-label="Area">{{ entry.area }}</td>
+                            <td data-label="Action"><span class="badge {{ { created: 'success', updated: 'info', deleted: 'danger', access_denied: 'danger', sign_in_failed: 'warn' }[entry.action]|default('') }}">{{ entry.action|replace({ '_': ' ' }) }}</span></td>
+                            <td data-label="What">{{ entry.summary }}</td>
+                            <td data-label="Changes">
+                                {% if changes.fields is not empty %}
+                                    <ul class="mx-change-list">
+                                        {% for field, pair in changes.fields %}
+                                            <li><strong>{{ field }}</strong>: {% if entry.action != 'created' %}{% include 'maxeme/activity_log/_value.html.twig' with { value: pair[0] } only %} → {% endif %}{% include 'maxeme/activity_log/_value.html.twig' with { value: entry.action == 'deleted' ? pair[0] : pair[1] } only %}</li>
+                                        {% endfor %}
+                                        {% if changes.more %}<li class="mx-muted">+{{ changes.more }} more</li>{% endif %}
+                                    </ul>
+                                {% endif %}
+                            </td>
+                            <td data-label="Actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_show', { id: entry.id }|merge(filter.toQuery)) }}">Details</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">No activity matches these filters.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

@@ -26,6 +26,14 @@ class AuditLog
     #[ORM\Column(length: 255)]
     private string $actorName = 'System';
 
+    /**
+     * The actor's role when they acted, snapshotted like actorName (a role can change later, and the
+     * trail has to say what the person was allowed to do at the time). Null for system work and for
+     * installs that do not stamp it; filled by the host app (Maxeme: App\Maxeme\Audit\AuditLogEnricher).
+     */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $actorRole = null;
+
     #[ORM\Column(length: 80)]
     private string $area = 'app';
 
@@ -108,6 +116,9 @@ class AuditLog
 
     public function getActorName(): string { return $this->actorName; }
     public function setActorName(string $actorName): self { $this->actorName = substr(trim($actorName), 0, 255) ?: 'System'; return $this; }
+
+    public function getActorRole(): ?string { return $this->actorRole; }
+    public function setActorRole(?string $actorRole): self { $this->actorRole = $actorRole !== null ? (substr(trim($actorRole), 0, 40) ?: null) : null; return $this; }
 
     public function getArea(): string { return $this->area; }
     public function setArea(string $area): self { $this->area = substr(trim($area), 0, 80) ?: 'app'; return $this; }

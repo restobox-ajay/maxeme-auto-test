@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Twig;
 
 use App\Entity\AdminUser;
+use App\Entity\AuditLog;
+use App\Maxeme\Audit\ActivityLog;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Dto\FormData;
 use App\Maxeme\Dto\PartData;
@@ -33,6 +35,17 @@ final class MaxemeExtension
     public function staffRole(AdminUser $user): StaffRole
     {
         return StaffRole::of($user);
+    }
+
+    /**
+     * {% set changes = audit_changes(entry) %}: an Activity Log row's changed fields (the first few).
+     *
+     * @return array{fields: array<string, array{0: mixed, 1: mixed}>, more: int}
+     */
+    #[AsTwigFunction('audit_changes')]
+    public function auditChanges(AuditLog $entry): array
+    {
+        return ActivityLog::changes($entry);
     }
 
     /** {{ mx_icon('search') }}: an icon from the shared AdminMenuIconSet. */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
 use App\Maxeme\Document\PdfRenderer;
@@ -34,9 +35,9 @@ final class WorkOrderController extends AbstractMaxemeController
 
     #[Route('/admin/invoices/{invoiceKey}/work-order.pdf', name: 'maxeme_work_order_pdf', methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
-    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf): Response
+    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity): Response
     {
-        return $this->pdfResponse($pdf->render($invoice, DocumentKind::WorkOrder), DocumentKind::WorkOrder->filename($invoice));
+        return $this->downloadDocument($invoice, DocumentKind::WorkOrder, $pdf, $activity);
     }
 
     #[Route('/admin/invoices/{invoiceKey}/work-order/email', name: 'maxeme_work_order_email', methods: ['POST'])]

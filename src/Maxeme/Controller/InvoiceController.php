@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Accounting\InvoiceSettings;
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
 use App\Maxeme\Document\PdfRenderer;
@@ -100,9 +101,9 @@ final class InvoiceController extends AbstractMaxemeController
 
     #[Route('/admin/invoices/{invoiceKey}/pdf', name: 'maxeme_invoice_pdf', methods: ['GET'])]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
-    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf): Response
+    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity): Response
     {
-        return $this->pdfResponse($pdf->render($invoice, DocumentKind::Invoice), DocumentKind::Invoice->filename($invoice));
+        return $this->downloadDocument($invoice, DocumentKind::Invoice, $pdf, $activity);
     }
 
     #[Route('/admin/invoices/{invoiceKey}/email', name: 'maxeme_invoice_email', methods: ['POST'])]

@@ -1,0 +1,46 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Activity #{{ entry.id }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Activity Log', title: entry.summary, lead: entry.occurredAt|date('Y-m-d H:i:s') ~ ' · ' ~ entry.actorName ~ (entry.actorRole ? ' (' ~ entry.actorRole ~ ')') } %}
+        {% block actions %}
+            <a class="button back-button" href="{{ path('maxeme_activity_log_index', back) }}">Back</a>
+        {% endblock %}
+    {% endembed %}
+
+    <div class="mx-tab-stack">
+        <section class="table-card no-paginate">
+            <div class="wide-table-wrap">
+                <table>
+                    <tbody>
+                        <tr><th>User</th><td>{{ entry.actorName }}{{ entry.actorId ? ' (#' ~ entry.actorId ~ ')' }}</td></tr>
+                        <tr><th>Role</th><td>{{ entry.actorRole ?? '—' }}</td></tr>
+                        <tr><th>Area</th><td>{{ entry.area }}</td></tr>
+                        <tr><th>Action</th><td>{{ entry.action|replace({ '_': ' ' }) }}</td></tr>
+                        <tr><th>Record</th><td>{{ entry.entityType }}{{ entry.entityId ? ' #' ~ entry.entityId }}</td></tr>
+                        <tr><th>IP address</th><td>{{ entry.ipAddress ?? '—' }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card no-paginate">
+            <div class="table-header"><h2>Changes</h2></div>
+            <div class="wide-table-wrap">
+                <table id="activity-changes">
+                    <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+                    <tbody>
+                        {% for field, pair in changes.fields %}
+                            <tr>
+                                <td data-label="Field"><strong>{{ field }}</strong></td>
+                                <td data-label="Before">{% include 'maxeme/activity_log/_value.html.twig' with { value: pair[0] } only %}</td>
+                                <td data-label="After">{% include 'maxeme/activity_log/_value.html.twig' with { value: pair[1] } only %}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="3" class="empty-table-cell">This action changed no record.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+{% endblock %}

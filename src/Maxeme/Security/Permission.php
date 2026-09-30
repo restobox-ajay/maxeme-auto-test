@@ -61,6 +61,9 @@ final class Permission
     /** Config › Roles & Access: every role and the routes it reaches (read-only; the files are the source). */
     public const ROLE_VIEW = '/role/view';
 
+    /** Config › Activity Log: who did what, in which role, with the changes. */
+    public const LOG_VIEW = '/log/view';
+
     /** Each area (a permission's first segment) as the role matrix names it, in matrix order. */
     public const AREAS = [
         'appointment' => 'Schedule appointment',
@@ -73,6 +76,7 @@ final class Permission
         'car' => 'Car',
         'staff' => 'Manage Admins',
         'role' => 'Roles & Access',
+        'log' => 'Activity Log',
         'account' => 'My Profile',
     ];
 

@@ -324,3 +324,13 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 #role-route-table .mx-group-row th { background: var(--line); text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
 #role-route-table tr.mx-denied td { color: var(--muted-soft); }
 #role-matrix td, #role-matrix th { white-space: nowrap; }
+
+/* Logs › Activity Log */
+.mx-log-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; align-items: end; }
+.mx-log-filters label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+.mx-log-filter-actions { display: flex; gap: 8px; }
+.mx-role-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.mx-role-chips .badge { text-decoration: none; }
+.mx-change-list { margin: 0; padding-left: 14px; font-size: 0.82rem; }
+.mx-change-list li { word-break: break-word; }
+.mx-nowrap { white-space: nowrap; }

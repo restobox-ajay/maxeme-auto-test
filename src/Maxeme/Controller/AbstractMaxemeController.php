@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
+use App\Maxeme\Document\PdfRenderer;
 use App\Maxeme\Entity\Invoice;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -38,13 +40,16 @@ abstract class AbstractMaxemeController extends AbstractController
         }
     }
 
-    /** A PDF the browser saves as $filename. */
-    protected function pdfResponse(string $pdf, string $filename): Response
+    /** A document's PDF, saved by the browser under its filename, and recorded in the Activity Log. */
+    protected function downloadDocument(Invoice $invoice, DocumentKind $kind, PdfRenderer $pdf, ActivityRecorder $activity): Response
     {
-        return new Response($pdf, Response::HTTP_OK, [
+        $response = new Response($pdf->render($invoice, $kind), Response::HTTP_OK, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $kind->filename($invoice)),
         ]);
+        $activity->downloaded($invoice, $kind);
+
+        return $response;
     }
 
     /** The Email PDF modals: `emails` (comma-separated), then back to the page with the legacy messages. */

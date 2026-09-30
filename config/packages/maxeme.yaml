@@ -103,6 +103,15 @@ parameters:
           children:
               - { key: manage_admins, label: Manage Admins, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_] }
               - { key: roles, label: Roles & Access, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
+        - key: logs
+          label: Logs
+          icon: log
+          role: /log/view
+          children:
+              - { key: activity, label: Activity Log, route: maxeme_activity_log_index, match: [maxeme_activity_log_] }
+              # Core's own log screens, with core's own gates (its Error Log shows stack traces: Tech Support only).
+              - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
+              - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_TECH_SUPPORT }
 
 twig:
     globals:

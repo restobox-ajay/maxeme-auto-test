@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Document;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Entity\Invoice;
 use App\Service\AppSettings;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,7 @@ final class DocumentMailer
         private readonly Environment $twig,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
+        private readonly ActivityRecorder $activity,
     ) {
     }
 
@@ -57,6 +59,8 @@ final class DocumentMailer
 
             return false;
         }
+
+        $this->activity->emailed($invoice, $kind, implode(', ', array_map(static fn (Address $address): string => $address->getAddress(), [...$email->getTo(), ...$email->getCc()])));
 
         return true;
     }
