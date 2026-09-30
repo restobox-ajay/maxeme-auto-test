@@ -10,7 +10,8 @@ use App\Maxeme\Entity\Part;
 use App\Maxeme\Enum\PartType;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\PartRepository;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\PartService;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -19,7 +20,6 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Parts & Services › Parts Inventory (legacy CNSInventoryBundle manageController).
@@ -29,7 +29,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * the quantity is recorded in the stock history.
  */
 #[Route('/admin/parts', name: 'maxeme_part_')]
-#[IsGranted(StaffRole::MANAGER)]
 final class PartController extends AbstractMaxemeController
 {
     public function __construct(
@@ -39,6 +38,7 @@ final class PartController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
+    #[RequiresPermission(Permission::PARTS_VIEW)]
     public function index(Request $request, PartRepository $repository): Response
     {
         return $this->render('maxeme/part/index.html.twig', [
@@ -48,12 +48,14 @@ final class PartController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function create(Request $request): RedirectResponse
     {
         return $this->save(new Part(), $request, '%s added.');
     }
 
     #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function update(#[MapEntity] Part $part, Request $request): RedirectResponse
     {
         return $this->save($part, $request, '%s saved.');
@@ -61,6 +63,7 @@ final class PartController extends AbstractMaxemeController
 
     /** One grid cell: `field` (a part form field name) and `value`. Answers the saved value. */
     #[Route('/{id}/field', name: 'field', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function field(#[MapEntity] Part $part, Request $request): JsonResponse
     {
         $field = (string) $request->request->get('field', '');
@@ -76,6 +79,7 @@ final class PartController extends AbstractMaxemeController
     }
 
     #[Route('/{id}/restock', name: 'restock', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function restock(#[MapEntity] Part $part, Request $request): RedirectResponse
     {
         $data = RestockData::fromRequest($request);
@@ -94,6 +98,7 @@ final class PartController extends AbstractMaxemeController
      * Answers the new part (it is not added to the invoice, as in the legacy app).
      */
     #[Route('/order', name: 'order', methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function order(Request $request): JsonResponse
     {
         $part = PartData::fromRequest($request);
@@ -114,6 +119,7 @@ final class PartController extends AbstractMaxemeController
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::PARTS_EDIT)]
     public function delete(#[MapEntity] Part $part): JsonResponse
     {
         $this->records->delete($part);

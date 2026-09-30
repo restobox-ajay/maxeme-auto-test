@@ -48,12 +48,18 @@ parameters:
     # Reminder Todo's: an appointment this many months ago, with nothing booked since, becomes a reminder.
     maxeme.reminder_after_months: 6
 
+    # Where each staff role's permission file lives ({key}_role_permission.php, one per
+    # App\Maxeme\Security\StaffRole). First directory with the file wins.
+    maxeme.rbac.role_permission_dirs:
+        - '%kernel.project_dir%/config/rbac/role_permissions'
+
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
 
     # The admin sidebar (legacy _top_navigation.html.twig, same order). App\Maxeme\Menu\MaxemeAdminMenuProvider
     # hides every core B2B entry and injects these instead.
-    #   role:  rendering-only role check (the route enforces its own access)
+    #   role:  rendering-only is_granted() check, a role or a permission such as /parts/view
+    #          (each action enforces its own #[RequiresPermission])
     #   match: extra route-name prefixes that highlight the entry (its own route always does)
     # Entries are added here as each screen is built.
     maxeme.admin_menu:
@@ -61,32 +67,33 @@ parameters:
           label: Schedule
           icon: calendar
           children:
-              - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, match: [maxeme_appointment_] }
-              - { key: reminders, label: Reminder, route: maxeme_reminder_index, match: [maxeme_reminder_] }
+              - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_] }
+              - { key: reminders, label: Reminder, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_] }
         - key: parts
           label: Parts & Services
           icon: wrench
-          role: ROLE_MANAGER
           children:
-              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, match: [maxeme_part_] }
-              - { key: services, label: Services, route: maxeme_service_index, match: [maxeme_service_] }
+              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, role: /parts/view, match: [maxeme_part_] }
+              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_] }
         - key: accounting
           label: Accounting
           icon: chart
-          role: ROLE_MANAGER
+          role: /accounting/view
           children:
               - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_] }
         - key: people
           label: People
           icon: users
+          role: /people/view
           children:
               - { key: clients, label: Client List, route: maxeme_client_index, match: [maxeme_client_, maxeme_vehicle_] }
         - key: config
           label: Config
           icon: cog
-          role: ROLE_SUPER_ADMIN
+          role: /staff/view
           children:
-              - { key: manage_admins, label: Manage Admins, route: maxeme_staff_index, match: [maxeme_staff_] }
+              - { key: manage_admins, label: Manage Admins, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_] }
+              - { key: roles, label: Roles & Access, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
 
 twig:
     globals:

@@ -1,6 +1,9 @@
 {# Client Profile › Appointments (legacy Profile/_appointments.html.twig). Vars: client, pending, past,
-   invoiceKeys (appointment id => invoice key), canManage. Times render in the shop's timezone (Twig's, set by core).
-   Admins get Invoice (the builder, created on first save); Staff get the Work Order once an invoice exists. #}
+   invoiceKeys (appointment id => invoice key). Times render in the shop's timezone (Twig's, set by core).
+   Accounting gets Invoice (the builder, created on first save); other roles get the Work Order once an
+   invoice exists; Appointment edit gets check-in / edit / delete. #}
+{% set canInvoice = is_granted('/accounting/view') %}
+{% set canEditAppointments = is_granted('/appointment/edit') %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 <div class="mx-tab-stack">
     <section class="table-card no-paginate" id="pending-card">
@@ -19,24 +22,30 @@
                             <td data-label="Duration">{{ appointment.durationInHours|number_format(2) }} Hours</td>
                             <td data-label="Note">{{ appointment.note }}</td>
                             <td data-label="Actions">
-                            {% if canManage %}
+                            {% if canInvoice or canEditAppointments %}
                                     <div class="row-action-menu">
                                         <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Appointment actions"></button>
                                         <div class="row-action-dropdown">
-                                            <a class="invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
-                                            {% if appointment.status.value == 'new' %}
-                                                <button type="button" class="checkin_appointment js-post-action" data-reload
-                                                        data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}"
-                                                        data-token="{{ csrf_token_value() }}">Check-in</button>
+                                            {% if canInvoice %}
+                                                <a class="invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
+                                            {% elseif invoiceKeys[appointment.id] is defined %}
+                                                <a class="workorder-client-apointment" href="{{ path('maxeme_work_order_show', { invoiceKey: invoiceKeys[appointment.id] }) }}" target="_blank" rel="noopener">Work Order</a>
                                             {% endif %}
-                                            <a class="edit_client_appointment" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit Appointment</a>
-                                            <button type="button" class="delete_client_appointment danger js-post-action" data-remove-row="#row_{{ appointment.id }}"
-                                                    data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}"
-                                                    data-token="{{ csrf_token_value() }}"
-                                                    data-confirm-title="Delete Confirmation"
-                                                    data-confirm-before="Are you sure you want to delete "
-                                                    data-item="the appointment on {{ appointment.startTime|date('m/d/Y h:i A') }}"
-                                                    data-confirm-after="?">Delete Appointment</button>
+                                            {% if canEditAppointments %}
+                                                {% if appointment.status.value == 'new' %}
+                                                    <button type="button" class="checkin_appointment js-post-action" data-reload
+                                                            data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}"
+                                                            data-token="{{ csrf_token_value() }}">Check-in</button>
+                                                {% endif %}
+                                                <a class="edit_client_appointment" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit Appointment</a>
+                                                <button type="button" class="delete_client_appointment danger js-post-action" data-remove-row="#row_{{ appointment.id }}"
+                                                        data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}"
+                                                        data-token="{{ csrf_token_value() }}"
+                                                        data-confirm-title="Delete Confirmation"
+                                                        data-confirm-before="Are you sure you want to delete "
+                                                        data-item="the appointment on {{ appointment.startTime|date('m/d/Y h:i A') }}"
+                                                        data-confirm-after="?">Delete Appointment</button>
+                                            {% endif %}
                                         </div>
                                     </div>
                             {% elseif invoiceKeys[appointment.id] is defined %}
@@ -71,7 +80,7 @@
                             <td data-label="Duration">{{ appointment.durationInHours }}</td>
                             <td data-label="Note">{{ appointment.note }}</td>
                             <td data-label="Actions">
-                                {% if canManage %}
+                                {% if canInvoice %}
                                     <a class="button outline mx-btn-sm invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
                                 {% elseif invoiceKeys[appointment.id] is defined %}
                                     <a class="button outline mx-btn-sm" href="{{ path('maxeme_work_order_show', { invoiceKey: invoiceKeys[appointment.id] }) }}" target="_blank" rel="noopener">Work Order</a>

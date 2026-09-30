@@ -7,78 +7,93 @@ namespace App\Maxeme\Security;
 use App\Entity\AdminUser;
 
 /**
- * The shop's staff tiers, each a security role (hierarchy in config/packages/security.yaml:
- * ROLE_SUPER_ADMIN > ROLE_MANAGER > ROLE_STAFF).
+ * The shop's staff roles, highest first. Each is a security role stored on the AdminUser, and what
+ * it may do is its own file under config/rbac/role_permissions/ (permissionKey() names it).
  *
- * The legacy app's ROLE_USER / ROLE_ADMIN / ROLE_SUPER_ADMIN map onto Staff / Admin / SuperAdmin.
- * Admin is ROLE_MANAGER rather than ROLE_ADMIN because core gives every AdminUser ROLE_ADMIN to
- * pass the /admin firewall, so ROLE_ADMIN cannot tell the tiers apart.
- *
- * Gate screens with the case value: #[IsGranted(StaffRole::MANAGER)] / is_granted('ROLE_MANAGER').
+ * Admin is ROLE_SHOP_ADMIN rather than ROLE_ADMIN because core gives every AdminUser ROLE_ADMIN to
+ * pass the /admin firewall, so ROLE_ADMIN cannot tell the roles apart. Tech Support is core's own
+ * role (it inherits ROLE_SUPER_ADMIN in security.yaml).
  */
 enum StaffRole: string
 {
-    public const STAFF = 'ROLE_STAFF';
-    public const MANAGER = 'ROLE_MANAGER';
-    public const SUPER_ADMIN = 'ROLE_SUPER_ADMIN';
-
-    case Staff = self::STAFF;
-    case Admin = self::MANAGER;
-    case SuperAdmin = self::SUPER_ADMIN;
+    case TechSupport = 'ROLE_TECH_SUPPORT';
+    case SuperAdmin = 'ROLE_SUPER_ADMIN';
+    case Admin = 'ROLE_SHOP_ADMIN';
+    case SecretaryOne = 'ROLE_SECRETARY_1';
+    case SecretaryTwo = 'ROLE_SECRETARY_2';
+    case Receptionist = 'ROLE_RECEPTIONIST';
+    case Technician = 'ROLE_TECHNICIAN';
 
     public function label(): string
     {
         return match ($this) {
-            self::Staff => 'Staff',
+            self::TechSupport => 'Tech Support',
+            self::SuperAdmin => 'Super Admin',
             self::Admin => 'Admin',
-            self::SuperAdmin => 'Super admin',
+            self::SecretaryOne => 'Secretary I',
+            self::SecretaryTwo => 'Secretary II',
+            self::Receptionist => 'Receptionist',
+            self::Technician => 'Technician',
         };
+    }
+
+    /** The role's permission file: config/rbac/role_permissions/{key}_role_permission.php. */
+    public function permissionKey(): string
+    {
+        return match ($this) {
+            self::TechSupport => 'tech_support',
+            self::SuperAdmin => 'super_admin',
+            self::Admin => 'admin',
+            self::SecretaryOne => 'secretary_1',
+            self::SecretaryTwo => 'secretary_2',
+            self::Receptionist => 'receptionist',
+            self::Technician => 'technician',
+        };
+    }
+
+    public static function fromPermissionKey(string $key): ?self
+    {
+        foreach (self::cases() as $role) {
+            if ($role->permissionKey() === $key) {
+                return $role;
+            }
+        }
+
+        return null;
     }
 
     /**
-     * The role names the legacy app listed for this tier (Manage Admins' Role column).
+     * The roles Manage Admins can give an account; Tech Support is the vendor's, set up outside the shop.
      *
-     * @return list<string>
+     * @return list<self>
      */
-    public function legacyRoles(): array
+    public static function assignable(): array
     {
-        return match ($this) {
-            self::Staff => ['ROLE_USER'],
-            self::Admin => ['ROLE_ADMIN', 'ROLE_USER'],
-            self::SuperAdmin => ['ROLE_SUPER_ADMIN', 'ROLE_USER'],
-        };
+        return array_values(array_filter(self::cases(), static fn (self $role): bool => $role !== self::TechSupport));
     }
 
-    /** The highest tier among the account's stored roles (display only; access checks use is_granted()). */
-    public static function of(AdminUser $user): self
+    /** The highest shop role among the account's stored roles, or null for an account with none. */
+    public static function of(AdminUser $user): ?self
     {
-        return self::highestOf($user->getRoles(), self::SuperAdmin->value, self::Admin->value);
-    }
-
-    /** Maps a legacy (FOSUserBundle) role list to its tier. */
-    public static function fromLegacyRoles(array $legacyRoles): self
-    {
-        return self::highestOf($legacyRoles, 'ROLE_SUPER_ADMIN', 'ROLE_ADMIN');
-    }
-
-    /** @return array<string, string> value => label */
-    public static function choices(): array
-    {
-        $choices = [];
-        foreach (self::cases() as $case) {
-            $choices[$case->value] = $case->label();
+        foreach (self::cases() as $role) {
+            if (in_array($role->value, $user->getRoles(), true)) {
+                return $role;
+            }
         }
 
-        return $choices;
+        return null;
     }
 
-    /** @param list<string> $roles */
-    private static function highestOf(array $roles, string $superAdminRole, string $adminRole): self
+    /**
+     * Maps a legacy (FOSUserBundle) role list to a role: ROLE_SUPER_ADMIN => Super Admin,
+     * ROLE_ADMIN => Admin, anything else (the legacy view-only ROLE_USER) => Receptionist.
+     */
+    public static function fromLegacyRoles(array $legacyRoles): self
     {
         return match (true) {
-            in_array($superAdminRole, $roles, true) || in_array('ROLE_TECH_SUPPORT', $roles, true) => self::SuperAdmin,
-            in_array($adminRole, $roles, true) => self::Admin,
-            default => self::Staff,
+            in_array('ROLE_SUPER_ADMIN', $legacyRoles, true) => self::SuperAdmin,
+            in_array('ROLE_ADMIN', $legacyRoles, true) => self::Admin,
+            default => self::Receptionist,
         };
     }
 }

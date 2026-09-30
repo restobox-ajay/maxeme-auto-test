@@ -8,7 +8,8 @@ use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\ServiceItemRepository;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,11 +17,9 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /** Parts & Services › Services (legacy CNSServiceBundle manageController). Deleting asks for confirmation. */
 #[Route('/admin/services', name: 'maxeme_service_')]
-#[IsGranted(StaffRole::MANAGER)]
 final class ServiceItemController extends AbstractMaxemeController
 {
     public function __construct(
@@ -29,6 +28,7 @@ final class ServiceItemController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
+    #[RequiresPermission(Permission::SERVICE_VIEW)]
     public function index(Request $request, ServiceItemRepository $repository): Response
     {
         return $this->render('maxeme/service/index.html.twig', [
@@ -37,18 +37,21 @@ final class ServiceItemController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
     public function create(Request $request): RedirectResponse
     {
         return $this->save(new ServiceItem(), $request, '%s added.');
     }
 
     #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
     public function update(#[MapEntity] ServiceItem $service, Request $request): RedirectResponse
     {
         return $this->save($service, $request, '%s saved.');
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
     public function delete(#[MapEntity] ServiceItem $service): JsonResponse
     {
         $this->records->delete($service);

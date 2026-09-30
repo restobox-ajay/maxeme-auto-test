@@ -4,10 +4,6 @@ security:
     # second gate to remember, which is the point of expressing it here rather than in code.
     role_hierarchy:
         ROLE_TECH_SUPPORT: [ROLE_SUPER_ADMIN]
-        # Maxeme's staff tiers (App\Maxeme\Security\StaffRole). AdminUser::getRoles() adds ROLE_ADMIN
-        # to every account for the /admin firewall, so the shop's own "Admin" tier is ROLE_MANAGER.
-        ROLE_SUPER_ADMIN: [ROLE_MANAGER]
-        ROLE_MANAGER: [ROLE_STAFF]
 
     password_hashers:
         # The legacy Maxeme app's FOSUserBundle hash: sha512, base64, 5000 iterations, per-user salt.

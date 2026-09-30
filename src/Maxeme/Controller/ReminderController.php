@@ -7,7 +7,8 @@ namespace App\Maxeme\Controller;
 use App\Maxeme\Entity\Reminder;
 use App\Maxeme\Enum\ReminderStatus;
 use App\Maxeme\Repository\ReminderRepository;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\ReminderGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -15,16 +16,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Schedule › Reminder (legacy ReminderController). Opening the page creates the day's reminders,
  * as in the legacy app; `app:maxeme:generate-reminders` does the same from a scheduler.
  */
-#[IsGranted(StaffRole::STAFF)]
 final class ReminderController extends AbstractMaxemeController
 {
     #[Route('/admin/reminders', name: 'maxeme_reminder_index', methods: ['GET'])]
+    #[RequiresPermission(Permission::REMINDER_VIEW)]
     public function index(ReminderGenerator $generator, ReminderRepository $reminders): Response
     {
         $generator->generate();
@@ -34,7 +34,7 @@ final class ReminderController extends AbstractMaxemeController
 
     /** Resolved (`booked`), Declined or Delayed (with a `note`). */
     #[Route('/admin/reminders/{id}/status', name: 'maxeme_reminder_status', requirements: ['id' => '\d+'], methods: ['POST'])]
-    #[IsGranted(StaffRole::MANAGER)]
+    #[RequiresPermission(Permission::REMINDER_EDIT)]
     public function status(#[MapEntity] Reminder $reminder, Request $request, EntityManagerInterface $entityManager): Response
     {
         $status = ReminderStatus::tryFrom((string) $request->request->get('status', ''));

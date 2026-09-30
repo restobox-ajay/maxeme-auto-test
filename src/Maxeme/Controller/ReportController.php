@@ -6,23 +6,23 @@ namespace App\Maxeme\Controller;
 
 use App\Maxeme\Accounting\SummaryReport;
 use App\Maxeme\Enum\PaymentMethod;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Service\AppSettings;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Accounting › Summary Report. A GET form (startDate, endDate as mm/dd/yyyy, method) so a report
  * can be bookmarked; the legacy page POSTed and crashed on a malformed date.
  */
-#[IsGranted(StaffRole::MANAGER)]
 final class ReportController extends AbstractMaxemeController
 {
     private const DATE = 'm/d/Y';
 
     #[Route('/admin/accounting/summary-report', name: 'maxeme_report_summary', methods: ['GET'])]
+    #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
     public function summary(Request $request, SummaryReport $report, AppSettings $appSettings): Response
     {
         $today = (new \DateTimeImmutable('now', $appSettings->timezone()))->format(self::DATE);

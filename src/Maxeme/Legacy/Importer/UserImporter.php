@@ -50,9 +50,11 @@ final class UserImporter implements LegacyImporterInterface
             $isNew = !$user instanceof AdminUser;
 
             if ($isNew) {
+                // The role only on the way in: a re-run must not undo a role given in Manage Admins.
                 $user = (new AdminUser())
                     ->setPassword((string) $row['password'])
-                    ->setLegacySalt((string) $row['salt']);
+                    ->setLegacySalt((string) $row['salt'])
+                    ->setRoles([StaffRole::fromLegacyRoles($this->legacyRoles((string) $row['roles']))->value]);
                 $this->entityManager->persist($user);
             } elseif ($user->getSalt() !== null) {
                 // Not rehashed yet, so nobody has changed it here: follow the legacy password.
@@ -62,8 +64,7 @@ final class UserImporter implements LegacyImporterInterface
             $user->setEmail((string) $row['email'])
                 ->setUsername((string) $row['username'])
                 ->setFirstName($row['first_name'] !== null ? (string) $row['first_name'] : null)
-                ->setLastName($row['last_name'] !== null ? (string) $row['last_name'] : null)
-                ->setRoles([StaffRole::fromLegacyRoles($this->legacyRoles((string) $row['roles']))->value]);
+                ->setLastName($row['last_name'] !== null ? (string) $row['last_name'] : null);
 
             $status = (bool) $row['enabled'] ? AdminUserStatus::Active : AdminUserStatus::Inactive;
             if ($user->getStatus() !== $status->value) {

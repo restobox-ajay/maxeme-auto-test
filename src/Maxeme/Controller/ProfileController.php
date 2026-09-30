@@ -6,6 +6,8 @@ namespace App\Maxeme\Controller;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Dto\ProfileUpdateRequest;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\FieldErrors;
 use App\Maxeme\Service\StaffAccountService;
 use App\Validation\Dto\PasswordChangeRequest;
@@ -18,6 +20,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /** User menu › My Profile, Edit Profile, Change Password (legacy FOSUserBundle profile pages). */
 #[Route('/admin/my-profile', name: 'maxeme_profile_')]
+#[RequiresPermission(Permission::ACCOUNT)]
 final class ProfileController extends AbstractController
 {
     public function __construct(

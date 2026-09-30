@@ -11,9 +11,9 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
  * Who may change an invoice (legacy invoiceViewAction / invoiceSaveAction):
- *  - a Super admin, always;
- *  - an Admin, while its appointment is not complete;
- *  - Staff, never (they see the work order).
+ *  - a Super Admin (and Tech Support), always, a paid invoice included;
+ *  - a role with Accounting edit, while its appointment is not complete;
+ *  - anyone else, never (they see the printable invoice or the work order).
  *
  * Whether the builder or the printable invoice opens by default is a separate question (a paid
  * invoice opens printed), answered by the controller.
@@ -36,13 +36,13 @@ final class InvoiceVoter extends Voter
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
-        if ($this->decisions->decide($token, [StaffRole::SUPER_ADMIN])) {
+        if ($this->decisions->decide($token, [StaffRole::SuperAdmin->value])) {
             return true;
         }
 
         $appointment = $subject->getAppointment();
 
-        return $this->decisions->decide($token, [StaffRole::MANAGER])
+        return $this->decisions->decide($token, [Permission::ACCOUNTING_EDIT])
             && ($appointment === null || $appointment->getStatus()->isPending());
     }
 }

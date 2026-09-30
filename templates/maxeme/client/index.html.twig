@@ -2,12 +2,12 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Client List | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% set canManage = is_granted('ROLE_MANAGER') %}
+    {% set canManage = is_granted('/people/edit') %}
     {% set columns = { firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', homeNumber: 'Home number', workNumber: 'Work number', cellNumber: 'Cell number', address: 'Address', note: 'Note', lastUpdated: 'Last updated' } %}
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Client List', lead: 'All active clients. Open a profile to manage vehicles, appointments, invoices and work orders.' } %}
         {% block actions %}
-            {% if is_granted('ROLE_MANAGER') %}
+            {% if canManage %}
                 <button id="manageAddButton" class="button primary" type="button" data-modal-open="#manageAddModal">+ Add a new person</button>
             {% endif %}
         {% endblock %}

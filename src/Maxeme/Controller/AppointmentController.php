@@ -9,20 +9,19 @@ use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Schedule\ScheduleSettings;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\AppointmentService;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Schedule an appointment / Edit an appointment (legacy Appointment/form.html.twig, which the
  * client profile opened in a modal; here they are pages that return to the profile).
  */
-#[IsGranted(StaffRole::MANAGER)]
 final class AppointmentController extends AbstractMaxemeController
 {
     public function __construct(
@@ -33,12 +32,14 @@ final class AppointmentController extends AbstractMaxemeController
     }
 
     #[Route('/admin/clients/{id}/appointments/new', name: 'maxeme_appointment_new', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    #[RequiresPermission(Permission::APPOINTMENT_EDIT)]
     public function new(#[MapEntity] Client $client, Request $request): Response
     {
         return $this->handle($request, $client, null);
     }
 
     #[Route('/admin/appointments/{id}/edit', name: 'maxeme_appointment_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    #[RequiresPermission(Permission::APPOINTMENT_EDIT)]
     public function edit(#[MapEntity] Appointment $appointment, Request $request): Response
     {
         return $this->handle($request, $appointment->getClient(), $appointment);

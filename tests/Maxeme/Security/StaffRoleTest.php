@@ -14,8 +14,8 @@ final class StaffRoleTest extends TestCase
     /** @return iterable<string, array{list<string>, StaffRole}> */
     public static function legacyRoleLists(): iterable
     {
-        yield 'no roles (FOS ROLE_USER only)' => [[], StaffRole::Staff];
-        yield 'ROLE_USER' => [['ROLE_USER'], StaffRole::Staff];
+        yield 'no roles (FOS ROLE_USER only)' => [[], StaffRole::Receptionist];
+        yield 'ROLE_USER' => [['ROLE_USER'], StaffRole::Receptionist];
         yield 'ROLE_ADMIN' => [['ROLE_ADMIN'], StaffRole::Admin];
         yield 'ROLE_SUPER_ADMIN wins over ROLE_ADMIN' => [['ROLE_USER', 'ROLE_ADMIN', 'ROLE_SUPER_ADMIN'], StaffRole::SuperAdmin];
     }
@@ -27,18 +27,18 @@ final class StaffRoleTest extends TestCase
         self::assertSame($expected, StaffRole::fromLegacyRoles($legacyRoles));
     }
 
-    public function testReadsTheTierFromTheAccountDespiteTheForcedRoleAdmin(): void
+    public function testReadsTheRoleFromTheAccountDespiteTheForcedRoleAdmin(): void
     {
-        // AdminUser::getRoles() adds ROLE_ADMIN to every account; it must not read as the Admin tier.
-        self::assertSame(StaffRole::Staff, StaffRole::of((new AdminUser())->setRoles([StaffRole::Staff->value])));
+        // AdminUser::getRoles() adds ROLE_ADMIN to every account; it must not read as the Admin role.
+        self::assertNull(StaffRole::of(new AdminUser()));
+        self::assertSame(StaffRole::Technician, StaffRole::of((new AdminUser())->setRoles([StaffRole::Technician->value])));
         self::assertSame(StaffRole::Admin, StaffRole::of((new AdminUser())->setRoles([StaffRole::Admin->value])));
-        self::assertSame(StaffRole::SuperAdmin, StaffRole::of((new AdminUser())->setRoles(['ROLE_TECH_SUPPORT'])));
+        self::assertSame(StaffRole::TechSupport, StaffRole::of((new AdminUser())->setRoles(['ROLE_SUPER_ADMIN', 'ROLE_TECH_SUPPORT'])));
     }
 
-    public function testLegacyRoleListsMatchTheLegacyManageAdminsColumn(): void
+    public function testTechSupportCannotBeGivenFromManageAdmins(): void
     {
-        self::assertSame(['ROLE_USER'], StaffRole::Staff->legacyRoles());
-        self::assertSame(['ROLE_ADMIN', 'ROLE_USER'], StaffRole::Admin->legacyRoles());
-        self::assertSame(['ROLE_SUPER_ADMIN', 'ROLE_USER'], StaffRole::SuperAdmin->legacyRoles());
+        self::assertNotContains(StaffRole::TechSupport, StaffRole::assignable());
+        self::assertCount(count(StaffRole::cases()) - 1, StaffRole::assignable());
     }
 }

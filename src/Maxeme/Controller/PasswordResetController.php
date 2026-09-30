@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Security\Attribute\PubliclyAccessible;
 use App\Maxeme\Security\PasswordResetOutcome;
 use App\Maxeme\Service\FieldErrors;
 use App\Maxeme\Service\PasswordResetService;
@@ -21,6 +22,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Public: `^/admin/resetting` is PUBLIC_ACCESS in security.yaml; the token is the credential.
  */
 #[Route('/admin/resetting', name: 'maxeme_resetting_')]
+#[PubliclyAccessible]
 final class PasswordResetController extends AbstractController
 {
     public function __construct(

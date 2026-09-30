@@ -13,7 +13,8 @@ use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Repository\VehicleRepository;
-use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,7 +22,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * People › Client List, the client profile and the sidebar client search (legacy
@@ -32,7 +32,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * redirects to the profile rather than rendering it under the search URL.
  */
 #[Route('/admin/clients', name: 'maxeme_client_')]
-#[IsGranted(StaffRole::STAFF)]
 final class ClientController extends AbstractMaxemeController
 {
     public function __construct(
@@ -42,6 +41,7 @@ final class ClientController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function index(Request $request): Response
     {
         return $this->renderList($request, new ClientSearchCriteria());
@@ -49,7 +49,7 @@ final class ClientController extends AbstractMaxemeController
 
     /** The sidebar "Find a customer" form: one match opens the profile, otherwise the filtered list. */
     #[Route('/search', name: 'search', methods: ['GET'])]
-    #[IsGranted(StaffRole::MANAGER)]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function search(Request $request): Response
     {
         $criteria = ClientSearchCriteria::fromRequest($request);
@@ -63,7 +63,7 @@ final class ClientController extends AbstractMaxemeController
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
-    #[IsGranted(StaffRole::MANAGER)]
+    #[RequiresPermission(Permission::PEOPLE_EDIT)]
     public function create(Request $request): Response
     {
         $data = ClientData::fromRequest($request);
@@ -79,6 +79,7 @@ final class ClientController extends AbstractMaxemeController
     }
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function show(#[MapEntity] Client $client, Request $request, VehicleRepository $vehicles, AppointmentRepository $appointments, InvoiceRepository $invoices): Response
     {
         $this->denyUnlessActive($client);
@@ -101,7 +102,7 @@ final class ClientController extends AbstractMaxemeController
     }
 
     #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['POST'])]
-    #[IsGranted(StaffRole::MANAGER)]
+    #[RequiresPermission(Permission::PEOPLE_EDIT)]
     public function update(#[MapEntity] Client $client, Request $request): Response
     {
         $this->denyUnlessActive($client);
@@ -118,7 +119,7 @@ final class ClientController extends AbstractMaxemeController
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
-    #[IsGranted(StaffRole::MANAGER)]
+    #[RequiresPermission(Permission::PEOPLE_EDIT)]
     public function delete(#[MapEntity] Client $client): JsonResponse
     {
         $this->records->delete($client);

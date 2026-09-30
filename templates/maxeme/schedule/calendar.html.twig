@@ -18,7 +18,8 @@
                 slotMinTime: settings.dayStart,
                 slotMaxTime: settings.dayEnd,
                 slotMinutes: settings.slotMinutes,
-                canManage: is_granted('ROLE_MANAGER'),
+                canManage: is_granted('/appointment/edit'),
+                canOpenClient: is_granted('/people/view'),
                 views: { dayGridMonth: 'month', timeGridWeek: 'agendaWeek', timeGridDay: 'agendaDay' },
             }|json_encode }}"></div>
         </div>
@@ -27,5 +28,5 @@
 {% block javascripts %}
     {{ parent() }}
     {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-    <script src="/assets/js/maxeme-calendar.js?v=2"></script>
+    <script src="/assets/js/maxeme-calendar.js?v=3"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 {# The legacy side menu's two searches (_side_menu.html.twig), below the navigation: "Client
-   Information" and "Find invoice". Admin and above. #}
+   Information" (People view) and "Find invoice" (Accounting view). #}
 {% macro field(icon, inputs, extra = '') %}
     {% set values = app.request.attributes.get('_route') == 'maxeme_client_search' ? app.request.query.all : {} %}
     <div class="mx-side-field {{ extra }}"><span class="mx-addon">{{ mx_icon(icon) }}</span><div class="mx-inputs">
@@ -10,6 +10,7 @@
 {% endmacro %}
 {% import _self as search %}
 <div class="mx-side-search">
+    {% if is_granted('/people/view') %}
     <form method="get" action="{{ path('maxeme_client_search') }}">
         <h5>Client Information</h5>
         {{ search.field('user', { firstName: 'First Name', lastName: 'Last Name' }) }}
@@ -19,8 +20,11 @@
         {{ search.field('money', { invoiceNumber: 'Invoice Number' }) }}
         <button class="button primary" type="submit">{{ mx_icon('search') }} Find a customer</button>
     </form>
+    {% endif %}
+    {% if is_granted('/accounting/view') %}
     <form method="get" action="{{ path('maxeme_invoice_find') }}">
         {{ search.field('money', { searchInvoiceNumber: 'Invoice Number' }) }}
         <button class="button primary" type="submit">{{ mx_icon('search') }} Find invoice</button>
     </form>
+    {% endif %}
 </div>

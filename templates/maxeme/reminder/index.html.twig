@@ -2,7 +2,8 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Reminder Todo's | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% set canManage = is_granted('ROLE_MANAGER') %}
+    {% set canManage = is_granted('/reminder/edit') %}
+    {% set canBook = is_granted('/people/view') and is_granted('/appointment/edit') %}
     {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: "Reminder Todo's", lead: 'Clients whose last service was 6 months ago and who have nothing booked yet.' } only %}
 
     <section class="table-card no-paginate">
@@ -12,7 +13,7 @@
                 <thead>
                     <tr>
                         <th>Status</th>
-                        {% if canManage %}<th>Appointment</th>{% endif %}
+                        {% if canBook %}<th>Appointment</th>{% endif %}
                         <th>Client Info</th><th>Vehicle</th><th>Previous Appointment</th><th>Reminder note</th><th>Phone number</th>
                         {% if canManage %}<th>Action</th>{% endif %}
                     </tr>
@@ -23,7 +24,7 @@
                         {% set invoice = reminder.invoice %}
                         <tr id="reminder_{{ reminder.id }}">
                             <td class="reminder-{{ reminder.status.value }}"><span class="badge">{{ reminder.status.value }}</span></td>
-                            {% if canManage %}
+                            {% if canBook %}
                                 <td><a class="button outline xs" href="{{ path('maxeme_client_show', { id: client.id }) }}" target="_blank" rel="noopener">Book an appointment</a></td>
                             {% endif %}
                             <td><strong>{{ client.fullName }}</strong>{% if client.note %}<div class="muted-line">{{ client.note }}</div>{% endif %}</td>
@@ -52,7 +53,7 @@
                             {% endif %}
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ canManage ? 8 : 6 }}" class="empty-table-cell">No reminders to follow up.</td></tr>
+                        <tr><td colspan="{{ 6 + (canBook ? 1 : 0) + (canManage ? 1 : 0) }}" class="empty-table-cell">No reminders to follow up.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

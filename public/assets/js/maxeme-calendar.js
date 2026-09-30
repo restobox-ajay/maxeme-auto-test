@@ -45,18 +45,18 @@
 
     function showStrip(event, el) {
         removeStrip();
-        if (!config.canManage) { return; }
-
         var status = event.extendedProps.status;
         var urls = event.extendedProps.urls;
-        var items = [
-            '<li><a class="client_info_btn" title="client profile" href="' + urls.client + '">' + ICON.user + '</a></li>',
-            '<li><a class="view_event_btn" title="invoice" href="' + urls.invoice + '" target="_blank" rel="noopener">' + ICON.dollar + '</a></li>'
-        ];
-        if (status === 'new') {
+        var items = [];
+        if (config.canOpenClient) {
+            items.push('<li><a class="client_info_btn" title="client profile" href="' + urls.client + '">' + ICON.user + '</a></li>');
+        }
+        // The invoice for Accounting, the work order for everyone else (the server decides).
+        items.push('<li><a class="view_event_btn" title="invoice" href="' + urls.invoice + '" target="_blank" rel="noopener">' + ICON.dollar + '</a></li>');
+        if (config.canManage && status === 'new') {
             items.push('<li><button type="button" class="checkin_event_btn" title="check-in">' + ICON.check + '</button></li>');
         }
-        if (status === 'new' || status === 'in_progress') {
+        if (config.canManage && (status === 'new' || status === 'in_progress')) {
             items.push('<li><button type="button" class="delete_event_btn" title="delete">' + ICON.trash + '</button></li>');
         }
 
