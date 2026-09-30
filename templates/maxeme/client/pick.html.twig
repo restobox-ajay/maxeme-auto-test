@@ -1,0 +1,51 @@
+{# Choose a client, then open `for`'s screen for them. Vars: for (ClientPickPurpose), find, page. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ for.title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set param = constant('App\\Maxeme\\Listing\\SearchTerm::PARAM') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: for.eyebrow, title: for.title, lead: 'Choose the client first: search by name, preferred name, phone, address or invoice #.' } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_home') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <section class="panel compact-panel">
+        <form method="get" action="{{ path('maxeme_client_pick', { purpose: for.value }) }}" class="mx-pick-search" role="search">
+            <input type="search" name="{{ param }}" value="{{ find.text }}" placeholder="Name, phone, address or invoice #" aria-label="Search clients" autofocus>
+            <button class="button primary" type="submit">{{ mx_icon('search') }} Search</button>
+        </form>
+    </section>
+
+    <section class="table-card" id="pick-card" {{ mx.list_card_attrs(page) }}>
+        {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_client_pick', clearParams: { purpose: for.value } } only %}
+        <div class="table-header"><h2>Clients</h2></div>
+        <div class="wide-table-wrap">
+            <table id="pick-table">
+                <thead>
+                    <tr>
+                        {{ mx.sort_th(page, 'firstName', 'First name') }}
+                        {{ mx.sort_th(page, 'lastName', 'Last name') }}
+                        {{ mx.sort_th(page, 'preferredName', 'Preferred name') }}
+                        <th>Phone</th>
+                        {{ mx.sort_th(page, 'address', 'Address') }}
+                        <th style="width:90px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in page.items %}
+                        <tr id="pick_{{ client.id }}">
+                            <td data-label="First name">{{ client.firstName }}</td>
+                            <td data-label="Last name">{{ client.lastName }}</td>
+                            <td data-label="Preferred name">{{ client.preferredName }}</td>
+                            <td data-label="Phone">{{ [client.cellNumber, client.homeNumber, client.workNumber]|filter(n => n)|join(' · ') }}</td>
+                            <td data-label="Address">{{ client.address }}</td>
+                            <td data-label="Actions"><a class="button primary mx-btn-sm" href="{{ path(for.route, { id: client.id }) }}">Choose</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell">No clients match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

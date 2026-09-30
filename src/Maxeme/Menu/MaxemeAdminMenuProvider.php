@@ -17,10 +17,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *
  * Hiding is presentational only; the core routes stay reachable and keep their own access rules.
  *
- * A child's `add` becomes the row's "+" (core's row affordance): a link to `route`, opening the
+ * A child's `add` becomes the row's "+" (core's row affordance): a link to `route` (with `params`), opening the
  * modal named by `modal` on arrival (maxeme.js), shown to `role` (default: the row's own).
  *
- * @phpstan-type MenuAdd array{label: string, route: string, modal?: string, role?: string}
+ * @phpstan-type MenuAdd array{label: string, route: string, params?: array<string, string>, modal?: string, role?: string}
  * @phpstan-type MenuChild array{key: string, label: string, route: string, role?: string, match?: list<string>, add?: MenuAdd}
  * @phpstan-type MenuGroup array{key: string, label: string, icon: string, role?: string, children: list<MenuChild>}
  */
@@ -86,7 +86,7 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
                     $children[] = [
                         'key' => $childKey . '.add',
                         'label' => $add['label'],
-                        'url' => $this->urls->generate($add['route'], isset($add['modal']) ? ['_fragment' => $add['modal']] : []),
+                        'url' => $this->urls->generate($add['route'], ($add['params'] ?? []) + (isset($add['modal']) ? ['_fragment' => $add['modal']] : [])),
                         'parent' => $groupKey,
                         'order' => $order += 10,
                         'requiresRole' => $add['role'] ?? $child['role'] ?? null,

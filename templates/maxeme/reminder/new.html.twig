@@ -1,0 +1,36 @@
+{# Schedule › Reminders › "+": a reminder added by hand. Vars: client, data (ReminderRequest), errors. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}New reminder | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'New reminder', lead: 'For ' ~ client.fullName ~ '. It joins Reminder Todo\'s with the ones added automatically.' } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_client_pick', { purpose: 'reminder' }) }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <section class="form-card">
+        {% if client.vehicles is empty %}
+            <p class="lead">This client has no vehicles. Add one on their profile first.</p>
+            {% if is_granted('/people/view') %}
+                <a class="button primary" href="{{ path('maxeme_client_show', { id: client.id, tab: 'vehicles' }) }}">Open {{ client.fullName }}</a>
+            {% endif %}
+        {% else %}
+            <form id="new-reminder-form" class="form-grid" method="post" action="{{ path('maxeme_reminder_new', { id: client.id }) }}">
+                {{ csrf_field() }}
+                {{ mx.form_errors(errors) }}
+                <label>Vehicle
+                    <select name="vehicle_id" required>
+                        {% for vehicle in client.vehicles %}
+                            <option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ? 'selected' }}>{{ vehicle.fullName }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Call on<input type="date" name="reminder_date" value="{{ data.reminderDate }}" required></label>
+                <label class="span-2">Reminder note<textarea name="note" rows="4" placeholder="What to follow up on">{{ data.note }}</textarea></label>
+                <div class="form-actions span-2">
+                    <button type="submit" class="button primary">Add reminder</button>
+                    <a class="button outline" href="{{ path('maxeme_reminder_index') }}">Cancel</a>
+                </div>
+            </form>
+        {% endif %}
+    </section>
+{% endblock %}

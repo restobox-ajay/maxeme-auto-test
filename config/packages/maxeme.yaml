@@ -70,7 +70,8 @@ parameters:
     #   role:  rendering-only is_granted() check, a role or a permission such as /parts/view
     #          (each action enforces its own #[RequiresPermission])
     #   match: extra route-name prefixes that highlight the entry (its own route always does)
-    #   add:   the row's "+": { label, route, modal (opened on arrival), role (default: the row's) }
+    #   add:   the row's "+": { label, route, params, modal (opened on arrival), role (default: the row's) }
+    #          Repair Order / Appointments / Reminders need a client first: their + opens Choose a client.
     # Pages built but not listed here (Vehicles, Invoices, Roles & Access, the logs) stay reachable
     # by URL and from the sidebar search.
     maxeme.admin_menu:
@@ -79,11 +80,11 @@ parameters:
           icon: calendar
           children:
               - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_],
-                  add: { label: New repair order, route: maxeme_repair_order_index, role: /work-order/edit } }
+                  add: { label: New repair order, route: maxeme_client_pick, params: { purpose: repair_order }, role: /people/view } }
               - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_],
-                  add: { label: New appointment, route: maxeme_appointment_calendar, role: /appointment/edit } }
+                  add: { label: New appointment, route: maxeme_client_pick, params: { purpose: appointment }, role: /appointment/edit } }
               - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_],
-                  add: { label: New reminder, route: maxeme_reminder_index, role: /reminder/edit } }
+                  add: { label: New reminder, route: maxeme_client_pick, params: { purpose: reminder }, role: /reminder/edit } }
         - key: parts
           label: Parts & Service
           icon: wrench

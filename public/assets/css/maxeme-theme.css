@@ -349,3 +349,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-change-list { margin: 0; padding-left: 14px; font-size: 0.82rem; }
 .mx-change-list li { word-break: break-word; }
 .mx-nowrap { white-space: nowrap; }
+
+/* Choose a client (the sidebar "+" that needs a client first) */
+.mx-pick-search { display: flex; gap: 8px; }
+.mx-pick-search input { flex: 1; }
