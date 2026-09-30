@@ -47,7 +47,11 @@
                                         <button type="button" class="button xs mx-warning" data-modal-open="#reminder-modal"
                                                 data-form-action="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-form-values="{{ { note: '' }|json_encode }}">Delayed</button>
                                         <button type="button" class="button xs danger js-post-action" data-remove-row="#reminder_{{ reminder.id }}"
-                                                data-url="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-token="{{ csrf_token_value() }}" data-params="{{ { status: 'declined' }|json_encode }}">Declined</button>
+                                                data-url="{{ path('maxeme_reminder_status', { id: reminder.id }) }}" data-token="{{ csrf_token_value() }}" data-params="{{ { status: 'declined' }|json_encode }}"
+                                                data-confirm-title="Decline Confirmation"
+                                                data-confirm-before="Mark the reminder for "
+                                                data-item="{{ client.fullName }}"
+                                                data-confirm-after=" as declined? It leaves the list.">Declined</button>
                                     </div>
                                 </td>
                             {% endif %}

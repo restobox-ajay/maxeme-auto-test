@@ -44,7 +44,11 @@
                                         <div class="row-action-dropdown">
                                             <button type="button" class="js-post-action danger" data-remove-row="#user-{{ user.id }}"
                                                     data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
-                                                    data-token="{{ csrf_token_value() }}">De-activate</button>
+                                                    data-token="{{ csrf_token_value() }}"
+                                                    data-confirm-title="De-activate Confirmation"
+                                                    data-confirm-before="Are you sure you want to de-activate "
+                                                    data-item="{{ user.username ?? user.email }}"
+                                                    data-confirm-after="? They will no longer be able to sign in.">De-activate</button>
                                         </div>
                                     </div>
                                     {% endif %}

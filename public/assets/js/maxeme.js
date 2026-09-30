@@ -14,7 +14,9 @@
  *       data-remove-row="#row-id"            fade that row out on success
  *       data-reload                          reload the page on success (the toast shows after it)
  *       data-confirm-title (+ data-confirm-before, data-item, data-confirm-after)
- *                                            ask first, with app.js's #delete-modal
+ *                                            ask first, with app.js's #delete-modal. A .danger
+ *                                            button (delete, de-activate, decline) always asks,
+ *                                            with a generic text when it names none.
  */
 (function ($) {
     'use strict';
@@ -133,13 +135,13 @@
     $(document).on('click', '.js-post-action', function () {
         var $btn = $(this);
 
-        if (!$btn.data('confirm-title')) {
+        if (!$btn.data('confirm-title') && !$btn.hasClass('danger')) {
             post($btn);
             return;
         }
 
         window.WC.confirm(
-            $btn.data('confirm-title'),
+            $btn.data('confirm-title') || 'Please confirm',
             $btn.data('confirm-before') || 'Are you sure about ',
             $btn.data('item') || 'this item',
             $btn.data('confirm-after') || '?',

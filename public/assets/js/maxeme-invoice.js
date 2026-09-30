@@ -61,12 +61,24 @@
         $('.part-name-search', list.lastElementChild).focus();
     }
 
+    /* Removing a line that has anything typed or chosen in it asks first; an empty one just goes. */
+    function removeAfterConfirm(element, noun, done) {
+        var filled = Array.prototype.some.call(element.querySelectorAll('input:not([type=hidden]), select, textarea'), function (field) {
+            return field.value !== '' && field.value !== '0' && field.value !== '0.00';
+        });
+        var name = element.querySelector('.item-name-search, .part-name-search, input[type=text]');
+        var remove = function () { element.remove(); if (done) { done(); } };
+
+        if (!filled) { remove(); return; }
+        window.WC.confirm('Remove Confirmation', 'Remove ', (name && name.value) || ('this ' + noun), ' from the invoice?', remove);
+    }
+
     body.addEventListener('click', function (event) {
         var row = event.target.closest('tr.item-row');
         if (event.target.closest('.item-add')) { addRow(row); }
-        if (event.target.closest('.item-remove') && body.querySelectorAll('tr.item-row').length > 1) { row.remove(); calculate(); }
+        if (event.target.closest('.item-remove') && body.querySelectorAll('tr.item-row').length > 1) { removeAfterConfirm(row, 'item', calculate); }
         if (event.target.closest('.add_part')) { addPart(row); }
-        if (event.target.closest('.part-remove')) { event.target.closest('li.part-row').remove(); }
+        if (event.target.closest('.part-remove')) { removeAfterConfirm(event.target.closest('li.part-row'), 'part'); }
     });
     body.addEventListener('input', calculate);
     body.addEventListener('change', calculate);
