@@ -2,13 +2,16 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Manage Admins | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% set isSuperAdmin = is_granted('ROLE_SUPER_ADMIN') %}
+    {% set canAdd = is_granted('/staff/create') %}
+    {% set canManage = is_granted('/staff/edit') %}
     {# Read here, before base.html.twig's flash loop, so it opens the modal instead of becoming a toast. #}
     {% set createdUsername = app.flashes(constant('App\\Maxeme\\Controller\\StaffController::FLASH_CREATED'))|first %}
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every enabled login account. De-activated accounts can no longer sign in.' } %}
         {% block actions %}
-            <button id="add-new-admin-btn" class="button primary" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
+            {% if canAdd %}
+                <button id="add-new-admin-btn" class="button primary" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
+            {% endif %}
         {% endblock %}
     {% endembed %}
 
@@ -22,7 +25,7 @@
                         <th>Email</th>
                         <th>Username</th>
                         <th>Role</th>
-                        {% if isSuperAdmin %}<th style="width:80px; text-align:center;">Actions</th>{% endif %}
+                        {% if canManage %}<th style="width:80px; text-align:center;">Actions</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -32,9 +35,10 @@
                             <td data-label="Last name">{{ user.lastName }}</td>
                             <td data-label="Email">{{ user.email }}</td>
                             <td data-label="Username">{{ user.username }}</td>
-                            <td data-label="Role"><ul class="mx-role-list">{% for role in staff_role(user).legacyRoles %}<li>{{ role }}</li>{% endfor %}</ul></td>
-                            {% if isSuperAdmin %}
+                            <td data-label="Role">{{ staff_role(user).label|default('—') }}</td>
+                            {% if canManage %}
                                 <td data-label="Actions" style="text-align:center;">
+                                    {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
                                     <div class="row-action-menu" style="margin:0 auto;">
                                         <button class="table-action row-action-toggle" type="button" aria-expanded="false" aria-label="Open user actions"></button>
                                         <div class="row-action-dropdown">
@@ -43,6 +47,7 @@
                                                     data-token="{{ csrf_token_value() }}">De-activate</button>
                                         </div>
                                     </div>
+                                    {% endif %}
                                 </td>
                             {% endif %}
                         </tr>
@@ -52,13 +57,14 @@
         </div>
     </section>
 
+    {% if canAdd %}
     <div class="admin-modal-overlay {{ errors is not empty ? 'is-visible' }}" id="register-modal" role="dialog" aria-modal="true" aria-labelledby="register-modal-title">
         <div class="admin-modal">
             <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
             <div class="admin-modal-header">
                 <p class="eyebrow">Manage Admins</p>
                 <h2 id="register-modal-title">Add a new admin</h2>
-                <p class="lead">New accounts get ROLE_USER only.</p>
+                <p class="lead">The role decides what the account can see and change.</p>
             </div>
             <form id="register-form" class="form-grid" method="post" action="{{ path('maxeme_staff_create') }}" style="margin-top:18px" novalidate>
                 {{ csrf_field() }}
@@ -69,6 +75,14 @@
                 <label>Repeat password<input type="password" name="password_confirm" id="reg-pass2" required autocomplete="new-password"></label>
                 <label>First name:<input type="text" name="first_name" id="reg-first" value="{{ account.firstName }}" required></label>
                 <label>Last name:<input type="text" name="last_name" id="reg-last" value="{{ account.lastName }}" required></label>
+                <label class="span-2">Role
+                    <select name="role" id="reg-role" required>
+                        <option value="">Choose a role</option>
+                        {% for role in assignableRoles %}
+                            <option value="{{ role.value }}" {{ account.role == role ? 'selected' }}>{{ role.label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
                 <div class="form-actions span-2">
                     <button type="submit" class="button primary">Register</button>
                     <button type="button" class="button outline cancel-back-button js-modal-close">Cancel</button>
@@ -76,6 +90,7 @@
             </form>
         </div>
     </div>
+    {% endif %}
 
     <div class="admin-modal-overlay {{ createdUsername ? 'is-visible' }}" id="register-confirmed-modal" role="dialog" aria-modal="true" aria-labelledby="register-confirmed-title">
         <div class="admin-modal">

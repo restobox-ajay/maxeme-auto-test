@@ -60,7 +60,7 @@ final class StaffAccountService
             ->setUsername($request->username)
             ->setFirstName($request->firstName)
             ->setLastName($request->lastName)
-            ->setRoles([StaffRole::Staff->value]);
+            ->setRoles([$request->role->value]);
         $this->setPassword($user, $request->password->password);
 
         $this->entityManager->persist($user);

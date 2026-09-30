@@ -6,6 +6,9 @@ namespace App\Maxeme\Controller;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Dto\StaffAccountRequest;
+use App\Maxeme\Security\Attribute\RequiresPermission;
+use App\Maxeme\Security\Permission;
+use App\Maxeme\Security\StaffAccountVoter;
 use App\Maxeme\Security\StaffRole;
 use App\Maxeme\Service\StaffAccountService;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -15,7 +18,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Config › Manage Admins (legacy CNSUserBundle ManageController + FOS registration).
@@ -24,7 +26,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * the new user; the "confirmed" page is a modal on this screen instead.
  */
 #[Route('/admin/staff', name: 'maxeme_staff_')]
-#[IsGranted(StaffRole::MANAGER)]
 final class StaffController extends AbstractController
 {
     /** Carries the new username to the "created successfully" modal after the redirect. */
@@ -36,12 +37,14 @@ final class StaffController extends AbstractController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
+    #[RequiresPermission(Permission::STAFF_VIEW)]
     public function index(): Response
     {
         return $this->renderIndex(new StaffAccountRequest(), []);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
+    #[RequiresPermission(Permission::STAFF_CREATE)]
     public function create(Request $request): Response
     {
         $account = StaffAccountRequest::fromRequest($request);
@@ -58,9 +61,13 @@ final class StaffController extends AbstractController
     }
 
     #[Route('/{id}/deactivate', name: 'deactivate', requirements: ['id' => '\d+'], methods: ['POST'])]
-    #[IsGranted(StaffRole::SUPER_ADMIN)]
+    #[RequiresPermission(Permission::STAFF_EDIT)]
     public function deactivate(#[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): JsonResponse
     {
+        if (!$this->isGranted(StaffAccountVoter::MANAGE, $user)) {
+            return $this->json(['message' => 'Only a Super Admin can change a Super Admin account.'], Response::HTTP_FORBIDDEN);
+        }
+
         try {
             $this->accounts->deactivate($user, $actor);
         } catch (\DomainException $exception) {
@@ -77,6 +84,7 @@ final class StaffController extends AbstractController
             'users' => $this->accounts->activeAccounts(),
             'account' => $account,
             'errors' => $errors,
+            'assignableRoles' => StaffRole::assignable(),
         ], new Response(status: $status));
     }
 }
