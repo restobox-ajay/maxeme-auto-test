@@ -12,8 +12,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Tests\Support\FunctionalTester;
 
 /** Covers Admin\SystemController: the email-log, error-log (+ detail), and audit-log (+ detail)
- *  listing pages (search, XHR/JSON mode), the ROLE_TECH_SUPPORT gate on error-log/error-detail/
- *  the database console, and its own render. */
+ *  listing pages (search, XHR/JSON mode), the ROLE_SUPER_ADMIN gate on error-log/error-detail,
+ *  the ROLE_TECH_SUPPORT gate on the database console, and its own render. */
 final class AdminSystemCest
 {
     private function loginAsAdmin(FunctionalTester $I, array $roles = []): AdminUser
@@ -80,7 +80,7 @@ final class AdminSystemCest
         $I->assertSame(1, $response['pages']);
     }
 
-    public function errorLogIsBlockedForAPlainAdminButVisibleToTechSupport(FunctionalTester $I): void
+    public function errorLogIsBlockedForAPlainAdmin(FunctionalTester $I): void
     {
         $this->loginAsAdmin($I);
 
@@ -89,7 +89,7 @@ final class AdminSystemCest
         $I->seeResponseCodeIs(403);
     }
 
-    public function errorLogListsEntriesAndAppliesSearchForTechSupport(FunctionalTester $I): void
+    public function errorLogListsEntriesAndAppliesSearchForSuperAdmin(FunctionalTester $I): void
     {
         $this->loginAsAdmin($I, ['ROLE_TECH_SUPPORT']);
 

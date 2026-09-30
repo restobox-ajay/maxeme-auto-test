@@ -184,7 +184,8 @@ final class SystemController extends AbstractAdminController
     #[Route('/error-log', name: 'admin_error_log', methods: ['GET'])]
     public function errorLog(EntityManagerInterface $entityManager, \Symfony\Component\HttpFoundation\Request $request): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_TECH_SUPPORT');
+        // Super Admin (and Tech Support, which inherits it): the shop owner reviews errors too.
+        $this->denyAccessUnlessGranted('ROLE_SUPER_ADMIN');
 
         $schemaManager = $entityManager->getConnection()->createSchemaManager();
         if (!$schemaManager->tablesExist(['error_log'])) {
@@ -278,7 +279,7 @@ final class SystemController extends AbstractAdminController
     #[Route('/error-log/{id}', name: 'admin_error_detail', methods: ['GET'])]
     public function errorDetail(int $id, EntityManagerInterface $entityManager): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_TECH_SUPPORT');
+        $this->denyAccessUnlessGranted('ROLE_SUPER_ADMIN');
 
         $error = $entityManager->find(ErrorLog::class, $id);
         if (!$error instanceof ErrorLog) {

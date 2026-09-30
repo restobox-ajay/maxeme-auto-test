@@ -109,9 +109,9 @@ parameters:
           role: /log/view
           children:
               - { key: activity, label: Activity Log, route: maxeme_activity_log_index, match: [maxeme_activity_log_] }
-              # Core's own log screens, with core's own gates (its Error Log shows stack traces: Tech Support only).
+              # Core's own log screens (Super Admin only).
               - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
-              - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_TECH_SUPPORT }
+              - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_SUPER_ADMIN }
 
 twig:
     globals:
