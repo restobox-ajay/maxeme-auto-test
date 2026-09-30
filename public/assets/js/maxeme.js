@@ -147,3 +147,59 @@
         );
     });
 }(jQuery));
+
+/*
+ * Browser errors into Logs › Error Log (ClientErrorController): script errors and unhandled promise
+ * rejections on any admin page. At most 5 reports per page load, each distinct message once.
+ */
+(function () {
+    'use strict';
+
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (!meta || !window.fetch) { return; }
+
+    var URL = '/admin/logs/client-error';
+    var seen = {};
+    var left = 5;
+
+    function report(details) {
+        var key = details.message + '|' + details.source + '|' + details.line;
+        if (left <= 0 || seen[key]) { return; }
+        seen[key] = true;
+        left -= 1;
+
+        details.page = window.location.pathname + window.location.search;
+        try {
+            window.fetch(URL, {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true,
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': meta.getAttribute('content') },
+                body: JSON.stringify(details)
+            }).catch(function () {});
+        } catch (ignored) { /* reporting must never raise an error of its own */ }
+    }
+
+    window.addEventListener('error', function (event) {
+        // A failed <img>/<script> load also fires "error", without a message; only script errors count.
+        if (!event.message) { return; }
+        report({
+            message: String(event.message),
+            source: String(event.filename || ''),
+            line: String(event.lineno || ''),
+            column: String(event.colno || ''),
+            stack: event.error && event.error.stack ? String(event.error.stack) : ''
+        });
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+        var reason = event.reason;
+        report({
+            message: 'Unhandled promise rejection: ' + (reason && reason.message ? reason.message : String(reason)),
+            source: '',
+            line: '',
+            column: '',
+            stack: reason && reason.stack ? String(reason.stack) : ''
+        });
+    });
+}());
