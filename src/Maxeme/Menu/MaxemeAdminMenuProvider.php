@@ -28,11 +28,16 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
 {
     private const KEY_PREFIX = 'maxeme.';
 
-    /** @param list<MenuGroup> $menu */
+    /**
+     * @param list<MenuGroup> $menu
+     * @param list<string>    $hiddenModuleGroups the active modules' own top-level groups
+     */
     public function __construct(
         #[Autowire(param: 'maxeme.admin_menu')]
         private readonly array $menu,
         private readonly UrlGeneratorInterface $urls,
+        #[Autowire(param: 'maxeme.hidden_module_menu_groups')]
+        private readonly array $hiddenModuleGroups = [],
     ) {
     }
 
@@ -43,7 +48,7 @@ final class MaxemeAdminMenuProvider implements AdminMenuOverrideProviderInterfac
 
     public function getHiddenKeys(): array
     {
-        return AdminMenuCatalog::keys();
+        return [...AdminMenuCatalog::keys(), ...$this->hiddenModuleGroups];
     }
 
     public function getOrderOverrides(): array

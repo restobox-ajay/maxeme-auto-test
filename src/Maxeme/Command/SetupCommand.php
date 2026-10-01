@@ -8,6 +8,7 @@ use App\Bundle\InstalledBundleDirectory;
 use App\Entity\AppSetting;
 use App\Repository\BundleStatusRepository;
 use App\Service\AppSettings;
+use App\Service\WarehouseFulfillmentRegionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -16,13 +17,16 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Applies config/packages/maxeme.yaml to the database: the shop name, timezone and reset-link
- * window, and which installed modules stay Active (`maxeme.enabled_bundles`). Safe to re-run;
- * run it after migrating a fresh database.
+ * window, which installed modules stay Active (`maxeme.enabled_bundles`), and the shop's stock
+ * warehouse (`maxeme.warehouse`). Safe to re-run; run it after migrating a fresh database.
  */
-#[AsCommand(name: 'app:maxeme:setup', description: 'Apply the Maxeme shop configuration (name, timezone, active modules)')]
+#[AsCommand(name: 'app:maxeme:setup', description: 'Apply the Maxeme shop configuration (name, timezone, active modules, warehouse)')]
 final class SetupCommand
 {
-    /** @param list<string> $enabledBundles */
+    /**
+     * @param list<string>                                              $enabledBundles
+     * @param array{region: string, province: string, country: string} $warehouse
+     */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly AppSettings $appSettings,
@@ -38,6 +42,9 @@ final class SetupCommand
         private readonly int $passwordResetHours,
         #[Autowire(param: 'maxeme.enabled_bundles')]
         private readonly array $enabledBundles,
+        private readonly WarehouseFulfillmentRegionService $warehouses,
+        #[Autowire(param: 'maxeme.warehouse')]
+        private readonly array $warehouse,
     ) {
     }
 
@@ -45,6 +52,7 @@ final class SetupCommand
     {
         $this->applySettings($io);
         $this->applyBundles($io);
+        $this->applyWarehouse($io);
 
         return Command::SUCCESS;
     }
@@ -88,5 +96,11 @@ final class SetupCommand
         $io->success($turnedOff === []
             ? 'Modules already match maxeme.enabled_bundles.'
             : sprintf('Switched off %d module(s): %s. Nothing was deleted.', count($turnedOff), implode(', ', $turnedOff)));
+    }
+
+    private function applyWarehouse(SymfonyStyle $io): void
+    {
+        $warehouse = $this->warehouses->warehouseForRegionNameOrCreate($this->warehouse['region'], $this->warehouse['province'], $this->warehouse['country']);
+        $io->success(sprintf('Stock is kept in warehouse "%s" (region %s).', $warehouse->getName(), $this->warehouse['region']));
     }
 }

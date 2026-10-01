@@ -168,21 +168,5 @@
         });
     }
 
-    /* ── Order a part (legacy #order-part-modal): created and received; not added to the invoice ── */
-    var orderForm = document.getElementById('order-parts-form');
-    orderForm.addEventListener('submit', function (event) {
-        event.preventDefault();
-        fetch(orderForm.action, { method: 'POST', body: new FormData(orderForm), headers: { 'Accept': 'application/json' } })
-            .then(function (response) { return response.json().then(function (json) { return { ok: response.ok, json: json }; }); })
-            .then(function (result) {
-                window.WC.showToast(result.json.message, result.ok ? 'success' : 'error');
-                if (result.ok) {
-                    orderForm.reset();
-                    document.getElementById('order-part-modal').classList.remove('is-visible');
-                    cache = {};
-                }
-            });
-    });
-
     calculate();
 }());

@@ -7,11 +7,13 @@ namespace App\Maxeme\Security\Authorization;
 use App\Maxeme\EventSubscriber\PermissionEnforcementSubscriber;
 use App\Maxeme\Security\Attribute\PubliclyAccessible;
 use App\Maxeme\Security\Attribute\RequiresPermission;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Every Maxeme route with the permission its action declares, read from the same attributes
- * PermissionEnforcementSubscriber enforces. Backs Config › Roles & Access.
+ * PermissionEnforcementSubscriber enforces, plus the core / module pages the shop uses with the
+ * permission `maxeme.rbac.core_route_permissions` gives them. Backs Config › Roles & Access.
  */
 final class RouteAccessMap
 {
@@ -20,8 +22,11 @@ final class RouteAccessMap
     /** @var list<RouteAccess>|null */
     private ?array $routes = null;
 
+    /** @param array<string, list<string>> $coreRoutePermissions permission => core route names */
     public function __construct(
         private readonly RouterInterface $router,
+        #[Autowire(param: 'maxeme.rbac.core_route_permissions')]
+        private readonly array $coreRoutePermissions = [],
     ) {
     }
 
@@ -37,9 +42,13 @@ final class RouteAccessMap
         }
 
         $routes = [];
+        $core = PermissionEnforcementSubscriber::byRoute($this->coreRoutePermissions);
         foreach ($this->router->getRouteCollection() as $name => $route) {
             $controller = (string) $route->getDefault('_controller');
             if (!str_starts_with($controller, self::CONTROLLER_NAMESPACE)) {
+                if (isset($core[$name])) {
+                    $routes[] = new RouteAccess($name, $route->getPath(), $route->getMethods() ?: ['ANY'], $core[$name]);
+                }
                 continue;
             }
 

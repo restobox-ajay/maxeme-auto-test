@@ -30,6 +30,13 @@ final class MaxemeAdminMenuProviderTest extends KernelTestCase
         self::assertSame(BundleStatusRepository::CORE_SOURCE, $provider->getSource());
     }
 
+    public function testHidesTheActiveModulesOwnGroups(): void
+    {
+        $provider = new MaxemeAdminMenuProvider(self::MENU, self::getContainer()->get(UrlGeneratorInterface::class), ['inventory', 'vendors']);
+
+        self::assertSame([...AdminMenuCatalog::keys(), 'inventory', 'vendors'], $provider->getHiddenKeys());
+    }
+
     public function testBuildsTheConfiguredGroupsInOrderWithRolesAndHighlighting(): void
     {
         $tree = self::getContainer()->get(AdminMenuTreeBuilder::class)->build([self::provider(self::MENU)]);

@@ -20,7 +20,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *    #[PubliclyAccessible] (on the method or its class); an unmarked action is refused, so a new
  *    screen fails closed rather than open;
  *  - any other page under /admin (core's B2B screens and modules, hidden from the shop's menu) is
- *    Super Admin only, except the sign-in and password pages in `maxeme.rbac.core_open_routes`.
+ *    Super Admin only, except the sign-in and password pages in `maxeme.rbac.core_open_routes` and
+ *    the parts pages in `maxeme.rbac.core_route_permissions`, which need that shop permission.
  *    Without this, every staff role could reach them by URL, because core only checks ROLE_ADMIN,
  *    which every account has.
  *
@@ -32,12 +33,38 @@ final class PermissionEnforcementSubscriber implements EventSubscriberInterface
     private const CONTROLLER_NAMESPACE = 'App\\Maxeme\\Controller\\';
     private const ADMIN_PATH = '/admin';
 
-    /** @param list<string> $coreOpenRoutes */
+    /** @var array<string, string> route name => the permission it needs */
+    private readonly array $corePermissions;
+
+    /**
+     * @param list<string>                $coreOpenRoutes
+     * @param array<string, list<string>> $coreRoutePermissions permission => route names
+     */
     public function __construct(
         private readonly Security $security,
         #[Autowire(param: 'maxeme.rbac.core_open_routes')]
         private readonly array $coreOpenRoutes,
+        #[Autowire(param: 'maxeme.rbac.core_route_permissions')]
+        array $coreRoutePermissions,
     ) {
+        $this->corePermissions = self::byRoute($coreRoutePermissions);
+    }
+
+    /**
+     * @param array<string, list<string>> $coreRoutePermissions permission => route names
+     *
+     * @return array<string, string> route name => permission
+     */
+    public static function byRoute(array $coreRoutePermissions): array
+    {
+        $byRoute = [];
+        foreach ($coreRoutePermissions as $permission => $routes) {
+            foreach ($routes as $route) {
+                $byRoute[$route] = $permission;
+            }
+        }
+
+        return $byRoute;
     }
 
     public static function getSubscribedEvents(): array
@@ -86,7 +113,15 @@ final class PermissionEnforcementSubscriber implements EventSubscriberInterface
         if ($path !== self::ADMIN_PATH && !str_starts_with($path, self::ADMIN_PATH . '/')) {
             return;
         }
-        if (in_array($request->attributes->get('_route'), $this->coreOpenRoutes, true)) {
+        $route = (string) $request->attributes->get('_route');
+        if (in_array($route, $this->coreOpenRoutes, true)) {
+            return;
+        }
+        if (isset($this->corePermissions[$route])) {
+            if (!$this->security->isGranted($this->corePermissions[$route])) {
+                throw new AccessDeniedHttpException(sprintf('Missing permission "%s".', $this->corePermissions[$route]));
+            }
+
             return;
         }
         if (!$this->security->isGranted(StaffRole::SuperAdmin->value)) {

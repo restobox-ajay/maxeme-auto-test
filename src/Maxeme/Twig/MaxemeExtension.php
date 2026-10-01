@@ -12,7 +12,6 @@ use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\ClientAddressData;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Dto\FormData;
-use App\Maxeme\Dto\PartData;
 use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Dto\ServiceReminderData;
 use App\Maxeme\Dto\LabourData;
@@ -21,7 +20,6 @@ use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
-use App\Maxeme\Entity\Part;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceReminder;
 use App\Maxeme\Entity\Labour;
@@ -44,7 +42,6 @@ final class MaxemeExtension
         Client::class => ClientData::class,
         ClientAddress::class => ClientAddressData::class,
         Vehicle::class => VehicleData::class,
-        Part::class => PartData::class,
         ServiceItem::class => ServiceItemData::class,
         ServiceReminder::class => ServiceReminderData::class,
         Labour::class => LabourData::class,

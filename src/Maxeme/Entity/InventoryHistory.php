@@ -7,9 +7,9 @@ namespace App\Maxeme\Entity;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * One movement of a part's stock (legacy CNSInventoryBundle InventoryHistory): a restock or
- * adjustment from Parts Inventory, or the parts used on a paid invoice. Written only by
- * App\Maxeme\Service\StockLedger. Ids are the legacy ids.
+ * One movement of a legacy part's stock (CNSInventoryBundle InventoryHistory): a restock or
+ * adjustment from the old Parts Inventory, or the parts used on a paid invoice. Kept read only;
+ * product stock moves are core's (InventoryDepth Movement History). Ids are the legacy ids.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'maxeme_inventory_history')]

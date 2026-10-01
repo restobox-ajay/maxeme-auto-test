@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Entity\ProductCore;
 use App\Maxeme\Accounting\Money;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * A part on an invoice (legacy InvoiceHasParts): either billed on its own line, or used by one of
- * the invoice's services (`serviceLine`), in which case it has no sale price.
+ * the invoice's services (`serviceLine`), in which case it has no sale price. The part is a product
+ * of core's catalogue; lines from before that keep the legacy Maxeme part they were billed with
+ * (`part`), and `app:maxeme:convert-parts` links them to the product it became.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'maxeme_invoice_part')]
@@ -22,6 +25,10 @@ class InvoicePartLine
 
     #[ORM\Column]
     private \DateTimeImmutable $createdOn;
+
+    /** The legacy Maxeme part (before parts were products). Read only. */
+    #[ORM\ManyToOne(targetEntity: Part::class)]
+    private ?Part $part = null;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'partLines')]
@@ -37,8 +44,9 @@ class InvoicePartLine
         /** The price of one, as billed; none for a service's parts. */
         #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
         private ?string $salePrice = null,
-        #[ORM\ManyToOne(targetEntity: Part::class)]
-        private ?Part $part = null,
+        #[ORM\ManyToOne(targetEntity: ProductCore::class)]
+        #[ORM\JoinColumn(onDelete: 'SET NULL')]
+        private ?ProductCore $product = null,
         #[ORM\ManyToOne(targetEntity: InvoiceServiceLine::class, inversedBy: 'parts')]
         #[ORM\JoinColumn(onDelete: 'CASCADE')]
         private ?InvoiceServiceLine $serviceLine = null,
@@ -52,6 +60,7 @@ class InvoicePartLine
     public function getQuantity(): int { return $this->quantity; }
     public function getUnitPrice(): ?string { return $this->unitPrice; }
     public function getSalePrice(): ?string { return $this->salePrice; }
+    public function getProduct(): ?ProductCore { return $this->product; }
     public function getPart(): ?Part { return $this->part; }
     public function getServiceLine(): ?InvoiceServiceLine { return $this->serviceLine; }
 

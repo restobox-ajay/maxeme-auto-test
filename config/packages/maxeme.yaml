@@ -25,8 +25,19 @@ parameters:
 
     # Modules under modules/ that stay Active. `app:maxeme:setup` switches every other installed
     # module off (App Management's own kill switch: it deletes nothing, and each can be switched
-    # back on there or with app:bundle:activate). The B2B modules have no place in the shop.
-    maxeme.enabled_bundles: []
+    # back on there or with app:bundle:activate). The shop's parts use core's product catalogue:
+    # InventoryDepth gives the stock detail page, Stock Adjustment and Movement History;
+    # Procurement gives Vendors (only that is in the menu). The other B2B modules stay off.
+    maxeme.enabled_bundles:
+        - InventoryDepthBundle
+        - ProcurementBundle
+
+    # The shop's one stock location. Core keeps every stock count and hold against a warehouse
+    # serving a fulfillment region; `app:maxeme:setup` creates it (and the region) when missing.
+    maxeme.warehouse:
+        region: Main
+        province: BC
+        country: CA
 
     # Printed on invoices and work orders (the legacy app hard-coded these in four templates).
     maxeme.company:
@@ -60,11 +71,70 @@ parameters:
         - admin_forgot_password
         - admin_account_setup
 
+    # Core and module pages the shop uses for its parts (the product catalogue and its stock), and the
+    # shop permission each needs, instead of Super Admin. Permission => route names (exact). Any core
+    # route not listed stays Super Admin only.
+    maxeme.rbac.core_route_permissions:
+        /parts/view:
+            - admin_product_redirect
+            - admin_product_detail_index
+            - admin_product_picker_search
+            - admin_category_index
+            - admin_product_unit_of_measure_index
+            - admin_bundle_inventory_depth_stock_by_product
+            - admin_bundle_inventory_depth_product_lookup
+            - admin_bundle_inventory_depth_product_lookup_suggest
+            - admin_bundle_inventory_depth_movements
+            - admin_bundle_procurement_vendors
+            - admin_bundle_procurement_vendor
+            - admin_bundle_procurement_vendor_address_book
+        /parts/edit:
+            - admin_product_detail_columns_save
+            - admin_product_inventory_create
+            - admin_product_inventory_update
+            - admin_product_delete
+            - admin_product_import_index
+            - admin_product_import_mapping
+            - admin_product_import_confirm
+            - admin_product_import_template
+            - admin_product_import_template_guide
+            - admin_category_create
+            - admin_category_update
+            - admin_category_toggle
+            - admin_category_delete
+            - admin_product_unit_of_measure_new
+            - admin_product_unit_of_measure_edit
+            - admin_product_unit_of_measure_save
+            - admin_product_unit_of_measure_delete
+            - admin_bundle_inventory_depth_stock_by_product_note_add
+            - admin_bundle_inventory_depth_stock_by_product_note_update
+            - admin_bundle_inventory_depth_stock_by_product_note_delete
+            - admin_bundle_inventory_depth_adjust
+            - admin_bundle_inventory_depth_adjust_submit
+            - admin_bundle_procurement_vendor_create
+            - admin_bundle_procurement_vendor_edit
+            - admin_bundle_procurement_vendor_save
+            - admin_bundle_procurement_vendor_deactivate
+            - admin_bundle_procurement_vendor_activate
+            - admin_bundle_procurement_vendor_address_form
+            - admin_bundle_procurement_vendor_address_save
+            - admin_bundle_procurement_vendor_address_delete
+            - admin_bundle_procurement_vendor_contact_add
+            - admin_bundle_procurement_vendor_contact_update
+            - admin_bundle_procurement_vendor_contact_delete
+            - admin_bundle_procurement_vendor_note_add
+            - admin_bundle_procurement_vendor_note_update
+            - admin_bundle_procurement_vendor_note_delete
+
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
 
-    # The admin sidebar. App\Maxeme\Menu\MaxemeAdminMenuProvider hides every core B2B entry and
-    # injects these instead.
+    # The active modules' own sidebar groups, hidden like core's B2B entries: the screens the shop
+    # uses from them are listed in maxeme.admin_menu instead.
+    maxeme.hidden_module_menu_groups: [inventory, vendors, purchases, warehouse]
+
+    # The admin sidebar. App\Maxeme\Menu\MaxemeAdminMenuProvider hides every core B2B entry (and
+    # maxeme.hidden_module_menu_groups) and injects these instead.
     #   role:  rendering-only is_granted() check, a role or a permission such as /parts/view
     #          (each action enforces its own #[RequiresPermission])
     #   match: extra route-name prefixes that highlight the entry (its own route always does)
@@ -89,8 +159,19 @@ parameters:
           children:
               - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_index, maxeme_service_create, maxeme_service_update, maxeme_service_delete, maxeme_service_export],
                   add: { label: Add a new service, route: maxeme_service_index, modal: manageAddModal, role: /service/edit } }
-              - { key: inventory, label: Parts Inventory, route: maxeme_part_index, role: /parts/view, match: [maxeme_part_],
-                  add: { label: Add a new part, route: maxeme_part_index, modal: manageAddModal, role: /parts/edit } }
+              # Parts are core's product catalogue and its stock (InventoryDepth, Procurement modules);
+              # access follows maxeme.rbac.core_route_permissions.
+              - { key: products, label: Products, route: admin_product_detail_index, role: /parts/view,
+                  match: [admin_product_detail_, admin_product_inventory_, admin_product_redirect, admin_bundle_inventory_depth_stock_by_product, admin_bundle_inventory_depth_product_lookup],
+                  add: { label: Add a product, route: admin_product_inventory_create, role: /parts/edit } }
+              - { key: stock_adjustment, label: Stock Adjustment, route: admin_bundle_inventory_depth_adjust, role: /parts/edit }
+              - { key: movements, label: Movement History, route: admin_bundle_inventory_depth_movements, role: /parts/view }
+              - { key: product_import, label: Product Import, route: admin_product_import_index, role: /parts/edit, match: [admin_product_import_] }
+              - { key: product_categories, label: Product Categories, route: admin_category_index, role: /parts/view, match: [admin_category_],
+                  add: { label: Add a product category, route: admin_category_create, role: /parts/edit } }
+              - { key: units_of_measure, label: UoM, route: admin_product_unit_of_measure_index, role: /parts/view, match: [admin_product_unit_of_measure_] }
+              - { key: vendors, label: Vendors, route: admin_bundle_procurement_vendors, role: /parts/view, match: [admin_bundle_procurement_vendor],
+                  add: { label: Add a vendor, route: admin_bundle_procurement_vendor_create, role: /parts/edit } }
         - key: people
           label: People
           icon: users

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Service;
 
+use App\Entity\ProductCore;
 use App\Maxeme\Accounting\InvoiceCalculator;
+use App\Maxeme\Accounting\Money;
 use App\Maxeme\Accounting\InvoiceSettings;
 use App\Maxeme\Dto\InvoiceData;
 use App\Maxeme\Dto\InvoiceItemData;
@@ -14,12 +16,10 @@ use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoicePartLine;
 use App\Maxeme\Entity\InvoiceServiceLine;
-use App\Maxeme\Entity\Part;
 use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\InvoiceSaveIntent;
-use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Schedule\ScheduleSettings;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,8 +27,9 @@ use Symfony\Component\PropertyAccess\PropertyAccess;
 
 /**
  * Invoice creation and saving (legacy AppointmentToInvoiceFactory, InvoiceArrayToEntityFactory,
- * blankWorkOrderAction). Saving rebuilds the lines from the posted table, recalculates the totals,
- * moves the appointment's status with the invoice's, and reconciles the stock (StockLedger).
+ * blankWorkOrderAction). Saving rebuilds the lines from the posted table (parts are products of
+ * core's catalogue), recalculates the totals and moves the appointment's status with the invoice's.
+ * It moves no stock: product stock is held by repair order status, which is not built yet.
  */
 final class InvoiceService
 {
@@ -37,7 +38,6 @@ final class InvoiceService
         private readonly InvoiceRepository $invoices,
         private readonly InvoiceCalculator $calculator,
         private readonly InvoiceSettings $settings,
-        private readonly StockLedger $stock,
         private readonly ScheduleSettings $schedule,
     ) {
     }
@@ -83,12 +83,9 @@ final class InvoiceService
 
         $this->entityManager->persist($invoice);
         $this->entityManager->flush();
-
-        $this->stock->reconcileInvoice($invoice);
-        $this->entityManager->flush();
     }
 
-    /** Deleting an appointment deletes its invoice (legacy orphanRemoval), after giving back any stock it took. */
+    /** Deleting an appointment deletes its invoice (legacy orphanRemoval). */
     public function deleteFor(Appointment $appointment): void
     {
         $invoice = $this->invoices->findOneByAppointment($appointment);
@@ -96,8 +93,6 @@ final class InvoiceService
             return;
         }
 
-        $invoice->setStatus(InvoiceStatus::Unpaid);
-        $this->stock->reconcileInvoice($invoice);
         $this->entityManager->remove($invoice);
     }
 
@@ -112,14 +107,20 @@ final class InvoiceService
                 $invoice->addServiceLine($line);
 
                 foreach ($item->parts as $material) {
-                    $part = $this->find(Part::class, $material['id']);
-                    $invoice->addPartLine(new InvoicePartLine($invoice, $material['name'] ?? $part?->getName(), $material['quantity'], $part?->getUnitPrice(), null, $part, $line));
+                    $product = $this->find(ProductCore::class, $material['id']);
+                    $invoice->addPartLine(new InvoicePartLine($invoice, $material['name'] ?? $product?->getName(), $material['quantity'], self::cost($product), null, $product, $line));
                 }
             } else {
-                $part = $this->find(Part::class, $item->id);
-                $invoice->addPartLine(new InvoicePartLine($invoice, $item->name, $item->quantity, $part?->getUnitPrice(), $item->price, $part));
+                $product = $this->find(ProductCore::class, $item->id);
+                $invoice->addPartLine(new InvoicePartLine($invoice, $item->name, $item->quantity, self::cost($product), $item->price, $product));
             }
         }
+    }
+
+    /** The product's cost, in dollars to the cent (core keeps 6 decimals): the line's material cost. */
+    private static function cost(?ProductCore $product): ?string
+    {
+        return $product?->getCostPrice() !== null ? Money::fromCents(Money::toCents($product->getCostPrice())) : null;
     }
 
     /** A mileage or licence typed on the invoice is kept on the vehicle too (legacy setupVehicleInfo). */

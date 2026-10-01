@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace App\Maxeme\Entity;
 
 use App\Maxeme\Enum\PartType;
-use App\Maxeme\Repository\PartRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * A stocked part (legacy CNSInventoryBundle Parts). Soft-deleted. Ids are the legacy ids.
- *
- * The quantity only moves through App\Maxeme\Service\StockLedger, so every change leaves an
- * InventoryHistory row.
+ * A legacy part (CNSInventoryBundle Parts), kept read only: parts are now products of core's
+ * catalogue, and `app:maxeme:convert-parts` copies each of these into one (ProductCore::syncSource
+ * "maxeme_part:{id}"). Soft-deleted. Ids are the legacy ids.
  */
-#[ORM\Entity(repositoryClass: PartRepository::class)]
+#[ORM\Entity]
 #[ORM\Table(name: 'maxeme_part')]
 class Part implements SoftDeletable
 {

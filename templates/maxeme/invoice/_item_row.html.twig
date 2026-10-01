@@ -11,7 +11,7 @@
         </div>
         <ul class="mx-parts-list" data-base="{{ base }}">
             {% for line in parts %}
-                {% include 'maxeme/invoice/_part_row.html.twig' with { base: base, index: loop.index0, part: { id: line.part ? line.part.id, name: line.name, quantity: line.quantity } } only %}
+                {% include 'maxeme/invoice/_part_row.html.twig' with { base: base, index: loop.index0, part: { id: line.product ? line.product.id, name: line.name, quantity: line.quantity } } only %}
             {% endfor %}
         </ul>
     </td>

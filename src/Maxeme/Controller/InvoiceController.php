@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Entity\ProductCore;
 use App\Maxeme\Accounting\InvoiceSettings;
+use App\Maxeme\Accounting\Money;
+use App\Service\Product\ProductPicker;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
@@ -17,7 +20,6 @@ use App\Maxeme\Enum\InvoiceSaveIntent;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\InvoiceRepository;
-use App\Maxeme\Repository\PartRepository;
 use App\Maxeme\Repository\PaymentTypeRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Schedule\CalendarView;
@@ -117,18 +119,21 @@ final class InvoiceController extends AbstractMaxemeController
         return $this->emailDocument($invoice, DocumentKind::Invoice, $request, $mailer);
     }
 
-    /** The item name autocomplete: active parts and services matching `q` (legacy invoiceItemSearching). */
+    /** The item name autocomplete: sellable products (parts) and services matching `q` (legacy invoiceItemSearching). */
     #[Route('/admin/invoices/items', name: 'maxeme_invoice_items', methods: ['GET'], priority: 10)]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
-    public function items(Request $request, PartRepository $parts, ServiceItemRepository $services): JsonResponse
+    public function items(Request $request, ProductPicker $products, ServiceItemRepository $services): JsonResponse
     {
         $term = trim((string) $request->query->get('q', ''));
         $type = (string) $request->query->get('type', '');
         $items = [];
 
         if ($type !== 'services') {
-            foreach ($parts->search($term) as $part) {
-                $items[] = ['label' => $part->getName(), 'category' => 'Parts', 'value' => $part->getId(), 'price' => $part->getSalePrice()];
+            // Parts are core's products: its own search (name, SKU, barcode), sellable ones only.
+            foreach ($products->searchPage($term)['products'] as $product) {
+                if ($product->isSellable()) {
+                    $items[] = ['label' => self::productLabel($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => self::dollars($product->getDefaultPrice())];
+                }
             }
         }
         if ($type !== 'parts') {
@@ -203,6 +208,18 @@ final class InvoiceController extends AbstractMaxemeController
             InvoiceSaveIntent::Complete => $this->redirectToRoute('maxeme_invoice_print', ['invoiceKey' => $invoice->getInvoiceKey()]),
             InvoiceSaveIntent::WorkOrder => $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
         };
+    }
+
+    /** "Oil filter (OF-123)" */
+    private static function productLabel(ProductCore $product): string
+    {
+        return $product->getSku() !== '' ? sprintf('%s (%s)', $product->getName(), $product->getSku()) : $product->getName();
+    }
+
+    /** A product price (core keeps 6 decimals) to the cent, or null. */
+    private static function dollars(?string $amount): ?string
+    {
+        return $amount !== null ? Money::fromCents(Money::toCents($amount)) : null;
     }
 
     /** @param array<string, string> $errors */
