@@ -1,4 +1,5 @@
 {% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}My Profile | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'My Profile', lead: 'Your login account details.' } only %}
@@ -21,5 +22,19 @@
         <div class="panel-actions">
             <a class="button primary" href="{{ path('maxeme_profile_edit') }}">Edit</a>
         </div>
+    </section>
+
+    <section class="form-card mx-profile-card mx-profile-password" id="password">
+        <h2>Update Password</h2>
+        <form class="form-grid" method="post" action="{{ path('maxeme_profile_show') }}#password" novalidate>
+            {{ csrf_field() }}
+            {{ mx.form_errors(errors ?? []) }}
+            <label class="span-2">Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
+            <label>New password<input type="password" name="new_password" required autocomplete="new-password"></label>
+            <label>Repeat new password<input type="password" name="confirm_new_password" required autocomplete="new-password"></label>
+            <div class="form-actions span-2">
+                <button type="submit" class="button primary">Update password</button>
+            </div>
+        </form>
     </section>
 {% endblock %}

@@ -179,6 +179,8 @@ body.admin-sidebar-collapsed .mx-side-search { display: none; }
 /* ── My Profile ─────────────────────────────────────────────────────────── */
 .mx-profile-card { max-width: 640px; }
 .mx-profile-card .panel-actions { margin-top: 18px; }
+.mx-profile-password { margin-top: 20px; }
+.mx-profile-password h2 { margin: 0 0 14px; font-size: 1.05rem; }
 .site-admin-login .admin-login-shell { flex-direction: column; gap: 18px; }
 .admin-login-form input[type="text"] { margin-top: 6px; font-size: 0.9rem; }
 .login-help { margin-top: 4px; }

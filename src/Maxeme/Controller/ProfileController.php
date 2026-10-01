@@ -28,10 +28,26 @@ final class ProfileController extends AbstractController
     ) {
     }
 
-    #[Route('', name: 'show', methods: ['GET'])]
-    public function show(#[CurrentUser] AdminUser $user): Response
+    /** Also takes the inline password form: a valid POST changes the password, an invalid one re-renders with errors. */
+    #[Route('', name: 'show', methods: ['GET', 'POST'])]
+    public function show(Request $request, #[CurrentUser] AdminUser $user, ValidatorInterface $validator): Response
     {
-        return $this->render('maxeme/profile/show.html.twig', ['user' => $user]);
+        $errors = [];
+
+        if ($request->isMethod('POST')) {
+            $errors = $this->applyPasswordChange($request, $user, $validator);
+
+            if ($errors === []) {
+                $this->addFlash('success', 'The password has been changed.');
+
+                return $this->redirectToRoute('maxeme_profile_show');
+            }
+        }
+
+        return $this->render('maxeme/profile/show.html.twig', [
+            'user' => $user,
+            'errors' => $errors,
+        ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 
     #[Route('/edit', name: 'edit', methods: ['GET', 'POST'])]
@@ -64,16 +80,9 @@ final class ProfileController extends AbstractController
         $errors = [];
 
         if ($request->isMethod('POST')) {
-            $change = new PasswordChangeRequest(
-                $user,
-                (string) $request->request->get('current_password', ''),
-                (string) $request->request->get('new_password', ''),
-                (string) $request->request->get('confirm_new_password', ''),
-            );
-            $errors = FieldErrors::from($validator->validate($change));
+            $errors = $this->applyPasswordChange($request, $user, $validator);
 
             if ($errors === []) {
-                $this->accounts->changePassword($user, $change->newPassword);
                 $this->addFlash('success', 'The password has been changed.');
 
                 return $this->redirectToRoute('maxeme_profile_show');
@@ -83,5 +92,27 @@ final class ProfileController extends AbstractController
         return $this->render('maxeme/profile/change_password.html.twig', [
             'errors' => $errors,
         ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
+    }
+
+    /**
+     * Validates the current/new/repeat fields and, when they pass, saves the new password.
+     *
+     * @return array<string, string> field errors; empty when the password was changed
+     */
+    private function applyPasswordChange(Request $request, AdminUser $user, ValidatorInterface $validator): array
+    {
+        $change = new PasswordChangeRequest(
+            $user,
+            (string) $request->request->get('current_password', ''),
+            (string) $request->request->get('new_password', ''),
+            (string) $request->request->get('confirm_new_password', ''),
+        );
+        $errors = FieldErrors::from($validator->validate($change));
+
+        if ($errors === []) {
+            $this->accounts->changePassword($user, $change->newPassword);
+        }
+
+        return $errors;
     }
 }
