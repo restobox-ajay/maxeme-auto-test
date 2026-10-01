@@ -14,6 +14,7 @@ final class ServiceItemData extends FormData
         'name' => 'name',
         'preferred_name' => 'preferredName',
         'price' => 'price',
+        'category_id' => 'categoryId',
     ];
 
     /** The legacy column is NOT NULL, and a blank name was a 500 error there. */
@@ -26,6 +27,15 @@ final class ServiceItemData extends FormData
 
     #[Money]
     public ?string $price = null;
+
+    /** A ServiceCategory id; the controller turns it into the category. */
+    #[Assert\Regex('/^\d+$/', message: 'Choose a category from the list.')]
+    public ?string $categoryId = null;
+
+    protected function managedElsewhere(): array
+    {
+        return ['categoryId'];
+    }
 
     protected function toEntityValue(string $property, ?string $value): mixed
     {

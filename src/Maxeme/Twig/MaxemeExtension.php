@@ -12,11 +12,17 @@ use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Dto\FormData;
 use App\Maxeme\Dto\PartData;
 use App\Maxeme\Dto\ServiceItemData;
+use App\Maxeme\Dto\ServiceReminderData;
+use App\Maxeme\Dto\LabourData;
+use App\Maxeme\Dto\GovtFeeData;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Part;
 use App\Maxeme\Entity\ServiceItem;
+use App\Maxeme\Entity\ServiceReminder;
+use App\Maxeme\Entity\Labour;
+use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Security\StaffRole;
 use App\Menu\Admin\AdminMenuIconSet;
@@ -31,6 +37,9 @@ final class MaxemeExtension
         Vehicle::class => VehicleData::class,
         Part::class => PartData::class,
         ServiceItem::class => ServiceItemData::class,
+        ServiceReminder::class => ServiceReminderData::class,
+        Labour::class => LabourData::class,
+        GovtFee::class => GovtFeeData::class,
     ];
 
     /** {{ staff_role(user).label }} */

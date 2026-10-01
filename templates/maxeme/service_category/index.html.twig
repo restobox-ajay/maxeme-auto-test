@@ -1,0 +1,70 @@
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Service Categories | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canManage = is_granted('/service/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Categories', lead: 'Catalogs of services, in a hierarchy. A category\'s colour is its services\' colour on the calendar; left blank, it takes its parent\'s.' } %}
+        {% block title_actions %}
+            {% if is_granted('/service/edit') %}
+                <a id="addCategoryButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_category_new') }}">+ Add category</a>
+            {% endif %}
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-paginate" id="service-category-card">
+        <div class="table-header">
+            <h2>Categories</h2>
+        </div>
+        <div class="wide-table-wrap">
+            <table id="service-category-table">
+                <thead>
+                    <tr><th>Name</th><th>Parent category</th><th>Colour</th><th>Status</th><th>Services</th><th></th></tr>
+                    <tr class="filter-row">
+                        <th><input type="search" value="{{ filters.name }}" data-filter-field="name" placeholder="Search" aria-label="Search name"></th>
+                        <th><input type="search" value="{{ filters.parent }}" data-filter-field="parent" placeholder="Search" aria-label="Search parent category"></th>
+                        <th></th>
+                        <th>
+                            <select data-filter-field="status" aria-label="Filter status">
+                                <option value=""></option>
+                                {% for status in ['Visible', 'Hidden'] %}<option {{ filters.status == status ? 'selected' }}>{{ status }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th></th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in categories %}
+                        {% set visible = category.status.value == 'Visible' %}
+                        <tr id="category_{{ category.id }}">
+                            <td data-label="Name"><strong>{% if category.depth %}{% for i in 1..category.depth %}-{% endfor %}&nbsp;{% endif %}{{ category.name }}</strong></td>
+                            <td data-label="Parent category">{{ category.parent ? category.parent.path : '(none)' }}</td>
+                            <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: category.effectiveColour, label: category.colour is null and category.effectiveColour ? 'inherited' } only %}</td>
+                            <td data-label="Status">
+                                {% if canManage %}
+                                    <button class="status-switch js-category-status {{ visible ? 'is-on' }}" type="button" data-url="{{ path('maxeme_service_category_toggle', { id: category.id }) }}" data-token="{{ csrf_token_value() }}" aria-pressed="{{ visible ? 'true' : 'false' }}" aria-label="Toggle {{ category.name }} visible"></button>
+                                {% endif %}
+                                <span class="badge {{ visible ? '' : 'danger-soft' }}">{{ category.status.value }}</span>
+                            </td>
+                            <td data-label="Services">{{ serviceCounts[category.id] ?? 0 }}</td>
+                            <td data-label="Actions">
+                                {% if canManage %}
+                                    <div class="mx-actions">
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_category_edit', { id: category.id }) }}">Edit</a>
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#category_{{ category.id }}"
+                                                data-url="{{ path('maxeme_service_category_delete', { id: category.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ category.path }}"
+                                                data-confirm-after="?">Delete</button>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell"><strong>No categories found.</strong> <span>Categories will appear here once created.</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

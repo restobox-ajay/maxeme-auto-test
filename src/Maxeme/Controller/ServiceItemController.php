@@ -9,6 +9,7 @@ use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Repository\ServiceCategoryRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -27,6 +28,7 @@ final class ServiceItemController extends AbstractMaxemeController
 {
     public function __construct(
         private readonly RecordWriter $records,
+        private readonly ServiceCategoryRepository $categories,
     ) {
     }
 
@@ -36,6 +38,7 @@ final class ServiceItemController extends AbstractMaxemeController
     {
         return $this->render('maxeme/service/index.html.twig', [
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS))),
+            'categories' => $this->categories->findTree(),
         ]);
     }
 
@@ -51,7 +54,7 @@ final class ServiceItemController extends AbstractMaxemeController
 
         return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour'], (static function () use ($services): \Generator {
             foreach ($services as $service) {
-                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), null, null];
+                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), null, $service->getColour()];
             }
         })());
     }
@@ -82,9 +85,15 @@ final class ServiceItemController extends AbstractMaxemeController
     private function save(ServiceItem $service, Request $request, string $message): RedirectResponse
     {
         $data = ServiceItemData::fromRequest($request);
-        if (($errors = $this->records->validate($data)) !== []) {
+        $category = $data->categoryId !== null ? $this->categories->find((int) $data->categoryId) : null;
+        $errors = $this->records->validate($data);
+        if ($data->categoryId !== null && $category === null) {
+            $errors['categoryId'] = 'Choose a category from the list.';
+        }
+        if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
+            $service->setCategory($category);
             $this->records->save($service, $data);
             $this->addFlash('success', sprintf($message, $service->getName()));
         }

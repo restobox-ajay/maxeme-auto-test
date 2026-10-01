@@ -1,0 +1,93 @@
+{# Parts & Services › Service Reminders. Vars: reminders, services (active, by name), templates. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% block title %}Service Reminders | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canManage = is_granted('/service/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Reminders', lead: 'How many days after a service\'s invoice is completed to remind the customer, with which template and message.' } %}
+        {% block title_actions %}
+            {% if is_granted('/service/edit') %}
+                <button id="addServiceReminderButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#reminderAddModal">+ Add Service Reminder</button>
+            {% endif %}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_service_reminder_template_index') }}">Templates</a>
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-paginate" id="service-reminder-card">
+        <div class="table-header"><h2>Service Reminders</h2></div>
+        <div class="wide-table-wrap">
+            <table id="service-reminder-table">
+                <thead>
+                    <tr><th>Service</th><th>Reminder Days</th><th>Template</th><th>Message</th><th>Emails Sent</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for reminder in reminders %}
+                        <tr id="service_reminder_{{ reminder.id }}">
+                            <td data-label="Service"><strong>{{ reminder.service.name }}</strong>{% if not reminder.service.active %} <span class="badge danger-soft">deleted</span>{% endif %}</td>
+                            <td data-label="Reminder Days">{{ reminder.reminderDays }} days</td>
+                            <td data-label="Template">{{ reminder.template ? reminder.template.name : '—' }}</td>
+                            <td data-label="Message" class="mx-note-text">{{ reminder.message|nl2br }}</td>
+                            <td data-label="Emails Sent">{{ reminder.emailsSent }}</td>
+                            <td data-label="Action">
+                                {% if canManage %}
+                                    <div class="mx-actions">
+                                        <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#reminderEditModal"
+                                                data-form-action="{{ path('maxeme_service_reminder_update', { id: reminder.id }) }}"
+                                                data-form-values="{{ form_values(reminder)|json_encode }}">Edit</button>
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#service_reminder_{{ reminder.id }}"
+                                                data-url="{{ path('maxeme_service_reminder_delete', { id: reminder.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete the service reminder for "
+                                                data-item="{{ reminder.service.name }}"
+                                                data-confirm-after="?">Delete</button>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell">No service reminders yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% if canManage %}
+        {% for modal in [
+            { id: 'reminderAddModal', title: 'Add Service Reminder', action: path('maxeme_service_reminder_create'), submit: 'Add' },
+            { id: 'reminderEditModal', title: 'Edit Service Reminder', action: '', submit: 'Save' },
+        ] %}
+            <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
+                <div class="admin-modal mx-modal-wide">
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                    <h2 id="{{ modal.id }}Label" style="margin-top:0">{{ modal.title }}</h2>
+                    <form class="form-grid" method="post" action="{{ modal.action }}">
+                        {{ csrf_field() }}
+                        <label class="span-2">Service *
+                            <select name="service_id" required>
+                                <option value=""></option>
+                                {% for service in services %}<option value="{{ service.id }}">{{ service.name }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <label>Reminder Days * <small class="muted-line">(after the invoice is completed)</small>
+                            <input type="number" name="reminder_days" min="1" max="3650" step="1" required>
+                        </label>
+                        <label>Template
+                            <select name="template_id">
+                                <option value="">(none)</option>
+                                {% for template in templates %}<option value="{{ template.id }}">{{ template.name }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <label class="span-2">Message <small class="muted-line">(goes into the template's {{ '{{message}}' }})</small>
+                            <textarea name="message" rows="4" maxlength="5000"></textarea>
+                        </label>
+                        <div class="modal-actions span-2">
+                            <button class="button outline js-modal-close" type="button">Cancel</button>
+                            <button class="button primary" type="submit">{{ modal.submit }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endblock %}

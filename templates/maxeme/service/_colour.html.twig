@@ -1,0 +1,2 @@
+{# A calendar colour as a swatch and its hex, with what it comes from. Vars: colour (#rrggbb or null), label (optional). #}
+{% if colour %}<span class="mx-swatch" style="background: {{ colour }}" aria-hidden="true"></span> <code>{{ colour }}</code>{% else %}<span class="mx-muted-cell">—</span>{% endif %}{% if label|default(null) %}<div class="muted-line">{{ label }}</div>{% endif %}

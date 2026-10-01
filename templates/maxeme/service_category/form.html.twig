@@ -1,0 +1,41 @@
+{# Add / edit a service category (wholesale's category form, plus Colour). Vars: title, category, data (ServiceCategoryData), errors, parents, statuses. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Service category', title: title } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_service_category_index') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <section class="form-card">
+        <form class="form-grid" method="post">
+            {{ csrf_field() }}
+            {{ mx.form_errors(errors) }}
+            <label>Name <span class="req">*</span>
+                <input type="text" name="name" value="{{ data.name }}" placeholder="Category name" maxlength="160" required>
+            </label>
+            <label>Parent category
+                <select name="parent_id">
+                    <option value="">(none)</option>
+                    {% for parent in parents %}
+                        <option value="{{ parent.id }}" {{ data.parentId == parent.id ~ '' ? 'selected' }}>{% if parent.depth %}{% for i in 1..parent.depth %}— {% endfor %}{% endif %}{{ parent.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Colour <small class="muted-line">(the colour of its services on the calendar; blank uses the parent category's)</small>
+                <span class="mx-colour-field">
+                    <input type="color" value="{{ data.colour ?: '#428bca' }}" data-colour-for="#category-colour" aria-label="Pick a colour">
+                    <input id="category-colour" type="text" name="colour" value="{{ data.colour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}">
+                </span>
+            </label>
+            <label>Status
+                <select name="status">
+                    {% for status in statuses %}<option {{ data.status == status ? 'selected' }}>{{ status }}</option>{% endfor %}
+                </select>
+            </label>
+            <div class="form-actions span-2">
+                <button class="button primary" type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

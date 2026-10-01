@@ -1,0 +1,6 @@
+<label>Unit *
+    <select name="unit" required>
+        {% for unit in units %}<option value="{{ unit.value }}">{{ unit.label }}</option>{% endfor %}
+    </select>
+</label>
+<label class="mx-check"><input type="checkbox" name="sublet" value="1"> Sublet <small class="muted-line">(done by an outside shop)</small></label>

@@ -1,0 +1,40 @@
+{# Add / edit a reminder template: Name, Subject, Body (plain HTML text box, with the tags beside it). Vars: title, data, errors, tags. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Reminder template', title: title } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_service_reminder_template_index') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <div class="mx-template-editor">
+        <section class="form-card">
+            <form class="form-grid" method="post">
+                {{ csrf_field() }}
+                {{ mx.form_errors(errors) }}
+                <label class="span-2">Name <span class="req">*</span>
+                    <input type="text" name="name" value="{{ data.name }}" maxlength="120" required>
+                </label>
+                <label class="span-2">Subject <span class="req">*</span>
+                    <input type="text" name="subject" value="{{ data.subject }}" maxlength="255" required>
+                </label>
+                <label class="span-2">Body (HTML) <span class="req">*</span>
+                    <textarea id="template-body" name="body" rows="18" class="mx-code" spellcheck="false" required>{{ data.body }}</textarea>
+                </label>
+                <div class="form-actions span-2">
+                    <button class="button primary" type="submit">Save</button>
+                </div>
+            </form>
+        </section>
+        <aside class="panel mx-template-tags">
+            <h2>Tags</h2>
+            <p class="muted-line">Put a tag where its value goes; click one to insert it at the cursor.</p>
+            <dl>
+                {% for tag, meaning in tags %}
+                    <dt><button type="button" class="mx-tag" data-insert-tag="{{ tag }}" data-insert-into="#template-body">{{ tag }}</button></dt>
+                    <dd>{{ meaning }}</dd>
+                {% endfor %}
+            </dl>
+        </aside>
+    </div>
+{% endblock %}

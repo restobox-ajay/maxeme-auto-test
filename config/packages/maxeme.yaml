@@ -34,6 +34,9 @@ parameters:
         address: '2-2300 Simpson Rd, Richmond, BC V6X 2P9'
         phone: '(604)285-8200'
         pst_number: '1051 4680'
+        # The website's booking / contact form, linked from service reminder emails ({{booking link}}).
+        # TODO: ask Ken for the link. Blank leaves the link out.
+        booking_url: ''
 
     # Invoice taxes, in percent. The builder toggles each between 0 and its rate (legacy GST 5 / PST 7).
     maxeme.invoice:
@@ -72,7 +75,7 @@ parameters:
     #   match: extra route-name prefixes that highlight the entry (its own route always does)
     #   add:   the row's "+": { label, route, params, modal (opened on arrival), role (default: the row's) }
     #          Repair Order / Appointments / Reminders need a client first: their + opens Choose a client.
-    # Pages built but not listed here (Vehicles, Invoices, Roles & Access, the logs) stay reachable
+    # Pages built but not listed here (Vehicles, Invoices) stay reachable
     # by URL and from the sidebar search.
     maxeme.admin_menu:
         - key: schedule
@@ -89,7 +92,7 @@ parameters:
           label: Parts & Service
           icon: wrench
           children:
-              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_],
+              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_index, maxeme_service_create, maxeme_service_update, maxeme_service_delete, maxeme_service_export],
                   add: { label: Add a new service, route: maxeme_service_index, modal: manageAddModal, role: /service/edit } }
               - { key: inventory, label: Parts Inventory, route: maxeme_part_index, role: /parts/view, match: [maxeme_part_],
                   add: { label: Add a new part, route: maxeme_part_index, modal: manageAddModal, role: /parts/edit } }
@@ -106,14 +109,36 @@ parameters:
           role: /accounting/view
           children:
               - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_, maxeme_invoice_index, maxeme_invoice_find] }
+        # No role on the group: each row has its own (staff screens for /staff/view, the service
+        # set-up screens for /service/view).
         - key: config
           label: Config
           icon: cog
-          role: /staff/view
           children:
-              - { key: admin_users, label: Admin User, route: maxeme_staff_index, match: [maxeme_staff_, maxeme_role_],
+              - { key: admin_users, label: Admin User, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_],
                   add: { label: Add a new admin user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
-              - { key: settings, label: Settings, route: maxeme_settings, role: /settings/manage, match: [maxeme_settings, maxeme_activity_log_] }
+              # Read-only (Super Admin): access changes by editing config/rbac/role_permissions/, so no "+".
+              - { key: roles, label: Roles, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
+              - { key: settings, label: Settings, route: maxeme_settings, role: /settings/manage, match: [maxeme_settings] }
+              - { key: service_categories, label: Service Categories, route: maxeme_service_category_index, role: /service/view, match: [maxeme_service_category_],
+                  add: { label: Add a service category, route: maxeme_service_category_new, role: /service/edit } }
+              - { key: service_reminders, label: Service Reminders, route: maxeme_service_reminder_index, role: /service/view, match: [maxeme_service_reminder_index, maxeme_service_reminder_create, maxeme_service_reminder_update, maxeme_service_reminder_delete],
+                  add: { label: Add a service reminder, route: maxeme_service_reminder_index, modal: reminderAddModal, role: /service/edit } }
+              - { key: reminder_templates, label: Reminder Templates, route: maxeme_service_reminder_template_index, role: /service/view, match: [maxeme_service_reminder_template_],
+                  add: { label: Add a reminder template, route: maxeme_service_reminder_template_new, role: /service/edit } }
+              - { key: labour, label: Labour, route: maxeme_labour_index, role: /service/view, match: [maxeme_labour_],
+                  add: { label: Add labour, route: maxeme_labour_index, modal: manageAddModal, role: /service/edit } }
+              - { key: govt_fees, label: Government Fees, route: maxeme_govt_fee_index, role: /service/view, match: [maxeme_govt_fee_],
+                  add: { label: Add a government fee, route: maxeme_govt_fee_index, modal: manageAddModal, role: /service/edit } }
+        - key: logs
+          label: Logs
+          icon: log
+          role: /log/view
+          children:
+              - { key: activity, label: Activity Log, route: maxeme_activity_log_index, match: [maxeme_activity_log_] }
+              # Core's own log screens (Super Admin only).
+              - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
+              - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_SUPER_ADMIN }
 
 twig:
     globals:

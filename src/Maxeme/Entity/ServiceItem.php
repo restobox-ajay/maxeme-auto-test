@@ -30,6 +30,11 @@ class ServiceItem implements SoftDeletable
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $price = null;
 
+    /** Its catalog; the category's colour is the service's on the calendar. */
+    #[ORM\ManyToOne(targetEntity: ServiceCategory::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?ServiceCategory $category = null;
+
     #[ORM\Column(options: ['default' => true])]
     private bool $active = true;
 
@@ -58,6 +63,15 @@ class ServiceItem implements SoftDeletable
         return $this->preferredName !== null && $this->preferredName !== '' ? sprintf('%s (%s)', $this->name, $this->preferredName) : $this->name;
     }
     public function setPrice(?string $price): self { $this->price = $price; return $this; }
+
+    public function getCategory(): ?ServiceCategory { return $this->category; }
+    public function setCategory(?ServiceCategory $category): self { $this->category = $category; return $this; }
+
+    /** For the service form's Category select. */
+    public function getCategoryId(): ?int { return $this->category?->getId(); }
+
+    /** The calendar colour: its category's (or that category's parent's), null when none is set. */
+    public function getColour(): ?string { return $this->category?->getEffectiveColour(); }
 
     public function isActive(): bool { return $this->active; }
 

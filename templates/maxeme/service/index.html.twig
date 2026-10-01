@@ -19,7 +19,7 @@
                 <thead>
                     <tr>
                         {% for key, label in { name: 'Name', preferredName: 'Label', price: 'Default Price' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        {# Tax Class and Colour (calendar; default from the category) are not built yet. #}
+                        {# Tax Class is not built yet; Colour is the category's (the calendar colour). #}
                         <th>Tax Class</th><th>Colour</th>
                         <th style="text-align:center;">Actions</th>
                     </tr>
@@ -37,7 +37,7 @@
                             <td data-label="Label">{{ service.preferredName }}</td>
                             <td data-label="Default Price" class="num">{{ mx.money(service.price) }}</td>
                             <td data-label="Tax Class" class="mx-muted-cell">—</td>
-                            <td data-label="Colour" class="mx-muted-cell">—</td>
+                            <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: service.colour, label: service.category ? service.category.path } only %}</td>
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
                                         <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
@@ -75,6 +75,12 @@
                     <label class="span-2">Name<input type="text" name="name" required></label>
                     <label class="span-2">Label <small class="muted-line">(used on the printed invoice)</small><input type="text" name="preferred_name"></label>
                     <label class="span-2">Default Price<input type="text" name="price" inputmode="decimal"></label>
+                    <label class="span-2">Category <small class="muted-line">(its colour is the service's on the calendar)</small>
+                        <select name="category_id">
+                            <option value="">(none)</option>
+                            {% for category in categories %}<option value="{{ category.id }}">{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
+                        </select>
+                    </label>
                     <div class="admin-modal-footer-split span-2" style="margin-top:22px">
                         <button class="button outline js-modal-close" type="button">Cancel</button>
                         <button class="button primary" type="submit">Save</button>

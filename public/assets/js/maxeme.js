@@ -21,6 +21,10 @@
  *   .mx-actions             an action group (row or toolbar): the first two actions stay buttons,
  *                           the rest move into a ⋯ menu after them, the way wholesale core does it
  *
+ *   input[type=color][data-colour-for="#id"]   a colour picker writing its #rrggbb into that text
+ *                           input (which may be left blank); a valid text value moves the picker
+ *   [data-insert-tag="{{x}}"][data-insert-into="#id"]   inserts the tag at that textarea's cursor
+ *
  *   .js-sortable-config[data-reload-after-sort]   app.js's drag-to-reorder rows: reload once the new
  *                           order is saved, so row numbers and Move up / Move down match it
  */
@@ -47,6 +51,27 @@
         });
     });
 
+    $(document).on('input change', 'input[type=color][data-colour-for]', function () {
+        $($(this).data('colour-for')).val(this.value);
+    });
+    $('input[type=color][data-colour-for]').each(function () {
+        var $picker = $(this);
+        $($picker.data('colour-for')).on('input', function () {
+            if (/^#[0-9a-fA-F]{6}$/.test(this.value)) { $picker.val(this.value.toLowerCase()); }
+        });
+    });
+
+    $(document).on('click', '[data-insert-tag]', function () {
+        var field = $($(this).data('insert-into'))[0];
+        var tag = $(this).data('insert-tag');
+        if (!field) { return; }
+        var start = field.selectionStart ?? field.value.length;
+        var end = field.selectionEnd ?? start;
+        field.value = field.value.slice(0, start) + tag + field.value.slice(end);
+        field.focus();
+        field.selectionStart = field.selectionEnd = start + tag.length;
+    });
+
     $(document).ajaxSuccess(function (event, xhr, settings) {
         $('.js-sortable-config[data-reload-after-sort]').each(function () {
             if (settings.url === $(this).data('reorder-url')) {
@@ -67,7 +92,12 @@
         if ($trigger.is('[data-form-values]')) {
             $form.trigger('reset');
             $.each($trigger.data('form-values') || {}, function (name, value) {
-                $form.find('[name="' + name + '"]').val(value === null ? '' : value);
+                var $field = $form.find('[name="' + name + '"]');
+                if ($field.is(':checkbox')) {
+                    $field.prop('checked', value === '1');
+                } else {
+                    $field.val(value === null ? '' : value);
+                }
             });
         }
 

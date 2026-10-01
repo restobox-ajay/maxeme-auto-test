@@ -1,0 +1,68 @@
+{# Config › Labour. Vars: page (ListPage<Labour>), taxClasses, units. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Labour | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canManage = is_granted('/service/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Labour', lead: 'Labour rates, charged per hour or per item. Sublet is work done by an outside shop.' } %}
+        {% block title_actions %}
+            {% if is_granted('/service/edit') %}<button id="manageAddButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add labour</button>{% endif %}
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card" id="labour-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header"><h2>Labour</h2></div>
+        <div class="wide-table-wrap">
+            <table id="labour-table">
+                <thead>
+                    <tr>
+                        {{ mx.sort_th(page, 'code', 'Code') }}{{ mx.sort_th(page, 'name', 'Name') }}{{ mx.sort_th(page, 'price', 'Price per unit') }}
+                        <th>Unit</th><th>Sublet</th>{{ mx.sort_th(page, 'active', 'Active') }}<th>Tax class</th><th></th>
+                    </tr>
+                    <tr class="filter-row">
+                        {% for field, label in { code: 'Code', name: 'Name' } %}
+                            <th><input type="search" value="{{ page.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}"></th>
+                        {% endfor %}
+                        <th></th><th></th><th></th><th></th><th></th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for labour in page.items %}
+                        <tr id="row_{{ labour.id }}">
+                            <td data-label="Code"><code>{{ labour.code }}</code></td>
+                            <td data-label="Name"><strong>{{ labour.name }}</strong></td>
+                            <td data-label="Price per unit" class="num">{{ mx.money(labour.price) }}</td>
+                            <td data-label="Unit">{{ labour.unit.label }}</td>
+                            <td data-label="Sublet">{{ labour.sublet ? 'Yes' : 'No' }}</td>
+                            <td data-label="Active"><span class="badge {{ labour.active ? 'success' : 'danger-soft' }}">{{ labour.active ? 'Active' : 'Inactive' }}</span></td>
+                            <td data-label="Tax class">{{ labour.taxClass.label }}</td>
+                            <td data-label="Actions">
+                                {% if canManage %}
+                                    <div class="mx-actions">
+                                        <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
+                                                data-form-action="{{ path('maxeme_labour_update', { id: labour.id }) }}"
+                                                data-form-values="{{ form_values(labour)|json_encode }}">Edit</button>
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ labour.id }}"
+                                                data-url="{{ path('maxeme_labour_delete', { id: labour.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ labour.name }}"
+                                                data-confirm-after="?">Delete</button>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">No labour rates yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+
+    {% if canManage %}
+        {% include 'maxeme/charge/_modals.html.twig' with { noun: 'Labour', createUrl: path('maxeme_labour_create'), fields: 'maxeme/labour/_fields.html.twig', priceLabel: 'Price per unit', taxClasses: taxClasses, units: units } only %}
+    {% endif %}
+{% endblock %}

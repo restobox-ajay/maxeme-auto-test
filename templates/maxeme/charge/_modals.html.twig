@@ -1,0 +1,22 @@
+{# Add / edit modals of a charge list. Vars: noun ("Labour"), createUrl, fields (the template of the extra fields), priceLabel, taxClasses, units (Labour only). #}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% for modal in [
+    { id: 'manageAddModal', title: 'Add ' ~ noun, action: createUrl, submit: 'Add' },
+    { id: 'manageEditModal', title: 'Edit ' ~ noun, action: '', submit: 'Save' },
+] %}
+    <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
+        <div class="admin-modal mx-modal-wide">
+            <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            <h2 id="{{ modal.id }}Label" style="margin-top:0">{{ modal.title }}</h2>
+            <form class="form-grid" method="post" action="{{ modal.action }}">
+                {{ csrf_field() }}{{ mx.return_field() }}
+                {% include 'maxeme/charge/_fields.html.twig' with { priceLabel: priceLabel, taxClasses: taxClasses } only %}
+                {% include fields with { units: units|default([]) } only %}
+                <div class="modal-actions span-2">
+                    <button class="button outline js-modal-close" type="button">Cancel</button>
+                    <button class="button primary" type="submit">{{ modal.submit }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endfor %}
