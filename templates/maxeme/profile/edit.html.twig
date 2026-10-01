@@ -10,8 +10,11 @@
         <form class="form-grid" method="post" action="{{ path('maxeme_profile_edit') }}" novalidate>
             {{ csrf_field() }}
             {{ mx.form_errors(errors) }}
+            <label>First name<input type="text" name="first_name" value="{{ profile.firstName }}" required maxlength="120" autocomplete="given-name"></label>
+            <label>Last name<input type="text" name="last_name" value="{{ profile.lastName }}" required maxlength="120" autocomplete="family-name"></label>
             <label>Username<input type="text" name="username" value="{{ profile.username }}" required></label>
             <label>Email<input type="email" name="email" value="{{ profile.email }}" required></label>
+            <label class="span-2">Phone<input type="tel" name="phone_number" value="{{ profile.phoneNumber }}" maxlength="40" autocomplete="tel"></label>
             <label class="span-2">Current password<input type="password" name="current_password" required autocomplete="current-password"></label>
             <div class="form-actions span-2">
                 <button type="submit" class="button primary">Update</button>

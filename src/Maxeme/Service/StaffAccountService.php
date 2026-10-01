@@ -122,7 +122,11 @@ final class StaffAccountService
     /** @param ProfileUpdateRequest $request already passed validate() */
     public function updateIdentity(AdminUser $user, ProfileUpdateRequest $request): void
     {
-        $user->setEmail($request->email)->setUsername($request->username);
+        $user->setEmail($request->email)
+            ->setUsername($request->username)
+            ->setFirstName($request->firstName)
+            ->setLastName($request->lastName)
+            ->setPhoneNumber($request->phoneNumber !== '' ? $request->phoneNumber : null);
         $this->entityManager->flush();
     }
 
@@ -143,7 +147,8 @@ final class StaffAccountService
         $user->setEmail($request->email)
             ->setUsername($request->username)
             ->setFirstName($request->firstName)
-            ->setLastName($request->lastName);
+            ->setLastName($request->lastName)
+            ->setPhoneNumber($request->phoneNumber !== '' ? $request->phoneNumber : null);
 
         if ($request->role !== null && $request->role !== $current) {
             $staffRoles = array_map(static fn (StaffRole $role): string => $role->value, StaffRole::cases());

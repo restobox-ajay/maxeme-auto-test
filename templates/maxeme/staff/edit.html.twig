@@ -15,6 +15,7 @@
             <label class="span-2">Username<input type="text" name="username" value="{{ account.username }}" required></label>
             <label>First name:<input type="text" name="first_name" value="{{ account.firstName }}" required></label>
             <label>Last name:<input type="text" name="last_name" value="{{ account.lastName }}" required></label>
+            <label class="span-2">Phone<input type="tel" name="phone_number" value="{{ account.phoneNumber }}" maxlength="40" autocomplete="tel"></label>
             <label class="span-2">Role
                 {% if account.role and account.role not in assignableRoles %}
                     <input type="text" value="{{ account.role.label }}" disabled>

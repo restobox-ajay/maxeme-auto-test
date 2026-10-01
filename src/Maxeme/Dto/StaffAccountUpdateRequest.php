@@ -28,6 +28,11 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
     #[Assert\Length(max: 120)]
     public string $lastName = '';
 
+    /** Optional. */
+    #[Assert\Length(max: 40)]
+    #[Assert\Regex(pattern: '/^[0-9+()\-.\s]*$/', message: 'Enter a valid phone number.')]
+    public string $phoneNumber = '';
+
     #[Assert\NotNull(message: 'Choose a role.')]
     public ?StaffRole $role = null;
 
@@ -38,6 +43,7 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
         $dto->username = (string) $user->getUsername();
         $dto->firstName = (string) $user->getFirstName();
         $dto->lastName = (string) $user->getLastName();
+        $dto->phoneNumber = (string) $user->getPhoneNumber();
         $dto->role = StaffRole::of($user);
 
         return $dto;
@@ -49,6 +55,7 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
         $dto->fillIdentity($request);
         $dto->firstName = trim((string) $request->request->get('first_name', ''));
         $dto->lastName = trim((string) $request->request->get('last_name', ''));
+        $dto->phoneNumber = trim((string) $request->request->get('phone_number', ''));
 
         $current = StaffRole::of($user);
         $dto->role = $current === StaffRole::TechSupport
