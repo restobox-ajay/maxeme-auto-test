@@ -215,6 +215,7 @@ final class CoreStatusVocabularyProvider implements StatusVocabularyProviderInte
             'statuses' => [
                 'Active' => 'Active',
                 'Inactive' => 'Inactive',
+                'Deleted' => 'Deleted',
             ],
         ];
     }

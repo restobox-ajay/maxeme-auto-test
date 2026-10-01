@@ -7,7 +7,7 @@
     {# Read here, before base.html.twig's flash loop, so it opens the modal instead of becoming a toast. #}
     {% set createdUsername = app.flashes(constant('App\\Maxeme\\Controller\\StaffController::FLASH_CREATED'))|first %}
 
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every enabled login account. De-activated accounts can no longer sign in.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every login account. De-activated accounts cannot sign in until activated again; deleted accounts leave this list.' } %}
         {% block actions %}
             {% if canAdd %}
                 <button id="add-new-admin-btn" class="button mx-success" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
@@ -25,6 +25,7 @@
                         <th>Email</th>
                         <th>Username</th>
                         <th>Role</th>
+                        <th>Status</th>
                         {% if canManage %}<th style="text-align:center;">Actions</th>{% endif %}
                     </tr>
                     {# Column search boxes (core filter-row: filters[field] in the URL); the role is picked from a list. #}
@@ -40,6 +41,14 @@
                                 {% endfor %}
                             </select>
                         </th>
+                        <th>
+                            <select data-filter-field="status" aria-label="Filter by status">
+                                <option value="">All</option>
+                                {% for status in statuses %}
+                                    <option value="{{ status.value }}" {{ (filters.status ?? '') == status.value ? 'selected' }}>{{ status.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
                         {% if canManage %}<th></th>{% endif %}
                     </tr>
                 </thead>
@@ -52,26 +61,41 @@
                             <td data-label="Username">{{ user.username }}</td>
                             {% set role = staff_role(user) %}
                             <td data-label="Role">{% if role %}<span class="badge mx-role mx-role-{{ role.permissionKey|replace({'_': '-'}) }}">{{ role.label }}</span>{% else %}—{% endif %}</td>
+                            {% set active = user.status == 'Active' %}
+                            <td data-label="Status"><span class="badge {{ active ? 'success' : 'warn' }}">{{ user.status }}</span></td>
                             {% if canManage %}
                                 <td data-label="Actions" style="text-align:center;">
                                     {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
                                     <div class="mx-actions">
                                         <a class="button mx-btn-sm mx-success edit_admin" href="{{ path('maxeme_staff_edit', { id: user.id }) }}">Edit</a>
-                                        {# Delete removes the account from this list and stops it signing in; its history is kept. #}
+                                        {% if active %}
+                                            <button type="button" class="button mx-btn-sm danger deactivate_admin js-post-action" data-reload
+                                                    data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
+                                                    data-token="{{ csrf_token_value() }}"
+                                                    data-confirm-title="De-activate Confirmation"
+                                                    data-confirm-before="Are you sure you want to de-activate "
+                                                    data-item="{{ user.username ?? user.email }}"
+                                                    data-confirm-after="? They will not be able to sign in until activated again.">De-activate</button>
+                                        {% else %}
+                                            <button type="button" class="button mx-btn-sm primary activate_admin js-post-action" data-reload
+                                                    data-url="{{ path('maxeme_staff_activate', { id: user.id }) }}"
+                                                    data-token="{{ csrf_token_value() }}">Activate</button>
+                                        {% endif %}
+                                        {# Delete takes the account off this list for good and stops it signing in; its history is kept. #}
                                         <button type="button" class="button mx-btn-sm danger delete_admin js-post-action" data-remove-row="#user-{{ user.id }}"
-                                                data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
+                                                data-url="{{ path('maxeme_staff_delete', { id: user.id }) }}"
                                                 data-token="{{ csrf_token_value() }}"
                                                 data-confirm-title="Delete Confirmation"
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ user.username ?? user.email }}"
-                                                data-confirm-after="? They will no longer be able to sign in.">Delete</button>
+                                                data-confirm-after="? It will be removed from this list and can no longer sign in.">Delete</button>
                                     </div>
                                     {% endif %}
                                 </td>
                             {% endif %}
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ canManage ? 6 : 5 }}" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="{{ canManage ? 7 : 6 }}" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

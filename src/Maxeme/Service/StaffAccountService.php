@@ -34,12 +34,24 @@ final class StaffAccountService
         return $this->users->findBy(['status' => AdminUserStatus::Active->value], ['firstName' => 'ASC', 'lastName' => 'ASC', 'email' => 'ASC']);
     }
 
-    /** Manage Admins' column search boxes: filters[field] => text, except role (a StaffRole value). */
-    public const SEARCH_FIELDS = ['first_name', 'last_name', 'email', 'username', 'role'];
+    /** @return list<AdminUser> the accounts Manage Admins lists: active and de-activated, not deleted */
+    public function listedAccounts(): array
+    {
+        return $this->users->findBy(
+            ['status' => [AdminUserStatus::Active->value, AdminUserStatus::Inactive->value]],
+            ['firstName' => 'ASC', 'lastName' => 'ASC', 'email' => 'ASC'],
+        );
+    }
 
     /**
-     * The active accounts matching every non-empty column filter: the text columns contain the
-     * typed text (any case), the role is the account's own role.
+     * Manage Admins' column search boxes: filters[field] => text, except role (a StaffRole value)
+     * and status (an AdminUserStatus value).
+     */
+    public const SEARCH_FIELDS = ['first_name', 'last_name', 'email', 'username', 'role', 'status'];
+
+    /**
+     * The listed accounts matching every non-empty column filter: the text columns contain the
+     * typed text (any case), the role and status are the account's own.
      *
      * @param array<string, string> $filters
      *
@@ -52,10 +64,11 @@ final class StaffAccountService
             static fn (string $value): bool => $value !== '',
         );
 
-        return array_values(array_filter($this->activeAccounts(), static function (AdminUser $user) use ($filters): bool {
+        return array_values(array_filter($this->listedAccounts(), static function (AdminUser $user) use ($filters): bool {
             foreach ($filters as $field => $value) {
                 $matches = match ($field) {
                     'role' => StaffRole::of($user)?->value === $value,
+                    'status' => $user->getStatus() === $value,
                     'first_name' => mb_stripos((string) $user->getFirstName(), $value) !== false,
                     'last_name' => mb_stripos((string) $user->getLastName(), $value) !== false,
                     'email' => mb_stripos((string) $user->getEmail(), $value) !== false,
@@ -157,15 +170,47 @@ final class StaffAccountService
      */
     public function deactivate(AdminUser $user, AdminUser $actor): void
     {
+        $this->assertCanRemove($user, $actor, 'de-activate');
+        $this->changeStatus($user, AdminUserStatus::Inactive, $actor);
+    }
+
+    /** Lets a de-activated account sign in again. */
+    public function activate(AdminUser $user, AdminUser $actor): void
+    {
+        $this->changeStatus($user, AdminUserStatus::Active, $actor);
+    }
+
+    /**
+     * Takes the account off Manage Admins and stops it signing in. The row is kept, not erased:
+     * invoices, payments and the activity log still name it.
+     *
+     * @throws \DomainException with a user-facing reason when the account must stay
+     */
+    public function delete(AdminUser $user, AdminUser $actor): void
+    {
+        $this->assertCanRemove($user, $actor, 'delete');
+        $this->changeStatus($user, AdminUserStatus::Deleted, $actor);
+    }
+
+    /** @throws \DomainException for the actor's own account or the only active Super Admin */
+    private function assertCanRemove(AdminUser $user, AdminUser $actor, string $verb): void
+    {
         if ($user->getId() === $actor->getId()) {
-            throw new \DomainException('You cannot de-activate your own account.');
+            throw new \DomainException(sprintf('You cannot %s your own account.', $verb));
         }
-        if (StaffRole::of($user) === StaffRole::SuperAdmin && $this->activeSuperAdminCount() <= 1) {
+        if ($user->getStatus() === AdminUserStatus::Active->value
+            && StaffRole::of($user) === StaffRole::SuperAdmin
+            && $this->activeSuperAdminCount() <= 1) {
             throw new \DomainException('This is the only active Super Admin. Make another account Super Admin first.');
         }
+    }
 
-        $user->setStatus(AdminUserStatus::Inactive->value, DocumentActor::forAdmin($actor));
-        $this->entityManager->flush();
+    private function changeStatus(AdminUser $user, AdminUserStatus $status, AdminUser $actor): void
+    {
+        if ($user->getStatus() !== $status->value) {
+            $user->setStatus($status->value, DocumentActor::forAdmin($actor));
+            $this->entityManager->flush();
+        }
     }
 
     private function setPassword(AdminUser $user, string $plainPassword): void

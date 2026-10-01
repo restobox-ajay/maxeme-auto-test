@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Entity\AdminUser;
+use App\Enum\AdminUserStatus;
 use App\Maxeme\Dto\StaffAccountRequest;
 use App\Maxeme\Dto\StaffAccountUpdateRequest;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -67,6 +68,9 @@ final class StaffController extends AbstractController
     #[RequiresPermission(Permission::STAFF_EDIT)]
     public function edit(Request $request, #[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): Response
     {
+        if ($user->getStatus() === AdminUserStatus::Deleted->value) {
+            throw $this->createNotFoundException('This account has been deleted.');
+        }
         if ($user->getId() === $actor->getId()) {
             return $this->redirectToRoute('maxeme_profile_show');
         }
@@ -103,17 +107,40 @@ final class StaffController extends AbstractController
     #[RequiresPermission(Permission::STAFF_EDIT)]
     public function deactivate(#[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): JsonResponse
     {
+        return $this->changeStatus($user, fn () => $this->accounts->deactivate($user, $actor), 'de-activated');
+    }
+
+    #[Route('/{id}/activate', name: 'activate', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::STAFF_EDIT)]
+    public function activate(#[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): JsonResponse
+    {
+        return $this->changeStatus($user, fn () => $this->accounts->activate($user, $actor), 'activated');
+    }
+
+    #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::STAFF_EDIT)]
+    public function delete(#[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): JsonResponse
+    {
+        return $this->changeStatus($user, fn () => $this->accounts->delete($user, $actor), 'deleted');
+    }
+
+    /** The row buttons' shared checks and JSON answer; $change throws \DomainException to refuse. */
+    private function changeStatus(AdminUser $user, \Closure $change, string $done): JsonResponse
+    {
+        if ($user->getStatus() === AdminUserStatus::Deleted->value) {
+            return $this->json(['message' => 'This account has been deleted.'], Response::HTTP_NOT_FOUND);
+        }
         if (!$this->isGranted(StaffAccountVoter::MANAGE, $user)) {
             return $this->json(['message' => 'Only a Super Admin can change a Super Admin account.'], Response::HTTP_FORBIDDEN);
         }
 
         try {
-            $this->accounts->deactivate($user, $actor);
+            $change();
         } catch (\DomainException $exception) {
             return $this->json(['message' => $exception->getMessage()], Response::HTTP_CONFLICT);
         }
 
-        return $this->json(['message' => sprintf('"%s" has been deleted.', $user->getUsername() ?? $user->getEmail())]);
+        return $this->json(['message' => sprintf('"%s" has been %s.', $user->getUsername() ?? $user->getEmail(), $done)]);
     }
 
     /**
@@ -126,6 +153,7 @@ final class StaffController extends AbstractController
             'users' => $this->accounts->search($filters),
             'filters' => $filters,
             'roles' => StaffRole::cases(),
+            'statuses' => [AdminUserStatus::Active, AdminUserStatus::Inactive],
             'account' => $account,
             'errors' => $errors,
             'assignableRoles' => StaffRole::assignable(),
