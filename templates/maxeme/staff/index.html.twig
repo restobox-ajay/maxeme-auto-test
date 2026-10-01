@@ -27,6 +27,21 @@
                         <th>Role</th>
                         {% if canManage %}<th style="text-align:center;">Actions</th>{% endif %}
                     </tr>
+                    {# Column search boxes (core filter-row: filters[field] in the URL); the role is picked from a list. #}
+                    <tr class="filter-row">
+                        {% for field, label in { first_name: 'First name', last_name: 'Last name', email: 'Email', username: 'Username' } %}
+                            <th><input type="search" value="{{ filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}"></th>
+                        {% endfor %}
+                        <th>
+                            <select data-filter-field="role" aria-label="Filter by role">
+                                <option value="">All roles</option>
+                                {% for role in roles %}
+                                    <option value="{{ role.value }}" {{ (filters.role ?? '') == role.value ? 'selected' }}>{{ role.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        {% if canManage %}<th></th>{% endif %}
+                    </tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
@@ -35,23 +50,28 @@
                             <td data-label="Last name">{{ user.lastName }}</td>
                             <td data-label="Email">{{ user.email }}</td>
                             <td data-label="Username">{{ user.username }}</td>
-                            <td data-label="Role">{{ staff_role(user).label|default('—') }}</td>
+                            {% set role = staff_role(user) %}
+                            <td data-label="Role">{% if role %}<span class="badge mx-role mx-role-{{ role.permissionKey|replace({'_': '-'}) }}">{{ role.label }}</span>{% else %}—{% endif %}</td>
                             {% if canManage %}
                                 <td data-label="Actions" style="text-align:center;">
                                     {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
                                     <div class="mx-actions">
-                                            <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#user-{{ user.id }}"
-                                                    data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
-                                                    data-token="{{ csrf_token_value() }}"
-                                                    data-confirm-title="De-activate Confirmation"
-                                                    data-confirm-before="Are you sure you want to de-activate "
-                                                    data-item="{{ user.username ?? user.email }}"
-                                                    data-confirm-after="? They will no longer be able to sign in.">De-activate</button>
+                                        <a class="button mx-btn-sm mx-success edit_admin" href="{{ path('maxeme_staff_edit', { id: user.id }) }}">Edit</a>
+                                        {# Delete removes the account from this list and stops it signing in; its history is kept. #}
+                                        <button type="button" class="button mx-btn-sm danger delete_admin js-post-action" data-remove-row="#user-{{ user.id }}"
+                                                data-url="{{ path('maxeme_staff_deactivate', { id: user.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ user.username ?? user.email }}"
+                                                data-confirm-after="? They will no longer be able to sign in.">Delete</button>
                                     </div>
                                     {% endif %}
                                 </td>
                             {% endif %}
                         </tr>
+                    {% else %}
+                        <tr><td colspan="{{ canManage ? 6 : 5 }}" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

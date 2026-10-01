@@ -9,6 +9,7 @@ use App\Enum\AdminUserStatus;
 use App\Maxeme\Dto\AccountIdentityRequest;
 use App\Maxeme\Dto\ProfileUpdateRequest;
 use App\Maxeme\Dto\StaffAccountRequest;
+use App\Maxeme\Dto\StaffAccountUpdateRequest;
 use App\Maxeme\Security\StaffRole;
 use App\Repository\AdminUserRepository;
 use App\Service\DocumentActor;
@@ -31,6 +32,42 @@ final class StaffAccountService
     public function activeAccounts(): array
     {
         return $this->users->findBy(['status' => AdminUserStatus::Active->value], ['firstName' => 'ASC', 'lastName' => 'ASC', 'email' => 'ASC']);
+    }
+
+    /** Manage Admins' column search boxes: filters[field] => text, except role (a StaffRole value). */
+    public const SEARCH_FIELDS = ['first_name', 'last_name', 'email', 'username', 'role'];
+
+    /**
+     * The active accounts matching every non-empty column filter: the text columns contain the
+     * typed text (any case), the role is the account's own role.
+     *
+     * @param array<string, string> $filters
+     *
+     * @return list<AdminUser>
+     */
+    public function search(array $filters): array
+    {
+        $filters = array_filter(
+            array_map('trim', array_intersect_key($filters, array_flip(self::SEARCH_FIELDS))),
+            static fn (string $value): bool => $value !== '',
+        );
+
+        return array_values(array_filter($this->activeAccounts(), static function (AdminUser $user) use ($filters): bool {
+            foreach ($filters as $field => $value) {
+                $matches = match ($field) {
+                    'role' => StaffRole::of($user)?->value === $value,
+                    'first_name' => mb_stripos((string) $user->getFirstName(), $value) !== false,
+                    'last_name' => mb_stripos((string) $user->getLastName(), $value) !== false,
+                    'email' => mb_stripos((string) $user->getEmail(), $value) !== false,
+                    'username' => mb_stripos((string) $user->getUsername(), $value) !== false,
+                };
+                if (!$matches) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
     }
 
     /**
@@ -73,6 +110,37 @@ final class StaffAccountService
     public function updateIdentity(AdminUser $user, ProfileUpdateRequest $request): void
     {
         $user->setEmail($request->email)->setUsername($request->username);
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Manage Admins › Edit: name, email, username, role and (when given) a new password.
+     *
+     * @param StaffAccountUpdateRequest $request already passed validate()
+     *
+     * @throws \DomainException when the change would leave no active Super Admin
+     */
+    public function update(AdminUser $user, StaffAccountUpdateRequest $request): void
+    {
+        $current = StaffRole::of($user);
+        if ($current === StaffRole::SuperAdmin && $request->role !== StaffRole::SuperAdmin && $this->activeSuperAdminCount() <= 1) {
+            throw new \DomainException('This is the only active Super Admin. Make another account Super Admin first.');
+        }
+
+        $user->setEmail($request->email)
+            ->setUsername($request->username)
+            ->setFirstName($request->firstName)
+            ->setLastName($request->lastName);
+
+        if ($request->role !== null && $request->role !== $current) {
+            $staffRoles = array_map(static fn (StaffRole $role): string => $role->value, StaffRole::cases());
+            $otherRoles = array_values(array_diff($user->getRoles(), $staffRoles, ['ROLE_USER']));
+            $user->setRoles([...$otherRoles, $request->role->value]);
+        }
+        if ($request->password !== null) {
+            $this->setPassword($user, $request->password->password);
+        }
+
         $this->entityManager->flush();
     }
 

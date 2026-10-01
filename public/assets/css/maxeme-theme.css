@@ -242,7 +242,8 @@ td .mx-actions { flex-wrap: nowrap; }
 .mx-muted-cell { color: var(--muted); }
 /* The header search boxes (core filter-row: filters[field] in the URL). */
 .table-card .filter-row th { padding: 6px 8px; background: #fbfcfe; }
-.table-card .filter-row input { width: 100%; min-width: 90px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 0.8rem; font-weight: 400; }
+.table-card .filter-row input,
+.table-card .filter-row select {width: 100%; min-width: 90px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 0.8rem; font-weight: 400; }
 .client-table td[data-label="Address"], .client-table td[data-label="Note"] { white-space: normal; min-width: 180px; }
 .client-table tfoot th, .table-card tfoot th { color: var(--muted); font-size: 0.78rem; font-weight: 500; background: #fbfcfe; }
 
@@ -411,6 +412,15 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-log-filter-actions { display: flex; gap: 8px; }
 .mx-role-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .mx-role-chips .badge { text-decoration: none; }
+
+/* Config › Manage Admins: one colour per staff role (class mx-role-{permissionKey}). */
+.badge.mx-role.mx-role-tech-support { color: #ffffff; background: #334155; }
+.badge.mx-role.mx-role-super-admin { color: #9f1239; background: #ffe4e6; }
+.badge.mx-role.mx-role-admin { color: #9a3412; background: #ffedd5; }
+.badge.mx-role.mx-role-secretary-1 { color: #6b21a8; background: #f3e8ff; }
+.badge.mx-role.mx-role-secretary-2 { color: #3730a3; background: #e0e7ff; }
+.badge.mx-role.mx-role-receptionist { color: #0f766e; background: #ccfbf1; }
+.badge.mx-role.mx-role-technician { color: #3f6212; background: #ecfccb; }
 .mx-change-list { margin: 0; padding-left: 14px; font-size: 0.82rem; }
 .mx-change-list li { word-break: break-word; }
 .mx-nowrap { white-space: nowrap; }

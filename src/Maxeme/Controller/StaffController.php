@@ -6,6 +6,7 @@ namespace App\Maxeme\Controller;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Dto\StaffAccountRequest;
+use App\Maxeme\Dto\StaffAccountUpdateRequest;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Security\StaffAccountVoter;
@@ -38,9 +39,11 @@ final class StaffController extends AbstractController
 
     #[Route('', name: 'index', methods: ['GET'])]
     #[RequiresPermission(Permission::STAFF_VIEW)]
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        return $this->renderIndex(new StaffAccountRequest(), []);
+        $filters = array_filter($request->query->all('filters'), 'is_string');
+
+        return $this->renderIndex(new StaffAccountRequest(), [], filters: $filters);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -60,6 +63,42 @@ final class StaffController extends AbstractController
         return $this->redirectToRoute('maxeme_staff_index');
     }
 
+    #[Route('/{id}/edit', name: 'edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    #[RequiresPermission(Permission::STAFF_EDIT)]
+    public function edit(Request $request, #[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): Response
+    {
+        if ($user->getId() === $actor->getId()) {
+            return $this->redirectToRoute('maxeme_profile_show');
+        }
+        $this->denyAccessUnlessGranted(StaffAccountVoter::MANAGE, $user, 'Only a Super Admin can change a Super Admin account.');
+
+        $account = StaffAccountUpdateRequest::fromUser($user);
+        $errors = [];
+
+        if ($request->isMethod('POST')) {
+            $account = StaffAccountUpdateRequest::fromRequest($request, $user);
+            $errors = $this->accounts->validate($account, $user);
+
+            if ($errors === []) {
+                try {
+                    $this->accounts->update($user, $account);
+                    $this->addFlash('success', sprintf('"%s" has been updated.', $user->getUsername() ?? $user->getEmail()));
+
+                    return $this->redirectToRoute('maxeme_staff_index');
+                } catch (\DomainException $exception) {
+                    $errors['role'] = $exception->getMessage();
+                }
+            }
+        }
+
+        return $this->render('maxeme/staff/edit.html.twig', [
+            'user' => $user,
+            'account' => $account,
+            'errors' => $errors,
+            'assignableRoles' => StaffRole::assignable(),
+        ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
+    }
+
     #[Route('/{id}/deactivate', name: 'deactivate', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::STAFF_EDIT)]
     public function deactivate(#[MapEntity] AdminUser $user, #[CurrentUser] AdminUser $actor): JsonResponse
@@ -74,14 +113,19 @@ final class StaffController extends AbstractController
             return $this->json(['message' => $exception->getMessage()], Response::HTTP_CONFLICT);
         }
 
-        return $this->json(['message' => sprintf('"%s" has been de-activated.', $user->getUsername() ?? $user->getEmail())]);
+        return $this->json(['message' => sprintf('"%s" has been deleted.', $user->getUsername() ?? $user->getEmail())]);
     }
 
-    /** @param array<string, string> $errors */
-    private function renderIndex(StaffAccountRequest $account, array $errors, int $status = Response::HTTP_OK): Response
+    /**
+     * @param array<string, string> $errors
+     * @param array<string, string> $filters the column search boxes (filters[field])
+     */
+    private function renderIndex(StaffAccountRequest $account, array $errors, int $status = Response::HTTP_OK, array $filters = []): Response
     {
         return $this->render('maxeme/staff/index.html.twig', [
-            'users' => $this->accounts->activeAccounts(),
+            'users' => $this->accounts->search($filters),
+            'filters' => $filters,
+            'roles' => StaffRole::cases(),
             'account' => $account,
             'errors' => $errors,
             'assignableRoles' => StaffRole::assignable(),

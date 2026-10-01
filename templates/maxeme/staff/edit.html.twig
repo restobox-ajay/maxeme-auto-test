@@ -1,0 +1,38 @@
+{# Manage Admins › Edit an account. Vars: user (AdminUser), account (StaffAccountUpdateRequest), errors, assignableRoles. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Edit Admin | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Manage Admins', title: 'Edit ' ~ (user.username ?? user.email), lead: 'Leave the password boxes blank to keep the current password.' } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_staff_index') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <section class="form-card">
+        <form id="edit-admin-form" class="form-grid" method="post" action="{{ path('maxeme_staff_edit', { id: user.id }) }}" novalidate>
+            {{ csrf_field() }}
+            {{ mx.form_errors(errors) }}
+            <label class="span-2">Email<input type="email" name="email" value="{{ account.email }}" required></label>
+            <label class="span-2">Username<input type="text" name="username" value="{{ account.username }}" required></label>
+            <label>First name:<input type="text" name="first_name" value="{{ account.firstName }}" required></label>
+            <label>Last name:<input type="text" name="last_name" value="{{ account.lastName }}" required></label>
+            <label class="span-2">Role
+                {% if account.role and account.role not in assignableRoles %}
+                    <input type="text" value="{{ account.role.label }}" disabled>
+                {% else %}
+                    <select name="role" required>
+                        <option value="">Choose a role</option>
+                        {% for role in assignableRoles %}
+                            <option value="{{ role.value }}" {{ account.role == role ? 'selected' }}>{{ role.label }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </label>
+            <label>New password<input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep"></label>
+            <label>Repeat new password<input type="password" name="password_confirm" autocomplete="new-password" placeholder="Leave blank to keep"></label>
+            <div class="form-actions span-2">
+                <button type="submit" class="button primary">Update</button>
+                <a class="button outline cancel-back-button" href="{{ path('maxeme_staff_index') }}">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
