@@ -2,7 +2,7 @@
    the document itself, and print styles. Blocks: actions, modals. Vars: invoice, kind, vehicles,
    addresses + address (the blank work order's vehicle and pickup-address switches). #}
 {% extends 'admin/_main/layout.html.twig' %}
-{% block title %}{{ kind.title }} {{ invoice.saved ? '#' ~ invoice.displayedId }} | {{ site_name() }}{% endblock %}
+{% block title %}{{ kind.title }} {{ invoice.saved ? doc_number(invoice, kind) }} | {{ site_name() }}{% endblock %}
 {% block head_extra %}
     <style>
         {% include 'maxeme/invoice/_document_styles.html.twig' only %}
@@ -14,7 +14,7 @@
             <div>
                 <p class="eyebrow">Accounting · {{ kind.title }}</p>
                 <div class="title-with-status">
-                    <h1>{{ kind.title }}{{ invoice.saved ? ' #' ~ invoice.displayedId }}</h1>
+                    <h1>{{ kind.title }}{{ invoice.saved ? ' ' ~ doc_number(invoice, kind) }}</h1>
                     {% if invoice.saved %}<span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>{% endif %}
                 </div>
                 <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if invoice.lastModified %} · completed {{ invoice.lastModified|date('m/d/Y h:i a') }}{% endif %}</p>
@@ -31,7 +31,7 @@
         </div>
     </nav>
     <div class="invoice-page-container">
-        {% include kind.template with { invoice: invoice, vehicles: vehicles|default([]), addresses: addresses|default([]), address: address|default(null) } only %}
+        {% include kind.template with { invoice: invoice, kind: kind, vehicles: vehicles|default([]), addresses: addresses|default([]), address: address|default(null) } only %}
     </div>
     {% block modals %}{% endblock %}
 {% endblock %}

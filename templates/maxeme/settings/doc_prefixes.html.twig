@@ -1,0 +1,19 @@
+{# Config › Settings › Doc Prefixes. Vars: prefixes (list<DocumentPrefix>), values (key => prefix in force). #}
+{% extends 'maxeme/settings/_layout.html.twig' %}
+{% set tab = 'prefixes' %}
+{% block settings_body %}
+    <section class="panel">
+        <h2>Document Prefixes</h2>
+        <form class="form-grid" method="post" action="{{ path('maxeme_settings_prefixes_save') }}">
+            {{ csrf_field() }}
+            {% for prefix in prefixes %}
+                <label>{{ prefix.label|replace({ ' Prefix': '' }) }}
+                    <input type="text" name="prefixes[{{ prefix.key }}]" value="{{ values[prefix.key] }}" maxlength="10" pattern="[A-Za-z0-9/\-]{1,10}" title="1-10 letters, numbers, hyphens or slashes" required>
+                    <small class="muted-line">e.g. {{ values[prefix.key] }}00001482</small>
+                </label>
+            {% endfor %}
+            <p class="muted-line span-2">Invoices and work orders show their prefix before the 8-digit number, on screen, in PDFs and in emails. A change applies to every one, old and new. Repair Order and Quote prefixes are kept for when those screens are built.</p>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Save prefixes</button></div>
+        </form>
+    </section>
+{% endblock %}

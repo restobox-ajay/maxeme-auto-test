@@ -1,0 +1,30 @@
+{# Config › Settings › Tax Rates. Vars: rates (list<TaxRate>). #}
+{% extends 'maxeme/settings/_layout.html.twig' %}
+{% set tab = 'tax_rates' %}
+{% block settings_body %}
+    <section class="table-card">
+        <div class="table-header"><h2>Tax Rates</h2></div>
+        <form method="post" action="{{ path('maxeme_settings_tax_rates_save') }}">
+            {{ csrf_field() }}
+            <div class="wide-table-wrap">
+                <table id="tax-rate-table">
+                    <thead><tr><th>Code</th><th>Name</th><th>Rate (%)</th><th>Last updated</th></tr></thead>
+                    <tbody>
+                        {% for rate in rates %}
+                            <tr id="row_{{ rate.id }}">
+                                <td data-label="Code"><code>{{ rate.code }}</code></td>
+                                <td data-label="Name"><input type="text" name="rates[{{ rate.id }}][name]" value="{{ rate.name }}" maxlength="60" required aria-label="{{ rate.code }} name"></td>
+                                <td data-label="Rate (%)"><input type="number" name="rates[{{ rate.id }}][rate]" value="{{ rate.rate }}" min="0" max="100" step="1" required aria-label="{{ rate.code }} rate"></td>
+                                <td data-label="Last updated">{{ rate.lastUpdated|date('m/d/Y h:i a') }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="4" class="empty-table-cell">No tax rates. Run the migrations.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="muted-line">New invoices charge these rates. A saved invoice keeps the rates it was saved with until it is saved again.</p>
+            {% if rates %}<div class="form-actions"><button class="button primary" type="submit">Save tax rates</button></div>{% endif %}
+        </form>
+    </section>
+{% endblock %}

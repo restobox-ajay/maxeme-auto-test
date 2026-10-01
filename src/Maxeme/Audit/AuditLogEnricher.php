@@ -40,6 +40,10 @@ final class AuditLogEnricher
         'ClientNote' => 'people',
         'Vehicle' => 'car',
         'AdminUser' => 'staff',
+        'TaxRate' => 'settings',
+        'TaxClass' => 'settings',
+        'PaymentType' => 'settings',
+        'Technician' => 'settings',
     ];
 
     /** The area core gives an automatic entity diff. */

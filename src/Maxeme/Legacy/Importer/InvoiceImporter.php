@@ -4,24 +4,35 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Legacy\Importer;
 
-use App\Maxeme\Enum\PaymentMethod;
 use App\Maxeme\Legacy\LegacyImporterInterface;
 use App\Maxeme\Legacy\LegacyTableCopier;
+use App\Maxeme\Repository\PaymentTypeRepository;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Legacy `invoice` → maxeme_invoice, ids and keys kept (after clients, vehicles and appointments).
  * Amounts were free-text strings (blank = none); the GST / PST rates were a PHP-serialized
- * `taxes` array; a missing status meant unpaid. The totals are copied as they were billed, not
+ * `taxes` array; a missing status meant unpaid; the payment method code becomes the Payment Type
+ * of that name (LEGACY_PAYMENT_TYPES, added by the migration). The totals are copied as they were billed, not
  * recalculated.
  */
 final class InvoiceImporter implements LegacyImporterInterface
 {
     public function __construct(
         private readonly LegacyTableCopier $copier,
+        private readonly PaymentTypeRepository $paymentTypes,
     ) {
     }
+
+    /** Legacy payment_method => Payment Type name. */
+    private const LEGACY_PAYMENT_TYPES = [
+        'cash' => 'Cash',
+        'visa' => 'Visa',
+        'master' => 'Master',
+        'debit' => 'Debit',
+        'cheque' => 'Cheque',
+    ];
 
     public static function name(): string
     {
@@ -48,13 +59,19 @@ final class InvoiceImporter implements LegacyImporterInterface
                FROM invoice ORDER BY id",
         );
 
-        return $this->copier->upsert('maxeme_invoice', (static function () use ($rows): \Generator {
+        $paymentTypeIds = [];
+        foreach (self::LEGACY_PAYMENT_TYPES as $code => $name) {
+            $paymentTypeIds[$code] = $this->paymentTypes->findOneByName($name)?->getId();
+        }
+
+        return $this->copier->upsert('maxeme_invoice', (static function () use ($rows, $paymentTypeIds): \Generator {
             foreach ($rows as $row) {
                 $taxes = @unserialize((string) $row['taxes'], ['allowed_classes' => false]);
                 unset($row['taxes']);
                 $row['gst_rate'] = (int) (is_array($taxes) ? ($taxes['gst'] ?? 0) : 0);
                 $row['pst_rate'] = (int) (is_array($taxes) ? ($taxes['pst'] ?? 0) : 0);
-                $row['payment_method'] = PaymentMethod::tryFrom((string) $row['payment_method'])?->value;
+                $row['payment_type_id'] = $paymentTypeIds[(string) $row['payment_method']] ?? null;
+                unset($row['payment_method']);
                 yield $row;
             }
         })(), ['created_on', 'last_modified']);

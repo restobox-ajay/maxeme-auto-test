@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Service;
 
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\InventoryHistory;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Part;
@@ -20,6 +21,7 @@ final class StockLedger
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -90,7 +92,7 @@ final class StockLedger
 
         foreach ($parts as $partId => $part) {
             $change = ($wanted[$partId] ?? 0) - ($taken[$partId] ?? 0);
-            $this->record($part, -$change, sprintf('Invoice #%s', $invoice->getDisplayedId()), invoiceId: $invoice->getId());
+            $this->record($part, -$change, sprintf('Invoice %s', $this->numbers->number($invoice)), invoiceId: $invoice->getId());
         }
     }
 

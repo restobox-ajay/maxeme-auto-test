@@ -26,7 +26,7 @@
                 <tbody>
                     {% for invoice in page.items %}
                         <tr id="invoice_{{ invoice.id }}">
-                            <td data-label="Invoice #">{{ invoice.displayedId }}</td>
+                            <td data-label="Invoice #">{{ doc_number(invoice) }}</td>
                             <td data-label="Date">{{ invoice.createdOn|date('Y-m-d') }}</td>
                             <td data-label="Client">{{ invoice.clientFullName }}</td>
                             <td data-label="Vehicle">{{ invoice.vehicleFullName }}</td>

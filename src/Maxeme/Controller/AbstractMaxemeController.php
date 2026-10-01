@@ -7,6 +7,7 @@ namespace App\Maxeme\Controller;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Document\PdfRenderer;
 use App\Maxeme\Entity\Invoice;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -41,11 +42,11 @@ abstract class AbstractMaxemeController extends AbstractController
     }
 
     /** A document's PDF, saved by the browser under its filename, and recorded in the Activity Log. */
-    protected function downloadDocument(Invoice $invoice, DocumentKind $kind, PdfRenderer $pdf, ActivityRecorder $activity): Response
+    protected function downloadDocument(Invoice $invoice, DocumentKind $kind, PdfRenderer $pdf, ActivityRecorder $activity, DocumentNumbers $numbers): Response
     {
         $response = new Response($pdf->render($invoice, $kind), Response::HTTP_OK, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $kind->filename($invoice)),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $numbers->filename($invoice, $kind)),
         ]);
         $activity->downloaded($invoice, $kind);
 

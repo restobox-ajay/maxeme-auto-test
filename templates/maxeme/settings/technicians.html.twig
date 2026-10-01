@@ -1,0 +1,41 @@
+{# Config › Settings › Technicians. Vars: records (list<Technician>). #}
+{% extends 'maxeme/settings/_layout.html.twig' %}
+{% set tab = 'technicians' %}
+{% block title_actions %}<button id="manageAddButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add technician</button>{% endblock %}
+{% block settings_body %}
+    <section class="table-card">
+        <div class="table-header"><h2>Technicians</h2></div>
+        <div class="wide-table-wrap">
+            <table id="technician-table">
+                <thead><tr><th>Name</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                    {% for technician in records %}
+                        <tr id="row_{{ technician.id }}">
+                            <td data-label="Name"><strong>{{ technician.name }}</strong></td>
+                            <td data-label="Active"><span class="badge {{ technician.active ? 'success' : 'danger-soft' }}">{{ technician.active ? 'Active' : 'Inactive' }}</span></td>
+                            <td data-label="Actions">
+                                <div class="mx-actions">
+                                    <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
+                                            data-form-action="{{ path('maxeme_settings_technician_update', { id: technician.id }) }}"
+                                            data-form-values="{{ form_values(technician)|json_encode }}">Edit</button>
+                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ technician.id }}"
+                                            data-url="{{ path('maxeme_settings_technician_delete', { id: technician.id }) }}"
+                                            data-token="{{ csrf_token_value() }}"
+                                            data-confirm-title="Delete Confirmation"
+                                            data-confirm-before="Are you sure you want to delete "
+                                            data-item="{{ technician.name }}"
+                                            data-confirm-after="?">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="3" class="empty-table-cell">No technicians yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="muted-line">The names offered in the master technician field. They are not login accounts.</p>
+    </section>
+
+    {% include 'maxeme/settings/_modals.html.twig' with { noun: 'Technician', createUrl: path('maxeme_settings_technician_create'), fields: 'maxeme/settings/_technician_fields.html.twig' } only %}
+{% endblock %}

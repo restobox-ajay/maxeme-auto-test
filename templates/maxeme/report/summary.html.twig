@@ -6,7 +6,7 @@
 
     <section class="table-card no-search no-paginate">
         <form class="mx-report-query" method="get" action="{{ path('maxeme_report_summary') }}">
-            {% if method %}<input type="hidden" name="method" value="{{ method.value }}">{% endif %}
+            {% if method %}<input type="hidden" name="method" value="{{ method.id }}">{% endif %}
             Show invoice between dates from
             <input type="text" name="startDate" placeholder="Start Date" value="{{ startDate }}" aria-label="Start Date">
             to
@@ -19,7 +19,7 @@
             {% set range = { startDate: startDate, endDate: endDate } %}
             <a href="{{ path('maxeme_report_summary', range) }}" class="{{ method is null ? 'is-active' }}">All</a>
             {% for option in methods %}
-                <a href="{{ path('maxeme_report_summary', range|merge({ method: option.value })) }}" class="{{ method == option ? 'is-active' }}">{{ option.label }}</a>
+                <a href="{{ path('maxeme_report_summary', range|merge({ method: option.id })) }}" class="{{ method == option ? 'is-active' }}">{{ option.name }}</a>
             {% endfor %}
         </nav>
 
@@ -32,8 +32,8 @@
                     <tbody>
                         {% for invoice in result.invoices %}
                             <tr data-invoice-key="{{ invoice.invoiceKey }}">
-                                <td><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}" target="_blank" rel="noopener">{{ invoice.displayedId }}</a></td>
-                                <td>{{ invoice.paymentMethod ? invoice.paymentMethod.value }}</td>
+                                <td><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}" target="_blank" rel="noopener">{{ doc_number(invoice) }}</a></td>
+                                <td>{{ invoice.paymentType ? invoice.paymentType.name }}</td>
                                 <td class="num positive">+{{ mx.money(invoice.totalPrice) }}</td>
                                 <td class="num negative">-{{ mx.money(invoice.expenseAmount) }}</td>
                                 <td class="num negative">{{ mx.money(invoice.discountAmount) }}</td>

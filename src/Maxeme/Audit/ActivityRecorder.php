@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Audit;
 
 use App\Maxeme\Document\DocumentKind;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Security\Permission;
 use App\Service\AuditLogger;
@@ -23,12 +24,14 @@ final class ActivityRecorder
     public const DOWNLOADED = 'downloaded';
     public const EMAILED = 'emailed';
     public const EXPORTED = 'exported';
+    public const SETTINGS_CHANGED = 'settings_changed';
 
     public const AREA_SIGN_IN = 'Sign-in';
     public const AREA_SECURITY = 'Security';
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -54,12 +57,12 @@ final class ActivityRecorder
 
     public function downloaded(Invoice $invoice, DocumentKind $kind): void
     {
-        $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::DOWNLOADED, sprintf('Downloaded %s.', $kind->filename($invoice)));
+        $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::DOWNLOADED, sprintf('Downloaded %s.', $this->numbers->filename($invoice, $kind)));
     }
 
     public function emailed(Invoice $invoice, DocumentKind $kind, string $recipients): void
     {
-        $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::EMAILED, sprintf('Emailed %s to %s.', $kind->filename($invoice), $recipients));
+        $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::EMAILED, sprintf('Emailed %s to %s.', $this->numbers->filename($invoice, $kind), $recipients));
     }
 
     /**
@@ -70,6 +73,31 @@ final class ActivityRecorder
     public function exported(string $area, string $entityType, string $filename, int $rows, string $view): void
     {
         $this->auditLogger->log(Permission::AREAS[$area], $entityType, null, self::EXPORTED, sprintf('Exported %d rows to %s (%s).', $rows, $filename, $view));
+    }
+
+    /**
+     * Shop settings stored in core's app_setting (the Doc Prefixes), which core's entity diff
+     * deliberately skips. Records only the keys whose value changed, before and after.
+     *
+     * @param array<string, string> $before key => value
+     * @param array<string, string> $after  key => value
+     */
+    public function settingsChanged(string $what, array $before, array $after): void
+    {
+        $changed = array_keys(array_diff_assoc($after, $before));
+        if ($changed === []) {
+            return;
+        }
+
+        $this->auditLogger->log(
+            Permission::AREAS['settings'],
+            'AppSetting',
+            null,
+            self::SETTINGS_CHANGED,
+            sprintf('Changed %s: %s.', $what, implode(', ', array_map(static fn (string $key): string => sprintf('%s %s → %s', $key, $before[$key] ?? '', $after[$key]), $changed))),
+            array_intersect_key($before, array_flip($changed)),
+            array_intersect_key($after, array_flip($changed)),
+        );
     }
 
     private static function area(DocumentKind $kind): string

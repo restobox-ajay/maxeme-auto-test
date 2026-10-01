@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Accounting;
 
 use App\Maxeme\Entity\Invoice;
-use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Service\AppSettings;
 
@@ -26,7 +26,7 @@ final class SummaryReport
      *
      * @return array{invoices: list<Invoice>, totals: array{revenue: string, expense: string, discount: string, salesTax: string, net: string}}
      */
-    public function run(\DateTimeImmutable $from, \DateTimeImmutable $to, ?PaymentMethod $method): array
+    public function run(\DateTimeImmutable $from, \DateTimeImmutable $to, ?PaymentType $method): array
     {
         $zone = $this->appSettings->timezone();
         $utc = new \DateTimeZone('UTC');

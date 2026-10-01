@@ -6,7 +6,8 @@ namespace App\Maxeme\Controller;
 
 use App\Maxeme\Dto\AbstractChargeData;
 use App\Maxeme\Entity\AbstractCharge;
-use App\Maxeme\Enum\TaxClass;
+use App\Maxeme\Entity\TaxClass;
+use App\Maxeme\Repository\TaxClassRepository;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\AbstractChargeRepository;
 use App\Maxeme\Service\RecordWriter;
@@ -51,7 +52,7 @@ abstract class AbstractChargeController extends AbstractMaxemeController
 
         return $this->render($this->template(), [
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys($repository::SORTS))),
-            'taxClasses' => TaxClass::cases(),
+            'taxClasses' => $this->taxClasses()->findAllOrdered(),
             ...$extra,
         ]);
     }
@@ -88,13 +89,25 @@ abstract class AbstractChargeController extends AbstractMaxemeController
             }
         }
 
+        $taxClass = isset($errors['taxClassId']) ? null : $this->taxClasses()->find((int) $data->taxClassId);
+        if ($taxClass === null) {
+            $errors['taxClassId'] ??= 'Choose a tax class from the list.';
+        }
+
         if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
+            $charge->setTaxClass($taxClass);
             $this->records->save($charge, $data);
             $this->addFlash('success', sprintf($message, $charge->getName()));
         }
 
         return $this->redirectBack($request, $this->routePrefix() . 'index');
+    }
+
+    private function taxClasses(): TaxClassRepository
+    {
+        /** @var TaxClassRepository */
+        return $this->entityManager->getRepository(TaxClass::class);
     }
 }

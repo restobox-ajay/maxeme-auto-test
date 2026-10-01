@@ -1,5 +1,5 @@
 {# The repair order for the technicians (legacy invoice_workorder / invoice_workorder_pdf): each
-   service and standalone part, the parts to use, and a Technician line. Vars: invoice,
+   service and standalone part, the parts to use, and a Technician line. Vars: invoice, kind,
    vehicles, addresses + address (optional: the blank work order's vehicle switch and its
    pickup-address pick, the client's addresses in the client's order). #}
 {% if vehicles|default([])|length > 1 or addresses|default([])|length > 1 %}<form id="wo-switch" method="get" hidden></form>{% endif %}
@@ -8,7 +8,7 @@
     <div class="invoice-body">
         <table class="wo-table">
             <tr>
-                <td style="width:50%"><strong>Invoice Number:</strong> {{ invoice.displayedId }}</td>
+                <td style="width:50%"><strong>Work Order Number:</strong> {{ doc_number(invoice, kind) }}</td>
                 <td style="width:50%"><strong>Last Modified On:</strong> {{ (invoice.saved ? invoice.documentDate : 'now')|date('m/d/Y h:i a') }}</td>
             </tr>
             <tr>

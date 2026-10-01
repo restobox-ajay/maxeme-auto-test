@@ -4,29 +4,38 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Accounting;
 
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use App\Maxeme\Entity\TaxRate;
+use App\Maxeme\Repository\TaxRateRepository;
 
-/** The invoice tax rates (`maxeme.invoice`): each tax is either charged at its rate or not at all. */
+/**
+ * The invoice tax rates, in percent, from Config › Settings › Tax Rates: each tax is either charged
+ * at its rate or not at all.
+ */
 final class InvoiceSettings
 {
-    public readonly int $gstRate;
-    public readonly int $pstRate;
-
-    /** @param array{gst_rate: int, pst_rate: int} $invoice */
-    public function __construct(#[Autowire(param: 'maxeme.invoice')] array $invoice)
-    {
-        $this->gstRate = (int) $invoice['gst_rate'];
-        $this->pstRate = (int) $invoice['pst_rate'];
+    public function __construct(
+        private readonly TaxRateRepository $taxRates,
+    ) {
     }
 
-    /** $rate when it is 0 or the GST rate; otherwise the GST rate. */
+    public function gstRate(): int
+    {
+        return $this->taxRates->rateOf(TaxRate::GST);
+    }
+
+    public function pstRate(): int
+    {
+        return $this->taxRates->rateOf(TaxRate::PST);
+    }
+
+    /** 0 when $rate is 0 (the builder's GST switched off); otherwise the GST rate. */
     public function gst(int $rate): int
     {
-        return $rate === 0 ? 0 : $this->gstRate;
+        return $rate === 0 ? 0 : $this->gstRate();
     }
 
     public function pst(int $rate): int
     {
-        return $rate === 0 ? 0 : $this->pstRate;
+        return $rate === 0 ? 0 : $this->pstRate();
     }
 }

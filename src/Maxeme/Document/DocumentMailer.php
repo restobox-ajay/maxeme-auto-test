@@ -31,6 +31,7 @@ final class DocumentMailer
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
         private readonly ActivityRecorder $activity,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -48,14 +49,14 @@ final class DocumentMailer
         $email = $this->appSettings->applyFromAddress(new Email(), AppSettings::FROM_SUPPORT)
             ->to(array_shift($addresses))
             ->cc(...$addresses)
-            ->subject($kind->emailSubject($invoice))
+            ->subject($this->numbers->emailSubject($invoice, $kind))
             ->html($this->twig->render('maxeme/invoice/email.html.twig', ['kind' => $kind]))
-            ->attach($this->pdf->render($invoice, $kind), $kind->filename($invoice), 'application/pdf');
+            ->attach($this->pdf->render($invoice, $kind), $this->numbers->filename($invoice, $kind), 'application/pdf');
 
         try {
             $this->mailer->send($email);
         } catch (TransportExceptionInterface $exception) {
-            $this->logger->error('Could not email {document}.', ['document' => $kind->filename($invoice), 'exception' => $exception]);
+            $this->logger->error('Could not email {document}.', ['document' => $this->numbers->filename($invoice, $kind), 'exception' => $exception]);
 
             return false;
         }

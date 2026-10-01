@@ -6,7 +6,7 @@ namespace App\Maxeme\Repository;
 
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
-use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
@@ -95,18 +95,19 @@ final class InvoiceRepository extends ServiceEntityRepository
      *
      * @return list<Invoice>
      */
-    public function datedBetween(\DateTimeImmutable $from, \DateTimeImmutable $to, ?PaymentMethod $method = null): array
+    public function datedBetween(\DateTimeImmutable $from, \DateTimeImmutable $to, ?PaymentType $method = null): array
     {
         $query = $this->createQueryBuilder('i')
-            ->addSelect('p')
+            ->addSelect('p', 't')
             ->leftJoin('i.partLines', 'p')
+            ->leftJoin('i.paymentType', 't')
             ->andWhere('i.lastModified >= :from AND i.lastModified <= :to')
             ->setParameter('from', $from)
             ->setParameter('to', $to)
             ->orderBy('i.id', 'ASC');
 
         if ($method !== null) {
-            $query->andWhere('i.paymentMethod = :method')->setParameter('method', $method);
+            $query->andWhere('i.paymentType = :method')->setParameter('method', $method);
         }
 
         return $query->getQuery()->getResult();

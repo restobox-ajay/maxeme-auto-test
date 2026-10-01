@@ -94,7 +94,10 @@
             $.each($trigger.data('form-values') || {}, function (name, value) {
                 var $field = $form.find('[name="' + name + '"]');
                 if ($field.is(':checkbox')) {
-                    $field.prop('checked', value === '1');
+                    // A list (name="rates[]") ticks the boxes whose value it holds.
+                    $field.each(function () {
+                        $(this).prop('checked', $.isArray(value) ? value.indexOf(this.value) !== -1 : value === '1');
+                    });
                 } else {
                     $field.val(value === null ? '' : value);
                 }

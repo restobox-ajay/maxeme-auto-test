@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Document;
 
-use App\Maxeme\Entity\Invoice;
-
 /**
  * The two printable documents of an invoice (legacy invoice_print / invoice_pdf and
- * invoice_workorder / invoice_workorder_pdf), and how each is named and emailed.
+ * invoice_workorder / invoice_workorder_pdf). DocumentNumbers names and numbers them.
  */
 enum DocumentKind: string
 {
@@ -23,16 +21,13 @@ enum DocumentKind: string
         };
     }
 
-    /** "Invoice-00001482.pdf" / "Workorder-00001482.pdf" */
-    public function filename(Invoice $invoice): string
+    /** The app_setting holding its number prefix (Config › Settings › Doc Prefixes); see DocumentNumbers. */
+    public function prefixKey(): string
     {
-        return sprintf('%s-%s.pdf', $this === self::Invoice ? 'Invoice' : 'Workorder', $invoice->getDisplayedId());
-    }
-
-    /** "Invoice #00001482" / "Work Order #00001482" */
-    public function emailSubject(Invoice $invoice): string
-    {
-        return sprintf('%s #%s', $this === self::Invoice ? 'Invoice' : 'Work Order', $invoice->getDisplayedId());
+        return match ($this) {
+            self::Invoice => 'invoice_number_prefix',
+            self::WorkOrder => MaxemeDocumentPrefixProvider::WORK_ORDER,
+        };
     }
 
     /** The document's body template, shared by the page and the PDF. */

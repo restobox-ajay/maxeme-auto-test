@@ -1,0 +1,9 @@
+{# The tax class form (TaxClassData). Vars: rates (list<TaxRate>). #}
+<label>Code *<input type="text" name="code" maxlength="8" pattern="[A-Za-z0-9]+" title="Letters and digits" required></label>
+<label>Name *<input type="text" name="name" maxlength="120" required></label>
+<fieldset class="span-2">
+    <legend>Taxes charged <small class="muted-line">(none = exempt)</small></legend>
+    {% for rate in rates %}
+        <label class="mx-check"><input type="checkbox" name="rates[]" value="{{ rate.id }}"> {{ rate.name }} ({{ rate.rate }}%)</label>
+    {% endfor %}
+</fieldset>

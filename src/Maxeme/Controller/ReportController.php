@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Accounting\SummaryReport;
-use App\Maxeme\Enum\PaymentMethod;
+use App\Maxeme\Repository\PaymentTypeRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Service\AppSettings;
@@ -23,12 +23,13 @@ final class ReportController extends AbstractMaxemeController
 
     #[Route('/admin/accounting/summary-report', name: 'maxeme_report_summary', methods: ['GET'])]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
-    public function summary(Request $request, SummaryReport $report, AppSettings $appSettings): Response
+    public function summary(Request $request, SummaryReport $report, AppSettings $appSettings, PaymentTypeRepository $paymentTypes): Response
     {
         $today = (new \DateTimeImmutable('now', $appSettings->timezone()))->format(self::DATE);
         $start = trim((string) $request->query->get('startDate', '')) ?: $today;
         $end = trim((string) $request->query->get('endDate', '')) ?: $today;
-        $method = PaymentMethod::tryFrom((string) $request->query->get('method', ''));
+        $methodId = $request->query->getInt('method');
+        $method = $methodId > 0 ? $paymentTypes->find($methodId) : null;
 
         $from = \DateTimeImmutable::createFromFormat('!' . self::DATE, $start);
         $to = \DateTimeImmutable::createFromFormat('!' . self::DATE, $end);
@@ -38,7 +39,7 @@ final class ReportController extends AbstractMaxemeController
             'startDate' => $start,
             'endDate' => $end,
             'method' => $method,
-            'methods' => PaymentMethod::reportOrder(),
+            'methods' => $paymentTypes->findAllOrdered(),
             'error' => $error,
             'result' => $error === null ? $report->run($from, $to, $method) : null,
         ]);

@@ -10,7 +10,9 @@ use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Part;
+use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Entity\ServiceItem;
+use App\Maxeme\Entity\TaxRate;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\InvoiceSaveIntent;
@@ -28,6 +30,7 @@ final class InvoiceServiceTest extends DoctrineIntegrationTestCase
     private Appointment $appointment;
     private Part $part;
     private ServiceItem $service;
+    private PaymentType $credit;
 
     protected function setUp(): void
     {
@@ -43,7 +46,9 @@ final class InvoiceServiceTest extends DoctrineIntegrationTestCase
         $this->appointment = new Appointment($vehicle, new \DateTimeImmutable('2026-10-02 16:00:00'), new \DateTimeImmutable('2026-10-02 18:00:00'));
         $this->part = (new Part())->setName('Oil filter')->setUnitPrice('4.00')->setSalePrice('9.50');
         $this->service = (new ServiceItem())->setName('Oil change')->setPrice('50.00');
-        array_map($this->em->persist(...), [$client, $vehicle, $this->appointment, $this->part, $this->service]);
+        $this->credit = (new PaymentType())->setName('Credit Card');
+        array_map($this->em->persist(...), [$client, $vehicle, $this->appointment, $this->part, $this->service, $this->credit,
+            new TaxRate(TaxRate::GST, 'GST', 5), new TaxRate(TaxRate::PST, 'PST', 7)]);
         $this->em->flush();
         self::getContainer()->get(StockLedger::class)->setQuantity($this->part, 10, 'Opening stock');
         $this->em->flush();
@@ -62,6 +67,8 @@ final class InvoiceServiceTest extends DoctrineIntegrationTestCase
         self::assertSame('37.50', $invoice->getNetAmount(), 'total − tax − cost; the discount is not counted twice');
         self::assertSame(AppointmentStatus::InProgress, $this->appointment->getStatus());
         self::assertSame('150000', $this->appointment->getVehicle()->getMileage(), 'the mileage typed on the invoice is kept on the vehicle');
+        self::assertSame($this->credit, $invoice->getPaymentType());
+        self::assertSame([5, 7], [$invoice->getGstRate(), $invoice->getPstRate()], 'the rates of Settings > Tax Rates');
     }
 
     public function testStockIsTakenOnceWhilePaidAndGivenBackWhenUnpaid(): void
@@ -95,7 +102,7 @@ final class InvoiceServiceTest extends DoctrineIntegrationTestCase
             'discount_amount' => '10',
             'gst' => '5',
             'pst' => '7',
-            'payment_method' => 'visa',
+            'payment_type' => (string) $this->credit->getId(),
             'items' => [
                 ['type' => 'Services', 'id' => $this->service->getId(), 'name' => 'Oil change', 'quantity' => '1', 'price' => '50.00',
                     'parts' => [['id' => $this->part->getId(), 'name' => 'Oil filter', 'quantity' => '2']]],

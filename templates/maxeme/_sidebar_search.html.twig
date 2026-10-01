@@ -4,7 +4,7 @@
 {% set boxes = [
     { permission: '/people/view', action: 'maxeme_client_search', title: 'Customer', placeholder: 'Name, phone, address…', hint: 'Name, preferred name, phone, address or invoice #', lists: ['maxeme_client_index', 'maxeme_client_search'] },
     { permission: '/car/view', action: 'maxeme_vehicle_search', title: 'Vehicle', placeholder: 'VIN, plate, make…', hint: 'VIN, license plate, make, model, year or color', lists: ['maxeme_vehicle_index', 'maxeme_vehicle_search'] },
-    { permission: '/accounting/view', action: 'maxeme_invoice_find', title: 'Invoice #', placeholder: 'e.g. 15836', hint: 'The invoice number, leading zeros optional', lists: ['maxeme_invoice_index', 'maxeme_invoice_find'] },
+    { permission: '/accounting/view', action: 'maxeme_invoice_find', title: 'Invoice #', placeholder: 'e.g. 15836', hint: 'The invoice number; prefix and leading zeros optional', lists: ['maxeme_invoice_index', 'maxeme_invoice_find'] },
 ] %}
 <div class="mx-side-search">
     {% for box in boxes|filter(box => is_granted(box.permission)) %}

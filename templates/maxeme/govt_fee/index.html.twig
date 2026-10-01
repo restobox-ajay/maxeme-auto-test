@@ -34,7 +34,7 @@
                             <td data-label="$" class="num">{{ mx.money(fee.price) }}</td>
                             <td data-label="Description" class="mx-note-text">{{ fee.description|nl2br }}</td>
                             <td data-label="Active"><span class="badge {{ fee.active ? 'success' : 'danger-soft' }}">{{ fee.active ? 'Active' : 'Inactive' }}</span></td>
-                            <td data-label="Tax class">{{ fee.taxClass.label }}</td>
+                            <td data-label="Tax class">{{ fee.taxClass ? fee.taxClass.label : '—' }}</td>
                             <td data-label="Actions">
                                 {% if canManage %}
                                     <div class="mx-actions">

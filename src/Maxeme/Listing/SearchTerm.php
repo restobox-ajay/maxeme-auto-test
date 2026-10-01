@@ -43,12 +43,17 @@ final class SearchTerm
         return $this->words === [];
     }
 
-    /** An invoice number as typed ("00015836", "#15836"), or null when the text is not one. */
+    /**
+     * An invoice number as typed ("00015836", "#15836", or with a document prefix such as
+     * "INV-15836" / "WO-00015836"), or null when the text is not one.
+     */
     public function invoiceNumber(): ?int
     {
-        $digits = ltrim(ltrim($this->text, '#'), '0');
+        if (preg_match('~^[A-Za-z/-]*#?0*(\d+)$~', $this->text, $match) !== 1) {
+            return null;
+        }
 
-        return ctype_digit($digits) && $digits !== '' ? (int) $digits : null;
+        return (int) $match[1] > 0 ? (int) $match[1] : null;
     }
 
     /**

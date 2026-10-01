@@ -301,6 +301,10 @@ services:
     App\Maxeme\Menu\MaxemeAdminMenuProvider:
         tags: ['app.admin_menu_override_provider']
 
+    # The repair order and work order prefixes, next to core's invoice and quote ones.
+    App\Maxeme\Document\MaxemeDocumentPrefixProvider:
+        tags: ['app.document_prefix_provider']
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

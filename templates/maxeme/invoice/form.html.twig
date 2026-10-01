@@ -1,6 +1,6 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
-{% block title %}Invoice {{ invoice.saved ? '#' ~ invoice.displayedId : '(new)' }} | {{ site_name() }}{% endblock %}
+{% block title %}Invoice {{ invoice.saved ? doc_number(invoice) : '(new)' }} | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set appointment = invoice.appointment %}
     {% set backUrl = invoice.client ? path('maxeme_client_show', { id: invoice.client.id, tab: 'appointments' }) : path('maxeme_appointment_calendar') %}
@@ -11,7 +11,7 @@
             <div>
                 <p class="eyebrow">Accounting · Invoice builder</p>
                 <div class="title-with-status">
-                    <h1>Invoice {{ invoice.saved ? '#' ~ invoice.displayedId : '(not saved yet)' }}</h1>
+                    <h1>Invoice {{ invoice.saved ? doc_number(invoice) : '(not saved yet)' }}</h1>
                     <span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>
                 </div>
                 <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if appointment %} · Appointment #{{ appointment.id }}, {{ appointment.startTime|date('M j, Y g:i a') }}{% endif %}</p>
@@ -114,8 +114,8 @@
                             <tr id="payment-row" class="tfoot">
                                 <td>Payment method:</td>
                                 <td class="num">
-                                    <select name="payment_method" aria-label="Payment method">
-                                        {% for method in paymentMethods %}<option value="{{ method.value }}" {{ invoice.paymentMethod == method ? 'selected' }}>{{ method.label }}</option>{% endfor %}
+                                    <select name="payment_type" aria-label="Payment method">
+                                        {% for type in paymentTypes %}<option value="{{ type.id }}" {{ invoice.paymentType == type ? 'selected' }}>{{ type.name }}</option>{% endfor %}
                                     </select>
                                 </td>
                                 <td class="num"><input id="paid-amount" type="text" name="payment_amount" value="{{ invoice.paymentAmount }}" inputmode="decimal" aria-label="Paid amount"></td>

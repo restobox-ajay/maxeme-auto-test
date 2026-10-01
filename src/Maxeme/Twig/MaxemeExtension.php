@@ -7,6 +7,8 @@ namespace App\Maxeme\Twig;
 use App\Entity\AdminUser;
 use App\Entity\AuditLog;
 use App\Maxeme\Audit\ActivityLog;
+use App\Maxeme\Document\DocumentKind;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\ClientAddressData;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Dto\FormData;
@@ -18,12 +20,19 @@ use App\Maxeme\Dto\GovtFeeData;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\ClientAddress;
+use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\Part;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceReminder;
 use App\Maxeme\Entity\Labour;
 use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Vehicle;
+use App\Maxeme\Entity\PaymentType;
+use App\Maxeme\Entity\TaxClass;
+use App\Maxeme\Entity\Technician;
+use App\Maxeme\Dto\PaymentTypeData;
+use App\Maxeme\Dto\TaxClassData;
+use App\Maxeme\Dto\TechnicianData;
 use App\Maxeme\Security\StaffRole;
 use App\Menu\Admin\AdminMenuIconSet;
 use Twig\Attribute\AsTwigFunction;
@@ -40,7 +49,22 @@ final class MaxemeExtension
         ServiceReminder::class => ServiceReminderData::class,
         Labour::class => LabourData::class,
         GovtFee::class => GovtFeeData::class,
+        TaxClass::class => TaxClassData::class,
+        PaymentType::class => PaymentTypeData::class,
+        Technician::class => TechnicianData::class,
     ];
+
+    public function __construct(
+        private readonly DocumentNumbers $numbers,
+    ) {
+    }
+
+    /** {{ doc_number(invoice) }} "INV-00001482"; {{ doc_number(invoice, kind) }} for the work order's "WO-00001482". */
+    #[AsTwigFunction('doc_number')]
+    public function docNumber(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
+    {
+        return $this->numbers->number($invoice, $kind);
+    }
 
     /** {{ staff_role(user).label }} */
     #[AsTwigFunction('staff_role')]

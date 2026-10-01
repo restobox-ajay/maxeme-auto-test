@@ -82,8 +82,10 @@ class Invoice
     #[ORM\Column(length: 10, enumType: InvoiceStatus::class)]
     private InvoiceStatus $status = InvoiceStatus::Unpaid;
 
-    #[ORM\Column(length: 10, nullable: true, enumType: PaymentMethod::class)]
-    private ?PaymentMethod $paymentMethod = null;
+    /** Config › Settings › Payment Types. */
+    #[ORM\ManyToOne(targetEntity: PaymentType::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?PaymentType $paymentType = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $paymentAmount = null;
@@ -264,8 +266,8 @@ class Invoice
         $status === InvoiceStatus::Paid ? $this->appointment?->complete() : $this->appointment?->reopen();
     }
 
-    public function getPaymentMethod(): ?PaymentMethod { return $this->paymentMethod; }
-    public function setPaymentMethod(?PaymentMethod $value): void { $this->paymentMethod = $value; }
+    public function getPaymentType(): ?PaymentType { return $this->paymentType; }
+    public function setPaymentType(?PaymentType $value): void { $this->paymentType = $value; }
     public function getPaymentAmount(): ?string { return $this->paymentAmount; }
     public function setPaymentAmount(?string $value): void { $this->paymentAmount = $value; }
 

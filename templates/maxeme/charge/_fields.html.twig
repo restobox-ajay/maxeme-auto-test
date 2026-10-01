@@ -4,7 +4,8 @@
 <label>{{ priceLabel }} *<input type="text" name="price" inputmode="decimal" pattern="\d{1,8}(\.\d{1,2})?" title="An amount in dollars, e.g. 12.50" required></label>
 <label>Tax class *
     <select name="tax_class" required>
-        {% for class in taxClasses %}<option value="{{ class.value }}">{{ class.label }}</option>{% endfor %}
+        <option value="">Choose…</option>
+        {% for class in taxClasses %}<option value="{{ class.id }}">{{ class.label }}</option>{% endfor %}
     </select>
 </label>
 <label class="mx-check"><input type="checkbox" name="active" value="1" checked> Active</label>

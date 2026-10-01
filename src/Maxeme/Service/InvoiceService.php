@@ -15,6 +15,7 @@ use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoicePartLine;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\Part;
+use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\InvoiceSaveIntent;
@@ -45,13 +46,13 @@ final class InvoiceService
     public function forAppointment(Appointment $appointment): Invoice
     {
         return $this->invoices->findOneByAppointment($appointment)
-            ?? Invoice::forAppointment($appointment, $this->settings->gstRate, $this->settings->pstRate);
+            ?? Invoice::forAppointment($appointment, $this->settings->gstRate(), $this->settings->pstRate());
     }
 
     /** The client's blank work order, for $vehicle or the client's first vehicle. Never saved. */
     public function blankWorkOrder(Client $client, ?Vehicle $vehicle = null, ?ClientAddress $address = null): Invoice
     {
-        return Invoice::forClient($client, $vehicle ?? $client->getVehicles()->first() ?: null, $this->settings->gstRate, $this->settings->pstRate, $address);
+        return Invoice::forClient($client, $vehicle ?? $client->getVehicles()->first() ?: null, $this->settings->gstRate(), $this->settings->pstRate(), $address);
     }
 
     /** @param InvoiceData $data already validated */
@@ -63,7 +64,7 @@ final class InvoiceService
         }
         $this->updateVehicle($invoice);
 
-        $invoice->setPaymentMethod($data->paymentMethod);
+        $invoice->setPaymentType($this->find(PaymentType::class, $data->paymentTypeId));
         $invoice->setPaymentAmount($data->paymentAmount);
         $invoice->setStatus($intent->status($data));
         $invoice->setLastModified(match (true) {

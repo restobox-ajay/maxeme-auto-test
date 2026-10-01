@@ -56,8 +56,9 @@ final class InvoiceData
 
     public int $pstRate = 0;
 
+    /** A Config › Settings › Payment Types id. */
     #[Assert\NotNull(message: 'Choose a payment method.')]
-    public ?PaymentMethod $paymentMethod = PaymentMethod::Cash;
+    public ?int $paymentTypeId = null;
 
     #[Money]
     public ?string $paymentAmount = null;
@@ -81,7 +82,8 @@ final class InvoiceData
         $data->discount = $discount !== '' ? $discount : null;
         $data->gstRate = $post->getInt('gst');
         $data->pstRate = $post->getInt('pst');
-        $data->paymentMethod = PaymentMethod::tryFrom((string) $post->get('payment_method', ''));
+        $paymentType = $post->getInt('payment_type');
+        $data->paymentTypeId = $paymentType > 0 ? $paymentType : null;
         $amount = trim((string) $post->get('payment_amount', ''));
         $data->paymentAmount = $amount !== '' ? $amount : null;
         $data->paid = $post->getBoolean('paid');

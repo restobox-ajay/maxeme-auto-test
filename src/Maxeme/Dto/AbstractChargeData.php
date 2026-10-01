@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Enum\TaxClass;
 use App\Maxeme\Validation\Money;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -15,7 +14,7 @@ abstract class AbstractChargeData extends FormData
         'code' => 'code',
         'name' => 'name',
         'price' => 'price',
-        'tax_class' => 'taxClass',
+        'tax_class' => 'taxClassId',
         'active' => 'active',
     ];
 
@@ -32,26 +31,25 @@ abstract class AbstractChargeData extends FormData
     #[Money]
     public ?string $price = null;
 
-    #[Assert\NotBlank]
-    #[Assert\Choice(callback: [self::class, 'taxClasses'], message: 'Choose a tax class from the list.')]
-    public ?string $taxClass = TaxClass::GstPst->value;
+    /** A Config › Settings › Tax Classes id; the controller looks it up (see managedElsewhere()). */
+    #[Assert\NotBlank(message: 'Choose a tax class.')]
+    #[Assert\Regex('/^\d+$/', message: 'Choose a tax class from the list.')]
+    public ?string $taxClassId = null;
 
     /** The Active checkbox: "1" when ticked. */
     public ?string $active = '1';
-
-    /** @return list<string> */
-    public static function taxClasses(): array
-    {
-        return array_map(static fn (TaxClass $class): string => $class->value, TaxClass::cases());
-    }
 
     protected function toEntityValue(string $property, ?string $value): mixed
     {
         return match ($property) {
             'code', 'name', 'price' => (string) $value,
-            'taxClass' => TaxClass::from((string) $value),
             'active' => $value === '1',
             default => $value,
         };
+    }
+
+    protected function managedElsewhere(): array
+    {
+        return ['taxClassId'];
     }
 }

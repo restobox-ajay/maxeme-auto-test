@@ -24,13 +24,6 @@ final class UnderConstructionController extends AbstractController
         return $this->placeholder('Schedule', 'Repair Order');
     }
 
-    #[Route('/admin/shop-settings', name: 'maxeme_settings', methods: ['GET'])]
-    #[RequiresPermission(Permission::SETTINGS)]
-    public function settings(): Response
-    {
-        return $this->placeholder('Config', 'Settings');
-    }
-
     private function placeholder(string $eyebrow, string $title): Response
     {
         return $this->render('maxeme/under_construction.html.twig', ['eyebrow' => $eyebrow, 'title' => $title]);

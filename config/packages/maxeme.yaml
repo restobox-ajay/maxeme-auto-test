@@ -38,11 +38,6 @@ parameters:
         # TODO: ask Ken for the link. Blank leaves the link out.
         booking_url: ''
 
-    # Invoice taxes, in percent. The builder toggles each between 0 and its rate (legacy GST 5 / PST 7).
-    maxeme.invoice:
-        gst_rate: 5
-        pst_rate: 7
-
     # PDFs are rendered by dompdf, whose bundled fonts have no Chinese glyphs. Point this at a
     # TrueType font that has them (e.g. Noto Sans TC) to print Chinese names; when the file does not
     # exist the PDFs use DejaVu Sans.

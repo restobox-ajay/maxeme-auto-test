@@ -1,5 +1,5 @@
 {# The printed invoice (legacy invoice_print / invoice_pdf): services and standalone parts (a
-   service's parts are not billed, so not listed), then the totals. Vars: invoice. #}
+   service's parts are not billed, so not listed), then the totals. Vars: invoice, kind. #}
 {% import 'maxeme/_macros.html.twig' as mx %}
 <div class="invoice-document">
     {% include 'maxeme/invoice/_band.html.twig' with { label: 'INVOICE' } only %}
@@ -7,7 +7,7 @@
         <table class="inv-meta-table">
             <tr>
                 <td class="inv-meta-col">
-                    <p><strong>Invoice Number:</strong> {{ invoice.displayedId }}</p>
+                    <p><strong>Invoice Number:</strong> {{ doc_number(invoice) }}</p>
                     <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
                     <p><strong>Invoice Completed On:</strong> {{ invoice.documentDate|date('m/d/Y h:i a') }}</p>
                 </td>
@@ -68,7 +68,7 @@
                         <tr><td>GST: <strong>{{ invoice.gstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.gstAmount) }}</strong></td></tr>
                         <tr><td>PST: <strong>{{ invoice.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.pstAmount) }}</strong></td></tr>
                         <tr class="grand-total-row"><td>Total:</td><td class="r">{{ mx.money(invoice.totalPrice) }}</td></tr>
-                        <tr><td>Payment method: {{ invoice.paymentMethod ? invoice.paymentMethod.label }}</td><td class="r"><strong>{{ mx.money(invoice.paymentAmount) }}</strong></td></tr>
+                        <tr><td>Payment method: {{ invoice.paymentType ? invoice.paymentType.name }}</td><td class="r"><strong>{{ mx.money(invoice.paymentAmount) }}</strong></td></tr>
                         <tr><td>Change:</td><td class="r"><strong>{{ mx.money(invoice.changeAmount) }}</strong></td></tr>
                     </table>
                 </td>

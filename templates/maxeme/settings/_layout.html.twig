@@ -1,0 +1,27 @@
+{# Config › Settings: the heading and the tabs every settings screen shares.
+   Vars: tab (the active tab's key). Blocks: title_actions (beside the heading), settings_body. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% set tabs = {
+    tax_rates: { label: 'Tax Rates', route: 'maxeme_settings' },
+    tax_classes: { label: 'Tax Classes', route: 'maxeme_settings_tax_class_index' },
+    prefixes: { label: 'Doc Prefixes', route: 'maxeme_settings_prefixes' },
+    payment_types: { label: 'Payment Types', route: 'maxeme_settings_payment_type_index' },
+    technicians: { label: 'Technicians', route: 'maxeme_settings_technician_index' },
+} %}
+{% block title %}{{ tabs[tab].label }} · Settings | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set settingsActions = block('title_actions') is defined ? block('title_actions')|trim : '' %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Settings', lead: 'Taxes, document numbering, payment methods and technicians.' } %}
+        {% block title_actions %}{{ settingsActions|raw }}{% endblock %}
+    {% endembed %}
+
+    <nav class="detail-tabs mx-report-tabs" aria-label="Settings">
+        {% for key, item in tabs %}
+            <a href="{{ path(item.route) }}" class="{{ key == tab ? 'is-active' }}" {{ key == tab ? 'aria-current="page"' }}>{{ item.label }}</a>
+        {% endfor %}
+    </nav>
+
+    {% block settings_body %}{% endblock %}
+{% endblock %}
+{% block title_actions %}{% endblock %}

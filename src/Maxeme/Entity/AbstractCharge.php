@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
-use App\Maxeme\Enum\TaxClass;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -30,8 +29,10 @@ abstract class AbstractCharge
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     protected string $price = '0.00';
 
-    #[ORM\Column(length: 16, enumType: TaxClass::class, options: ['default' => 'gst_pst'])]
-    protected TaxClass $taxClass = TaxClass::GstPst;
+    /** Config › Settings › Tax Classes; null only for a charge saved before it had one. */
+    #[ORM\ManyToOne(targetEntity: TaxClass::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    protected ?TaxClass $taxClass = null;
 
     #[ORM\Column(options: ['default' => true])]
     protected bool $active = true;
@@ -55,8 +56,11 @@ abstract class AbstractCharge
     public function getPrice(): string { return $this->price; }
     public function setPrice(string $price): static { $this->price = $price; return $this; }
 
-    public function getTaxClass(): TaxClass { return $this->taxClass; }
-    public function setTaxClass(TaxClass $taxClass): static { $this->taxClass = $taxClass; return $this; }
+    public function getTaxClass(): ?TaxClass { return $this->taxClass; }
+    public function setTaxClass(?TaxClass $taxClass): static { $this->taxClass = $taxClass; return $this; }
+
+    /** The form's tax_class value. */
+    public function getTaxClassId(): ?int { return $this->taxClass?->getId(); }
 
     public function isActive(): bool { return $this->active; }
     public function setActive(bool $active): static { $this->active = $active; return $this; }
