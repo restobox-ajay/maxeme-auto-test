@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service\Inventory;
 
-use App\Entity\AbstractSalesDocument;
 use App\Entity\InventoryReservation;
 use App\Entity\ProductCore;
 use App\Entity\Warehouse;
@@ -87,8 +86,8 @@ interface InventoryReservationSubject
      */
     public function changeAction(): string;
 
-    /** The document itself, for the reconciled event and for log context. */
-    public function document(): AbstractSalesDocument;
+    /** The document itself (a sales order, an invoice, or an app's own document), for the reconciled event and for log context. */
+    public function document(): object;
 
     /** Human-readable identifier for warning logs — the order or invoice number. */
     public function reference(): string;

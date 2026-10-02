@@ -92,6 +92,13 @@ class RepairOrder implements HasNotes
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, options: ['default' => '0.00'])]
     private string $total = '0.00';
 
+    /**
+     * Whether its parts hold stock (RepairOrderStockSubscriber): on for every repair order made
+     * here, off for those converted from legacy invoices, whose parts left the stock count long ago.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $holdsStock = true;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdOn;
 
@@ -205,6 +212,8 @@ class RepairOrder implements HasNotes
         $this->pst = $pst;
         $this->total = $total;
     }
+
+    public function holdsStock(): bool { return $this->holdsStock; }
 
     public function getCreatedOn(): \DateTimeImmutable { return $this->createdOn; }
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }

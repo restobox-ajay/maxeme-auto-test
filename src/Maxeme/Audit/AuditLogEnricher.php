@@ -38,6 +38,7 @@ final class AuditLogEnricher
         'RepairOrderJobLine' => 'work-order',
         'RepairOrderCharge' => 'work-order',
         'RepairOrderNote' => 'work-order',
+        'RepairOrderInventoryReservation' => 'parts',
         'Invoice' => 'accounting',
         'InvoicePartLine' => 'accounting',
         'InvoiceServiceLine' => 'accounting',

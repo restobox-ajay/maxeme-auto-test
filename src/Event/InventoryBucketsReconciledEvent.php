@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Event;
 
-use App\Entity\AbstractSalesDocument;
 use Symfony\Contracts\EventDispatcher\Event;
 
 /**
@@ -18,7 +17,9 @@ use Symfony\Contracts\EventDispatcher\Event;
  *
  * $document is an AbstractSalesDocument rather than a SalesOrder from #539 stage 3 on: a sales order
  * holds `sales_hold` and an invoice holds `pending`/`approved`, so both now cause a reservation
- * change and a listener that could only be told about one of them would miss half of them.
+ * change and a listener that could only be told about one of them would miss half of them. It is
+ * typed `object` since an app's own document (e.g. a shop's repair order) may hold stock through
+ * the same reconciler: a listener checks the document's class before relying on it.
  */
 final class InventoryBucketsReconciledEvent extends Event
 {
@@ -26,7 +27,7 @@ final class InventoryBucketsReconciledEvent extends Event
      * @param list<array{product: \App\Entity\ProductCore, warehouse: \App\Entity\Warehouse, bucket: ?string, previousQuantity: int, newQuantity: int}> $changes
      */
     public function __construct(
-        public readonly AbstractSalesDocument $document,
+        public readonly object $document,
         public readonly array $changes,
     ) {
     }

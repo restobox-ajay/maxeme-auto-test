@@ -18,9 +18,11 @@ use App\Service\Inventory\InventoryOperationContext;
 use App\Service\Inventory\InvoiceInventoryBucketResolver;
 use App\Service\Inventory\InvoiceReservationSubject;
 use App\Service\Inventory\OrderInventoryBucketResolver;
+use App\Service\Inventory\SalesHoldSource;
 use App\Service\WarehouseFulfillmentRegionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -69,6 +71,9 @@ final class InventoryRecalcCommand extends Command
         private readonly InventoryBucketAuditLogger $bucketAuditLogger,
         private readonly InventoryOperationContext $operations,
         private readonly WarehouseFulfillmentRegionService $warehouses,
+        /** @var iterable<SalesHoldSource> */
+        #[AutowireIterator(SalesHoldSource::class)]
+        private readonly iterable $salesHoldSources = [],
     ) {
         parent::__construct();
     }
@@ -106,6 +111,14 @@ final class InventoryRecalcCommand extends Command
 
         [$salesHoldSums, $backorderedSums] = $this->orderHoldSums($warehousesByLowerRegionName);
         $pendingSums = $this->pendingSums($warehousesByLowerRegionName);
+
+        // Documents that are not sales orders but hold `sales_hold` too (SalesHoldSource), or this
+        // recount would wipe their holds every hour.
+        foreach ($this->salesHoldSources as $source) {
+            foreach ($source->salesHoldSums() as $compositeKey => $quantity) {
+                $salesHoldSums[$compositeKey] = QuantityScale::add($salesHoldSums[$compositeKey] ?? '0', $quantity);
+            }
+        }
 
         /** @var array<string, ProductInventory> $existingByKey */
         $existingByKey = [];
