@@ -195,7 +195,6 @@ parameters:
                   add: { label: Add a new user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
               # Read-only (Super Admin): access changes by editing config/rbac/role_permissions/, so no "+".
               - { key: roles, label: Roles, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
-              - { key: settings, label: Settings, route: maxeme_settings, role: /settings/manage, match: [maxeme_settings] }
               - { key: service_categories, label: Service Categories, route: maxeme_service_category_index, role: /service/view, match: [maxeme_service_category_],
                   add: { label: Add a service category, route: maxeme_service_category_new, role: /service/edit } }
               - { key: service_reminders, label: Service Reminders, route: maxeme_service_reminder_index, role: /service/view, match: [maxeme_service_reminder_index, maxeme_service_reminder_create, maxeme_service_reminder_update, maxeme_service_reminder_delete],
@@ -206,6 +205,20 @@ parameters:
                   add: { label: Add labour, route: maxeme_labour_index, modal: manageAddModal, role: /service/edit } }
               - { key: govt_fees, label: Government Fees, route: maxeme_govt_fee_index, role: /service/view, match: [maxeme_govt_fee_],
                   add: { label: Add a government fee, route: maxeme_govt_fee_index, modal: manageAddModal, role: /service/edit } }
+        # The Settings page's tabs, one row each.
+        - key: settings
+          label: Settings
+          icon: sliders
+          role: /settings/manage
+          children:
+              - { key: tax_rates, label: Tax Rates, route: maxeme_settings, match: [maxeme_settings_tax_rates_] }
+              - { key: tax_classes, label: Tax Classes, route: maxeme_settings_tax_class_index, match: [maxeme_settings_tax_class_],
+                  add: { label: Add a tax class, route: maxeme_settings_tax_class_index, modal: manageAddModal } }
+              - { key: doc_prefixes, label: Doc Prefixes, route: maxeme_settings_prefixes, match: [maxeme_settings_prefixes] }
+              - { key: payment_types, label: Payment Types, route: maxeme_settings_payment_type_index, match: [maxeme_settings_payment_type_],
+                  add: { label: Add a payment type, route: maxeme_settings_payment_type_index, modal: manageAddModal } }
+              - { key: technicians, label: Technicians, route: maxeme_settings_technician_index, match: [maxeme_settings_technician_],
+                  add: { label: Add a technician, route: maxeme_settings_technician_index, modal: manageAddModal } }
         - key: logs
           label: Logs
           icon: log
