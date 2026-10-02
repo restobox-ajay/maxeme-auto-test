@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** One pickup address in a client's address book (Client Profile › Address Book). */
@@ -50,9 +52,11 @@ final class ClientAddressData extends FormData
     public ?string $province = null;
 
     #[Assert\Length(max: 20)]
+    #[Formatted(InputRule::PostalCode)]
     public ?string $postalCode = null;
 
     #[Assert\Length(max: 40)]
+    #[Formatted(InputRule::Phone)]
     public ?string $phone = null;
 
     #[Assert\Length(max: 65535)]

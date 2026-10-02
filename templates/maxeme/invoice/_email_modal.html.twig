@@ -6,7 +6,7 @@
         <h2 id="{{ id }}-title" style="margin-top:0">{{ title }}</h2>
         <form method="post" class="form-grid js-email-form" action="{{ action }}">
             {{ csrf_field() }}{{ mx.return_field() }}
-            <label class="span-2">Email-Ids *<input type="text" name="emails" required value="{{ invoice.client ? invoice.client.email }}"></label>
+            <label class="span-2">Email-Ids *<input type="email" multiple name="emails" required title="One or more email addresses, separated by commas." value="{{ invoice.client ? invoice.client.email }}"></label>
             <p class="mx-email-error span-2" role="alert"></p>
             <p class="mx-help span-2">Please add comma to separate each email address if you want to send to multiple recipients.</p>
             <div class="form-actions span-2">

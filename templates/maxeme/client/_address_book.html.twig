@@ -84,9 +84,11 @@
                     {{ csrf_field() }}
                     {% for field, label in constant('App\\Maxeme\\Dto\\ClientAddressData::LABELS') %}
                         {% if field == 'delivery_instructions' %}
-                            <label class="span-2">{{ label }}<textarea name="{{ field }}" rows="3" style="resize:none"></textarea></label>
+                            <label class="span-2">{{ label }}<textarea name="{{ field }}" rows="3" maxlength="65535" style="resize:none"></textarea></label>
                         {% else %}
-                            <label {{ field in ['label', 'address_line1', 'address_line2'] ? 'class="span-2"' }}>{{ label }}{{ field == 'address_line1' ? ' *' }}<input type="{{ field == 'phone' ? 'tel' : 'text' }}" name="{{ field }}" {{ field == 'address_line1' ? 'required' }}></label>
+                            {# Types and formats match ClientAddressData's constraints. #}
+                            {% set maxlength = { label: 80, address_line1: 255, address_line2: 255, city: 120, province: 120, postal_code: 20, phone: 40 }[field] %}
+                            <label {{ field in ['label', 'address_line1', 'address_line2'] ? 'class="span-2"' }}>{{ label }}{{ field == 'address_line1' ? ' *' }}<input type="{{ field == 'phone' ? 'tel' : 'text' }}" name="{{ field }}" maxlength="{{ maxlength }}" {{ field == 'address_line1' ? 'required' }} {{ field == 'phone' ? input_rule('phone') }} {% if field == 'postal_code' %}{{ input_rule('postal_code') }} autocapitalize="characters"{% endif %}></label>
                         {% endif %}
                     {% endfor %}
                     <div class="modal-actions span-2">

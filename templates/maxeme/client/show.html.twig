@@ -42,10 +42,9 @@
                         <h2>Client Profile</h2>
                         {% if canManage %}<button id="manageEditSubmit" class="button mx-btn-sm mx-success edit_client" type="submit">Update</button>{% endif %}
                     </div>
-                    <div class="client-info-blocks">
-                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['first_name', 'last_name', 'preferred_name', 'email'], readonly: not canManage } only %}</div>
-                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['phone_1', 'phone_2'], readonly: not canManage } only %}</div>
-                        <div>{% include 'maxeme/client/_fields.html.twig' with { data: form, only: ['phone_3', 'phone_4'], readonly: not canManage } only %}</div>
+                    {# The same fields and layout as Add New Person / Edit the Client. #}
+                    <div class="form-grid inline-form-grid mx-form-two">
+                        {% include 'maxeme/client/_fields.html.twig' with { data: form, readonly: not canManage } only %}
                     </div>
                 </form>
             </section>

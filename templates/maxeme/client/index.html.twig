@@ -86,14 +86,18 @@
 
     {% if canManage %}
         <div class="admin-modal-overlay" id="manageAddModal" role="dialog" aria-modal="true" aria-labelledby="manageAddModalLabel">
-            <div class="admin-modal mx-modal-wide">
-                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
-                <h2 id="manageAddModalLabel" style="margin-top:0">Add New Person...</h2>
-                <form id="manageAddForm" class="form-grid" method="post" action="{{ path('maxeme_client_create') }}">
+            <div class="admin-modal mx-modal-wide mx-modal-sectioned">
+                <div class="mx-modal-head">
+                    <div><p class="eyebrow">Client</p><h2 id="manageAddModalLabel">Add New Person...</h2></div>
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                </div>
+                <form id="manageAddForm" method="post" action="{{ path('maxeme_client_create') }}">
                     {{ csrf_field() }}
                     {{ mx.return_field() }}
-                    {% include 'maxeme/client/_fields.html.twig' with { data: null } only %}
-                    <div class="modal-actions span-2">
+                    <div class="mx-modal-body form-grid inline-form-grid">
+                        {% include 'maxeme/client/_fields.html.twig' with { data: null } only %}
+                    </div>
+                    <div class="mx-modal-foot">
                         <button id="manageAddModalCancel" class="button outline js-modal-close" type="button">Cancel</button>
                         <button id="manageAddSubmit" class="button primary" type="submit">Save</button>
                     </div>
@@ -102,14 +106,18 @@
         </div>
 
         <div class="admin-modal-overlay" id="manageEditModal" role="dialog" aria-modal="true" aria-labelledby="manageEditModalLabel">
-            <div class="admin-modal mx-modal-wide">
-                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
-                <h2 id="manageEditModalLabel" style="margin-top:0">Edit the Client...</h2>
-                <form id="manageEditFormBody" class="form-grid" method="post" action="">
+            <div class="admin-modal mx-modal-wide mx-modal-sectioned">
+                <div class="mx-modal-head">
+                    <div><p class="eyebrow">Client</p><h2 id="manageEditModalLabel">Edit the Client...</h2></div>
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                </div>
+                <form id="manageEditFormBody" method="post" action="">
                     {{ csrf_field() }}
                     {{ mx.return_field() }}
-                    {% include 'maxeme/client/_fields.html.twig' with { data: null } only %}
-                    <div class="modal-actions span-2">
+                    <div class="mx-modal-body form-grid inline-form-grid">
+                        {% include 'maxeme/client/_fields.html.twig' with { data: null } only %}
+                    </div>
+                    <div class="mx-modal-foot">
                         <button id="manageEditModalCancel" class="button outline js-modal-close" type="button">Cancel</button>
                         <button id="manageEditSubmit" class="button primary" type="submit">Save</button>
                     </div>

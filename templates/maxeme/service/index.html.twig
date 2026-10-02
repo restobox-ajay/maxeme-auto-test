@@ -73,9 +73,9 @@
                 </div>
                 <form class="form-grid" method="post" action="{{ modal.action }}" style="margin-top:18px">
                     {{ csrf_field() }}{{ mx.return_field() }}
-                    <label class="span-2">Name<input type="text" name="name" required></label>
-                    <label class="span-2">Label <small class="muted-line">(used on the printed invoice)</small><input type="text" name="preferred_name"></label>
-                    <label class="span-2">Default Price<input type="text" name="price" inputmode="decimal"></label>
+                    <label class="span-2">Name<input type="text" name="name" maxlength="255" required></label>
+                    <label class="span-2">Label <small class="muted-line">(used on the printed invoice)</small><input type="text" name="preferred_name" maxlength="255"></label>
+                    <label class="span-2">Default Price<input type="text" name="price" {{ input_rule('money') }}></label>
                     <label class="span-2">Category <small class="muted-line">(its colour is the service's on the calendar)</small>
                         <select name="category_id">
                             <option value="">(none)</option>

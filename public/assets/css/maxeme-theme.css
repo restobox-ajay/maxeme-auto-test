@@ -262,9 +262,6 @@ td .mx-actions { flex-wrap: nowrap; }
 /* ── Client Profile ─────────────────────────────────────────────────────── */
 .mx-profile-tabs { margin: 4px 0 16px; }
 .mx-tab-stack { display: grid; gap: 18px; }
-.client-info-blocks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.client-info-blocks > div { display: grid; gap: 12px; align-content: start; }
-@media (max-width: 900px) { .client-info-blocks { grid-template-columns: 1fr; } }
 .mx-form-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .mx-form-head h2 { margin: 0; font-size: 0.92rem; font-weight: 700; }
 .mx-address-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0 22px 20px; }
@@ -447,3 +444,30 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
    input column (the text comes first in the markup). */
 .form-grid > label.mx-check > input[type="checkbox"] { justify-self: start; }
 .form-grid > label.mx-check small { display: block; }
+
+/* A sectioned popup (mockup clients.html): a head with eyebrow + title + ×, a two-column body with
+   each label above its input, and a grey foot holding Cancel / Save.
+   <div class="admin-modal mx-modal-wide mx-modal-sectioned">
+     <div class="mx-modal-head"><div><p class="eyebrow">…</p><h2>…</h2></div><button class="admin-modal-x">×</button></div>
+     <form><div class="mx-modal-body form-grid inline-form-grid">…</div><div class="mx-modal-foot">…</div></form>
+   </div>
+   .mx-form-two is the same two-column, label-above grid for a form on a page (Client Profile). */
+.admin-modal.mx-modal-sectioned { padding: 0; }
+.mx-modal-sectioned .mx-modal-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.mx-modal-sectioned .mx-modal-head > div { flex: 1; }
+.mx-modal-sectioned .mx-modal-head .eyebrow { margin: 0 0 4px; }
+.mx-modal-sectioned .mx-modal-head h2 { margin: 0; font-size: 1rem; }
+.mx-modal-sectioned .mx-modal-head .admin-modal-x { position: static; flex: none; width: 30px; height: 30px; font-size: 18px; border-color: transparent; }
+.site-admin .mx-modal-sectioned .form-grid.inline-form-grid.mx-modal-body,
+.site-admin .form-grid.inline-form-grid.mx-form-two { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 16px; }
+.site-admin .mx-modal-sectioned .form-grid.inline-form-grid.mx-modal-body { padding: 18px 20px; }
+.mx-form-two > .span-2 { grid-column: 1 / -1; }
+.mx-modal-sectioned .mx-modal-body > .span-2 { grid-column: 1 / -1; }
+.mx-modal-sectioned .mx-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); background: #fafbfc; border-radius: 0 0 12px 12px; }
+@media (max-width: 640px) {
+    .site-admin .mx-modal-sectioned .form-grid.inline-form-grid.mx-modal-body,
+    .site-admin .form-grid.inline-form-grid.mx-form-two { grid-template-columns: 1fr; }
+}
+
+/* A field the person has changed and left in a shape its pattern / type / length rejects. */
+.site-admin input:user-invalid, .site-admin textarea:user-invalid, .site-admin select:user-invalid { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 15%, transparent); }

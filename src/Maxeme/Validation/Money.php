@@ -21,7 +21,7 @@ final class Money extends Compound
     protected function getConstraints(array $options): array
     {
         return [
-            new Assert\Regex(pattern: '/^\d{1,8}(\.\d{1,2})?$/', message: 'Enter an amount in dollars, e.g. 12.50.'),
+            new Assert\Regex(pattern: InputRule::Money->regex(), message: InputRule::Money->message()),
         ];
     }
 }

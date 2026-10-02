@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Entity\AdminUser;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Validator\Constraints\UserPassword;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -22,7 +24,7 @@ final class ProfileUpdateRequest extends AccountIdentityRequest
 
     /** Optional. */
     #[Assert\Length(max: 40)]
-    #[Assert\Regex(pattern: '/^[0-9+()\-.\s]*$/', message: 'Enter a valid phone number.')]
+    #[Formatted(InputRule::Phone)]
     public string $phoneNumber = '';
 
     #[UserPassword(message: 'Current password is incorrect.')]

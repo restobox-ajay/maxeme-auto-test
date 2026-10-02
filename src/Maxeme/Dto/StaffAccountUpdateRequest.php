@@ -6,6 +6,8 @@ namespace App\Maxeme\Dto;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use App\Validation\Dto\NewPasswordRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -30,7 +32,7 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
 
     /** Optional. */
     #[Assert\Length(max: 40)]
-    #[Assert\Regex(pattern: '/^[0-9+()\-.\s]*$/', message: 'Enter a valid phone number.')]
+    #[Formatted(InputRule::Phone)]
     public string $phoneNumber = '';
 
     #[Assert\NotNull(message: 'Choose a role.')]

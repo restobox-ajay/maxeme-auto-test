@@ -115,12 +115,12 @@
             <form id="register-form" class="form-grid" method="post" action="{{ path('maxeme_staff_create') }}" style="margin-top:18px" novalidate>
                 {{ csrf_field() }}
                 {{ mx.form_errors(errors, 'mx-form-error') }}
-                <label class="span-2">Email<input type="email" name="email" id="reg-email" value="{{ account.email }}" required></label>
-                <label class="span-2">Username<input type="text" name="username" id="reg-username" value="{{ account.username }}" required></label>
-                <label>Password<input type="password" name="password" id="reg-pass1" required autocomplete="new-password"></label>
-                <label>Repeat password<input type="password" name="password_confirm" id="reg-pass2" required autocomplete="new-password"></label>
-                <label>First name:<input type="text" name="first_name" id="reg-first" value="{{ account.firstName }}" required></label>
-                <label>Last name:<input type="text" name="last_name" id="reg-last" value="{{ account.lastName }}" required></label>
+                <label class="span-2">Email<input type="email" name="email" id="reg-email" value="{{ account.email }}" required maxlength="180" autocomplete="off"></label>
+                <label class="span-2">Username<input type="text" name="username" id="reg-username" value="{{ account.username }}" required minlength="2" maxlength="180" pattern="\S+" title="A username has no spaces." autocomplete="off"></label>
+                <label>Password<input type="password" name="password" id="reg-pass1" required autocomplete="new-password" minlength="8"></label>
+                <label>Repeat password<input type="password" name="password_confirm" id="reg-pass2" required autocomplete="new-password" minlength="8"></label>
+                <label>First name:<input type="text" name="first_name" id="reg-first" value="{{ account.firstName }}" required maxlength="120"></label>
+                <label>Last name:<input type="text" name="last_name" id="reg-last" value="{{ account.lastName }}" required maxlength="120"></label>
                 <label class="span-2">Role
                     <select name="role" id="reg-role" required>
                         <option value="">Choose a role</option>

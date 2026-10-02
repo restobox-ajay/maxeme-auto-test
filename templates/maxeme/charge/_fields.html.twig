@@ -1,7 +1,7 @@
 {# The fields Labour and Government Fees share (AbstractChargeData). Vars: priceLabel, taxClasses. #}
 <label>Code *<input type="text" name="code" maxlength="40" pattern="[A-Za-z0-9_\-]+" title="Letters, digits, - and _" required></label>
 <label>Name *<input type="text" name="name" maxlength="255" required></label>
-<label>{{ priceLabel }} *<input type="text" name="price" inputmode="decimal" pattern="\d{1,8}(\.\d{1,2})?" title="An amount in dollars, e.g. 12.50" required></label>
+<label>{{ priceLabel }} *<input type="text" name="price" {{ input_rule('money') }} required></label>
 <label>Tax class *
     <select name="tax_class" required>
         <option value="">Choose…</option>

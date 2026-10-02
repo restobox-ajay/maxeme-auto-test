@@ -97,7 +97,7 @@
 
                             <tr id="discount-row" class="tfoot">
                                 <td>Discount:</td>
-                                <td class="num"><input id="total-discount-amount" name="discount_amount" type="text" value="{{ invoice.discountAmount }}" inputmode="decimal"></td>
+                                <td class="num"><input id="total-discount-amount" name="discount_amount" type="text" value="{{ invoice.discountAmount }}" inputmode="decimal" pattern="-?[0-9]{1,8}(?:\.[0-9]{1,2})?" title="Enter the discount in dollars, e.g. 10.00."></td>
                                 <td class="amount" id="total-discount-display"></td><td></td>
                             </tr>
                             <tr id="subtotal-row" class="tfoot"><td>Subtotal:</td><td></td><td class="amount" id="total-subtotal"></td><td></td></tr>
@@ -119,7 +119,7 @@
                                         {% for type in paymentTypes %}<option value="{{ type.id }}" {{ invoice.paymentType == type ? 'selected' }}>{{ type.name }}</option>{% endfor %}
                                     </select>
                                 </td>
-                                <td class="num"><input id="paid-amount" type="text" name="payment_amount" value="{{ invoice.paymentAmount }}" inputmode="decimal" aria-label="Paid amount"></td>
+                                <td class="num"><input id="paid-amount" type="text" name="payment_amount" value="{{ invoice.paymentAmount }}" {{ input_rule('money') }} aria-label="Paid amount"></td>
                                 <td class="ctl"><label class="check-row"><input id="paid-input" type="checkbox" name="paid" value="1" {{ invoice.paid ? 'checked' }}> Paid</label></td>
                             </tr>
                             <tr id="payment-change-row" class="tfoot"><td>Change:</td><td></td><td class="amount" id="total-change-display"></td><td></td></tr>

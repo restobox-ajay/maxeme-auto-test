@@ -8,7 +8,7 @@
             {{ csrf_field() }}
             {% for prefix in prefixes %}
                 <label>{{ prefix.label|replace({ ' Prefix': '' }) }}
-                    <input type="text" name="prefixes[{{ prefix.key }}]" value="{{ values[prefix.key] }}" maxlength="10" pattern="[A-Za-z0-9/\-]{1,10}" title="1-10 letters, numbers, hyphens or slashes" required>
+                    <input type="text" name="prefixes[{{ prefix.key }}]" value="{{ values[prefix.key] }}" maxlength="10" pattern="[A-Za-z0-9\/\-]{1,10}" title="1-10 letters, numbers, hyphens or slashes" required>
                     <small class="muted-line">e.g. {{ values[prefix.key] }}00001482</small>
                 </label>
             {% endfor %}

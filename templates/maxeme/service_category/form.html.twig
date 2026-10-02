@@ -25,7 +25,7 @@
             <label>Colour <small class="muted-line">(the colour of its services on the calendar; blank uses the parent category's)</small>
                 <span class="mx-colour-field">
                     <input type="color" value="{{ data.colour ?: '#428bca' }}" data-colour-for="#category-colour" aria-label="Pick a colour">
-                    <input id="category-colour" type="text" name="colour" value="{{ data.colour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}">
+                    <input id="category-colour" type="text" name="colour" value="{{ data.colour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank for the parent's.">
                 </span>
             </label>
             <label>Status

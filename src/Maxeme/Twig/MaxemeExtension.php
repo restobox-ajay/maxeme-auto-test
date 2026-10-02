@@ -32,6 +32,7 @@ use App\Maxeme\Dto\PaymentTypeData;
 use App\Maxeme\Dto\TaxClassData;
 use App\Maxeme\Dto\TechnicianData;
 use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Validation\InputRule;
 use App\Menu\Admin\AdminMenuIconSet;
 use Twig\Attribute\AsTwigFunction;
 
@@ -93,6 +94,21 @@ final class MaxemeExtension
         $id = method_exists($record, 'getId') ? $record->getId() : null;
 
         return ['record' => (new \ReflectionClass($record))->getShortName(), 'id' => is_int($id) ? $id : null];
+    }
+
+    /**
+     * <input type="text" name="phone_1" {{ input_rule('phone') }}>: the browser half of an InputRule
+     * (pattern, the message as its tooltip, and the keyboard to show), the server half being
+     * #[Formatted(InputRule::Phone)] on the field.
+     */
+    #[AsTwigFunction('input_rule', isSafe: ['html'])]
+    public function inputRule(string $name): string
+    {
+        $rule = InputRule::from($name);
+        $escape = static fn (string $value): string => htmlspecialchars($value, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+        $attributes = sprintf('pattern="%s" title="%s"', $escape($rule->pattern()), $escape($rule->message()));
+
+        return $rule->inputMode() !== null ? $attributes . sprintf(' inputmode="%s"', $rule->inputMode()) : $attributes;
     }
 
     /** {{ mx_icon('search') }}: an icon from the shared AdminMenuIconSet. */
