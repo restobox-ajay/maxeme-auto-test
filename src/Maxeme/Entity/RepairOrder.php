@@ -6,6 +6,7 @@ namespace App\Maxeme\Entity;
 
 use App\Entity\AbstractPartyNote;
 use App\Entity\AdminUser;
+use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Repository\RepairOrderRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -132,7 +133,20 @@ class RepairOrder implements HasNotes
     public function getId(): ?int { return $this->id; }
 
     public function getStatus(): RepairOrderStatus { return $this->status; }
-    public function setStatus(RepairOrderStatus $status): self { $this->status = $status; return $this; }
+    /** Once the work is done, every appointment of it that was not called off is completed. */
+    public function setStatus(RepairOrderStatus $status): self
+    {
+        $this->status = $status;
+        if ($status->isWorkDone()) {
+            foreach ($this->appointments as $appointment) {
+                if (!$appointment->getStatus()->isCalledOff() && $appointment->getStatus() !== AppointmentStatus::Complete) {
+                    $appointment->complete();
+                }
+            }
+        }
+
+        return $this;
+    }
 
     public function getClient(): ?Client { return $this->client; }
     public function getVehicle(): ?Vehicle { return $this->vehicle; }

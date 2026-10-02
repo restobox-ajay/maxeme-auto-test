@@ -39,6 +39,9 @@
     --mx-appt-new: #00a3d6;
     --mx-appt-in-progress: #ffa319;
     --mx-appt-complete: #45a665;
+    --mx-appt-extended: #8e5cc5;
+    --mx-appt-no-show: #8a94a6;
+    --mx-appt-cancelled: #d9534f;
 
     /* ── Re-point the app.css tokens ─────────────────────────────────────── */
     --brand: var(--mx-primary);
@@ -302,6 +305,9 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-calendar .fc-event.appt-new { background: var(--mx-appt-new); border-color: var(--mx-appt-new); }
 .mx-calendar .fc-event.appt-in_progress { background: var(--mx-appt-in-progress); border-color: var(--mx-appt-in-progress); }
 .mx-calendar .fc-event.appt-complete { background: var(--mx-appt-complete); border-color: var(--mx-appt-complete); }
+.mx-calendar .fc-event.appt-extended { background: var(--mx-appt-extended); border-color: var(--mx-appt-extended); }
+.mx-calendar .fc-event.appt-no_show { background: var(--mx-appt-no-show); border-color: var(--mx-appt-no-show); }
+.mx-calendar .fc-event.appt-cancelled { background: var(--mx-appt-cancelled); border-color: var(--mx-appt-cancelled); text-decoration: line-through; }
 .page-alerts .alert { margin-bottom: 14px; }
 
 /* Icon strip beside a clicked event (legacy css/calendar.css #calendar_event_edit_ui) */

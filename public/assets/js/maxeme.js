@@ -13,6 +13,7 @@
  *       data-params='{"status":"booked"}'     more fields to post
  *       data-remove-row="#row-id"            fade that row out on success
  *       data-reload                          reload the page on success (the toast shows after it)
+ *       data-redirect="url"                  go to that page on success (the toast shows there)
  *       data-confirm-title (+ data-confirm-before, data-item, data-confirm-after)
  *                                            ask first, with app.js's #delete-modal. A .danger
  *                                            button (delete, de-activate, decline) always asks,
@@ -117,9 +118,9 @@
         $.post($btn.data('url'), $.extend({}, $btn.data('params') || {}, { _token: $btn.data('token') }))
             .done(function (response) {
                 var message = response && response.message ? response.message : 'Done.';
-                if ($btn.is('[data-reload]')) {
+                if ($btn.is('[data-reload]') || $btn.attr('data-redirect')) {
                     try { window.sessionStorage.setItem('wcFlashMessage', JSON.stringify({ message: message, type: 'success' })); } catch (e) { /* no storage */ }
-                    window.location.reload();
+                    if ($btn.attr('data-redirect')) { window.location.href = $btn.attr('data-redirect'); } else { window.location.reload(); }
                     return;
                 }
                 var row = $btn.attr('data-remove-row');

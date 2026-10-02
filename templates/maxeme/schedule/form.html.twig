@@ -8,7 +8,20 @@
     {% set duration = isEdit ? appointment.durationInHours : settings.defaultDurationHours %}
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: title, lead: isEdit ? 'Click another 15-minute slot to move the appointment, or change the vehicle, duration or note.' : 'Pick a vehicle, then click a 15-minute slot in the day view to set the start time.' } %}
-        {% block actions %}<a class="button back-button" href="{{ profileUrl }}">Back</a>{% endblock %}
+        {% block actions %}
+            {% if isEdit %}
+                <div class="mx-doc-actions">
+                    {% if appointment.status.value == 'new' %}
+                        <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
+                                data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}">Check-in</button>
+                    {% endif %}
+                    <button type="button" class="button mx-btn-sm danger js-post-action" data-redirect="{{ profileUrl }}"
+                            data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}"
+                            data-confirm-title="Delete Confirmation" data-confirm-before="Delete this appointment" data-item="" data-confirm-after="?">Delete</button>
+                </div>
+            {% endif %}
+            <a class="button back-button" href="{{ profileUrl }}">Back</a>
+        {% endblock %}
     {% endembed %}
 
     <div class="appt-layout">
@@ -48,6 +61,22 @@
                 <label for="appointment_duration">Duration:
                     <span class="appt-duration"><input id="appointment_duration" value="{{ duration }}" type="number" min="0.5" max="24" step="0.5"> hours</span>
                 </label>
+                <label for="appointment_repair_order">Repair Order:
+                    <select id="appointment_repair_order" name="repair_order_id">
+                        <option value="">(none)</option>
+                        {% for repairOrder in repairOrders %}
+                            <option value="{{ repairOrder.id }}" {{ data.repairOrderId == repairOrder.id ~ '' ? 'selected' }}>{{ ro_number(repairOrder) }}{{ repairOrder.name ? ' · ' ~ (repairOrder.name|length > 40 ? repairOrder.name|slice(0, 40) ~ '…' : repairOrder.name) }}{{ repairOrder.vehicle ? ' · ' ~ repairOrder.vehicle.fullName }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if isEdit and appointment.repairOrder %}<a class="muted-line" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Open {{ ro_number(appointment.repairOrder) }}</a>{% endif %}
+                </label>
+                {% if isEdit %}
+                    <label for="appointment_status">Status:
+                        <select id="appointment_status" name="status">
+                            {% for status in statuses %}<option value="{{ status.value }}" {{ data.status == status.value ? 'selected' }}>{{ status.label }} — {{ status.description }}</option>{% endfor %}
+                        </select>
+                    </label>
+                {% endif %}
                 <label>Note:
                     <textarea name="note" rows="3">{{ data.note }}</textarea>
                 </label>

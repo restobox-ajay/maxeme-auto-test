@@ -53,6 +53,19 @@ final class RepairOrderRepository extends ServiceEntityRepository
         return ListPage::paginate($this->inView($list)->andWhere('r.client = :client')->setParameter('client', $client), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
     }
 
+    /** @return list<RepairOrder> a client's latest repair orders, newest first (the appointment page's Repair Order) */
+    public function findRecentForClient(Client $client, int $limit = 50): array
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('v')
+            ->leftJoin('r.vehicle', 'v')
+            ->andWhere('r.client = :client')->setParameter('client', $client)
+            ->orderBy('r.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     /** One repair order with its services, their lines and their items, for the edit page. */
     public function findForEdit(int $id): ?RepairOrder
     {

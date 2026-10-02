@@ -52,6 +52,12 @@ enum RepairOrderStatus: string
         };
     }
 
+    /** The work is done (Completed, Picked Up, Invoiced): its appointments are completed. */
+    public function isWorkDone(): bool
+    {
+        return in_array($this, [self::Completed, self::CompletedPickedUp, self::Invoiced], true);
+    }
+
     /** Before work starts: a check-in moves it to In Progress. */
     public function isBeforeWork(): bool
     {

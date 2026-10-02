@@ -60,7 +60,7 @@ final class AppointmentRepository extends ServiceEntityRepository
             ->getSingleScalarResult() > 0;
     }
 
-    /** @return list<Appointment> the client's new and in-progress appointments, soonest first */
+    /** @return list<Appointment> the client's new, in-progress and extended appointments, soonest first */
     public function pendingForClient(Client $client): array
     {
         return $this->createQueryBuilder('a')
@@ -73,14 +73,14 @@ final class AppointmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return ListPage<Appointment> the client's complete appointments */
+    /** @return ListPage<Appointment> the client's past appointments: completed, cancelled, no-show */
     public function findCompletedPageForClient(Client $client, ListQuery $list): ListPage
     {
         $query = $this->createQueryBuilder('a')
             ->addSelect('v')
             ->join('a.vehicle', 'v')
             ->andWhere('a.client = :client')->setParameter('client', $client)
-            ->andWhere('a.status = :complete')->setParameter('complete', AppointmentStatus::Complete);
+            ->andWhere('a.status NOT IN (:pending)')->setParameter('pending', AppointmentStatus::pending());
 
         return ListPage::paginate($query, $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
     }

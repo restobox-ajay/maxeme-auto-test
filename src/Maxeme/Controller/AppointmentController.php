@@ -9,6 +9,8 @@ use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Schedule\ScheduleSettings;
+use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\AppointmentService;
@@ -28,6 +30,7 @@ final class AppointmentController extends AbstractMaxemeController
         private readonly AppointmentService $appointments,
         private readonly RecordWriter $records,
         private readonly ScheduleSettings $settings,
+        private readonly RepairOrderRepository $repairOrders,
     ) {
     }
 
@@ -66,12 +69,19 @@ final class AppointmentController extends AbstractMaxemeController
             }
         }
 
+        $repairOrders = $this->repairOrders->findRecentForClient($client);
+        if ($appointment?->getRepairOrder() !== null && !in_array($appointment->getRepairOrder(), $repairOrders, true)) {
+            $repairOrders[] = $appointment->getRepairOrder();
+        }
+
         return $this->render('maxeme/schedule/form.html.twig', [
             'client' => $client,
             'appointment' => $appointment,
             'data' => $data,
             'errors' => $errors,
             'settings' => $this->settings,
+            'repairOrders' => $repairOrders,
+            'statuses' => AppointmentStatus::cases(),
         ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 }

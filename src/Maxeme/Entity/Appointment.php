@@ -131,10 +131,24 @@ class Appointment
         $this->touch();
     }
 
-    /** Set by the invoice when it is paid. */
+    /** Set by the invoice when it is paid, and when its repair order's work is completed. */
     public function complete(): void
     {
         $this->status = AppointmentStatus::Complete;
+        $this->touch();
+    }
+
+    /** Set by hand on the appointment page. */
+    public function setStatus(AppointmentStatus $status): void
+    {
+        $this->status = $status;
+        $this->touch();
+    }
+
+    /** No longer schedules a repair order (the appointment page's Repair Order set to none). */
+    public function detachRepairOrder(): void
+    {
+        $this->repairOrder = null;
         $this->touch();
     }
 

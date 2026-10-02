@@ -7,7 +7,9 @@ namespace App\Maxeme\Service;
 use App\Maxeme\Dto\AppointmentData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\Vehicle;
+use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Schedule\ScheduleSettings;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -32,6 +34,7 @@ final class AppointmentService
         [$start, $end] = $this->times((string) $data->start, (string) $data->end);
         $appointment = new Appointment($this->vehicle($client, (int) $data->vehicleId), $start, $end);
         $appointment->setNote($data->note);
+        $this->useRepairOrder($appointment, $data);
 
         $this->entityManager->persist($appointment);
         $this->entityManager->flush();
@@ -45,6 +48,10 @@ final class AppointmentService
         $appointment->changeVehicle($this->vehicle($appointment->getClient(), (int) $data->vehicleId));
         $appointment->reschedule(...$this->times((string) $data->start, (string) $data->end));
         $appointment->setNote($data->note);
+        $this->useRepairOrder($appointment, $data);
+        if ($data->status !== null) {
+            $appointment->setStatus(AppointmentStatus::from($data->status));
+        }
         $this->entityManager->flush();
     }
 
@@ -61,15 +68,33 @@ final class AppointmentService
         $this->entityManager->flush();
     }
 
-    /** Only while it is not complete, as the calendar offers it; its invoice goes with it. */
+    /** Only while it is not completed; its invoice goes with it. */
     public function delete(Appointment $appointment): void
     {
-        if (!$appointment->getStatus()->isPending()) {
-            throw new \DomainException('A complete appointment cannot be deleted.');
+        if ($appointment->getStatus() === AppointmentStatus::Complete) {
+            throw new \DomainException('A completed appointment cannot be deleted.');
         }
         $this->invoices->deleteFor($appointment);
         $this->entityManager->remove($appointment);
         $this->entityManager->flush();
+    }
+
+    /** The repair order picked on the form: one of the client's, for the appointment's vehicle, or none. */
+    private function useRepairOrder(Appointment $appointment, AppointmentData $data): void
+    {
+        if ($data->repairOrderId === null) {
+            $appointment->detachRepairOrder();
+
+            return;
+        }
+        $repairOrder = $this->entityManager->find(RepairOrder::class, (int) $data->repairOrderId);
+        if ($repairOrder === null || $repairOrder->getClient() !== $appointment->getClient()) {
+            throw new \DomainException("Choose one of the client's repair orders.");
+        }
+        if ($repairOrder->getVehicle() !== $appointment->getVehicle()) {
+            throw new \DomainException('That repair order is for another vehicle; choose the vehicle it is for, or another repair order.');
+        }
+        $appointment->attachTo($repairOrder);
     }
 
     /** @return array{\DateTimeImmutable, \DateTimeImmutable} UTC */

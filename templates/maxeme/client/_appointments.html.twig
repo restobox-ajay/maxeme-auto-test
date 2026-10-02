@@ -11,7 +11,7 @@
         <div class="wide-table-wrap">
             <table id="pending-appointments">
                 <thead>
-                    <tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Duration</th><th>Note</th><th></th></tr>
+                    <tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th><th>Note</th><th></th></tr>
                 </thead>
                 <tbody>
                     {% for appointment in pending %}
@@ -20,6 +20,7 @@
                             <td data-label="Time">{{ appointment.startTime|date('h:i A') }}</td>
                             <td data-label="Vehicle">{{ appointment.vehicle.fullName }}</td>
                             <td data-label="Duration">{{ appointment.durationInHours|number_format(2) }} Hours</td>
+                            <td data-label="Status">{{ appointment.status.label }}</td>
                             <td data-label="Note">{{ appointment.note }}</td>
                             <td data-label="Actions">
                                 <div class="mx-actions">
@@ -43,7 +44,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="6" class="empty-table-cell">No pending appointments.</td></tr>
+                        <tr><td colspan="7" class="empty-table-cell">No pending appointments.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -58,7 +59,7 @@
         <div class="wide-table-wrap">
             <table id="past-appointments">
                 <thead>
-                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th>{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
+                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th>{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
                 </thead>
                 <tbody>
                     {% for appointment in past.items %}
@@ -67,6 +68,7 @@
                             <td data-label="Time">{{ appointment.startTime|date('h:i A') }}</td>
                             <td data-label="Vehicle">{{ appointment.vehicle.fullName }}</td>
                             <td data-label="Duration">{{ appointment.durationInHours }}</td>
+                            <td data-label="Status">{{ appointment.status.label }}</td>
                             <td data-label="Note">{{ appointment.note }}</td>
                             <td data-label="Actions">
                                 {% if canInvoice %}
@@ -77,7 +79,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="6" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="7" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
