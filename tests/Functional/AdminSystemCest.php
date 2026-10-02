@@ -32,7 +32,7 @@ final class AdminSystemCest
 
     public function emailLogListsEntriesAndAppliesSearch(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $matching = (new EmailLog())
             ->setTemplateCode('Password Reset')
@@ -61,7 +61,7 @@ final class AdminSystemCest
 
     public function emailLogAsXhrReturnsJsonWithRenderedRowsAndPagination(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $log = (new EmailLog())
             ->setTemplateCode('Invitation')
@@ -150,7 +150,7 @@ final class AdminSystemCest
 
     public function auditLogListsEntriesAndAppliesActorTypeFilter(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $adminEntry = (new AuditLog())
             ->setActorType('admin')
@@ -185,7 +185,7 @@ final class AdminSystemCest
 
     public function auditLogAsXhrReturnsJsonWithRenderedRowsAndPagination(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $entry = (new AuditLog())
             ->setActorType('admin')
@@ -214,7 +214,7 @@ final class AdminSystemCest
      */
     public function auditLogSearchMatchesActorNameAndEntityIdExactly(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $namedActor = (new AuditLog())
             ->setActorType('admin')
@@ -273,7 +273,7 @@ final class AdminSystemCest
      */
     public function auditLogListSplitsActorAndEntityIntoSeparateColumns(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $entry = (new AuditLog())
             ->setActorType('customer')
@@ -309,7 +309,7 @@ final class AdminSystemCest
      */
     public function auditLogDetailShowsFieldDiffEscapedAndRedirectsWhenNotFound(FunctionalTester $I): void
     {
-        $this->loginAsAdmin($I);
+        $this->loginAsAdmin($I, ['ROLE_SUPER_ADMIN']);
 
         $entry = (new AuditLog())
             ->setActorType('admin')

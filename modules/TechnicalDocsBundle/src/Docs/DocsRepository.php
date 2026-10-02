@@ -44,7 +44,8 @@ final class DocsRepository
 
         $relative = [];
         foreach ($finder as $file) {
-            $relative[] = $file->getRelativePathname();
+            // Forward slashes on every OS: these become URL paths and nav rows (Windows gives "a\b.md").
+            $relative[] = str_replace('\\', '/', $file->getRelativePathname());
         }
 
         return $relative;
