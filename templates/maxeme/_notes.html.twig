@@ -3,6 +3,7 @@
    .js-note-edit); Delete asks first (maxeme.js .js-post-action).
    Vars: notes (newest first), owner (its name, for the modal title), createUrl, updateUrl,
    deleteRoute + routeParams (the delete route takes those plus noteId), canEdit. #}
+{% import 'maxeme/_macros.html.twig' as mx %}
 <section class="table-card no-paginate mx-notes" id="notes-card">
     <div class="table-header">
         <h2>Notes</h2>
@@ -28,6 +29,7 @@
                                             data-confirm-before="Are you sure you want to delete "
                                             data-item="this note"
                                             data-confirm-after="?">Delete</button>
+                                    {{ mx.logs_link(note) }}
                                 </div>
                             </td>
                         {% endif %}

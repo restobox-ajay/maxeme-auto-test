@@ -1,5 +1,6 @@
 {# Parts & Services › Service Reminders. Vars: reminders, services (active, by name), templates. #}
 {% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Service Reminders | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/service/edit') %}
@@ -28,8 +29,8 @@
                             <td data-label="Message" class="mx-note-text">{{ reminder.message|nl2br }}</td>
                             <td data-label="Emails Sent">{{ reminder.emailsSent }}</td>
                             <td data-label="Action">
-                                {% if canManage %}
-                                    <div class="mx-actions">
+                                <div class="mx-actions">
+                                    {% if canManage %}
                                         <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#reminderEditModal"
                                                 data-form-action="{{ path('maxeme_service_reminder_update', { id: reminder.id }) }}"
                                                 data-form-values="{{ form_values(reminder)|json_encode }}">Edit</button>
@@ -40,8 +41,9 @@
                                                 data-confirm-before="Are you sure you want to delete the service reminder for "
                                                 data-item="{{ reminder.service.name }}"
                                                 data-confirm-after="?">Delete</button>
-                                    </div>
-                                {% endif %}
+                                    {% endif %}
+                                    {{ mx.logs_link(reminder) }}
+                                </div>
                             </td>
                         </tr>
                     {% else %}

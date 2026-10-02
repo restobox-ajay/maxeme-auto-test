@@ -2,6 +2,7 @@
    the document itself, and print styles. Blocks: actions, modals. Vars: invoice, kind, vehicles,
    addresses + address (the blank work order's vehicle and pickup-address switches). #}
 {% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ kind.title }} {{ invoice.saved ? doc_number(invoice, kind) }} | {{ site_name() }}{% endblock %}
 {% block head_extra %}
     <style>
@@ -28,6 +29,7 @@
         <div class="mx-actions">
             <button class="button primary" type="button" onclick="window.print()">Print</button>
             {% block actions %}{% endblock %}
+            {{ mx.logs_link(invoice, 'button outline') }}
         </div>
     </nav>
     <div class="invoice-page-container">

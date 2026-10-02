@@ -14,6 +14,7 @@
             </div>
             <div class="panel-actions">
                 <a class="button back-button" href="{{ path('maxeme_client_index') }}">Back</a>
+                {{ mx.logs_link(client, 'button outline') }}
                 {% if is_granted('/appointment/edit') %}
                     <a id="add_client_appointment" class="button mx-success" href="{{ path('maxeme_appointment_new', { id: client.id }) }}">+ Add new appointment for {{ client.fullName }}</a>
                 {% endif %}
@@ -117,6 +118,7 @@
                                                         data-confirm-before="Are you sure you want to delete "
                                                         data-item="{{ vehicle.fullName }}"
                                                         data-confirm-after="?">Delete</button>
+                                            {{ mx.logs_link(vehicle) }}
                                         </div>
                                     </td>
                                 {% endif %}

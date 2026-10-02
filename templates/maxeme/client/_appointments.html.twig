@@ -38,6 +38,7 @@
                                                 data-item="the appointment on {{ appointment.startTime|date('m/d/Y h:i A') }}"
                                                 data-confirm-after="?">Delete Appointment</button>
                                     {% endif %}
+                                    {{ mx.logs_link(appointment) }}
                                 </div>
                             </td>
                         </tr>

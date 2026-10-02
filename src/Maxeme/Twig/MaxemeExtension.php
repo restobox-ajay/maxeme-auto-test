@@ -81,6 +81,20 @@ final class MaxemeExtension
         return ActivityLog::changes($entry);
     }
 
+    /**
+     * {{ path('maxeme_activity_log_index', audit_record(client)) }}: the Activity Log filter for one
+     * record's history — its short class name, which is what audit_log stores, and its id.
+     *
+     * @return array{record: string, id: int|null}
+     */
+    #[AsTwigFunction('audit_record')]
+    public function auditRecord(object $record): array
+    {
+        $id = method_exists($record, 'getId') ? $record->getId() : null;
+
+        return ['record' => (new \ReflectionClass($record))->getShortName(), 'id' => is_int($id) ? $id : null];
+    }
+
     /** {{ mx_icon('search') }}: an icon from the shared AdminMenuIconSet. */
     #[AsTwigFunction('mx_icon', isSafe: ['html'])]
     public function icon(string $name): string

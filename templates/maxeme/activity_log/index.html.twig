@@ -1,9 +1,15 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
-{% block title %}Activity Log | {{ site_name() }}{% endblock %}
+{% block title %}{{ filter.isRecordHistory ? filter.record ~ ' #' ~ filter.recordId ~ ' history' : 'Activity Log' }} | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set noRole = constant('App\\Maxeme\\Audit\\ActivityLogFilter::NO_ROLE') %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+    {% if filter.isRecordHistory %}
+        {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: filter.record ~ ' #' ~ filter.recordId ~ ' history', lead: 'Who changed what, and when: this record and the records that belong to it.' } only %}
+            {% block actions %}<a class="button outline" href="{{ path('maxeme_activity_log_index') }}">All activity</a>{% endblock %}
+        {% endembed %}
+    {% else %}
+        {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+    {% endif %}
 
     <section class="panel compact-panel">
         <form method="get" action="{{ path('maxeme_activity_log_index') }}" class="mx-log-filters" id="activity-filters">
@@ -32,11 +38,21 @@
                     {% for action in actions %}<option value="{{ action }}" {{ filter.action == action ? 'selected' }}>{{ action|replace({ '_': ' ' }) }}</option>{% endfor %}
                 </select>
             </label>
+            {% if filter.isRecordHistory %}
+                <input type="hidden" name="record" value="{{ filter.record }}"><input type="hidden" name="id" value="{{ filter.recordId }}">
+            {% else %}
+                <label>Record
+                    <select name="record">
+                        <option value="">All records</option>
+                        {% for record in records %}<option value="{{ record }}" {{ filter.record == record ? 'selected' }}>{{ record }}</option>{% endfor %}
+                    </select>
+                </label>
+            {% endif %}
             <label>From<input type="date" name="from" value="{{ filter.from ? filter.from|date('Y-m-d') }}"></label>
             <label>To<input type="date" name="to" value="{{ filter.to ? filter.to|date('Y-m-d') }}"></label>
             <div class="mx-log-filter-actions">
                 <button class="button primary mx-btn-sm" type="submit">Filter</button>
-                <a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_index') }}">Reset</a>
+                <a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_index', filter.isRecordHistory ? { record: filter.record, id: filter.recordId } : {}) }}">Reset</a>
             </div>
         </form>
         {% if byRole is not empty %}

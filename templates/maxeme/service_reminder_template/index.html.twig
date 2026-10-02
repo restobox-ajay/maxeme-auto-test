@@ -1,5 +1,6 @@
 {# Parts & Services › Reminder Templates. Vars: templates. #}
 {% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Reminder Templates | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/service/edit') %}
@@ -24,8 +25,8 @@
                             <td data-label="Subject">{{ template.subject }}</td>
                             <td data-label="Last updated">{{ template.lastUpdated|date('Y-m-d H:i') }}</td>
                             <td data-label="Actions">
-                                {% if canManage %}
-                                    <div class="mx-actions">
+                                <div class="mx-actions">
+                                    {% if canManage %}
                                         <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_reminder_template_edit', { id: template.id }) }}">Edit</a>
                                         <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#template_{{ template.id }}"
                                                 data-url="{{ path('maxeme_service_reminder_template_delete', { id: template.id }) }}"
@@ -34,8 +35,9 @@
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ template.name }}"
                                                 data-confirm-after="?">Delete</button>
-                                    </div>
-                                {% endif %}
+                                    {% endif %}
+                                    {{ mx.logs_link(template) }}
+                                </div>
                             </td>
                         </tr>
                     {% else %}

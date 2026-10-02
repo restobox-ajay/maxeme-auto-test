@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-/** Logs › Activity Log: every action by every role, with what it changed. */
+/** Logs › Activity Log: every action by every role, with what it changed; ?record=&id= is one record's history. */
 #[Route('/admin/logs/activity', name: 'maxeme_activity_log_')]
 #[RequiresPermission(Permission::LOG_VIEW)]
 final class ActivityLogController extends AbstractController
@@ -41,6 +41,7 @@ final class ActivityLogController extends AbstractController
             'users' => $accounts->activeAccounts(),
             'areas' => $this->log->distinct('area'),
             'actions' => $this->log->distinct('action'),
+            'records' => array_values(array_filter($this->log->distinct('entityType'))),
         ]);
     }
 

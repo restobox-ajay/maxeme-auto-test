@@ -1,6 +1,7 @@
 {# Client Profile › Address Book: every pickup address, in the client's order. Drag a row by its
    handle (core app.js .js-sortable-config) or use Move up / Move down to change the order; the
    profile shows the first two and the repair order lists them in this order. Vars: client, canManage. #}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% set addresses = client.addresses.values %}
 {% set ids = addresses|map(a => a.id) %}
 <section class="table-card no-paginate" id="address-book">
@@ -57,6 +58,7 @@
                                                 data-token="{{ csrf_token_value() }}"
                                                 data-params="{{ { ids: ids|slice(0, i)|merge([ids[i + 1], ids[i]])|merge(ids|slice(i + 2)) }|json_encode }}">Move down</button>
                                     {% endif %}
+                                    {{ mx.logs_link(address) }}
                                 </div>
                             </td>
                         {% endif %}

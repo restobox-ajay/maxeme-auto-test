@@ -33,7 +33,7 @@
                             {% if canOpenClient %}<td data-label="Owner">{{ vehicle.client.fullName }}</td>{% endif %}
                             <td data-label="Last updated">{{ vehicle.lastUpdated|date('Y-m-d H:i:s') }}</td>
                             {% if canOpenClient %}
-                                <td data-label="Actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">Open</a></td>
+                                <td data-label="Actions"><div class="mx-actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">Open</a>{{ mx.logs_link(vehicle) }}</div></td>
                             {% endif %}
                         </tr>
                     {% else %}

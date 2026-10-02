@@ -65,8 +65,8 @@
                             <td data-label="Status"><span class="badge {{ active ? 'success' : 'warn' }}">{{ user.status }}</span></td>
                             {% if canManage %}
                                 <td data-label="Actions" style="text-align:center;">
-                                    {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
                                     <div class="mx-actions">
+                                    {% if is_granted('MAXEME_STAFF_MANAGE', user) and user != app.user %}
                                         <a class="button mx-btn-sm mx-success edit_admin" href="{{ path('maxeme_staff_edit', { id: user.id }) }}">Edit</a>
                                         {% if active %}
                                             <button type="button" class="button mx-btn-sm danger deactivate_admin js-post-action" data-reload
@@ -89,8 +89,9 @@
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ user.username ?? user.email }}"
                                                 data-confirm-after="? It will be removed from this list and can no longer sign in.">Delete</button>
-                                    </div>
                                     {% endif %}
+                                    {{ mx.logs_link(user) }}
+                                    </div>
                                 </td>
                             {% endif %}
                         </tr>

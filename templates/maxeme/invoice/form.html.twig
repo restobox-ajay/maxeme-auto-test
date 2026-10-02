@@ -31,6 +31,7 @@
                 <a class="button mx-success" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
             {% endif %}
             <button class="button mx-warning" type="submit" form="invoice-builder-form" name="intent" value="work_order" id="view_work_sheet">Work Order</button>
+            {{ mx.logs_link(invoice, 'button outline') }}
         </div>
     </nav>
 

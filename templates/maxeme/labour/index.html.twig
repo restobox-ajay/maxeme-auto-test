@@ -37,8 +37,8 @@
                             <td data-label="Active"><span class="badge {{ labour.active ? 'success' : 'danger-soft' }}">{{ labour.active ? 'Active' : 'Inactive' }}</span></td>
                             <td data-label="Tax class">{{ labour.taxClass ? labour.taxClass.label : '—' }}</td>
                             <td data-label="Actions">
-                                {% if canManage %}
-                                    <div class="mx-actions">
+                                <div class="mx-actions">
+                                    {% if canManage %}
                                         <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
                                                 data-form-action="{{ path('maxeme_labour_update', { id: labour.id }) }}"
                                                 data-form-values="{{ form_values(labour)|json_encode }}">Edit</button>
@@ -49,8 +49,9 @@
                                                 data-confirm-before="Are you sure you want to delete "
                                                 data-item="{{ labour.name }}"
                                                 data-confirm-after="?">Delete</button>
-                                    </div>
-                                {% endif %}
+                                    {% endif %}
+                                    {{ mx.logs_link(labour) }}
+                                </div>
                             </td>
                         </tr>
                     {% else %}

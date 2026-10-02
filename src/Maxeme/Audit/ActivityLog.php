@@ -14,7 +14,7 @@ use Doctrine\ORM\QueryBuilder;
 
 /**
  * Reads the Activity Log: core's audit_log (every record change plus ActivityRecorder's named
- * actions), filtered by who, which role, which area and when.
+ * actions), filtered by who, which role, which area, which record and when.
  */
 final class ActivityLog
 {
@@ -34,6 +34,7 @@ final class ActivityLog
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly BusinessDate $businessDate,
+        private readonly RecordHistory $recordHistory,
     ) {
     }
 
@@ -115,6 +116,11 @@ final class ActivityLog
         }
         if ($filter->action !== '') {
             $qb->andWhere('a.action = :action')->setParameter('action', $filter->action);
+        }
+        if ($filter->recordId !== null) {
+            $this->recordHistory->apply($qb, 'a', $filter->record, $filter->recordId);
+        } elseif ($filter->record !== '') {
+            $qb->andWhere('a.entityType = :record')->setParameter('record', $filter->record);
         }
         // Shop days, converted to their UTC window (occurredAt is stored in UTC).
         if ($filter->from !== null) {

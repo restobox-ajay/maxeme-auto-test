@@ -40,3 +40,12 @@
 {% macro money(value) -%}
     {{ value is null or value is same as('') ? '' : value|number_format(2, '.', ',') }}
 {%- endmacro %}
+
+{# The Logs button every record has: its history in the Activity Log (who changed what, and when),
+   for the roles that may read the log. In an .mx-actions group it lands in the ⋯ menu after two. #}
+{% macro logs_link(record, class = 'button outline mx-btn-sm') -%}
+    {%- set target = audit_record(record) -%}
+    {%- if target.id is not null and is_granted('/log/view') -%}
+        <a class="{{ class }}" href="{{ path('maxeme_activity_log_index', target) }}">Logs</a>
+    {%- endif -%}
+{%- endmacro %}
