@@ -10,7 +10,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins', lead: 'Every login account. De-activated accounts cannot sign in until activated again; deleted accounts leave this list.' } %}
         {% block actions %}
             {% if canAdd %}
-                <button id="add-new-admin-btn" class="button mx-success" type="button" data-modal-open="#register-modal">+ Add a new admin</button>
+                <button id="add-new-admin-btn" class="button mx-success" type="button" data-modal-open="#register-modal">+ Add a new user</button>
             {% endif %}
         {% endblock %}
     {% endembed %}
@@ -108,7 +108,7 @@
             <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
             <div class="admin-modal-header">
                 <p class="eyebrow">Manage Admins</p>
-                <h2 id="register-modal-title">Add a new admin</h2>
+                <h2 id="register-modal-title">Add a new user</h2>
                 <p class="lead">The role decides what the account can see and change.</p>
             </div>
             <form id="register-form" class="form-grid" method="post" action="{{ path('maxeme_staff_create') }}" style="margin-top:18px" novalidate>
