@@ -539,3 +539,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 /* A service with no lines: a short note, not a tall empty table. */
 .mx-lines-editor .mx-lines-empty { margin: 0; padding: 10px 16px; }
 .mx-ro-after { display: grid; gap: 20px; margin: 20px 20px 0; }
+
+/* A list row's leading search icon (the Client List's, as the legacy app had): opens the record, as View does. */
+.mx-row-icon-col { width: 1%; white-space: nowrap; }
+.mx-row-icon { display: inline-flex; align-items: center; justify-content: center; padding: 4px 7px; }
+.mx-row-icon svg { width: 14px; height: 14px; }

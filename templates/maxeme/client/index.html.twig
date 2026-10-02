@@ -34,10 +34,12 @@
             <table id="client-table" class="client-table">
                 <thead>
                     <tr>
+                        <th class="mx-row-icon-col"><span class="sr-only">Open</span></th>
                         {% for column in columns %}{% if column[1] %}{{ mx.sort_th(page, column[1], column[0]) }}{% else %}<th>{{ column[0] }}</th>{% endif %}{% endfor %}
                         <th></th>
                     </tr>
                     <tr class="filter-row">
+                        <th></th>
                         {% for column in columns %}
                             <th>{% if column[2] %}<input type="search" value="{{ page.query.filters[column[2]] ?? '' }}" data-filter-field="{{ column[2] }}" placeholder="Search" aria-label="Search {{ column[0]|lower }}">{% endif %}</th>
                         {% endfor %}
@@ -48,6 +50,7 @@
                     {% for client in page.items %}
                         {% set profile = path('maxeme_client_show', { id: client.id }) %}
                         <tr id="row_{{ client.id }}">
+                            <td class="mx-row-icon-col"><a class="button mx-btn-sm primary mx-row-icon" href="{{ profile }}" title="Open {{ client.fullName }}'s profile" aria-label="Open {{ client.fullName }}'s profile">{{ mx_icon('search') }}</a></td>
                             <td data-label="First name"><a class="mx-row-link" href="{{ profile }}">{{ client.firstName }}</a></td>
                             <td data-label="Last name"><a class="mx-row-link" href="{{ profile }}">{{ client.lastName }}</a></td>
                             <td data-label="Preferred name"><a class="mx-row-link" href="{{ profile }}">{{ client.preferredName }}</a></td>
@@ -76,7 +79,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ columns|length + 1 }}" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="{{ columns|length + 2 }}" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
