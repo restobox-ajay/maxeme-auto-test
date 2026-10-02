@@ -69,13 +69,22 @@ final class AdminDatabaseConsoleCest
 
     // ---- who may reach it ------------------------------------------------------------------
 
-    public function aSuperAdminCannotReachTheConsole(FunctionalTester $I): void
+    public function aSuperAdminSeesTheConsolePage(FunctionalTester $I): void
     {
-        // Tech Support and Super Admin have identical permissions by hierarchy, except this one.
         $this->actAs($I, $this->admin($I, 'dbc-super@example.test', ['ROLE_SUPER_ADMIN']));
 
         $I->amOnPage('/admin/db');
-        $I->seeResponseCodeIs(403);
+        $I->seeResponseCodeIsSuccessful();
+        $I->see('Database Console');
+    }
+
+    public function theConfigMenuLinksToTheConsoleForASuperAdmin(FunctionalTester $I): void
+    {
+        $this->actAs($I, $this->admin($I, 'dbc-super-menu@example.test', ['ROLE_SUPER_ADMIN']));
+
+        $I->amOnPage('/admin/db');
+        $I->seeResponseCodeIsSuccessful();
+        $I->seeElement('#primary-navigation a[href$="/admin/db"]');
     }
 
     public function aPlainAdminCannotReachTheConsole(FunctionalTester $I): void
@@ -95,9 +104,9 @@ final class AdminDatabaseConsoleCest
         $I->see('Database Console');
     }
 
-    public function aSuperAdminCannotSwitchItOn(FunctionalTester $I): void
+    public function aPlainAdminCannotSwitchItOn(FunctionalTester $I): void
     {
-        $this->actAs($I, $this->admin($I, 'dbc-super-enable@example.test', ['ROLE_SUPER_ADMIN']));
+        $this->actAs($I, $this->admin($I, 'dbc-admin-enable@example.test', ['ROLE_ADMIN']));
 
         $I->sendAjaxPostRequest('/admin/db/enable', [
             '_token' => $I->csrfToken(),]);

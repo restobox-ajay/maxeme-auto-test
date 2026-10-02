@@ -82,7 +82,9 @@ final class ConsoleCookie
         }
 
         // A path with no placeholder may still be project-relative; anchor it like the kernel would.
-        if (!str_starts_with($path, '/')) {
+        // Absolute means a leading slash or backslash (UNC) or, on Windows, a drive letter (C:\, C:/) —
+        // %kernel.project_dir% resolves to C:\... there, and must not be prefixed a second time.
+        if (preg_match('#^([/\\\\]|[A-Za-z]:[/\\\\])#', $path) !== 1) {
             $path = $projectDir . '/' . $path;
         }
 

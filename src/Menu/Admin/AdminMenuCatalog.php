@@ -337,7 +337,7 @@ final class AdminMenuCatalog
     ];
 
     /**
-     * The four entries the hardcoded template wraps in `{% if is_granted('ROLE_TECH_SUPPORT') %}`
+     * The four entries the hardcoded template wraps in an `is_granted()` role check
      * on top of their admin_menu_enabled() guard. Purely a rendering detail carried over
      * unchanged from the old template — not something an override provider can grant or revoke,
      * since this is a genuine access-control-adjacent check, not the "hide a link" kind.
@@ -347,7 +347,7 @@ final class AdminMenuCatalog
     private const REQUIRES_ROLE = [
         'apps.all_apps' => 'ROLE_TECH_SUPPORT',
         'system.error_log' => 'ROLE_TECH_SUPPORT',
-        'system.database_console' => 'ROLE_TECH_SUPPORT',
+        'system.database_console' => 'ROLE_SUPER_ADMIN',
         'system.mail_queue' => 'ROLE_TECH_SUPPORT',
     ];
 

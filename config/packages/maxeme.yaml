@@ -192,7 +192,7 @@ parameters:
           icon: cog
           children:
               - { key: admin_users, label: Admin User, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_],
-                  add: { label: Add a new admin user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
+                  add: { label: Add a new user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
               # Read-only (Super Admin): access changes by editing config/rbac/role_permissions/, so no "+".
               - { key: roles, label: Roles, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
               - { key: settings, label: Settings, route: maxeme_settings, role: /settings/manage, match: [maxeme_settings] }
@@ -215,6 +215,13 @@ parameters:
               # Core's own log screens (Super Admin only).
               - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
               - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_SUPER_ADMIN }
+        # Core's phpLiteAdmin console (Super Admin, and Tech Support by inheritance).
+        - key: database
+          label: Database
+          icon: database
+          role: ROLE_SUPER_ADMIN
+          children:
+              - { key: database_console, label: Database Console, route: admin_db_console, match: [admin_db_] }
 
 twig:
     globals:

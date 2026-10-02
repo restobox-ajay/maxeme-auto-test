@@ -14,7 +14,7 @@
  *   4. the cookie token hashes to a row in db_console_session;
  *   5. that row has not expired;
  *   6. the request comes from the IP the session was opened from;
- *   7. the owning admin still exists, is Active, and still holds ROLE_TECH_SUPPORT.
+ *   7. the owning admin still exists, is Active, and still holds ROLE_SUPER_ADMIN or ROLE_TECH_SUPPORT.
  *
  * Check 1 is the kill-switch and is deliberately unconditional: switching the console off (or letting
  * the window lapse) locks out every live session on its next request, no matter how valid its token.
@@ -152,8 +152,9 @@ try {
         $denyFailedLogin();
     }
 
-    // The account must still exist, be Active, and still hold ROLE_TECH_SUPPORT — the gateway runs
-    // outside the kernel, so this is the only place a since-revoked admin is caught.
+    // The account must still exist, be Active, and still hold ROLE_SUPER_ADMIN or ROLE_TECH_SUPPORT —
+    // the gateway runs outside the kernel (no role_hierarchy), so both are listed, and this is the
+    // only place a since-revoked admin is caught.
     $acct = $pdo->prepare('SELECT status, roles FROM admin_user WHERE id = :id LIMIT 1');
     $acct->execute(['id' => $session['admin_id']]);
     $account = $acct->fetch(PDO::FETCH_ASSOC);
@@ -162,7 +163,7 @@ try {
         $account === false
         || (string) $account['status'] !== 'Active'
         || !is_array($roles)
-        || !in_array('ROLE_TECH_SUPPORT', $roles, true)
+        || array_intersect(['ROLE_SUPER_ADMIN', 'ROLE_TECH_SUPPORT'], $roles) === []
     ) {
         $denyFailedLogin();
     }

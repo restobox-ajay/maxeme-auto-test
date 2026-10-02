@@ -58,6 +58,18 @@ final class ConsoleCookieSqlitePathTest extends TestCase
         );
     }
 
+    public function testDoesNotPrefixAWindowsProjectDirTwice(): void
+    {
+        // On Windows %kernel.project_dir% is C:\...; the result is already absolute.
+        $root = 'C:\\wamp64\\www\\app';
+
+        self::assertSame(
+            $root . '/var/data_dev.db',
+            ConsoleCookie::sqlitePath('sqlite:///%kernel.project_dir%/var/data_%kernel.environment%.db', $root, 'dev'),
+        );
+        self::assertSame('D:/data/app.db', ConsoleCookie::sqlitePath('sqlite:///D:/data/app.db', $root));
+    }
+
     public function testAnchorsARelativePathToTheProjectDir(): void
     {
         self::assertSame(
