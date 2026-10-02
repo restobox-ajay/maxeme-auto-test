@@ -25,6 +25,7 @@ final class AuditLogEnricher
         'Appointment' => 'appointment',
         'Reminder' => 'reminder',
         'ServiceItem' => 'service',
+        'ServiceLine' => 'service',
         'ServiceCategory' => 'service',
         'ServiceReminder' => 'service',
         'ServiceReminderTemplate' => 'service',

@@ -1,0 +1,76 @@
+{# Add / edit a service: its own fields, then its lines. Vars: title, service, data (ServiceItemData), lines (list of ServiceLineData), errors, categories, taxClasses, lineTypes. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set returnTo = app.request.request.get('_return') ?: app.request.query.get('_return') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Services', title: title } %}
+        {% block actions %}<a class="button back-button" href="{{ returnTo starts with '/admin' ? returnTo : path('maxeme_service_index') }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <form id="service-form" method="post" data-line-items-url="{{ path('maxeme_service_line_items') }}">
+        {{ csrf_field() }}
+        <input type="hidden" name="{{ constant('App\\Maxeme\\Controller\\AbstractMaxemeController::RETURN_FIELD') }}" value="{{ returnTo }}">
+
+        <section class="form-card">
+            <div class="form-grid inline-form-grid mx-form-two">
+                {{ mx.form_errors(errors) }}
+                <label><span>Name <span class="mx-req">*</span></span><input type="text" name="name" value="{{ data.name }}" maxlength="255" required></label>
+                <label><span>Label <small class="muted-line">(used on the printed invoice)</small></span><input type="text" name="preferred_name" value="{{ data.preferredName }}" maxlength="255"></label>
+                <label><span>Default Price</span><input type="text" name="price" value="{{ data.price }}" placeholder="0.00" {{ input_rule('money') }}></label>
+                <label><span>Tax Class</span>
+                    <select name="tax_class_id">
+                        <option value="">(none)</option>
+                        {% for class in taxClasses %}<option value="{{ class.id }}" {{ data.taxClassId == class.id ~ '' ? 'selected' }}>{{ class.label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label><span>Category <small class="muted-line">(its colour is the service's on the calendar)</small></span>
+                    <select name="category_id">
+                        <option value="">(none)</option>
+                        {% for category in categories %}<option value="{{ category.id }}" {{ data.categoryId == category.id ~ '' ? 'selected' }}>{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label><span>Colour <small class="muted-line">(blank uses the category's)</small></span>
+                    <span class="mx-colour-field">
+                        <input type="color" value="{{ data.ownColour ?: '#428bca' }}" data-colour-for="#service-colour" aria-label="Pick a colour">
+                        <input id="service-colour" type="text" name="colour" value="{{ data.ownColour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank to use the category's.">
+                    </span>
+                </label>
+            </div>
+        </section>
+
+        <section class="table-card no-paginate detail-page-card">
+            <div class="table-header">
+                <div>
+                    <h2>Service Lines</h2>
+                    <p class="muted-line">What the service is made of. Charge through <strong>Yes</strong>: the invoice shows the line and adds qty × price to the total, on top of the service's price (e.g. a government levy). <strong>No</strong>: the line is hidden from the customer and its price is not added.</p>
+                </div>
+            </div>
+            <div class="wide-table-wrap">
+                <table id="service-line-table">
+                    <thead><tr><th>Type</th><th>Item</th><th class="num">Qty / Hours</th><th class="num">Price per unit</th><th>Charge through</th><th class="ctl"></th></tr></thead>
+                    <tbody id="service-line-body">
+                        {% for line in lines %}
+                            {% include 'maxeme/service/_line_row.html.twig' with { index: loop.index0, line: line, lineTypes: lineTypes, errors: errors } only %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p id="service-line-empty" class="empty-table-cell" {{ lines is not empty ? 'hidden' }}>No lines yet.</p>
+            <div class="form-actions" style="padding: 12px 16px;">
+                <button type="button" id="service-line-add" class="button mx-btn-sm mx-success">+ Add line</button>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a class="button outline" href="{{ returnTo starts with '/admin' ? returnTo : path('maxeme_service_index') }}">Cancel</a>
+            <button class="button primary" type="submit">Save</button>
+        </div>
+    </form>
+
+    <template id="service-line-template">{% include 'maxeme/service/_line_row.html.twig' with { index: '__ROW__', line: null, lineTypes: lineTypes, errors: {} } only %}</template>
+{% endblock %}
+{% block javascripts %}
+    {{ parent() }}
+    <script src="/assets/js/maxeme-service-form.js?v=1"></script>
+{% endblock %}

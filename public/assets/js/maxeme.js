@@ -250,6 +250,95 @@
 }());
 
 /*
+ * An item autocomplete under a text input inside a .mx-name-group (the invoice builder's items, the
+ * service page's lines): MxAutocomplete.attach(root, selector, options), options being
+ *   url(input, term)  the JSON URL to ask, or null for no menu; it answers [{ label, value, price,
+ *                     category }], a category heading its group when items have one
+ *   pick(input, item) what choosing an item does
+ *   empty             the text shown when nothing matches
+ * Answers are cached per URL for the page.
+ */
+(function () {
+    'use strict';
+
+    var menu = null;
+    var cache = {};
+
+    function close() { if (menu) { menu.remove(); menu = null; } }
+
+    function load(url) {
+        if (cache[url]) { return Promise.resolve(cache[url]); }
+        return fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (response) { return response.json(); })
+            .then(function (items) { cache[url] = items; return items; });
+    }
+
+    function highlight(label, term) {
+        var span = document.createElement('span');
+        var at = term ? label.toLowerCase().indexOf(term.toLowerCase()) : -1;
+        if (at < 0) { span.textContent = label; return span; }
+        span.appendChild(document.createTextNode(label.slice(0, at)));
+        var mark = document.createElement('mark');
+        mark.textContent = label.slice(at, at + term.length);
+        span.appendChild(mark);
+        span.appendChild(document.createTextNode(label.slice(at + term.length)));
+        return span;
+    }
+
+    function open(input, items, term, options) {
+        close();
+        menu = document.createElement('div');
+        menu.className = 'mx-ac-menu';
+        var category = null;
+        items.forEach(function (item) {
+            if (item.category && item.category !== category) {
+                category = item.category;
+                var heading = document.createElement('div');
+                heading.className = 'cat';
+                heading.textContent = category;
+                menu.appendChild(heading);
+            }
+            var link = document.createElement('a');
+            link.href = '#';
+            link.appendChild(highlight(item.label, term));
+            var price = parseFloat(item.price);
+            if (!isNaN(price)) {
+                var small = document.createElement('small');
+                small.textContent = '$' + price.toFixed(2);
+                link.appendChild(small);
+            }
+            link.addEventListener('mousedown', function (event) { event.preventDefault(); options.pick(input, item); close(); });
+            menu.appendChild(link);
+        });
+        if (!items.length) {
+            var empty = document.createElement('div');
+            empty.className = 'mx-ac-empty';
+            empty.textContent = options.empty;
+            menu.appendChild(empty);
+        }
+        input.closest('.mx-name-group').appendChild(menu);
+    }
+
+    function suggest(input, options) {
+        var term = input.value.trim();
+        var url = options.url(input, term);
+        if (!url) { close(); return; }
+        load(url).then(function (items) {
+            if (document.activeElement === input) { open(input, items, term, options); }
+        });
+    }
+
+    window.MxAutocomplete = {
+        attach: function (root, selector, options) {
+            ['focusin', 'input'].forEach(function (type) {
+                root.addEventListener(type, function (event) { if (event.target.matches(selector)) { suggest(event.target, options); } });
+            });
+            root.addEventListener('focusout', function () { setTimeout(close, 150); });
+        }
+    };
+}());
+
+/*
  * Browser errors into Logs › Error Log (ClientErrorController): script errors and unhandled promise
  * rejections on any admin page. At most 5 reports per page load, each distinct message once.
  */

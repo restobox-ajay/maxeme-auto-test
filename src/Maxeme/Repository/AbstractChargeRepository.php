@@ -43,4 +43,23 @@ abstract class AbstractChargeRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['code' => strtoupper(trim($code))]);
     }
+
+    /**
+     * @param array<string, mixed> $criteria more field => value conditions
+     *
+     * @return list<T> active ones whose code or name contains $term, by name
+     */
+    public function searchActive(string $term, array $criteria = [], int $limit = 50): array
+    {
+        $qb = $this->createQueryBuilder('x')
+            ->andWhere('x.active = true')
+            ->andWhere('LOWER(x.code) LIKE :term OR LOWER(x.name) LIKE :term')->setParameter('term', '%' . mb_strtolower(trim($term)) . '%')
+            ->orderBy('x.name', 'ASC')
+            ->setMaxResults($limit);
+        foreach ($criteria as $field => $value) {
+            $qb->andWhere(sprintf('x.%s = :%s', $field, $field))->setParameter($field, $value);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

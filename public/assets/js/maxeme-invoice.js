@@ -83,90 +83,27 @@
     body.addEventListener('input', calculate);
     body.addEventListener('change', calculate);
 
-    /* ── Item name autocomplete (legacy catcomplete over invoiceItemSearching) ── */
-    var menu = null;
-    var cache = {};
-
-    function closeMenu() { if (menu) { menu.remove(); menu = null; } }
-
-    function search(term, type) {
-        var key = type + '|' + term;
-        if (cache[key]) { return Promise.resolve(cache[key]); }
-        return fetch(config.itemsUrl + '?' + new URLSearchParams({ q: term, type: type }), { headers: { 'Accept': 'application/json' } })
-            .then(function (response) { return response.json(); })
-            .then(function (items) { cache[key] = items; return items; });
-    }
-
-    function highlight(label, term) {
-        var span = document.createElement('span');
-        var at = term ? label.toLowerCase().indexOf(term.toLowerCase()) : -1;
-        if (at < 0) { span.textContent = label; return span; }
-        span.appendChild(document.createTextNode(label.slice(0, at)));
-        var mark = document.createElement('mark');
-        mark.textContent = label.slice(at, at + term.length);
-        span.appendChild(mark);
-        span.appendChild(document.createTextNode(label.slice(at + term.length)));
-        return span;
-    }
-
-    function openMenu(input, items, term, onPick) {
-        closeMenu();
-        menu = document.createElement('div');
-        menu.className = 'mx-ac-menu';
-        var category = null;
-        items.forEach(function (item) {
-            if (item.category !== category) {
-                category = item.category;
-                var heading = document.createElement('div');
-                heading.className = 'cat';
-                heading.textContent = category;
-                menu.appendChild(heading);
+    /* ── Item name autocomplete (legacy catcomplete over invoiceItemSearching; maxeme.js MxAutocomplete) ── */
+    window.MxAutocomplete.attach(body, '.item-name-search, .part-name-search', {
+        empty: 'No matching parts or services.',
+        url: function (input, term) {
+            return config.itemsUrl + '?' + new URLSearchParams({ q: term, type: input.classList.contains('part-name-search') ? 'parts' : '' });
+        },
+        pick: function (input, item) {
+            input.value = item.label;
+            if (input.classList.contains('part-name-search')) {
+                $('.part-value', input.closest('li.part-row')).value = item.value;
+                return;
             }
-            var link = document.createElement('a');
-            link.href = '#';
-            link.appendChild(highlight(item.label, term));
-            if (item.price !== null && item.price !== undefined) {
-                var price = document.createElement('small');
-                price.textContent = '$' + money(cents(item.price));
-                link.appendChild(price);
-            }
-            link.addEventListener('mousedown', function (event) { event.preventDefault(); onPick(item); closeMenu(); });
-            menu.appendChild(link);
-        });
-        if (!items.length) {
-            var empty = document.createElement('div');
-            empty.className = 'mx-ac-empty';
-            empty.textContent = 'No matching parts or services.';
-            menu.appendChild(empty);
+            var row = input.closest('tr.item-row');
+            $('.item-value', row).value = item.value;
+            $('.item-type', row).value = item.category;
+            $('.item-price-field', row).value = item.price === null ? '' : money(cents(item.price));
+            $('.mx-parts-list', row).innerHTML = '';
+            $('.add_part', row).hidden = item.category !== 'Services';
+            calculate();
         }
-        input.closest('.mx-name-group').appendChild(menu);
-    }
-
-    body.addEventListener('focusin', function (event) { if (event.target.matches('.item-name-search, .part-name-search')) { suggest(event.target); } });
-    body.addEventListener('input', function (event) { if (event.target.matches('.item-name-search, .part-name-search')) { suggest(event.target); } });
-    body.addEventListener('focusout', function () { setTimeout(closeMenu, 150); });
-
-    function suggest(input) {
-        var isPart = input.classList.contains('part-name-search');
-        var term = input.value.trim();
-        search(term, isPart ? 'parts' : '').then(function (items) {
-            if (document.activeElement !== input) { return; }
-            openMenu(input, items, term, function (item) {
-                input.value = item.label;
-                if (isPart) {
-                    $('.part-value', input.closest('li.part-row')).value = item.value;
-                    return;
-                }
-                var row = input.closest('tr.item-row');
-                $('.item-value', row).value = item.value;
-                $('.item-type', row).value = item.category;
-                $('.item-price-field', row).value = item.price === null ? '' : money(cents(item.price));
-                $('.mx-parts-list', row).innerHTML = '';
-                $('.add_part', row).hidden = item.category !== 'Services';
-                calculate();
-            });
-        });
-    }
+    });
 
     calculate();
 }());

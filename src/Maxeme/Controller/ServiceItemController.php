@@ -4,26 +4,38 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Entity\ProductCore;
+use App\Maxeme\Accounting\Money;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\ServiceItemData;
+use App\Maxeme\Dto\ServiceLineData;
+use App\Maxeme\Entity\AbstractCharge;
 use App\Maxeme\Entity\ServiceItem;
+use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Listing\CsvExport;
+use App\Maxeme\Listing\ItemLabel;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Repository\GovtFeeRepository;
+use App\Maxeme\Repository\LabourRepository;
 use App\Maxeme\Repository\ServiceCategoryRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Repository\TaxClassRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use App\Maxeme\Service\ServiceLineBuilder;
+use App\Service\Product\ProductPicker;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-/** Parts & Services › Services (legacy CNSServiceBundle manageController). Deleting asks for confirmation. */
+/**
+ * Parts & Services › Services (legacy CNSServiceBundle manageController). A service is edited on its
+ * own page with its lines (labour, parts, sublet, government fees, discount). Deleting asks first.
+ */
 #[Route('/admin/services', name: 'maxeme_service_')]
 final class ServiceItemController extends AbstractMaxemeController
 {
@@ -31,6 +43,9 @@ final class ServiceItemController extends AbstractMaxemeController
         private readonly RecordWriter $records,
         private readonly ServiceCategoryRepository $categories,
         private readonly TaxClassRepository $taxClasses,
+        private readonly LabourRepository $labour,
+        private readonly GovtFeeRepository $govtFees,
+        private readonly ServiceLineBuilder $lineBuilder,
     ) {
     }
 
@@ -62,18 +77,40 @@ final class ServiceItemController extends AbstractMaxemeController
         })());
     }
 
-    #[Route('', name: 'create', methods: ['POST'])]
+    #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::SERVICE_EDIT)]
-    public function create(Request $request): RedirectResponse
+    public function new(Request $request): Response
     {
-        return $this->save(new ServiceItem(), $request, '%s added.');
+        return $this->form(new ServiceItem(), $request, 'Add New Service', '%s added.');
     }
 
-    #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/{id}/edit', name: 'edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::SERVICE_EDIT)]
-    public function update(#[MapEntity] ServiceItem $service, Request $request): RedirectResponse
+    public function edit(#[MapEntity] ServiceItem $service, Request $request): Response
     {
-        return $this->save($service, $request, '%s saved.');
+        return $this->form($service, $request, sprintf('Edit Service: %s', $service->getName()), '%s saved.');
+    }
+
+    /** The service page's line item search: `type` (a ServiceLineType) and the text typed, `q`. */
+    #[Route('/line-items', name: 'line_items', methods: ['GET'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
+    public function lineItems(Request $request, ProductPicker $products): JsonResponse
+    {
+        $term = trim((string) $request->query->get('q', ''));
+        $charge = static fn (AbstractCharge $charge): array => ['label' => ItemLabel::charge($charge), 'value' => $charge->getId(), 'price' => $charge->getPrice()];
+
+        $items = match (ServiceLineType::tryFrom((string) $request->query->get('type', ''))) {
+            ServiceLineType::Labour => array_map($charge, $this->labour->searchActive($term, ['sublet' => false])),
+            ServiceLineType::Sublet => array_map($charge, $this->labour->searchActive($term, ['sublet' => true])),
+            ServiceLineType::GovtFee => array_map($charge, $this->govtFees->searchActive($term)),
+            ServiceLineType::Part => array_map(
+                static fn (ProductCore $product): array => ['label' => ItemLabel::product($product), 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice())],
+                $products->searchPage($term)['products'],
+            ),
+            default => [],
+        };
+
+        return $this->json($items);
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
@@ -85,26 +122,47 @@ final class ServiceItemController extends AbstractMaxemeController
         return $this->json(['message' => sprintf('%s deleted.', $service->getName())]);
     }
 
-    private function save(ServiceItem $service, Request $request, string $message): RedirectResponse
+    /** The service page: its own fields and its lines, saved together. */
+    private function form(ServiceItem $service, Request $request, string $title, string $saved): Response
     {
-        $data = ServiceItemData::fromRequest($request);
-        $category = $data->categoryId !== null ? $this->categories->find((int) $data->categoryId) : null;
-        $taxClass = $data->taxClassId !== null ? $this->taxClasses->find((int) $data->taxClassId) : null;
-        $errors = $this->records->validate($data);
-        if ($data->categoryId !== null && $category === null) {
-            $errors['categoryId'] = 'Choose a category from the list.';
-        }
-        if ($data->taxClassId !== null && $taxClass === null) {
-            $errors['taxClassId'] = 'Choose a tax class from the list.';
-        }
-        if ($errors !== []) {
-            $this->flashErrors($errors);
-        } else {
-            $service->setCategory($category)->setTaxClass($taxClass);
-            $this->records->save($service, $data);
-            $this->addFlash('success', sprintf($message, $service->getName()));
+        $data = ServiceItemData::fromEntity($service);
+        $lines = array_map(ServiceLineData::fromEntity(...), $service->getLines());
+        $errors = [];
+
+        if ($request->isMethod('POST')) {
+            $data = ServiceItemData::fromRequest($request);
+            $lines = ServiceLineData::listFromRequest($request->request->all()['lines'] ?? []);
+            $category = $data->categoryId !== null ? $this->categories->find((int) $data->categoryId) : null;
+            $taxClass = $data->taxClassId !== null ? $this->taxClasses->find((int) $data->taxClassId) : null;
+            $errors = $this->records->validate($data);
+            if ($data->categoryId !== null && $category === null) {
+                $errors['categoryId'] = 'Choose a category from the list.';
+            }
+            if ($data->taxClassId !== null && $taxClass === null) {
+                $errors['taxClassId'] = 'Choose a tax class from the list.';
+            }
+            $built = $this->lineBuilder->build($service, $lines);
+            $errors += $built['errors'];
+
+            if ($errors === []) {
+                $service->setCategory($category)->setTaxClass($taxClass);
+                $service->replaceLines($built['lines']);
+                $this->records->save($service, $data);
+                $this->addFlash('success', sprintf($saved, $service->getName()));
+
+                return $this->redirectBack($request, 'maxeme_service_index');
+            }
         }
 
-        return $this->redirectBack($request, 'maxeme_service_index');
+        return $this->render('maxeme/service/form.html.twig', [
+            'title' => $title,
+            'service' => $service,
+            'data' => $data,
+            'lines' => $lines,
+            'errors' => $errors,
+            'categories' => $this->categories->findTree(),
+            'taxClasses' => $this->taxClasses->findAllOrdered(),
+            'lineTypes' => ServiceLineType::cases(),
+        ], new Response('', $errors !== [] ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 }

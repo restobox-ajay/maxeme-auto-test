@@ -19,6 +19,8 @@ enum InputRule: string
     case Mileage = 'mileage';
     case LicensePlate = 'license_plate';
     case Money = 'money';
+    case SignedMoney = 'signed_money';
+    case Quantity = 'quantity';
 
     public function pattern(): string
     {
@@ -32,6 +34,10 @@ enum InputRule: string
             self::Mileage => '[0-9]{1,3}(?:,?[0-9]{3}){0,2}',
             self::LicensePlate => '[A-Za-z0-9][A-Za-z0-9 \-]{0,9}',
             self::Money => '[0-9]{1,8}(?:\.[0-9]{1,2})?',
+            // A price that may be negative (a discount, a credit).
+            self::SignedMoney => '-?[0-9]{1,8}(?:\.[0-9]{1,2})?',
+            // Hours or a count: 2, 1.5, 0.25.
+            self::Quantity => '[0-9]{1,5}(?:\.[0-9]{1,2})?',
         };
     }
 
@@ -45,6 +51,8 @@ enum InputRule: string
             self::Mileage => 'Enter the mileage as a whole number, e.g. 150000.',
             self::LicensePlate => 'A licence plate is up to 10 letters, digits, spaces and dashes.',
             self::Money => 'Enter an amount in dollars, e.g. 12.50.',
+            self::SignedMoney => 'Enter an amount in dollars, e.g. 12.50 or -5.00.',
+            self::Quantity => 'Enter a quantity, e.g. 1 or 1.5.',
         };
     }
 
@@ -53,7 +61,7 @@ enum InputRule: string
         return match ($this) {
             self::Phone => 'tel',
             self::Mileage => 'numeric',
-            self::Money => 'decimal',
+            self::Money, self::Quantity => 'decimal',
             default => null,
         };
     }

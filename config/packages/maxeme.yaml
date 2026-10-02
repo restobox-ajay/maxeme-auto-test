@@ -157,8 +157,8 @@ parameters:
           label: Parts & Service
           icon: wrench
           children:
-              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_index, maxeme_service_create, maxeme_service_update, maxeme_service_delete, maxeme_service_export],
-                  add: { label: Add a new service, route: maxeme_service_index, modal: manageAddModal, role: /service/edit } }
+              - { key: services, label: Services, route: maxeme_service_index, role: /service/view, match: [maxeme_service_index, maxeme_service_new, maxeme_service_edit, maxeme_service_delete, maxeme_service_export],
+                  add: { label: Add a new service, route: maxeme_service_new, role: /service/edit } }
               # Parts are core's product catalogue and its stock (InventoryDepth, Procurement modules);
               # access follows maxeme.rbac.core_route_permissions.
               - { key: products, label: Products, route: admin_product_detail_index, role: /parts/view,

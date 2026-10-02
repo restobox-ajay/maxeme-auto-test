@@ -24,6 +24,12 @@ final class Money
         return number_format($cents / 100, 2, '.', '');
     }
 
+    /** An amount with more decimals (core's prices keep 6) to the cent, or null. */
+    public static function rounded(?string $amount): ?string
+    {
+        return $amount !== null ? self::fromCents(self::toCents($amount)) : null;
+    }
+
     /** $rate percent of $cents, rounded to the cent. */
     public static function percentOf(int $cents, int $rate): int
     {

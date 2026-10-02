@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Entity;
 
 use App\Maxeme\Repository\ServiceItemRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -51,9 +53,15 @@ class ServiceItem implements SoftDeletable
     #[ORM\Column]
     private \DateTimeImmutable $lastUpdated;
 
+    /** @var Collection<int, ServiceLine> what the service is made of, in order */
+    #[ORM\OneToMany(targetEntity: ServiceLine::class, mappedBy: 'service', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    private Collection $lines;
+
     public function __construct()
     {
         $this->lastUpdated = new \DateTimeImmutable();
+        $this->lines = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -93,13 +101,42 @@ class ServiceItem implements SoftDeletable
 
     public function isActive(): bool { return $this->active; }
 
+    /** Deleting a service drops its lines, so the labour, parts and fees on them can be deleted too. */
     public function deactivate(): void
     {
         $this->active = false;
+        $this->lines->clear();
         $this->touch();
     }
 
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
+
+    /** @return list<ServiceLine> */
+    public function getLines(): array { return array_values($this->lines->toArray()); }
+
+    /**
+     * Replaces the lines with $lines (in order). A line kept from before keeps its id; one left out
+     * is deleted.
+     *
+     * @param list<ServiceLine> $lines lines of this service
+     */
+    public function replaceLines(array $lines): void
+    {
+        foreach ($this->lines as $line) {
+            if (!in_array($line, $lines, true)) {
+                $this->lines->removeElement($line);
+            }
+        }
+        foreach ($lines as $position => $line) {
+            if ($line->getService() !== $this) {
+                throw new \InvalidArgumentException('A line of another service cannot be added.');
+            }
+            $line->setPosition($position);
+            if (!$this->lines->contains($line)) {
+                $this->lines->add($line);
+            }
+        }
+    }
 
     public function touch(): void
     {

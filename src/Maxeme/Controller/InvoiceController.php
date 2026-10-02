@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
-use App\Entity\ProductCore;
 use App\Maxeme\Accounting\InvoiceSettings;
 use App\Maxeme\Accounting\Money;
 use App\Service\Product\ProductPicker;
@@ -17,6 +16,7 @@ use App\Maxeme\Dto\InvoiceData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceSaveIntent;
+use App\Maxeme\Listing\ItemLabel;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\InvoiceRepository;
@@ -132,7 +132,7 @@ final class InvoiceController extends AbstractMaxemeController
             // Parts are core's products: its own search (name, SKU, barcode), sellable ones only.
             foreach ($products->searchPage($term)['products'] as $product) {
                 if ($product->isSellable()) {
-                    $items[] = ['label' => self::productLabel($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => self::dollars($product->getDefaultPrice())];
+                    $items[] = ['label' => ItemLabel::product($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice())];
                 }
             }
         }
@@ -211,17 +211,6 @@ final class InvoiceController extends AbstractMaxemeController
     }
 
     /** "Oil filter (OF-123)" */
-    private static function productLabel(ProductCore $product): string
-    {
-        return $product->getSku() !== '' ? sprintf('%s (%s)', $product->getName(), $product->getSku()) : $product->getName();
-    }
-
-    /** A product price (core keeps 6 decimals) to the cent, or null. */
-    private static function dollars(?string $amount): ?string
-    {
-        return $amount !== null ? Money::fromCents(Money::toCents($amount)) : null;
-    }
-
     /** @param array<string, string> $errors */
     private function renderForm(Invoice $invoice, array $errors, ?Response $response = null): Response
     {

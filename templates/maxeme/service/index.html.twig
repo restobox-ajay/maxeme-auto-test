@@ -2,9 +2,9 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Services | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Labour and service items with their standard price, used on invoices and work orders.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Services with their standard price and their lines (labour, parts, sublet, government fees, discount), used on invoices and work orders.' } %}
         {% block title_actions %}
-            <button id="manageAddButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add a new service</button>
+            <a id="manageAddButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_new', { _return: app.request.requestUri }) }}">+ Add a new service</a>
             {# The current view (column search boxes, sort), every page. #}
             <a id="serviceExportButton" class="button mx-btn-sm outline" href="{{ path('maxeme_service_export', app.request.query.all) }}">Export CSV</a>
         {% endblock %}
@@ -40,9 +40,7 @@
                             <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: service.colour, label: service.ownColour ? 'Own colour' : (service.category ? service.category.path) } only %}</td>
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
-                                        <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
-                                                data-form-action="{{ path('maxeme_service_update', { id: service.id }) }}"
-                                                data-form-values="{{ form_values(service)|json_encode }}">Edit</button>
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_edit', { id: service.id, _return: app.request.requestUri }) }}">Edit</a>
                                         <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ service.id }}"
                                                 data-url="{{ path('maxeme_service_delete', { id: service.id }) }}"
                                                 data-token="{{ csrf_token_value() }}"
@@ -63,44 +61,4 @@
         {{ mx.list_footer(page) }}
     </section>
 
-    {% for modal in [{ id: 'manageAddModal', title: 'Add New Service...', action: path('maxeme_service_create') }, { id: 'manageEditModal', title: 'Edit the Service...', action: '' }] %}
-        <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
-            <div class="admin-modal mx-modal-wide mx-modal-sectioned">
-                <div class="mx-modal-head">
-                    <div><p class="eyebrow">Services</p><h2 id="{{ modal.id }}Label">{{ modal.title }}</h2></div>
-                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
-                </div>
-                <form method="post" action="{{ modal.action }}">
-                    {{ csrf_field() }}{{ mx.return_field() }}
-                    <div class="mx-modal-body form-grid inline-form-grid">
-                        <label><span>Name <span class="mx-req">*</span></span><input type="text" name="name" maxlength="255" required></label>
-                        <label><span>Label <small class="muted-line">(used on the printed invoice)</small></span><input type="text" name="preferred_name" maxlength="255"></label>
-                        <label><span>Default Price</span><input type="text" name="price" placeholder="0.00" {{ input_rule('money') }}></label>
-                        <label><span>Category <small class="muted-line">(its colour is the service's on the calendar)</small></span>
-                            <select name="category_id">
-                                <option value="">(none)</option>
-                                {% for category in categories %}<option value="{{ category.id }}">{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
-                            </select>
-                        </label>
-                        <label><span>Tax Class</span>
-                            <select name="tax_class_id">
-                                <option value="">(none)</option>
-                                {% for class in taxClasses %}<option value="{{ class.id }}">{{ class.label }}</option>{% endfor %}
-                            </select>
-                        </label>
-                        <label><span>Colour <small class="muted-line">(for the calendar; blank uses the category's)</small></span>
-                            <span class="mx-colour-field">
-                                <input type="color" value="#428bca" data-colour-for="#{{ modal.id }}-colour" aria-label="Pick a colour">
-                                <input id="{{ modal.id }}-colour" type="text" name="colour" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank to use the category's.">
-                            </span>
-                        </label>
-                    </div>
-                    <div class="mx-modal-foot">
-                        <button class="button outline js-modal-close" type="button">Cancel</button>
-                        <button class="button primary" type="submit">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    {% endfor %}
 {% endblock %}

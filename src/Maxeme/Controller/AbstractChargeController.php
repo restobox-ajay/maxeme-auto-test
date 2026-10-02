@@ -6,10 +6,14 @@ namespace App\Maxeme\Controller;
 
 use App\Maxeme\Dto\AbstractChargeData;
 use App\Maxeme\Entity\AbstractCharge;
+use App\Maxeme\Entity\GovtFee;
+use App\Maxeme\Entity\Labour;
+use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Entity\TaxClass;
 use App\Maxeme\Repository\TaxClassRepository;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\AbstractChargeRepository;
+use App\Maxeme\Repository\ServiceLineRepository;
 use App\Maxeme\Service\RecordWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,7 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The list / add / edit / delete of a charge (Labour, Government Fees): one list with add and
- * edit modals, a code that must be unique, and a delete that asks first. A subclass names the
+ * edit modals, a code that must be unique, and a delete that asks first (and is refused while a
+ * service line uses the charge). A subclass names the
  * entity, its form and its screen, and routes its actions here.
  *
  * @template T of AbstractCharge
@@ -71,6 +76,13 @@ abstract class AbstractChargeController extends AbstractMaxemeController
     /** @param T $charge */
     protected function remove(AbstractCharge $charge): JsonResponse
     {
+        /** @var ServiceLineRepository $lines */
+        $lines = $this->entityManager->getRepository(ServiceLine::class);
+        $services = $charge instanceof Labour || $charge instanceof GovtFee ? $lines->serviceNamesUsing($charge) : [];
+        if ($services !== []) {
+            return $this->json(['message' => sprintf('%s is on the lines of %s: %s. Remove it from them first, or switch it off.', $charge->getName(), count($services) === 1 ? 'a service' : count($services) . ' services', implode(', ', $services))], Response::HTTP_CONFLICT);
+        }
+
         $this->entityManager->remove($charge);
         $this->entityManager->flush();
 

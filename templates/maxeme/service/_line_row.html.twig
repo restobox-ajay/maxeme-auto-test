@@ -1,0 +1,33 @@
+{# One row of the service page's lines. Vars: index (row number, or "__ROW__" for the JS template), line (ServiceLineData or null), lineTypes, errors. #}
+{% set base = 'lines[' ~ index ~ ']' %}
+{% set type = line ? line.type : 'labour' %}
+{% set isDiscount = type == 'discount' %}
+{% set errorAt = 'lines.' ~ index ~ '.' %}
+<tr class="service-line-row">
+    <td data-label="Type">
+        <input type="hidden" name="{{ base }}[id]" value="{{ line ? line.id }}">
+        <select class="line-type" name="{{ base }}[type]" aria-label="Line type">
+            {% for option in lineTypes %}<option value="{{ option.value }}" {{ type == option.value ? 'selected' }}>{{ option.label }}</option>{% endfor %}
+        </select>
+    </td>
+    <td data-label="Item">
+        <div class="mx-name-group">
+            <input class="line-item-search {{ errors[errorAt ~ 'itemId'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[item_label]" value="{{ line ? line.itemLabel }}"
+                   placeholder="{{ isDiscount ? 'No item for a discount' : 'Type to search' }}" autocomplete="off" aria-label="Item" {{ isDiscount ? 'disabled' }}>
+            <input class="line-item-id" type="hidden" name="{{ base }}[item_id]" value="{{ line ? line.itemId }}">
+        </div>
+    </td>
+    <td data-label="Qty" class="num">
+        <input class="line-quantity {{ errors[errorAt ~ 'quantity'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[quantity]" value="{{ line ? line.quantity : '1' }}" {{ input_rule('quantity') }} aria-label="Quantity" {{ isDiscount ? 'readonly' }}>
+    </td>
+    <td data-label="Price per unit" class="num">
+        <input class="line-price {{ errors[errorAt ~ 'unitPrice'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[unit_price]" value="{{ line ? line.unitPrice }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Price per unit">
+    </td>
+    <td data-label="Charge through">
+        <select name="{{ base }}[charge_through]" aria-label="Charge through">
+            <option value="0">No</option>
+            <option value="1" {{ line and line.chargeThrough ? 'selected' }}>Yes</option>
+        </select>
+    </td>
+    <td class="ctl"><button type="button" class="button mx-btn-sm danger line-remove">Delete</button></td>
+</tr>
