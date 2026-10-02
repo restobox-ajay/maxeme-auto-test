@@ -11,7 +11,7 @@
         <form class="form-grid" method="post">
             {{ csrf_field() }}
             {{ mx.form_errors(errors) }}
-            <label>Name <span class="req">*</span>
+            <label><span>Name <span class="req">*</span></span>
                 <input type="text" name="name" value="{{ data.name }}" placeholder="Category name" maxlength="160" required>
             </label>
             <label>Parent category
@@ -22,7 +22,7 @@
                     {% endfor %}
                 </select>
             </label>
-            <label>Colour <small class="muted-line">(the colour of its services on the calendar; blank uses the parent category's)</small>
+            <label><span>Colour <small class="muted-line">(the colour of its services on the calendar; blank uses the parent category's)</small></span>
                 <span class="mx-colour-field">
                     <input type="color" value="{{ data.colour ?: '#428bca' }}" data-colour-for="#category-colour" aria-label="Pick a colour">
                     <input id="category-colour" type="text" name="colour" value="{{ data.colour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank for the parent's.">

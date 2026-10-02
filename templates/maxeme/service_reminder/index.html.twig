@@ -71,7 +71,7 @@
                                 {% for service in services %}<option value="{{ service.id }}">{{ service.name }}</option>{% endfor %}
                             </select>
                         </label>
-                        <label>Reminder Days * <small class="muted-line">(after the invoice is completed)</small>
+                        <label><span>Reminder Days * <small class="muted-line">(after the invoice is completed)</small></span>
                             <input type="number" name="reminder_days" min="1" max="3650" step="1" required>
                         </label>
                         <label>Template
@@ -80,7 +80,7 @@
                                 {% for template in templates %}<option value="{{ template.id }}">{{ template.name }}</option>{% endfor %}
                             </select>
                         </label>
-                        <label class="span-2">Message <small class="muted-line">(goes into the template's {{ '{{message}}' }})</small>
+                        <label class="span-2"><span>Message <small class="muted-line">(goes into the template's {{ '{{message}}' }})</small></span>
                             <textarea name="message" rows="4" maxlength="5000"></textarea>
                         </label>
                         <div class="modal-actions span-2">

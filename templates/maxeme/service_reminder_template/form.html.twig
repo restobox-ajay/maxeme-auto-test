@@ -12,13 +12,13 @@
             <form class="form-grid" method="post">
                 {{ csrf_field() }}
                 {{ mx.form_errors(errors) }}
-                <label class="span-2">Name <span class="req">*</span>
+                <label class="span-2"><span>Name <span class="req">*</span></span>
                     <input type="text" name="name" value="{{ data.name }}" maxlength="120" required>
                 </label>
-                <label class="span-2">Subject <span class="req">*</span>
+                <label class="span-2"><span>Subject <span class="req">*</span></span>
                     <input type="text" name="subject" value="{{ data.subject }}" maxlength="255" required>
                 </label>
-                <label class="span-2">Body (HTML) <span class="req">*</span>
+                <label class="span-2"><span>Body (HTML) <span class="req">*</span></span>
                     <textarea id="template-body" name="body" rows="18" class="mx-code" spellcheck="false" required>{{ data.body }}</textarea>
                 </label>
                 <div class="form-actions span-2">

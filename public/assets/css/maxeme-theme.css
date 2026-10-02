@@ -474,3 +474,6 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* The star after a required field's label. */
 .mx-req { color: var(--red); font-weight: 700; }
+
+/* A label-left form row whose label carries a hint: the hint sits under the label text, in the label column. */
+.site-admin .form-grid:not(.inline-form-grid) > label > span > small.muted-line { display: block; margin-top: 2px; font-weight: 400; }
