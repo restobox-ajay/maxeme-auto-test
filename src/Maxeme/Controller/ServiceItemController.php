@@ -11,6 +11,7 @@ use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Dto\ServiceLineData;
 use App\Maxeme\Entity\AbstractCharge;
 use App\Maxeme\Entity\ServiceItem;
+use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ItemLabel;
@@ -60,7 +61,7 @@ final class ServiceItemController extends AbstractMaxemeController
         ]);
     }
 
-    /** Services › Export CSV: every service of the current view (search boxes and sort), not just the page shown. */
+    /** Services › Export CSV: every service of the current view (search boxes and sort), not just the page shown, with its lines in one cell. */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::SERVICE_VIEW)]
     public function export(Request $request, ServiceItemRepository $repository, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
@@ -70,9 +71,10 @@ final class ServiceItemController extends AbstractMaxemeController
         $filename = sprintf('services-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
         $activity->exported('service', 'ServiceItem', $filename, count($services), $list->describe());
 
-        return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour'], (static function () use ($services): \Generator {
+        return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour', 'Service Lines'], (static function () use ($services): \Generator {
             foreach ($services as $service) {
-                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), $service->getTaxClass()?->getLabel(), $service->getColour()];
+                $lines = implode('; ', array_map(static fn (ServiceLine $line): string => $line->describe(), $service->getLines()));
+                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), $service->getTaxClass()?->getLabel(), $service->getColour(), $lines];
             }
         })());
     }

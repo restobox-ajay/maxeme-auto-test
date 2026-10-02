@@ -119,6 +119,19 @@ class ServiceLine
         };
     }
 
+    /** "Labour · Test labour (LAB) · 1.5 × 100.00", plus " (charged)" when it is charged through: the CSV export's text. */
+    public function describe(): string
+    {
+        return sprintf(
+            '%s%s · %s × %s%s',
+            $this->type->label(),
+            $this->type->hasItem() ? ' · ' . $this->getItemLabel() : '',
+            (string) (float) $this->quantity,
+            number_format((float) $this->unitPrice, 2, '.', ''),
+            $this->chargeThrough ? ' (charged)' : '',
+        );
+    }
+
     public function getQuantity(): string { return $this->quantity; }
     public function setQuantity(string $quantity): self { $this->quantity = $quantity; return $this; }
 

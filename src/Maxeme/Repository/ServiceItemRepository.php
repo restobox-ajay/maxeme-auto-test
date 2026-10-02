@@ -64,10 +64,15 @@ final class ServiceItemRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<ServiceItem> every active service of the current view (search boxes and sort; no page) */
+    /** @return list<ServiceItem> every active service of the current view (search boxes and sort; no page), lines loaded */
     public function findAllInView(ListQuery $list): array
     {
-        return ListPage::filter($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
+        $services = ListPage::filter($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
+        foreach (array_chunk($services, 500) as $chunk) {
+            $this->loadLines($chunk);
+        }
+
+        return $services;
     }
 
     private function active(): QueryBuilder
