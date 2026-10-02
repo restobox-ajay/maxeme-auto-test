@@ -1,6 +1,12 @@
-<label>Unit *
+{# Labour's own fields for maxeme/charge/_fields.html.twig: Unit after the price, Sublet before Active. #}
+{% macro after_price(units) %}
+<label><span>Unit <span class="mx-req">*</span></span>
     <select name="unit" required>
         {% for unit in units %}<option value="{{ unit.value }}">{{ unit.label }}</option>{% endfor %}
     </select>
 </label>
+{% endmacro %}
+
+{% macro before_active() %}
 <label class="mx-check"><span>Sublet <small class="muted-line">(done by an outside shop)</small></span><input type="checkbox" name="sublet" value="1"></label>
+{% endmacro %}

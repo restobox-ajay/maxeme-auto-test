@@ -1,11 +1,15 @@
-{# The fields Labour and Government Fees share (AbstractChargeData). Vars: priceLabel, taxClasses. #}
-<label>Code *<input type="text" name="code" maxlength="40" pattern="[A-Za-z0-9_\-]+" title="Letters, digits, - and _" required></label>
-<label>Name *<input type="text" name="name" maxlength="255" required></label>
-<label>{{ priceLabel }} *<input type="text" name="price" {{ input_rule('money') }} required></label>
-<label>Tax class *
+{# The fields Labour and Government Fees share (AbstractChargeData), in the mockup's order, with the
+   charge's own fields where its template's macros put them. Vars: priceLabel, taxClasses, fields, units. #}
+{% import fields as extra %}
+<label><span>Code <span class="mx-req">*</span></span><input type="text" name="code" maxlength="40" pattern="[A-Za-z0-9_\-]+" title="Letters, digits, - and _" required></label>
+<label><span>Name <span class="mx-req">*</span></span><input type="text" name="name" maxlength="255" required></label>
+<label><span>{{ priceLabel }} <span class="mx-req">*</span></span><input type="text" name="price" {{ input_rule('money') }} required></label>
+{{ extra.after_price(units) }}
+<label><span>Tax class <span class="mx-req">*</span></span>
     <select name="tax_class" required>
         <option value="">Choose…</option>
         {% for class in taxClasses %}<option value="{{ class.id }}">{{ class.label }}</option>{% endfor %}
     </select>
 </label>
+{{ extra.before_active() }}
 <label class="mx-check"><span>Active</span><input type="checkbox" name="active" value="1" checked></label>

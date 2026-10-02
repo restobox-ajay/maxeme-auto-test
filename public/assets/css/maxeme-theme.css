@@ -477,3 +477,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* A label-left form row whose label carries a hint: the hint sits under the label text, in the label column. */
 .site-admin .form-grid:not(.inline-form-grid) > label > span > small.muted-line { display: block; margin-top: 2px; font-weight: 400; }
+
+/* A checkbox in a sectioned popup (mockup labour.html): a bordered box, its label on the left, the tick on the right. */
+.mx-modal-sectioned .mx-modal-body > label.mx-check { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font-weight: 600; }
+.mx-modal-sectioned .mx-modal-body > label.mx-check small { display: block; font-weight: 400; }
+.mx-modal-sectioned .mx-modal-body > label.mx-check input[type="checkbox"] { justify-self: end; }
