@@ -52,7 +52,7 @@
                             <td data-label="Last name"><a class="mx-row-link" href="{{ profile }}">{{ client.lastName }}</a></td>
                             <td data-label="Preferred name"><a class="mx-row-link" href="{{ profile }}">{{ client.preferredName }}</a></td>
                             <td data-label="Email">{{ client.email }}</td>
-                            <td data-label="Phone">{% for phone in client.phones %}<div class="phone-line">{{ phone }}</div>{% endfor %}</td>
+                            <td data-label="Phone">{{ client.phones|join(', ') }}</td>
                             <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
                             <td data-label="Note">{{ client.latestNote ? client.latestNote.text }}</td>
                             <td data-label="Last updated">{{ client.lastUpdated|date('Y-m-d H:i:s') }}</td>
