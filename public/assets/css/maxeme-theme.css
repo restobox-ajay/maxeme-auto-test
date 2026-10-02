@@ -471,3 +471,6 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* A field the person has changed and left in a shape its pattern / type / length rejects. */
 .site-admin input:user-invalid, .site-admin textarea:user-invalid, .site-admin select:user-invalid { border-color: var(--red); box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 15%, transparent); }
+
+/* The star after a required field's label. */
+.mx-req { color: var(--red); font-weight: 700; }

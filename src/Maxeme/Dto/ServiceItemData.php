@@ -15,6 +15,8 @@ final class ServiceItemData extends FormData
         'preferred_name' => 'preferredName',
         'price' => 'price',
         'category_id' => 'categoryId',
+        'tax_class_id' => 'taxClassId',
+        'colour' => 'ownColour',
     ];
 
     /** The legacy column is NOT NULL, and a blank name was a 500 error there. */
@@ -32,9 +34,17 @@ final class ServiceItemData extends FormData
     #[Assert\Regex('/^\d+$/', message: 'Choose a category from the list.')]
     public ?string $categoryId = null;
 
+    /** A Config › Settings › Tax Classes id, or blank for none; the controller looks it up. */
+    #[Assert\Regex('/^\d+$/', message: 'Choose a tax class from the list.')]
+    public ?string $taxClassId = null;
+
+    /** The service's own calendar colour, or blank to use its category's. */
+    #[Assert\Regex('/^#[0-9a-fA-F]{6}$/', message: 'Colour must look like #1f77b4, or be blank to use the category\'s.')]
+    public ?string $ownColour = null;
+
     protected function managedElsewhere(): array
     {
-        return ['categoryId'];
+        return ['categoryId', 'taxClassId'];
     }
 
     protected function toEntityValue(string $property, ?string $value): mixed

@@ -102,6 +102,11 @@
                     $field.val(value === null ? '' : value);
                 }
             });
+            // A colour picker follows the text field it writes into (left as reset when that is blank).
+            $form.find('input[type=color][data-colour-for]').each(function () {
+                var text = $($(this).data('colour-for')).val() || '';
+                if (/^#[0-9a-fA-F]{6}$/.test(text)) { $(this).val(text.toLowerCase()); }
+            });
         }
 
         $modal.addClass('is-visible');

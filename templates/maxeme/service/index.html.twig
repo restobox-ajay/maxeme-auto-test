@@ -19,7 +19,7 @@
                 <thead>
                     <tr>
                         {% for key, label in { name: 'Name', preferredName: 'Label', price: 'Default Price' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        {# Tax Class is not built yet; Colour is the category's (the calendar colour). #}
+                        {# Colour is the calendar colour: the service's own, else its category's. #}
                         <th>Tax Class</th><th>Colour</th>
                         <th style="text-align:center;">Actions</th>
                     </tr>
@@ -36,8 +36,8 @@
                             <td data-label="Name">{{ service.name }}</td>
                             <td data-label="Label">{{ service.preferredName }}</td>
                             <td data-label="Default Price" class="num">{{ mx.money(service.price) }}</td>
-                            <td data-label="Tax Class" class="mx-muted-cell">—</td>
-                            <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: service.colour, label: service.category ? service.category.path } only %}</td>
+                            <td data-label="Tax Class">{% if service.taxClass %}{{ service.taxClass.label }}{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                            <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: service.colour, label: service.ownColour ? 'Own colour' : (service.category ? service.category.path) } only %}</td>
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
                                         <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
@@ -65,24 +65,37 @@
 
     {% for modal in [{ id: 'manageAddModal', title: 'Add New Service...', action: path('maxeme_service_create') }, { id: 'manageEditModal', title: 'Edit the Service...', action: '' }] %}
         <div class="admin-modal-overlay" id="{{ modal.id }}" role="dialog" aria-modal="true" aria-labelledby="{{ modal.id }}Label">
-            <div class="admin-modal">
-                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
-                <div class="admin-modal-header">
-                    <p class="eyebrow">Services</p>
-                    <h2 id="{{ modal.id }}Label">{{ modal.title }}</h2>
+            <div class="admin-modal mx-modal-wide mx-modal-sectioned">
+                <div class="mx-modal-head">
+                    <div><p class="eyebrow">Services</p><h2 id="{{ modal.id }}Label">{{ modal.title }}</h2></div>
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
                 </div>
-                <form class="form-grid" method="post" action="{{ modal.action }}" style="margin-top:18px">
+                <form method="post" action="{{ modal.action }}">
                     {{ csrf_field() }}{{ mx.return_field() }}
-                    <label class="span-2">Name<input type="text" name="name" maxlength="255" required></label>
-                    <label class="span-2">Label <small class="muted-line">(used on the printed invoice)</small><input type="text" name="preferred_name" maxlength="255"></label>
-                    <label class="span-2">Default Price<input type="text" name="price" {{ input_rule('money') }}></label>
-                    <label class="span-2">Category <small class="muted-line">(its colour is the service's on the calendar)</small>
-                        <select name="category_id">
-                            <option value="">(none)</option>
-                            {% for category in categories %}<option value="{{ category.id }}">{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
-                        </select>
-                    </label>
-                    <div class="admin-modal-footer-split span-2" style="margin-top:22px">
+                    <div class="mx-modal-body form-grid inline-form-grid">
+                        <label><span>Name <span class="mx-req">*</span></span><input type="text" name="name" maxlength="255" required></label>
+                        <label><span>Label <small class="muted-line">(used on the printed invoice)</small></span><input type="text" name="preferred_name" maxlength="255"></label>
+                        <label><span>Default Price</span><input type="text" name="price" placeholder="0.00" {{ input_rule('money') }}></label>
+                        <label><span>Category <small class="muted-line">(its colour is the service's on the calendar)</small></span>
+                            <select name="category_id">
+                                <option value="">(none)</option>
+                                {% for category in categories %}<option value="{{ category.id }}">{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <label><span>Tax Class</span>
+                            <select name="tax_class_id">
+                                <option value="">(none)</option>
+                                {% for class in taxClasses %}<option value="{{ class.id }}">{{ class.label }}</option>{% endfor %}
+                            </select>
+                        </label>
+                        <label><span>Colour <small class="muted-line">(for the calendar; blank uses the category's)</small></span>
+                            <span class="mx-colour-field">
+                                <input type="color" value="#428bca" data-colour-for="#{{ modal.id }}-colour" aria-label="Pick a colour">
+                                <input id="{{ modal.id }}-colour" type="text" name="colour" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank to use the category's.">
+                            </span>
+                        </label>
+                    </div>
+                    <div class="mx-modal-foot">
                         <button class="button outline js-modal-close" type="button">Cancel</button>
                         <button class="button primary" type="submit">Save</button>
                     </div>

@@ -11,6 +11,7 @@ use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\ServiceCategoryRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
+use App\Maxeme\Repository\TaxClassRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
@@ -29,6 +30,7 @@ final class ServiceItemController extends AbstractMaxemeController
     public function __construct(
         private readonly RecordWriter $records,
         private readonly ServiceCategoryRepository $categories,
+        private readonly TaxClassRepository $taxClasses,
     ) {
     }
 
@@ -39,6 +41,7 @@ final class ServiceItemController extends AbstractMaxemeController
         return $this->render('maxeme/service/index.html.twig', [
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS))),
             'categories' => $this->categories->findTree(),
+            'taxClasses' => $this->taxClasses->findAllOrdered(),
         ]);
     }
 
@@ -54,7 +57,7 @@ final class ServiceItemController extends AbstractMaxemeController
 
         return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour'], (static function () use ($services): \Generator {
             foreach ($services as $service) {
-                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), null, $service->getColour()];
+                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), $service->getTaxClass()?->getLabel(), $service->getColour()];
             }
         })());
     }
@@ -86,14 +89,18 @@ final class ServiceItemController extends AbstractMaxemeController
     {
         $data = ServiceItemData::fromRequest($request);
         $category = $data->categoryId !== null ? $this->categories->find((int) $data->categoryId) : null;
+        $taxClass = $data->taxClassId !== null ? $this->taxClasses->find((int) $data->taxClassId) : null;
         $errors = $this->records->validate($data);
         if ($data->categoryId !== null && $category === null) {
             $errors['categoryId'] = 'Choose a category from the list.';
         }
+        if ($data->taxClassId !== null && $taxClass === null) {
+            $errors['taxClassId'] = 'Choose a tax class from the list.';
+        }
         if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
-            $service->setCategory($category);
+            $service->setCategory($category)->setTaxClass($taxClass);
             $this->records->save($service, $data);
             $this->addFlash('success', sprintf($message, $service->getName()));
         }

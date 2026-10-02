@@ -30,10 +30,19 @@ class ServiceItem implements SoftDeletable
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $price = null;
 
-    /** Its catalog; the category's colour is the service's on the calendar. */
+    /** Its catalog; the category's colour is the service's on the calendar unless ownColour overrides it. */
     #[ORM\ManyToOne(targetEntity: ServiceCategory::class)]
     #[ORM\JoinColumn(nullable: true)]
     private ?ServiceCategory $category = null;
+
+    /** Config › Settings › Tax Classes. Optional: legacy services have none. */
+    #[ORM\ManyToOne(targetEntity: TaxClass::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?TaxClass $taxClass = null;
+
+    /** "#1f77b4": the service's own calendar colour, or null to use its category's. */
+    #[ORM\Column(length: 7, nullable: true)]
+    private ?string $ownColour = null;
 
     #[ORM\Column(options: ['default' => true])]
     private bool $active = true;
@@ -70,8 +79,17 @@ class ServiceItem implements SoftDeletable
     /** For the service form's Category select. */
     public function getCategoryId(): ?int { return $this->category?->getId(); }
 
-    /** The calendar colour: its category's (or that category's parent's), null when none is set. */
-    public function getColour(): ?string { return $this->category?->getEffectiveColour(); }
+    public function getTaxClass(): ?TaxClass { return $this->taxClass; }
+    public function setTaxClass(?TaxClass $taxClass): self { $this->taxClass = $taxClass; return $this; }
+
+    /** For the service form's Tax Class select. */
+    public function getTaxClassId(): ?int { return $this->taxClass?->getId(); }
+
+    public function getOwnColour(): ?string { return $this->ownColour; }
+    public function setOwnColour(?string $ownColour): self { $this->ownColour = $ownColour !== null ? strtolower($ownColour) : null; return $this; }
+
+    /** The calendar colour: its own, else its category's (or that category's parent's); null when none is set. */
+    public function getColour(): ?string { return $this->ownColour ?? $this->category?->getEffectiveColour(); }
 
     public function isActive(): bool { return $this->active; }
 
