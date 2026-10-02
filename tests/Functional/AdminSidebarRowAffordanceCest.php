@@ -18,8 +18,8 @@ use Tests\Support\FunctionalTester;
  * the merge; this proves the page. The two that matter most are the ones that would otherwise be
  * assumed:
  *
- *  - the affordance is on the row it NAMED, not merely somewhere on the page. `see('New Bill')`
- *    would have passed with the icon rendered on Vendor Returns, or in the footer, or twice.
+ *  - the affordance is on the row it NAMED, not merely somewhere on the page. `see('New appointment')`
+ *    would have passed with the icon rendered on Repair Order, or in the footer, or twice.
  *  - an UNFLAGGED item still renders as its own row. That is the claim the whole design rests on
  *    — three optional fields, nothing else touched — and it is the one that silently stops being
  *    true if the row markup ever grows a wrapper unconditionally.
@@ -31,10 +31,9 @@ use Tests\Support\FunctionalTester;
 final class AdminSidebarRowAffordanceCest
 {
     /**
-     * Every create item in the shipped sidebar, from both places they are declared:
-     * App\Menu\Admin\AdminMenuCatalog::ROW_AFFORDANCES (the six core ones) and
-     * ProcurementBundle\Menu\ProcurementMenuOverrideProvider::ROW_AFFORDANCES (the three purchase
-     * ones).
+     * Every create item in the shipped sidebar. The shop's sidebar (App\Maxeme\Menu\MaxemeAdminMenuProvider)
+     * hides every core and module catalog entry, so these are the `add:` entries of
+     * `maxeme.admin_menu` in config/packages/maxeme.yaml, each announcing its stated label.
      *
      * Written out by href rather than derived from the tree on purpose: deriving it would assert
      * that the code agrees with itself, which it cannot help doing. What is worth pinning is that
@@ -45,15 +44,20 @@ final class AdminSidebarRowAffordanceCest
      */
     private const FLAGGED = [
         // [the row it sits on, the affordance's own href, the name it announces]
-        ['/admin/product/detail/index', '/admin/product/inventory/create?redirect=admin_product_detail_index', 'New Product'],
-        ['/admin/company', '/admin/company/create', 'Add Customer'],
-        ['/admin/estimate', '/admin/estimate/create', 'Create Quote'],
-        ['/admin/order', '/admin/order/create', 'Create Sales Order'],
-        ['/admin/invoice', '/admin/invoice/create', 'Create Invoice'],
-        ['/admin/credit-memo/index', '/admin/credit-memo/new', 'Create Credit Note'],
-        ['/admin/bundles/procurement/purchase-orders', '/admin/bundles/procurement/purchase-orders/new', 'New Purchase Order'],
-        ['/admin/bundles/procurement/bills', '/admin/bundles/procurement/bills/new', 'New Bill'],
-        ['/admin/bundles/procurement/receiving', '/admin/bundles/procurement/receiving/new', 'New Goods Receipt'],
+        ['/admin/repair-orders', '/admin/clients/pick/repair_order', 'New repair order'],
+        ['/admin/appointments', '/admin/clients/pick/appointment', 'New appointment'],
+        ['/admin/reminders', '/admin/clients/pick/reminder', 'New reminder'],
+        ['/admin/services', '/admin/services#manageAddModal', 'Add a new service'],
+        ['/admin/product/detail/index', '/admin/product/inventory/create', 'Add a product'],
+        ['/admin/category/index', '/admin/category/create', 'Add a product category'],
+        ['/admin/bundles/procurement/vendors', '/admin/bundles/procurement/vendors/new', 'Add a vendor'],
+        ['/admin/clients', '/admin/clients#manageAddModal', 'Add a new client'],
+        ['/admin/staff', '/admin/staff#register-modal', 'Add a new user'],
+        ['/admin/service-categories', '/admin/service-categories/new', 'Add a service category'],
+        ['/admin/service-reminders', '/admin/service-reminders#reminderAddModal', 'Add a service reminder'],
+        ['/admin/service-reminder-templates', '/admin/service-reminder-templates/new', 'Add a reminder template'],
+        ['/admin/labour', '/admin/labour#manageAddModal', 'Add labour'],
+        ['/admin/government-fees', '/admin/government-fees#manageAddModal', 'Add a government fee'],
     ];
 
     public function _before(FunctionalTester $I): void
@@ -112,8 +116,8 @@ final class AdminSidebarRowAffordanceCest
             );
         }
 
-        // The row it named, specifically. New Bill on the Bills row, not on Purchase Orders.
-        $I->dontSeeElement($this->affordanceOnRow('/admin/bundles/procurement/purchase-orders', '/admin/bundles/procurement/bills/new'));
+        // The row it named, specifically. New appointment on Appointments, not on Repair Order.
+        $I->dontSeeElement($this->affordanceOnRow('/admin/repair-orders', '/admin/clients/pick/appointment'));
     }
 
     /**
@@ -123,23 +127,19 @@ final class AdminSidebarRowAffordanceCest
      */
     public function anUnflaggedItemStillRendersAsItsOwnRow(FunctionalTester $I): void
     {
-        // Lists, reports, hubs and settings — the things you cannot "create one of", plus the
-        // create screens that have no sidebar item to flag. Every one of these is declared exactly
-        // as it was before this feature existed.
-        // The RFQ list was the first line here until queue item 56 took its row off the menu
-        // (GitHub #662). It is not unflagged any more, it is absent — asserting an absent row
-        // "renders as its own row" is the one thing this list cannot say about it.
+        // Lists, reports, logs and settings — the shop's rows with no `add:` in maxeme.yaml.
         $unflagged = [
-            '/admin/bundles/procurement/vendor-returns',
-            '/admin/bundles/procurement/debit-memos',
-            '/admin/bundles/procurement/exceptions',
-            '/admin/bundles/procurement/vendors',
-            '/admin/bundles/procurement/vendor-prices',
-            '/admin/bundles/warehouse-ops/transfers',
-            '/admin/bundles/inventory-depth/lots',
-            '/admin/sales-return/index',
-            '/admin/user/staff',
-            '/admin/warehouse',
+            '/admin/bundles/inventory-depth/adjust',
+            '/admin/bundles/inventory-depth/movements',
+            '/admin/product/import',
+            '/admin/product/units-of-measure',
+            '/admin/accounting/summary-report',
+            '/admin/roles',
+            '/admin/shop-settings',
+            '/admin/logs/activity',
+            '/admin/email-log',
+            '/admin/error-log',
+            '/admin/db',
         ];
 
         foreach ($unflagged as $href) {
@@ -176,38 +176,14 @@ final class AdminSidebarRowAffordanceCest
 
     /**
      * Requirement 4. The icon announces where it goes, never what it looks like — a column of
-     * plus signs read out as "plus, plus, plus" is useless. Two of the three fall back to their
-     * own sidebar label; New PO states its own, because "New P O" is not what a person would say.
+     * plus signs read out as "plus, plus, plus" is useless. Every shop entry states its own label
+     * (`add.label` in maxeme.yaml), and that is what it announces, exactly once.
      */
     public function theAffordanceCarriesAnAccessibleNameAndAStatedOneOverridesTheLabel(FunctionalTester $I): void
     {
         foreach (self::FLAGGED as [$listHref, $createHref, $name]) {
             $I->seeElement($this->affordanceOnRow($listHref, $createHref, sprintf('[@aria-label="%s"]', $name)));
-        }
-
-        // The fallback, which is the common case: no accessibleName is declared for these, so each
-        // announces the label its own AdminMenuNode carries — there is no sidebar row left to read
-        // it off any more (that row is what a flagged item gives up for the icon), so this checks
-        // the announced name directly instead.
-        foreach ([
-            '/admin/bundles/procurement/bills/new' => 'New Bill',
-            '/admin/credit-memo/new' => 'Create Credit Note',
-            '/admin/company/create' => 'Add Customer',
-        ] as $href => $label) {
-            $I->assertSame([$label], $I->grabMultiple('nav#primary-navigation a.nav-affordance[href="' . $href . '"]', 'aria-label'));
-        }
-
-        // The override, in the three places the label alone would be wrong for somebody who lands
-        // on the icon with no row around it.
-        foreach ([
-            // An abbreviation. "New P O" is not what anybody calls it.
-            '/admin/bundles/procurement/purchase-orders/new' => 'New Purchase Order',
-            // A screen name in the wrong order, read as an action.
-            '/admin/product/inventory/create?redirect=admin_product_detail_index' => 'New Product',
-            // Genuinely ambiguous: this sidebar has Purchase Orders in it too.
-            '/admin/order/create' => 'Create Sales Order',
-        ] as $href => $announced) {
-            $I->assertSame([$announced], $I->grabMultiple('nav#primary-navigation a.nav-affordance[href="' . $href . '"]', 'aria-label'));
+            $I->assertSame([$name], $I->grabMultiple('nav#primary-navigation a.nav-affordance[href="' . $createHref . '"]', 'aria-label'));
         }
     }
 
@@ -229,9 +205,9 @@ final class AdminSidebarRowAffordanceCest
         // console answers on its own host, which this tester reaches by a Host header rather than
         // a configured base URL, and the module reads a link resolved against that host as an
         // external URL. Going to the href directly asks the same question of the same route.
-        $I->amOnPage('/admin/bundles/procurement/bills/new');
+        $I->amOnPage('/admin/service-categories/new');
         $I->seeResponseCodeIsSuccessful();
-        $I->seeCurrentUrlEquals('/admin/bundles/procurement/bills/new');
+        $I->seeCurrentUrlEquals('/admin/service-categories/new');
 
         $I->amOnPage('/admin');
         $I->dontSeeElement('nav#primary-navigation a.nav-affordance[data-js]');
@@ -248,7 +224,8 @@ final class AdminSidebarRowAffordanceCest
      */
     public function theRevealIsPureCssAndKeepsTheLinkReachable(FunctionalTester $I): void
     {
-        $css = (string) file_get_contents(__DIR__ . '/../../public/assets/css/app.css');
+        // Line endings normalised: a Windows checkout (core.autocrlf) has CRLF in app.css.
+        $css = str_replace("\r\n", "\n", (string) file_get_contents(__DIR__ . '/../../public/assets/css/app.css'));
 
         $block = strstr($css, '.site-admin .nav a.nav-affordance {');
         $I->assertNotFalse($block, 'the affordance must be styled in app.css, not inline or by script');

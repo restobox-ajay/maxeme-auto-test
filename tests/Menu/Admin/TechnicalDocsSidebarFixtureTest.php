@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Menu\Admin;
 
+use App\Maxeme\Menu\MaxemeAdminMenuProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RequestContext;
 use TechnicalDocsBundle\Docs\DocsRepository;
 
 /**
@@ -51,8 +54,30 @@ final class TechnicalDocsSidebarFixtureTest extends TestCase
     list: see this test's class docblock and docs/QUEUE.md on hand-kept lists.
     TEXT;
 
+    /**
+     * The shop's sidebar (MaxemeAdminMenuProvider) hides every core catalog entry, Technical Docs
+     * included, so the rendered sidebar is NOT a function of docs/ while that holds: the fixture
+     * must carry no Technical Docs rows at all, and a docs-only commit cannot change it.
+     */
+    public function testTheShopSidebarHidesTechnicalDocs(): void
+    {
+        if (!self::shopSidebarHidesTechnicalDocs()) {
+            self::markTestSkipped('MaxemeAdminMenuProvider no longer hides technical_docs; the fixture comparison below applies.');
+        }
+
+        self::assertSame(
+            [],
+            SidebarNavRows::technicalDocsPaths((string) file_get_contents(SidebarNavRows::FIXTURE)),
+            'the shop sidebar hides Technical Docs, so the committed fixture must have no Technical Docs rows',
+        );
+    }
+
     public function testTheCommittedSidebarFixtureListsExactlyTheMarkdownFilesUnderDocs(): void
     {
+        if (self::shopSidebarHidesTechnicalDocs()) {
+            self::markTestSkipped('The shop sidebar hides Technical Docs (see testTheShopSidebarHidesTechnicalDocs).');
+        }
+
         $onDisk = (new DocsRepository(dirname(__DIR__, 3)))->list();
         $inFixture = SidebarNavRows::technicalDocsPaths(
             (string) file_get_contents(SidebarNavRows::FIXTURE),
@@ -86,5 +111,16 @@ final class TechnicalDocsSidebarFixtureTest extends TestCase
         }
 
         self::assertSame([], $problems, implode("\n", $problems) . "\n\n" . self::REMEDY);
+    }
+
+    private static function shopSidebarHidesTechnicalDocs(): bool
+    {
+        $provider = new MaxemeAdminMenuProvider([], new class implements UrlGeneratorInterface {
+            public function setContext(RequestContext $context): void {}
+            public function getContext(): RequestContext { return new RequestContext(); }
+            public function generate(string $name, array $parameters = [], int $referenceType = self::ABSOLUTE_PATH): string { return '/'; }
+        });
+
+        return in_array('technical_docs', $provider->getHiddenKeys(), true);
     }
 }
