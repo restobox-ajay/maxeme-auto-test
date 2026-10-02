@@ -55,6 +55,22 @@ final class ServiceCategoryRepository extends ServiceEntityRepository
         return array_column(array_map(static fn (array $row): array => [(int) $row['category'], (int) $row['services']], $rows), 1, 0);
     }
 
+    /** @return list<int> $category's id and those of every category under it */
+    public function idsWithin(ServiceCategory $category): array
+    {
+        $ids = [];
+        foreach ($this->findTree() as $candidate) {
+            for ($ancestor = $candidate; $ancestor !== null; $ancestor = $ancestor->getParent()) {
+                if ($ancestor === $category) {
+                    $ids[] = (int) $candidate->getId();
+                    break;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
     public function countChildren(ServiceCategory $category): int
     {
         return $this->count(['parent' => $category]);

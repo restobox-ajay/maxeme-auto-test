@@ -6,6 +6,8 @@ namespace App\Maxeme\Repository;
 
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\RepairOrder;
+use App\Maxeme\Entity\RepairOrderJob;
+use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -64,6 +66,33 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * A vehicle's repair orders, newest first, with their services; only those with a service of
+     * $serviceId, or of one of $categoryIds, when given (the vehicle page's history filters).
+     *
+     * @param list<int> $categoryIds
+     *
+     * @return list<RepairOrder>
+     */
+    public function findHistoryForVehicle(Vehicle $vehicle, ?int $serviceId = null, array $categoryIds = []): array
+    {
+        $query = $this->createQueryBuilder('r')
+            ->addSelect('j', 's')
+            ->leftJoin('r.jobs', 'j')
+            ->leftJoin('j.service', 's')
+            ->andWhere('r.vehicle = :vehicle')->setParameter('vehicle', $vehicle)
+            ->orderBy('r.createdOn', 'DESC')
+            ->addOrderBy('r.id', 'DESC');
+        if ($serviceId !== null) {
+            $query->andWhere(sprintf('EXISTS (SELECT 1 FROM %s fj WHERE fj.repairOrder = r AND IDENTITY(fj.service) = :service)', RepairOrderJob::class))->setParameter('service', $serviceId);
+        }
+        if ($categoryIds !== []) {
+            $query->andWhere(sprintf('EXISTS (SELECT 1 FROM %s cj JOIN cj.service cs WHERE cj.repairOrder = r AND IDENTITY(cs.category) IN (:categories))', RepairOrderJob::class))->setParameter('categories', $categoryIds);
+        }
+
+        return $query->getQuery()->getResult();
     }
 
     /** One repair order with its services, their lines and their items, for the edit page. */

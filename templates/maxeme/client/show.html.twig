@@ -83,7 +83,7 @@
             <div class="table-header">
                 <h2>Vehicles</h2>
                 {% if canManageVehicles %}
-                    <button class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add new vehicle to {{ client.fullName }}</button>
+                    <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_vehicle_new', { client: client.id }) }}">+ Add new vehicle to {{ client.fullName }}</a>
                 {% endif %}
                 {{ mx.list_search(vehicles, 'vehicles') }}
             </div>
@@ -98,7 +98,7 @@
                     <tbody>
                         {% for vehicle in vehicles.items %}
                             <tr id="row_{{ vehicle.id }}">
-                                <td data-label="Manufacturer">{{ vehicle.manufacturer }}</td>
+                                <td data-label="Manufacturer"><a class="mx-row-link" href="{{ path('maxeme_vehicle_show', { id: vehicle.id }) }}">{{ vehicle.manufacturer }}</a></td>
                                 <td data-label="Model">{{ vehicle.model }}</td>
                                 <td data-label="Year">{{ vehicle.year }}</td>
                                 <td data-label="Vin">{{ vehicle.vin }}</td>
@@ -107,9 +107,8 @@
                                 {% if canManageVehicles %}
                                     <td data-label="Actions">
                                         <div class="mx-actions">
-                                                <button type="button" class="button mx-btn-sm mx-success edit_client_vehicle" data-modal-open="#manageEditClientVehicleModal"
-                                                        data-form-action="{{ path('maxeme_vehicle_update', { id: vehicle.id }) }}"
-                                                        data-form-values="{{ form_values(vehicle)|json_encode }}">Edit</button>
+                                                <a class="button mx-btn-sm primary" href="{{ path('maxeme_vehicle_show', { id: vehicle.id }) }}">View</a>
+                                                <a class="button mx-btn-sm mx-success edit_client_vehicle" href="{{ path('maxeme_vehicle_edit', { id: vehicle.id }) }}">Edit</a>
                                                 <button type="button" class="button mx-btn-sm danger delete_client_vehicle js-post-action" data-remove-row="#row_{{ vehicle.id }}"
                                                         data-url="{{ path('maxeme_vehicle_delete', { id: vehicle.id }) }}"
                                                         data-token="{{ csrf_token_value() }}"

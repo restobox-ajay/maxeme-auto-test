@@ -1,0 +1,99 @@
+{# A vehicle's own page: its details, stats, repair order history (filtered by service or service
+   category) and notes. Vars: vehicle, history (list of RepairOrder), stats, services (used on it),
+   categories (tree), serviceId, category. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ vehicle.fullName }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canEdit = is_granted('/car/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People · Vehicle', title: vehicle.fullName ?: 'Vehicle', lead: vehicle.licensePlate ? 'Licence plate ' ~ vehicle.licensePlate : null } %}
+        {% block actions %}
+            {% import 'maxeme/_macros.html.twig' as mx %}
+            <div class="mx-doc-actions">
+                {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new', { id: vehicle.client.id }) }}">+ New repair order</a>{% endif %}
+                {% if is_granted('/car/edit') %}<a class="button mx-btn-sm primary" href="{{ path('maxeme_vehicle_edit', { id: vehicle.id }) }}">Edit</a>{% endif %}
+                {{ mx.logs_link(vehicle) }}
+            </div>
+            <a class="button back-button" href="{{ path('maxeme_vehicle_index') }}">Back</a>
+        {% endblock %}
+    {% endembed %}
+
+    <div class="mx-vehicle-top">
+        <section class="form-card">
+            <div class="section-label">Vehicle</div>
+            <dl class="mx-dl">
+                <dt>Customer</dt><dd>{% if is_granted('/people/view') %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id }) }}">{{ vehicle.client.fullName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</dd>
+                <dt>Year</dt><dd>{{ vehicle.year ?: '—' }}</dd>
+                <dt>Make</dt><dd>{{ vehicle.manufacturer ?: '—' }}</dd>
+                <dt>Model</dt><dd>{{ vehicle.model ?: '—' }}</dd>
+                <dt>Colour</dt><dd>{{ vehicle.color ?: '—' }}</dd>
+                <dt>Licence Plate</dt><dd>{{ vehicle.licensePlate ?: '—' }}</dd>
+                <dt>VIN</dt><dd>{{ vehicle.vin ?: '—' }}</dd>
+                <dt>Mileage</dt><dd>{{ vehicle.mileage ? vehicle.mileage ~ (vehicle.mileage matches '/^[0-9,]+$/' ? ' KM') : '—' }}</dd>
+                {% if vehicle.note %}<dt>Note</dt><dd>{{ vehicle.note }}</dd>{% endif %}
+            </dl>
+        </section>
+        <section class="mx-stats">
+            <div class="mx-stat"><span class="mx-stat-value">{{ stats.visits }}</span><span class="mx-stat-label">Repair orders</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">{{ stats.services }}</span><span class="mx-stat-label">Services done</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">${{ mx.money(stats.spent) }}</span><span class="mx-stat-label">Total billed</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">{{ stats.last ? stats.last|date('m/d/Y') : '—' }}</span><span class="mx-stat-label">Last visit</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">{{ stats.first ? stats.first|date('m/d/Y') : '—' }}</span><span class="mx-stat-label">First visit</span></div>
+        </section>
+    </div>
+
+    <section class="table-card no-paginate mx-ro-after" id="vehicle-history">
+        <div class="table-header">
+            <h2>Repair History</h2>
+            <form method="get" class="mx-history-filter">
+                <select name="service" aria-label="Filter by service" onchange="this.form.submit()">
+                    <option value="">All services</option>
+                    {% for service in services %}<option value="{{ service.id }}" {{ serviceId == service.id ? 'selected' }}>{{ service.name }}</option>{% endfor %}
+                </select>
+                <select name="category" aria-label="Filter by service category" onchange="this.form.submit()">
+                    <option value="">All categories</option>
+                    {% for option in categories %}<option value="{{ option.id }}" {{ category and category.id == option.id ? 'selected' }}>{% if option.depth %}{% for i in 1..option.depth %}— {% endfor %}{% endif %}{{ option.name }}</option>{% endfor %}
+                </select>
+                {% if serviceId or category %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_vehicle_show', { id: vehicle.id }) }}">Clear</a>{% endif %}
+            </form>
+        </div>
+        <div class="wide-table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>RO #</th><th>Repair Name</th><th>Services</th><th>Mileage</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+                <tbody>
+                    {% for repairOrder in history %}
+                        <tr>
+                            <td data-label="Date" class="mx-nowrap">{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                            <td data-label="RO #" class="mx-nowrap">{{ ro_number(repairOrder) }}</td>
+                            <td data-label="Repair Name">{{ repairOrder.name ?: '—' }}</td>
+                            <td data-label="Services">{% for job in repairOrder.jobs %}<div>{{ job.name }}{% if job.service and job.service.category %} <span class="muted-line">· {{ job.service.category.name }}</span>{% endif %}</div>{% else %}—{% endfor %}</td>
+                            <td data-label="Mileage">{{ repairOrder.mileage }}</td>
+                            <td data-label="Status"><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
+                            <td data-label="Total" class="num">{{ mx.money(repairOrder.total) }}</td>
+                            <td data-label="Actions">
+                                <div class="mx-actions">
+                                    {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm primary" href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">Open</a>{% endif %}
+                                    {% if is_granted('/work-order/view') %}<a class="button mx-btn-sm mx-warning" href="{{ path('maxeme_repair_order_work_order', { id: repairOrder.id }) }}">Work Order</a>{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">{{ serviceId or category ? 'No repair orders with that service.' : 'No repair orders yet.' }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="mx-ro-after">
+        {% include 'maxeme/_notes.html.twig' with {
+            notes: vehicle.notes,
+            owner: vehicle.fullName,
+            createUrl: path('maxeme_vehicle_note_create', { id: vehicle.id }),
+            updateUrl: path('maxeme_vehicle_note_update', { id: vehicle.id }),
+            deleteRoute: 'maxeme_vehicle_note_delete',
+            routeParams: { id: vehicle.id },
+            canEdit: canEdit,
+        } only %}
+    </div>
+{% endblock %}

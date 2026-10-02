@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Entity\AbstractPartyNote;
 use App\Maxeme\Repository\VehicleRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -13,7 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: VehicleRepository::class)]
 #[ORM\Table(name: 'maxeme_vehicle')]
-class Vehicle implements SoftDeletable
+class Vehicle implements SoftDeletable, HasNotes
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -55,15 +58,39 @@ class Vehicle implements SoftDeletable
     #[ORM\Column]
     private \DateTimeImmutable $lastUpdated;
 
+    /** @var Collection<int, VehicleNote> */
+    #[ORM\OneToMany(targetEntity: VehicleNote::class, mappedBy: 'vehicle')]
+    #[ORM\OrderBy(['createdAt' => 'DESC', 'id' => 'DESC'])]
+    private Collection $notes;
+
     public function __construct(Client $client)
     {
         $this->client = $client;
         $this->lastUpdated = new \DateTimeImmutable();
+        $this->notes = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
 
     public function getClient(): Client { return $this->client; }
+
+    /** The vehicle page's Assign to Client: another owner from now on (its past repair orders keep theirs). */
+    public function assignTo(Client $client): void
+    {
+        $this->client = $client;
+        $this->touch();
+    }
+
+    /** For the edit page's client field. */
+    public function getClientId(): ?int { return $this->client->getId(); }
+
+    /** @return Collection<int, VehicleNote> newest first */
+    public function getNotes(): Collection { return $this->notes; }
+
+    public function newNote(): AbstractPartyNote
+    {
+        return new VehicleNote($this);
+    }
 
     public function getManufacturer(): ?string { return $this->manufacturer; }
     public function setManufacturer(?string $manufacturer): self { $this->manufacturer = $manufacturer; return $this; }

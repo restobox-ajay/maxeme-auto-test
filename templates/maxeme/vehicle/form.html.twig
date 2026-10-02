@@ -1,0 +1,51 @@
+{# Add / edit a vehicle, and assign it to a client. Vars: title, vehicle (or null), client (or null), data (VehicleData), errors. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set back = vehicle ? path('maxeme_vehicle_show', { id: vehicle.id }) : (client ? path('maxeme_client_show', { id: client.id, tab: 'vehicles' }) : path('maxeme_vehicle_index')) %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People · Vehicle', title: title } %}
+        {% block actions %}<a class="button back-button" href="{{ back }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <form method="post" id="vehicle-form" data-clients-url="{{ path('maxeme_vehicle_clients') }}">
+        {{ csrf_field() }}
+        <section class="form-card">
+            <div class="form-grid inline-form-grid mx-form-two">
+                {{ mx.form_errors(errors) }}
+                <label class="span-2"><span>Client <span class="mx-req">*</span> <small class="muted-line">(the owner; another client re-assigns the vehicle)</small></span>
+                    <input id="vehicle-client-id" type="hidden" name="client_id" value="{{ client ? client.id }}">
+                    <span class="mx-name-group"><input id="vehicle-client-search" type="text" value="{{ client ? client.fullName }}" placeholder="Search name or phone" autocomplete="off" class="{{ errors.clientId is defined ? 'is-invalid' }}"></span>
+                </label>
+                <label><span>Year</span><input type="text" name="year" value="{{ data.year }}" maxlength="4" inputmode="numeric"></label>
+                <label><span>Make</span><input type="text" name="manufacturer" value="{{ data.manufacturer }}" maxlength="255"></label>
+                <label><span>Model</span><input type="text" name="model" value="{{ data.model }}" maxlength="255"></label>
+                <label><span>Colour</span><input type="text" name="color" value="{{ data.color }}" maxlength="255"></label>
+                <label><span>Licence Plate</span><input type="text" name="license_plate" value="{{ data.licensePlate }}" {{ input_rule('license_plate') }}></label>
+                <label><span>VIN</span><input type="text" name="vin" value="{{ data.vin }}" {{ input_rule('vin') }}></label>
+                <label><span>Mileage</span><input type="text" name="mileage" value="{{ data.mileage }}" {{ input_rule('mileage') }}></label>
+                <label class="span-2"><span>Note</span><input type="text" name="note" value="{{ data.note }}" maxlength="255"></label>
+            </div>
+        </section>
+        <div class="form-actions">
+            <a class="button outline" href="{{ back }}">Cancel</a>
+            <button class="button primary" type="submit">Save</button>
+        </div>
+    </form>
+{% endblock %}
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        (function () {
+            var form = document.getElementById('vehicle-form');
+            var id = document.getElementById('vehicle-client-id');
+            var search = document.getElementById('vehicle-client-search');
+            search.addEventListener('input', function () { id.value = ''; });
+            window.MxAutocomplete.attach(form, '#vehicle-client-search', {
+                empty: 'No matching clients.',
+                url: function (input, term) { return term === '' ? null : form.getAttribute('data-clients-url') + '?' + new URLSearchParams({ q: term }); },
+                pick: function (input, item) { input.value = item.label; id.value = item.value; }
+            });
+        }());
+    </script>
+{% endblock %}

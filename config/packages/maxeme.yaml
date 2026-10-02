@@ -177,8 +177,10 @@ parameters:
           icon: users
           role: /people/view
           children:
-              - { key: clients, label: Client, route: maxeme_client_index, match: [maxeme_client_, maxeme_vehicle_],
+              - { key: clients, label: Client, route: maxeme_client_index, match: [maxeme_client_],
                   add: { label: Add a new client, route: maxeme_client_index, modal: manageAddModal, role: /people/edit } }
+              - { key: vehicles, label: Vehicles, route: maxeme_vehicle_index, role: /car/view, match: [maxeme_vehicle_],
+                  add: { label: Add a vehicle, route: maxeme_vehicle_new, role: /car/edit } }
         - key: accounting
           label: Accounting
           icon: chart

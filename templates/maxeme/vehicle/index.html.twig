@@ -1,43 +1,67 @@
+{# People › Vehicles: every active vehicle of every client. Vars: page (ListPage of Vehicle), find (SearchTerm). #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Vehicles | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canOpenClient = is_granted('/people/view') %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles', lead: 'Every active vehicle. Open one to see it on its owner’s Vehicles tab.' } only %}
-
-    <section class="table-card" id="vehicle-list" {{ mx.list_card_attrs(page) }}>
+    {% set canEdit = is_granted('/car/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles', lead: 'Every vehicle of every customer. Open one for its repair history and notes.' } %}
+        {% block title_actions %}
+            {% if is_granted('/car/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_vehicle_new') }}">+ Add a vehicle</a>{% endif %}
+        {% endblock %}
+    {% endembed %}
+    {% if not find.empty %}
         {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_vehicle_index' } only %}
-        <div class="table-header">
-            <h2>Vehicles</h2>
-            {{ mx.list_search(page, 'vehicles') }}
-        </div>
+    {% endif %}
+
+    <section class="table-card" id="vehicle-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header"><h2>Vehicles</h2></div>
         <div class="wide-table-wrap">
-            <table id="vehicle-list-table">
+            <table id="vehicle-table">
                 <thead>
                     <tr>
-                        {% for key, label in { manufacturer: 'Manufacturer', model: 'Model', year: 'Year', vin: 'VIN', licensePlate: 'License plate', color: 'Color' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
-                        {% if canOpenClient %}<th>Owner</th>{% endif %}
-                        {{ mx.sort_th(page, 'lastUpdated', 'Last updated') }}
-                        {% if canOpenClient %}<th style="width:80px"></th>{% endif %}
+                        <th class="mx-row-icon-col"><span class="sr-only">Open</span></th>
+                        {% for key, label in { customer: 'Customer', year: 'Year', model: 'Model', color: 'Colour', licensePlate: 'Licence Plate', vin: 'VIN' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th>
+                        {% for field, label in { customer: 'Customer', year: 'Year', model: 'Model', color: 'Colour', licensePlate: 'Licence Plate', vin: 'VIN' } %}
+                            <th><input type="search" value="{{ page.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}"></th>
+                        {% endfor %}
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for vehicle in page.items %}
-                        <tr id="vehicle_{{ vehicle.id }}">
-                            <td data-label="Manufacturer">{{ vehicle.manufacturer }}</td>
-                            <td data-label="Model">{{ vehicle.model }}</td>
+                        {% set open = path('maxeme_vehicle_show', { id: vehicle.id }) %}
+                        <tr id="row_{{ vehicle.id }}">
+                            <td class="mx-row-icon-col"><a class="button mx-btn-sm primary mx-row-icon" href="{{ open }}" title="Open {{ vehicle.fullName }}" aria-label="Open {{ vehicle.fullName }}">{{ mx_icon('search') }}</a></td>
+                            <td data-label="Customer">{% if canOpenClient %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">{{ vehicle.client.fullName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</td>
                             <td data-label="Year">{{ vehicle.year }}</td>
+                            <td data-label="Model"><a class="mx-row-link" href="{{ open }}">{{ vehicle.manufacturer }} {{ vehicle.model }}</a></td>
+                            <td data-label="Colour">{{ vehicle.color }}</td>
+                            <td data-label="Licence Plate">{{ vehicle.licensePlate }}</td>
                             <td data-label="VIN">{{ vehicle.vin }}</td>
-                            <td data-label="License plate">{{ vehicle.licensePlate }}</td>
-                            <td data-label="Color">{{ vehicle.color }}</td>
-                            {% if canOpenClient %}<td data-label="Owner">{{ vehicle.client.fullName }}</td>{% endif %}
-                            <td data-label="Last updated">{{ vehicle.lastUpdated|date('Y-m-d H:i:s') }}</td>
-                            {% if canOpenClient %}
-                                <td data-label="Actions"><div class="mx-actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">Open</a>{{ mx.logs_link(vehicle) }}</div></td>
-                            {% endif %}
+                            <td data-label="Actions" style="text-align:center;">
+                                <div class="mx-actions">
+                                    <a class="button mx-btn-sm primary" href="{{ open }}">View</a>
+                                    {% if canEdit %}
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_vehicle_edit', { id: vehicle.id }) }}">Edit</a>
+                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ vehicle.id }}"
+                                                data-url="{{ path('maxeme_vehicle_delete', { id: vehicle.id }) }}"
+                                                data-token="{{ csrf_token_value() }}"
+                                                data-confirm-title="Delete Confirmation"
+                                                data-confirm-before="Are you sure you want to delete "
+                                                data-item="{{ vehicle.fullName }}"
+                                                data-confirm-after="?">Delete</button>
+                                    {% endif %}
+                                    {{ mx.logs_link(vehicle) }}
+                                </div>
+                            </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ canOpenClient ? 9 : 7 }}" class="empty-table-cell">No vehicles found.</td></tr>
+                        <tr><td colspan="8" class="empty-table-cell">No vehicles match.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

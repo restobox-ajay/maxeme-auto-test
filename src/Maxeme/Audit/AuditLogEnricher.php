@@ -46,6 +46,7 @@ final class AuditLogEnricher
         'ClientAddress' => 'people',
         'ClientNote' => 'people',
         'Vehicle' => 'car',
+        'VehicleNote' => 'car',
         'AdminUser' => 'staff',
         'TaxRate' => 'settings',
         'TaxClass' => 'settings',

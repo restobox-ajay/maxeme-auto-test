@@ -28,15 +28,26 @@ final class VehicleRepository extends ServiceEntityRepository
         'note' => 'v.note',
     ];
 
-    /** Vehicles list sort key => column (first = default sort). */
+    /** Vehicles list sort key => column, in its column order (first = default sort). */
     public const LIST_SORTS = [
-        'manufacturer' => 'v.manufacturer',
-        'model' => 'v.model',
+        'customer' => 'c.firstName',
         'year' => 'v.year',
-        'vin' => 'v.vin',
-        'licensePlate' => 'v.licensePlate',
+        'model' => 'v.model',
         'color' => 'v.color',
+        'licensePlate' => 'v.licensePlate',
+        'vin' => 'v.vin',
+        'manufacturer' => 'v.manufacturer',
         'lastUpdated' => 'v.lastUpdated',
+    ];
+
+    /** The Vehicles list's column search boxes (filters[field]) => column. */
+    public const LIST_FILTERS = [
+        'customer' => "CONCAT(COALESCE(c.firstName, ''), ' ', COALESCE(c.lastName, ''), ' ', COALESCE(c.preferredName, ''))",
+        'year' => 'v.year',
+        'model' => "CONCAT(COALESCE(v.manufacturer, ''), ' ', COALESCE(v.model, ''))",
+        'color' => 'v.color',
+        'licensePlate' => 'v.licensePlate',
+        'vin' => 'v.vin',
     ];
 
     public function __construct(ManagerRegistry $registry)
@@ -66,6 +77,6 @@ final class VehicleRepository extends ServiceEntityRepository
             ->andWhere('c.active = true');
         $find->apply($query, ['v.vin', 'v.licensePlate', 'v.manufacturer', 'v.model', 'v.year', 'v.color']);
 
-        return ListPage::paginate($query, $list, self::LIST_SORTS, ['v.manufacturer', 'v.model', 'v.vin', 'v.licensePlate', 'v.color']);
+        return ListPage::paginate($query, $list, self::LIST_SORTS, ['v.manufacturer', 'v.model', 'v.vin', 'v.licensePlate', 'v.color', 'c.firstName', 'c.lastName', 'c.preferredName'], self::LIST_FILTERS);
     }
 }

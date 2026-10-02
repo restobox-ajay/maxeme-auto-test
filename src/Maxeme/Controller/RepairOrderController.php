@@ -75,9 +75,8 @@ final class RepairOrderController extends AbstractMaxemeController
     public function new(Request $request): Response
     {
         $user = $this->getUser();
-        $client = $request->query->getInt('id') > 0
-            ? $this->entityManager->getRepository(Client::class)->findOneBy(['id' => $request->query->getInt('id'), 'active' => true])
-            : null;
+        $clientId = self::idParam($request->query, 'id');
+        $client = $clientId !== null ? $this->entityManager->getRepository(Client::class)->findOneBy(['id' => $clientId, 'active' => true]) : null;
 
         return $this->form($this->writer->start($user instanceof AdminUser ? $user : null, $client), $request, 'New Repair Order');
     }

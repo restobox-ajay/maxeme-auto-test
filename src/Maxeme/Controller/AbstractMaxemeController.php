@@ -14,6 +14,7 @@ use App\Maxeme\Dto\DocumentEmailData;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Service\FieldErrors;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -35,6 +36,14 @@ abstract class AbstractMaxemeController extends AbstractController
         }
 
         return $this->redirectToRoute($fallbackRoute, $fallbackParams);
+    }
+
+    /** An optional id in the query or form ("" or anything else not a whole number: null), without getInt()'s 400 on "". */
+    protected static function idParam(InputBag $bag, string $name): ?int
+    {
+        $value = $bag->get($name);
+
+        return is_scalar($value) && ctype_digit((string) $value) && (int) $value > 0 ? (int) $value : null;
     }
 
     /** @param array<string, string> $errors */
