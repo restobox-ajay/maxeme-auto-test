@@ -339,6 +339,31 @@
 }());
 
 /*
+ * Growing lists of form rows without a page script of their own:
+ *   <button data-row-add="#template-id" data-row-into="#tbody-id" data-row-token="__ROW__">
+ * copies the <template>, its token replaced by the next number (data-next on the container), and
+ *   .js-row-remove inside a row removes it.
+ */
+(function () {
+    'use strict';
+
+    document.addEventListener('click', function (event) {
+        var add = event.target.closest('[data-row-add]');
+        if (add) {
+            var into = document.querySelector(add.getAttribute('data-row-into'));
+            var index = parseInt(into.getAttribute('data-next'), 10) || into.children.length;
+            into.setAttribute('data-next', String(index + 1));
+            var holder = document.createElement('tbody');
+            holder.innerHTML = document.querySelector(add.getAttribute('data-row-add')).innerHTML.split(add.getAttribute('data-row-token') || '__ROW__').join(String(index)).trim();
+            into.appendChild(holder.firstElementChild);
+            return;
+        }
+        var remove = event.target.closest('.js-row-remove');
+        if (remove) { remove.closest('tr').remove(); }
+    });
+}());
+
+/*
  * Browser errors into Logs › Error Log (ClientErrorController): script errors and unhandled promise
  * rejections on any admin page. At most 5 reports per page load, each distinct message once.
  */

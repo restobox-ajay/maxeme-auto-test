@@ -30,7 +30,7 @@
                             <td data-label="Date">{{ invoice.createdOn|date('Y-m-d') }}</td>
                             <td data-label="Client">{{ invoice.clientFullName }}</td>
                             <td data-label="Vehicle">{{ invoice.vehicleFullName }}</td>
-                            <td data-label="Status"><span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span></td>
+                            <td data-label="Status"><span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span></td>
                             <td data-label="Total" class="num">{{ mx.money(invoice.totalPrice) }}</td>
                             <td data-label="Actions"><div class="mx-actions"><a class="button outline mx-btn-sm" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Open</a>{{ mx.logs_link(invoice) }}</div></td>
                         </tr>

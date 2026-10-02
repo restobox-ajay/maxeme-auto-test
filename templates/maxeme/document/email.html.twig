@@ -1,0 +1,39 @@
+{# "Save and Email" a document (as Zoho Books has it): To, Cc, Subject, Message, and the PDF attached.
+   Vars: document (PrintedDocument), data (DocumentEmailData), errors, backUrl. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Email {{ document.emailSubject }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: document.kind.emailTitle, title: 'Email ' ~ document.emailSubject } %}
+        {% block actions %}<a class="button back-button" href="{{ backUrl }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <form method="post" id="document-email-form">
+        {{ csrf_field() }}
+        <section class="form-card">
+            <div class="form-grid inline-form-grid mx-form-two">
+                {{ mx.form_errors(errors) }}
+                <label class="span-2"><span>To <span class="mx-req">*</span> <small class="muted-line">(separate addresses with commas)</small></span>
+                    <input type="text" name="to" value="{{ data.to }}" required class="{{ errors.to is defined ? 'is-invalid' }}" placeholder="customer@example.com">
+                </label>
+                <label class="span-2"><span>Cc</span>
+                    <input type="text" name="cc" value="{{ data.cc }}" class="{{ errors.cc is defined ? 'is-invalid' }}" placeholder="optional">
+                </label>
+                <label class="span-2"><span>Subject <span class="mx-req">*</span></span>
+                    <input type="text" name="subject" value="{{ data.subject }}" maxlength="200" required>
+                </label>
+                <label class="span-2"><span>Message <span class="mx-req">*</span></span>
+                    <textarea name="message" rows="9" maxlength="5000" required>{{ data.message }}</textarea>
+                </label>
+                <div class="span-2 mx-attachment">
+                    <span class="muted-line">Attachment</span>
+                    <span class="mx-attachment-chip">📄 {{ document.filename }}</span>
+                </div>
+            </div>
+        </section>
+        <div class="form-actions">
+            <a class="button outline" href="{{ backUrl }}">Cancel</a>
+            <button class="button primary" type="submit">Send</button>
+        </div>
+    </form>
+{% endblock %}

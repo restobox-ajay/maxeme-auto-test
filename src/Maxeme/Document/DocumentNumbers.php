@@ -42,10 +42,17 @@ final class DocumentNumbers
         return $invoice->isSaved() ? $this->prefix($kind->prefixKey()) . $invoice->getDisplayedId() : '';
     }
 
-    /** "RO-00000042"; blank while the repair order is not saved. */
-    public function repairOrderNumber(RepairOrder $repairOrder): string
+    /**
+     * "RO-00000042", or its quote's "QO-00000042" / work order's "WO-00000042" (a repair order has
+     * one of each, numbered as it is); blank while the repair order is not saved.
+     */
+    public function repairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
     {
-        return $repairOrder->getId() !== null ? $this->prefix(MaxemeDocumentPrefixProvider::REPAIR_ORDER) . str_pad((string) $repairOrder->getId(), 8, '0', \STR_PAD_LEFT) : '';
+        if ($repairOrder->getId() === null) {
+            return '';
+        }
+
+        return $this->prefix($kind?->prefixKey() ?? MaxemeDocumentPrefixProvider::REPAIR_ORDER) . str_pad((string) $repairOrder->getId(), 8, '0', \STR_PAD_LEFT);
     }
 
     /** "INV-00001482.pdf" */
@@ -57,6 +64,6 @@ final class DocumentNumbers
     /** "Invoice INV-00001482" / "Work Order WO-00001482" */
     public function emailSubject(Invoice $invoice, DocumentKind $kind): string
     {
-        return sprintf('%s %s', $kind === DocumentKind::Invoice ? 'Invoice' : 'Work Order', $this->number($invoice, $kind));
+        return sprintf('%s %s', $kind->emailTitle(), $this->number($invoice, $kind));
     }
 }

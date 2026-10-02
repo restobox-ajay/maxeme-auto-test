@@ -1,0 +1,46 @@
+{# The on-screen page of an invoice, quote or work order (a PrintedDocument): title, the action bar
+   (each document's PDF menu and a link to the others), the document, print styles. ?print=1 prints
+   it on arrival (the other documents' Print). Vars: document, repairOrder (or null), invoice (or null),
+   actions (list of {label, url} links and {menu: {label, printUrl, pdfUrl, emailUrl}} menus), backUrl. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% import 'maxeme/document/_menus.html.twig' as menus %}
+{% block title %}{{ document.kind.emailTitle }} {{ document.number }} | {{ site_name() }}{% endblock %}
+{% block head_extra %}
+    <style>
+        {% include 'maxeme/invoice/_document_styles.html.twig' only %}
+    </style>
+{% endblock %}
+{% block admin_body %}
+    <section class="panel compact-panel no-print">
+        <div class="panel-title-row">
+            <div>
+                <p class="eyebrow">{{ repairOrder ? 'Repair Order ' ~ ro_number(repairOrder) ~ ' · ' }}{{ document.kind.emailTitle }}</p>
+                <div class="title-with-status">
+                    <h1>{{ document.kind.emailTitle }} {{ document.number }}</h1>
+                    {% if invoice %}<span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span>{% elseif repairOrder %}<span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span>{% endif %}
+                </div>
+                <p class="lead">{{ document.clientName }} · {{ document.vehicleName }}</p>
+            </div>
+            <div class="panel-actions">
+                <a class="button back-button" href="{{ backUrl }}">Back</a>
+            </div>
+        </div>
+    </section>
+    <nav class="mx-toolbar no-print" aria-label="{{ document.kind.emailTitle }} actions">
+        <div class="mx-doc-actions">
+            {% for action in actions %}
+                {% if action.menu is defined %}
+                    {{ menus.pdf_menu(action.menu.label, action.menu.printUrl, action.menu.pdfUrl, action.menu.emailUrl) }}
+                {% else %}
+                    <a class="button {{ action.class|default('outline') }}" href="{{ action.url }}">{{ action.label }}</a>
+                {% endif %}
+            {% endfor %}
+            {{ mx.logs_link(invoice ?? repairOrder, 'button outline') }}
+        </div>
+    </nav>
+    <div class="invoice-page-container">
+        {% include document.kind.printedTemplate with { document: document } only %}
+    </div>
+    {% if app.request.query.get('print') %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
+{% endblock %}

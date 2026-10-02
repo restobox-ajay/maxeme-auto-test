@@ -66,11 +66,11 @@ final class MaxemeExtension
     }
 
     /** {{ staff_role(user).label }} */
-    /** {{ ro_number(repairOrder) }}: "RO-00000042". */
+    /** {{ ro_number(repairOrder) }}: "RO-00000042"; with a DocumentKind, its quote's or work order's number. */
     #[AsTwigFunction('ro_number')]
-    public function repairOrderNumber(RepairOrder $repairOrder): string
+    public function repairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
     {
-        return $this->numbers->repairOrderNumber($repairOrder);
+        return $this->numbers->repairOrderNumber($repairOrder, $kind);
     }
 
     #[AsTwigFunction('staff_role')]

@@ -103,7 +103,7 @@ final class InvoiceService
 
         foreach ($items as $item) {
             if ($item->isService()) {
-                $line = new InvoiceServiceLine($invoice, $item->name, $item->quantity, $item->price, $this->find(ServiceItem::class, $item->id));
+                $line = new InvoiceServiceLine($invoice, $item->name, (string) $item->quantity, $item->price, $this->find(ServiceItem::class, $item->id));
                 $invoice->addServiceLine($line);
 
                 foreach ($item->parts as $material) {

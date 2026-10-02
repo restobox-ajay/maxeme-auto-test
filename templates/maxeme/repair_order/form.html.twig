@@ -16,6 +16,7 @@
             <a class="button back-button" href="{{ path('maxeme_repair_order_index') }}">Back</a>
         {% endblock %}
     {% endembed %}
+    {% if repairOrder.id %}{% include 'maxeme/repair_order/_nav.html.twig' with { repairOrder: repairOrder, active: 'repair_order' } only %}{% endif %}
 
     <form id="repair-order-form" method="post"
           data-line-items-url="{{ path('maxeme_service_line_items') }}"

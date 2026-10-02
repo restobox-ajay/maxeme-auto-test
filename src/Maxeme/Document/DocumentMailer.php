@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Document;
 
 use App\Maxeme\Audit\ActivityRecorder;
+use App\Maxeme\Dto\DocumentEmailData;
 use App\Maxeme\Entity\Invoice;
 use App\Service\AppSettings;
 use Psr\Log\LoggerInterface;
@@ -19,7 +20,8 @@ use Twig\Environment;
 /**
  * "Save and Email PDF invoice" / "Save and Email Work Order PDF" (legacy
  * invoiceSendEmailPdfAction): the document as a PDF attachment, to the first address with the
- * others in copy, from core's configured sender.
+ * others in copy, from core's configured sender. A PrintedDocument goes with the subject and
+ * message typed on its email page (sendDocument()).
  */
 final class DocumentMailer
 {
@@ -53,17 +55,57 @@ final class DocumentMailer
             ->html($this->twig->render('maxeme/invoice/email.html.twig', ['kind' => $kind]))
             ->attach($this->pdf->render($invoice, $kind), $this->numbers->filename($invoice, $kind), 'application/pdf');
 
+        if (!$this->deliver($email, $this->numbers->filename($invoice, $kind))) {
+            return false;
+        }
+        $this->activity->emailed($invoice, $kind, self::recipients($email));
+
+        return true;
+    }
+
+    /**
+     * An invoice, quote or work order, with the subject and message typed on its email page.
+     *
+     * @param string $entityType / $entityId the record it is filed under in the Activity Log
+     *
+     * @throws \InvalidArgumentException when an address is missing or invalid
+     */
+    public function sendDocument(PrintedDocument $document, DocumentEmailData $message, string $entityType, ?int $entityId): bool
+    {
+        $to = $this->addresses((string) $message->to);
+        $cc = $message->cc !== null ? $this->addresses($message->cc) : [];
+
+        $email = $this->appSettings->applyFromAddress(new Email(), AppSettings::FROM_SUPPORT)
+            ->to(...$to)
+            ->cc(...$cc)
+            ->subject((string) $message->subject)
+            ->html(nl2br(htmlspecialchars((string) $message->message, \ENT_QUOTES | \ENT_HTML5, 'UTF-8')))
+            ->attach($this->pdf->renderDocument($document), $document->filename(), 'application/pdf');
+
+        if (!$this->deliver($email, $document->filename())) {
+            return false;
+        }
+        $this->activity->emailedDocument($document, $entityType, $entityId, self::recipients($email));
+
+        return true;
+    }
+
+    private function deliver(Email $email, string $filename): bool
+    {
         try {
             $this->mailer->send($email);
         } catch (TransportExceptionInterface $exception) {
-            $this->logger->error('Could not email {document}.', ['document' => $this->numbers->filename($invoice, $kind), 'exception' => $exception]);
+            $this->logger->error('Could not email {document}.', ['document' => $filename, 'exception' => $exception]);
 
             return false;
         }
 
-        $this->activity->emailed($invoice, $kind, implode(', ', array_map(static fn (Address $address): string => $address->getAddress(), [...$email->getTo(), ...$email->getCc()])));
-
         return true;
+    }
+
+    private static function recipients(Email $email): string
+    {
+        return implode(', ', array_map(static fn (Address $address): string => $address->getAddress(), [...$email->getTo(), ...$email->getCc()]));
     }
 
     /** @return non-empty-list<Address> */

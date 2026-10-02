@@ -6,6 +6,7 @@ namespace App\Maxeme\Audit;
 
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentNumbers;
+use App\Maxeme\Document\PrintedDocument;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Security\Permission;
 use App\Service\AuditLogger;
@@ -65,6 +66,18 @@ final class ActivityRecorder
     public function emailed(Invoice $invoice, DocumentKind $kind, string $recipients): void
     {
         $this->auditLogger->log(self::area($kind), 'Invoice', $invoice->getId(), self::EMAILED, sprintf('Emailed %s to %s.', $this->numbers->filename($invoice, $kind), $recipients));
+    }
+
+    /** An invoice, quote or work order downloaded as a PDF, filed under its record ($entityType, $entityId). */
+    public function downloadedDocument(PrintedDocument $document, string $entityType, ?int $entityId): void
+    {
+        $this->auditLogger->log(self::area($document->kind), $entityType, $entityId, self::DOWNLOADED, sprintf('Downloaded %s.', $document->filename()));
+    }
+
+    /** An invoice, quote or work order emailed from its email page. */
+    public function emailedDocument(PrintedDocument $document, string $entityType, ?int $entityId, string $recipients): void
+    {
+        $this->auditLogger->log(self::area($document->kind), $entityType, $entityId, self::EMAILED, sprintf('Emailed %s to %s.', $document->filename(), $recipients));
     }
 
     /**

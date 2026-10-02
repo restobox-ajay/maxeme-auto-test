@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Enum;
 
-/** A custom line under a repair order's subtotal, above tax. */
-enum RepairOrderChargeKind: string
+/** A custom line under a document's subtotal, above tax (a repair order's, an invoice's). */
+enum DocumentChargeKind: string
 {
     case Fee = 'fee';
     case Discount = 'discount';

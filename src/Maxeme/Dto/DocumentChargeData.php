@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Entity\RepairOrderCharge;
-use App\Maxeme\Enum\RepairOrderChargeKind;
+use App\Maxeme\Entity\AbstractDocumentCharge;
+use App\Maxeme\Enum\DocumentChargeKind;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
 
-/** One custom fee or discount on the repair order page (charges[n][id|kind|label|amount]). */
-final class RepairOrderChargeData
+/** One custom fee or discount on the repair order or invoice page (charges[n][id|kind|label|amount]). */
+final class DocumentChargeData
 {
     public ?string $id = null;
 
@@ -60,7 +60,7 @@ final class RepairOrderChargeData
         return $charges;
     }
 
-    public static function fromEntity(RepairOrderCharge $charge): self
+    public static function fromEntity(AbstractDocumentCharge $charge): self
     {
         $data = new self();
         $data->id = (string) $charge->getId();
@@ -71,14 +71,14 @@ final class RepairOrderChargeData
         return $data;
     }
 
-    public function getKind(): ?RepairOrderChargeKind
+    public function getKind(): ?DocumentChargeKind
     {
-        return $this->kind !== null ? RepairOrderChargeKind::tryFrom($this->kind) : null;
+        return $this->kind !== null ? DocumentChargeKind::tryFrom($this->kind) : null;
     }
 
     /** @return list<string> */
     public static function kinds(): array
     {
-        return array_map(static fn (RepairOrderChargeKind $kind): string => $kind->value, RepairOrderChargeKind::cases());
+        return array_map(static fn (DocumentChargeKind $kind): string => $kind->value, DocumentChargeKind::cases());
     }
 }

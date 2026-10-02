@@ -26,6 +26,8 @@ use App\Maxeme\Schedule\CalendarView;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\InvoiceVoter;
 use App\Maxeme\Security\Permission;
+use App\Maxeme\Document\DocumentActions;
+use App\Maxeme\Document\PrintedDocuments;
 use App\Maxeme\Service\InvoiceService;
 use App\Maxeme\Service\RecordWriter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -34,6 +36,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * The invoice builder and the printable invoice (legacy AccountingBundle InvoiceController).
@@ -56,6 +60,10 @@ final class InvoiceController extends AbstractMaxemeController
         private readonly InvoiceSettings $settings,
         private readonly PaymentTypeRepository $paymentTypes,
         private readonly DocumentNumbers $numbers,
+        private readonly PrintedDocuments $documents,
+        private readonly DocumentActions $actions,
+        #[Autowire(param: 'maxeme.company')]
+        private readonly array $company,
     ) {
     }
 
@@ -84,10 +92,12 @@ final class InvoiceController extends AbstractMaxemeController
     public function show(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
     {
         if (!$this->isGranted(Permission::ACCOUNTING_VIEW)) {
-            return $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+            return $invoice->getRepairOrder() !== null
+                ? $this->redirectToRoute('maxeme_repair_order_work_order', ['id' => $invoice->getRepairOrder()->getId()])
+                : $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
         }
 
-        return $this->open($invoice, false);
+        return $invoice->getRepairOrder() !== null ? $this->detail($invoice) : $this->open($invoice, false);
     }
 
     /** The print view's Edit (Super admin): the builder even for a paid invoice. */
@@ -95,6 +105,10 @@ final class InvoiceController extends AbstractMaxemeController
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
     public function edit(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request): Response
     {
+        if ($invoice->isIssuedFromRepairOrder()) {
+            return $this->redirectToRoute('maxeme_invoice_issued_edit', ['invoiceKey' => $invoice->getInvoiceKey()]);
+        }
+
         return $request->isMethod('POST') ? $this->save($invoice, $request) : $this->open($invoice, true);
     }
 
@@ -102,14 +116,29 @@ final class InvoiceController extends AbstractMaxemeController
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
     public function print(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
     {
-        return $this->render('maxeme/invoice/print.html.twig', ['invoice' => $invoice, 'kind' => DocumentKind::Invoice]);
+        return $invoice->getRepairOrder() !== null
+            ? $this->detail($invoice)
+            : $this->render('maxeme/invoice/print.html.twig', ['invoice' => $invoice, 'kind' => DocumentKind::Invoice]);
     }
 
     #[Route('/admin/invoices/{invoiceKey}/pdf', name: 'maxeme_invoice_pdf', methods: ['GET'])]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
     public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity, DocumentNumbers $numbers): Response
     {
-        return $this->downloadDocument($invoice, DocumentKind::Invoice, $pdf, $activity, $numbers);
+        return $invoice->getRepairOrder() !== null
+            ? $this->downloadPrinted($this->documents->invoice($invoice), $pdf, $activity, 'Invoice', $invoice->getId())
+            : $this->downloadDocument($invoice, DocumentKind::Invoice, $pdf, $activity, $numbers);
+    }
+
+    /** An invoice's "Save and Email" page (the invoice detail page's Invoice PDF menu). */
+    #[Route('/admin/invoices/{invoiceKey}/send', name: 'maxeme_invoice_send', methods: ['GET', 'POST'])]
+    #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
+    public function send(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, DocumentMailer $mailer, ValidatorInterface $validator): Response
+    {
+        return $this->emailPrinted(
+            $this->documents->invoice($invoice), $request, $mailer, $validator, $this->company['name'], 'Invoice', $invoice->getId(),
+            $this->generateUrl('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
+        );
     }
 
     #[Route('/admin/invoices/{invoiceKey}/email', name: 'maxeme_invoice_email', methods: ['POST'])]
@@ -179,6 +208,24 @@ final class InvoiceController extends AbstractMaxemeController
             : $this->redirectToRoute('maxeme_invoice_index', [SearchTerm::PARAM => $find->text]);
     }
 
+    /** The invoice detail page of an invoice billing a repair order: the invoice and the repair order's document bar. */
+    private function detail(Invoice $invoice): Response
+    {
+        $repairOrder = $invoice->getRepairOrder();
+        $actions = $this->actions->for(DocumentKind::Invoice, $repairOrder, $invoice);
+        if ($this->isGranted(InvoiceVoter::EDIT, $invoice) || $this->isGranted('ROLE_SUPER_ADMIN')) {
+            $actions[] = ['label' => 'Edit', 'url' => $this->generateUrl('maxeme_invoice_edit', ['invoiceKey' => $invoice->getInvoiceKey()]), 'class' => 'mx-warning'];
+        }
+
+        return $this->render('maxeme/document/page.html.twig', [
+            'document' => $this->documents->invoice($invoice),
+            'repairOrder' => $repairOrder,
+            'invoice' => $invoice,
+            'actions' => $actions,
+            'backUrl' => $repairOrder !== null ? $this->generateUrl('maxeme_repair_order_invoices', ['id' => $repairOrder->getId()]) : $this->generateUrl('maxeme_invoice_index'),
+        ]);
+    }
+
     private function open(Invoice $invoice, bool $forceEdit): Response
     {
         if (!$this->isGranted(InvoiceVoter::EDIT, $invoice) || ($invoice->isPaid() && !$forceEdit)) {
@@ -214,12 +261,7 @@ final class InvoiceController extends AbstractMaxemeController
     /** @param array<string, string> $errors */
     private function renderForm(Invoice $invoice, array $errors, ?Response $response = null): Response
     {
-        // The active payment types, plus the invoice's own if it has since been switched off.
-        $paymentTypes = $this->paymentTypes->findActive();
-        $current = $invoice->getPaymentType();
-        if ($current !== null && !in_array($current, $paymentTypes, true)) {
-            $paymentTypes[] = $current;
-        }
+        $paymentTypes = $this->paymentTypes->findActiveOrOwn($invoice->getPaymentType());
 
         return $this->render('maxeme/invoice/form.html.twig', [
             'invoice' => $invoice,

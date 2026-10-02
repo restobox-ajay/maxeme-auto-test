@@ -43,7 +43,7 @@ final class SummaryReport
             'totals' => [
                 'revenue' => $sum(static fn (Invoice $invoice): string => $invoice->getTotalPrice()),
                 'expense' => $sum(static fn (Invoice $invoice): string => $invoice->getExpenseAmount()),
-                'discount' => $sum(static fn (Invoice $invoice): string => $invoice->getDiscountAmount()),
+                'discount' => $sum(static fn (Invoice $invoice): string => $invoice->getDiscountTotal()),
                 'salesTax' => $sum(static fn (Invoice $invoice): string => $invoice->getSalesTax()),
                 'net' => $sum(static fn (Invoice $invoice): string => $invoice->getNetAmount()),
             ],

@@ -9,7 +9,7 @@ use App\Maxeme\Accounting\Money;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\InvoiceStatus;
-use App\Maxeme\Enum\RepairOrderChargeKind;
+use App\Maxeme\Enum\DocumentChargeKind;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
 use Doctrine\DBAL\Connection;
@@ -144,7 +144,7 @@ final class RepairOrderConverter
             if ($discount !== 0) {
                 $this->connection->insert('maxeme_repair_order_charge', [
                     'repair_order_id' => $repairOrderId,
-                    'kind' => RepairOrderChargeKind::Discount->value,
+                    'kind' => DocumentChargeKind::Discount->value,
                     'label' => 'Discount',
                     'amount' => Money::fromCents(-$discount),
                     'position' => 0,

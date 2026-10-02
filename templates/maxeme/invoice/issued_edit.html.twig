@@ -1,0 +1,95 @@
+{# Edit an invoice issued from a repair order: status, date, payment, recommendations, its lines and
+   its custom fees and discounts. Vars: invoice, form (IssuedInvoiceForm), lineEntities (id => InvoiceServiceLine),
+   errors, statuses, chargeKinds, paymentTypes. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Edit Invoice {{ doc_number(invoice) }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Repair Order ' ~ ro_number(invoice.repairOrder) ~ ' · Invoice', title: 'Edit Invoice ' ~ doc_number(invoice) } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <form method="post" id="issued-invoice-form">
+        {{ csrf_field() }}
+        <section class="form-card">
+            <div class="form-grid inline-form-grid mx-form-two">
+                {{ mx.form_errors(errors) }}
+                <label><span>Status</span>
+                    <select name="status">
+                        {% for status in statuses %}<option value="{{ status.value }}" {{ form.status == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label><span>Invoice date</span><input type="datetime-local" name="date" value="{{ form.date|replace({ ' ': 'T' }) }}"></label>
+                <label><span>Payment method</span>
+                    <select name="payment_type_id">
+                        <option value="">(none)</option>
+                        {% for type in paymentTypes %}<option value="{{ type.id }}" {{ form.paymentTypeId == type.id ~ '' ? 'selected' }}>{{ type.name }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label><span>Amount paid</span><input type="text" name="payment_amount" value="{{ form.paymentAmount }}" placeholder="0.00" {{ input_rule('money') }}></label>
+                <label class="span-2"><span>Recommendations</span><textarea name="recommendations" rows="3">{{ form.recommendations }}</textarea></label>
+            </div>
+        </section>
+
+        <section class="table-card no-paginate">
+            <div class="table-header">
+                <div>
+                    <h2>Items</h2>
+                    <p class="muted-line">A copy of the repair order when the invoice was issued. Deleting a service deletes the charge-through lines under it.</p>
+                </div>
+            </div>
+            <div class="wide-table-wrap">
+                <table id="issued-lines">
+                    <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price per unit</th><th class="ctl"></th></tr></thead>
+                    <tbody>
+                        {% for row in form.lines %}
+                            {% set line = lineEntities[row.id] ?? null %}
+                            {% set errorAt = 'lines.' ~ loop.index0 ~ '.' %}
+                            {% if line %}
+                                <tr class="{{ line.chargeThrough ? 'mx-ct-row' }}">
+                                    <td>
+                                        <input type="hidden" name="lines[{{ loop.index0 }}][id]" value="{{ row.id }}">
+                                        <span class="mx-ct-name">{% if line.chargeThrough %}<span aria-hidden="true">↳</span>{% endif %}
+                                            <input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ row.name }}" maxlength="255" aria-label="Item name" class="{{ errors[errorAt ~ 'name'] is defined ? 'is-invalid' }}">
+                                        </span>
+                                    </td>
+                                    <td class="num">
+                                        {% if line.chargeThrough %}
+                                            <input type="text" name="lines[{{ loop.index0 }}][quantity]" value="{{ row.quantity }}" {{ input_rule('quantity') }} aria-label="Quantity" class="{{ errors[errorAt ~ 'quantity'] is defined ? 'is-invalid' }}">
+                                        {% else %}
+                                            <input type="hidden" name="lines[{{ loop.index0 }}][quantity]" value="1">—
+                                        {% endif %}
+                                    </td>
+                                    <td class="num"><input type="text" name="lines[{{ loop.index0 }}][price]" value="{{ row.price }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Price" class="{{ errors[errorAt ~ 'price'] is defined ? 'is-invalid' }}"></td>
+                                    <td class="ctl"><button type="button" class="button mx-btn-sm danger js-row-remove">Delete</button></td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-card no-paginate">
+            <div class="table-header"><h2>Fees and discounts</h2></div>
+            <div class="wide-table-wrap">
+                <table class="mx-ro-totals">
+                    <tbody id="issued-charges" data-next="{{ form.charges|length }}">
+                        {% for charge in form.charges %}
+                            {% include 'maxeme/repair_order/_charge_row.html.twig' with { index: loop.index0, charge: charge, chargeKinds: chargeKinds, errors: errors, removeClass: 'js-row-remove' } only %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mx-line-actions">
+                <button type="button" class="button mx-btn-sm outline" data-row-add="#issued-charge-template" data-row-into="#issued-charges" data-row-token="__CHARGE__">+ Add fee / discount</button>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a class="button outline" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Cancel</a>
+            <button class="button primary" type="submit">Save</button>
+        </div>
+    </form>
+    <template id="issued-charge-template">{% include 'maxeme/repair_order/_charge_row.html.twig' with { index: '__CHARGE__', charge: null, chargeKinds: chargeKinds, errors: {}, removeClass: 'js-row-remove' } only %}</template>
+{% endblock %}

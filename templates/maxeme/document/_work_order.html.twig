@@ -1,0 +1,53 @@
+{# A repair order's work order for the technicians (a PrintedDocument): each service, what to use for
+   it, and a Technician line. Vars: document. #}
+<div class="invoice-document">
+    {% include 'maxeme/invoice/_band.html.twig' with { label: 'REPAIR ORDER', detail: maxeme_company.address ~ ' · Company Phone: ' ~ maxeme_company.phone } only %}
+    <div class="invoice-body">
+        <table class="wo-table">
+            <tr>
+                <td style="width:50%"><strong>Work Order Number:</strong> {{ document.number }}</td>
+                <td style="width:50%"><strong>Last Modified On:</strong> {{ document.date|date('m/d/Y h:i a') }}</td>
+            </tr>
+            <tr>
+                <td>
+                    <p><strong>Bill to</strong><br>{{ document.clientName }}<br>
+                        {% for phone in document.phones|slice(0, 1) %}Phone: {{ phone }}<br>{% endfor %}
+                        {{ document.address }}
+                    </p>
+                    <p><strong>Concern:</strong> {{ document.note }}</p>
+                </td>
+                <td>
+                    <p><strong>Vehicle</strong><br>
+                        Name : {{ document.vehicleName }}<br>
+                        VIN: {{ document.vehicleVin }}<br>
+                        License: {{ document.vehicleLicense }}<br>
+                        Mileage: {{ document.mileage }} KM
+                    </p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">Repair Items</div>
+        <table class="wo-table wo-items item-table">
+            <thead><tr><th style="width:50%">Repair Items</th><th>Results</th></tr></thead>
+            <tbody>
+                {% for item in document.repairItems %}
+                    <tr>
+                        <td>{{ item.name }}</td>
+                        <td>
+                            {% for line in item.lines %}<div>{{ line }}</div>{% endfor %}
+                            <div class="wo-tech">Technician:</div>
+                        </td>
+                    </tr>
+                {% else %}
+                    {% for i in 1..5 %}<tr><td></td><td><div class="wo-tech">Technician:</div></td></tr>{% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="wo-agreement">
+            <p>I here by authorize the above repaid work to be done along with necessary materials. You and your employees may operate above vehicle for purpose of testing, inspection or delivery at my risk.</p>
+            <table class="wo-sign"><tr><td>Signature:</td><td class="gap"></td><td>Date:</td></tr></table>
+        </div>
+    </div>
+</div>

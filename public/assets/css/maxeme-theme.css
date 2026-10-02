@@ -544,3 +544,20 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-row-icon-col { width: 1%; white-space: nowrap; }
 .mx-row-icon { display: inline-flex; align-items: center; justify-content: center; padding: 4px 7px; }
 .mx-row-icon svg { width: 14px; height: 14px; }
+
+/* ── Documents: the action bar's named menus (Invoice PDF ▾ …), charge-through rows, the email page ── */
+.mx-doc-actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.mx-menu { position: relative; }
+.mx-menu > summary { list-style: none; cursor: pointer; }
+.mx-menu > summary::-webkit-details-marker { display: none; }
+.mx-menu-list { position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; min-width: 170px; display: grid; padding: 4px; background: var(--card, #fff); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+.mx-menu-list a, .mx-menu-list button { display: block; width: 100%; padding: 7px 10px; text-align: left; border: 0; background: none; color: var(--ink-body); font: inherit; font-size: 0.88rem; text-decoration: none; border-radius: 5px; cursor: pointer; }
+.mx-menu-list a:hover, .mx-menu-list button:hover { background: var(--mx-primary-soft); }
+.invoice-table tr.charge-through td { color: #475569; }
+.invoice-table .ct-mark { padding-left: 10px; color: #94a3b8; }
+.mx-ct-name { display: flex; align-items: center; gap: 8px; }
+.mx-ct-row .mx-ct-name { padding-left: 18px; }
+.mx-attachment { display: flex; align-items: center; gap: 10px; }
+.mx-attachment-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--line-light); font-size: 0.85rem; }
+.mx-ro-docbar { margin-bottom: 8px; }
+@media print { .mx-ro-docbar, .mx-menu { display: none !important; } }

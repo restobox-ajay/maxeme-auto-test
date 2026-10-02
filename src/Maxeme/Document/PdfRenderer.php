@@ -30,14 +30,23 @@ final class PdfRenderer
     ) {
     }
 
+    /** A legacy invoice's document (its own templates). */
     public function render(Invoice $invoice, DocumentKind $kind): string
     {
+        return $this->pdf('maxeme/invoice/pdf.html.twig', ['invoice' => $invoice, 'kind' => $kind]);
+    }
+
+    /** An invoice, quote or work order (maxeme/document/ templates). */
+    public function renderDocument(PrintedDocument $document): string
+    {
+        return $this->pdf('maxeme/document/pdf.html.twig', ['document' => $document]);
+    }
+
+    /** @param array<string, mixed> $context */
+    private function pdf(string $template, array $context): string
+    {
         $hasFont = is_file($this->fontPath);
-        $html = $this->twig->render('maxeme/invoice/pdf.html.twig', [
-            'invoice' => $invoice,
-            'kind' => $kind,
-            'fontFamily' => $hasFont ? self::FONT_FAMILY : null,
-        ]);
+        $html = $this->twig->render($template, $context + ['fontFamily' => $hasFont ? self::FONT_FAMILY : null]);
 
         $fontDir = $this->cacheDir . '/maxeme-dompdf-fonts';
         if (!is_dir($fontDir)) {

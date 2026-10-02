@@ -9,11 +9,15 @@ use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Document\PdfRenderer;
+use App\Maxeme\Document\PrintedDocument;
+use App\Maxeme\Dto\DocumentEmailData;
 use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Service\FieldErrors;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /** What the Maxeme admin screens share. */
 abstract class AbstractMaxemeController extends AbstractController
@@ -66,5 +70,65 @@ abstract class AbstractMaxemeController extends AbstractController
         }
 
         return $this->redirectBack($request, $kind === DocumentKind::Invoice ? 'maxeme_invoice_show' : 'maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+    }
+
+    /** An invoice, quote or work order as a PDF, saved by the browser under its filename, and recorded under its record. */
+    protected function downloadPrinted(PrintedDocument $document, PdfRenderer $pdf, ActivityRecorder $activity, string $entityType, ?int $entityId): Response
+    {
+        $response = new Response($pdf->renderDocument($document), Response::HTTP_OK, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $document->filename()),
+        ]);
+        $activity->downloadedDocument($document, $entityType, $entityId);
+
+        return $response;
+    }
+
+    /**
+     * "Save and Email": a page to write the email (To, Cc, Subject, Message, as Zoho Books has it),
+     * the document attached as a PDF. Sent, it goes back to $backUrl and runs $onSent.
+     *
+     * @param callable(): void|null $onSent
+     */
+    protected function emailPrinted(
+        PrintedDocument $document,
+        Request $request,
+        DocumentMailer $mailer,
+        ValidatorInterface $validator,
+        string $shopName,
+        string $entityType,
+        ?int $entityId,
+        string $backUrl,
+        ?callable $onSent = null,
+    ): Response {
+        $data = DocumentEmailData::forDocument($document, $shopName);
+        $errors = [];
+
+        if ($request->isMethod('POST')) {
+            $data = DocumentEmailData::fromRequest($request);
+            $errors = FieldErrors::from($validator->validate($data));
+            if ($errors === []) {
+                try {
+                    if ($mailer->sendDocument($document, $data, $entityType, $entityId)) {
+                        if ($onSent !== null) {
+                            $onSent();
+                        }
+                        $this->addFlash('success', sprintf('%s emailed.', $document->emailSubject()));
+
+                        return $this->redirect($backUrl);
+                    }
+                    $this->addFlash('error', 'The email could not be sent. Please try again later.');
+                } catch (\InvalidArgumentException $exception) {
+                    $errors['to'] = $exception->getMessage() === 'This field is required.' ? 'Enter who the email goes to.' : 'Enter valid email addresses, separated by commas.';
+                }
+            }
+        }
+
+        return $this->render('maxeme/document/email.html.twig', [
+            'document' => $document,
+            'data' => $data,
+            'errors' => $errors,
+            'backUrl' => $backUrl,
+        ], new Response('', $errors !== [] ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 }

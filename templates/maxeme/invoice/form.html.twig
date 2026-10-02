@@ -12,7 +12,7 @@
                 <p class="eyebrow">Accounting · Invoice builder</p>
                 <div class="title-with-status">
                     <h1>Invoice {{ invoice.saved ? doc_number(invoice) : '(not saved yet)' }}</h1>
-                    <span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>
+                    <span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span>
                 </div>
                 <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if appointment %} · Appointment #{{ appointment.id }}, {{ appointment.startTime|date('M j, Y g:i a') }}{% endif %}</p>
             </div>

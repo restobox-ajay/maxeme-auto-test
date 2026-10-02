@@ -9,7 +9,7 @@ use App\Maxeme\Accounting\InvoiceSettings;
 use App\Maxeme\Accounting\Money;
 use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Dto\RepairOrderAppointmentData;
-use App\Maxeme\Dto\RepairOrderChargeData;
+use App\Maxeme\Dto\DocumentChargeData;
 use App\Maxeme\Dto\RepairOrderData;
 use App\Maxeme\Dto\RepairOrderForm;
 use App\Maxeme\Dto\RepairOrderJobData;
@@ -231,7 +231,7 @@ final class RepairOrderWriter
     }
 
     /**
-     * @param list<RepairOrderChargeData> $rows
+     * @param list<DocumentChargeData> $rows
      *
      * @return array{0: list<RepairOrderCharge>, 1: array<string, string>}
      */

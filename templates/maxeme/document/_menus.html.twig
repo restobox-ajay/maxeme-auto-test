@@ -1,0 +1,19 @@
+{# The document action bar's menus. #}
+
+{# "Invoice PDF ▾": Print / Save as PDF / Save and Email for one document. Print prints this page when
+   it shows that document, else opens it to print. Vars: label, printUrl (null = this page), pdfUrl,
+   emailUrl (null when not allowed). #}
+{% macro pdf_menu(label, printUrl, pdfUrl, emailUrl) %}
+    <details class="mx-menu">
+        <summary class="button mx-success">{{ label }} <span aria-hidden="true">▾</span></summary>
+        <div class="mx-menu-list" role="menu">
+            {% if printUrl %}
+                <a role="menuitem" href="{{ printUrl }}{{ '?' in printUrl ? '&' : '?' }}print=1">Print</a>
+            {% else %}
+                <button role="menuitem" type="button" onclick="window.print()">Print</button>
+            {% endif %}
+            <a role="menuitem" href="{{ pdfUrl }}">Save as PDF</a>
+            {% if emailUrl %}<a role="menuitem" href="{{ emailUrl }}">Save and Email</a>{% endif %}
+        </div>
+    </details>
+{% endmacro %}

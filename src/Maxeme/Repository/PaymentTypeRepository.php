@@ -31,6 +31,17 @@ final class PaymentTypeRepository extends ServiceEntityRepository
         return $this->findBy(['active' => true], ['position' => 'ASC', 'name' => 'ASC']);
     }
 
+    /** @return list<PaymentType> the active ones, plus $own (an invoice's) if it has since been switched off */
+    public function findActiveOrOwn(?PaymentType $own): array
+    {
+        $types = $this->findActive();
+        if ($own !== null && !in_array($own, $types, true)) {
+            $types[] = $own;
+        }
+
+        return $types;
+    }
+
     public function findOneByName(string $name): ?PaymentType
     {
         return $this->findOneBy(['name' => trim($name)]);

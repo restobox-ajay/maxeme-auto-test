@@ -16,7 +16,7 @@ final class RepairOrderForm
 {
     /**
      * @param list<RepairOrderJobData>         $jobs
-     * @param list<RepairOrderChargeData>      $charges
+     * @param list<DocumentChargeData>      $charges
      * @param list<RepairOrderAppointmentData> $appointments
      */
     public function __construct(
@@ -38,7 +38,7 @@ final class RepairOrderForm
             ClientData::fromArray(is_array($posted['new_client'] ?? null) ? $posted['new_client'] : []),
             VehicleData::fromArray(is_array($posted['new_vehicle'] ?? null) ? $posted['new_vehicle'] : []),
             RepairOrderJobData::listFromRequest($posted['jobs'] ?? []),
-            RepairOrderChargeData::listFromRequest($posted['charges'] ?? []),
+            DocumentChargeData::listFromRequest($posted['charges'] ?? []),
             RepairOrderAppointmentData::listFromRequest($posted['appointments'] ?? []),
         );
     }
@@ -51,7 +51,7 @@ final class RepairOrderForm
             new ClientData(),
             new VehicleData(),
             array_map(RepairOrderJobData::fromEntity(...), $repairOrder->getJobs()),
-            array_map(RepairOrderChargeData::fromEntity(...), $repairOrder->getCharges()),
+            array_map(DocumentChargeData::fromEntity(...), $repairOrder->getCharges()),
             [],
         );
     }

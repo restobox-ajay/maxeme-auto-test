@@ -1,0 +1,87 @@
+{# An invoice or quote as printed (a PrintedDocument): each service by its name only, its charge-through
+   lines under it with their quantity and price per unit, then Subtotal, the custom fees and discounts,
+   GST and PST apart, and the Grand Total. Vars: document. #}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% set isInvoice = document.kind.value == 'invoice' %}
+<div class="invoice-document">
+    {% include 'maxeme/invoice/_band.html.twig' with { label: document.kind.title|upper } only %}
+    <div class="invoice-body">
+        <table class="inv-meta-table">
+            <tr>
+                <td class="inv-meta-col">
+                    <p><strong>{{ document.kind.title }} Number:</strong> {{ document.number }}</p>
+                    <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
+                    <p><strong>{{ isInvoice ? 'Invoice Date' : 'Quote Date' }}:</strong> {{ document.date|date('m/d/Y h:i a') }}</p>
+                </td>
+                <td class="inv-meta-col">
+                    <p><strong>{{ maxeme_company.name }}</strong></p>
+                    <p>{{ maxeme_company.address }}</p>
+                </td>
+                <td class="inv-meta-col last">
+                    <p><strong>Company Phone:</strong> {{ maxeme_company.phone }}</p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">Customer Information</div>
+        <table class="inv-addr-table">
+            <tr>
+                <td class="address-box">
+                    <h3>Bill to</h3>
+                    <p><strong>{{ document.clientName }}</strong></p>
+                    {% for phone in document.phones %}<p>Phone {{ loop.index }}: {{ phone }}</p>{% endfor %}
+                    {% if document.address %}<p>Address: {{ document.address }}</p>{% endif %}
+                </td>
+                <td class="address-box">
+                    <h3>Vehicle</h3>
+                    <p><strong>{{ document.vehicleName }}</strong></p>
+                    {% if document.mileage %}<p>{{ document.mileage }} KM</p>{% endif %}
+                    <p>{{ document.vehicleLicense }}</p>
+                    <p>{{ document.vehicleVin }}</p>
+                </td>
+            </tr>
+        </table>
+
+        <div class="invoice-section-title">{{ document.kind.title }} Items</div>
+        <table class="invoice-table item-table">
+            <thead><tr><th style="width:52%">Item</th><th class="r" style="width:12%">Qty</th><th class="r" style="width:16%">Price per unit</th><th class="r" style="width:20%">Amount</th></tr></thead>
+            <tbody>
+                {% for row in document.rows %}
+                    <tr class="item-row{{ row.chargeThrough ? ' charge-through' }}">
+                        <td>{% if row.chargeThrough %}<span class="ct-mark">↳</span> {% endif %}{{ row.name }}</td>
+                        <td class="r">{{ row.quantity }}</td>
+                        <td class="r">{{ row.unitPrice is not null ? mx.money(row.unitPrice) }}</td>
+                        <td class="r">{{ mx.money(row.amount) }}</td>
+                    </tr>
+                {% else %}
+                    <tr class="item-row"><td colspan="4">Nothing yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <table class="inv-footer-table">
+            <tr>
+                <td class="footer-note">
+                    {% if document.recommendations %}
+                        <strong>Recommendations:</strong>
+                        <p>{{ document.recommendations|nl2br }}</p>
+                    {% endif %}
+                </td>
+                <td class="footer-totals">
+                    <table class="totals-inner">
+                        <tr><td>Subtotal:</td><td class="r"><strong>{{ mx.money(document.subtotal) }}</strong></td></tr>
+                        {% if document.discount != 0 %}<tr><td>Discount:</td><td class="r"><strong>{{ mx.money(document.discount) }}</strong></td></tr>{% endif %}
+                        {% for charge in document.charges %}<tr><td>{{ charge.label }}:</td><td class="r"><strong>{{ mx.money(charge.amount) }}</strong></td></tr>{% endfor %}
+                        <tr><td>GST: <strong>{{ document.gstRate }}%</strong></td><td class="r"><strong>{{ mx.money(document.gst) }}</strong></td></tr>
+                        <tr><td>PST: <strong>{{ document.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(document.pst) }}</strong></td></tr>
+                        <tr class="grand-total-row"><td>Grand Total:</td><td class="r">{{ mx.money(document.total) }}</td></tr>
+                        {% if document.payment %}
+                            <tr><td>Payment method: {{ document.payment.type }}</td><td class="r"><strong>{{ mx.money(document.payment.amount) }}</strong></td></tr>
+                            <tr><td>Change:</td><td class="r"><strong>{{ mx.money(document.payment.change) }}</strong></td></tr>
+                        {% endif %}
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>

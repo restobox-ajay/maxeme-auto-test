@@ -1,0 +1,15 @@
+{# A saved repair order's document bar (Quote / Invoice / Work Order, right under the title) and its tabs
+   (the repair order itself, its invoices). Vars: repairOrder, active ('repair_order' | 'invoices'). #}
+<nav class="mx-toolbar mx-ro-docbar" aria-label="Repair order documents">
+    <div class="mx-doc-actions">
+        {% if is_granted('/work-order/view') %}<a class="button mx-success" href="{{ path('maxeme_repair_order_quote', { id: repairOrder.id }) }}">Quote</a>{% endif %}
+        {% if is_granted('/accounting/view') %}<a class="button primary" href="{{ path('maxeme_repair_order_invoices', { id: repairOrder.id }) }}">Invoice</a>{% endif %}
+        {% if is_granted('/work-order/view') %}<a class="button mx-warning" href="{{ path('maxeme_repair_order_work_order', { id: repairOrder.id }) }}">Work Order</a>{% endif %}
+    </div>
+</nav>
+<nav class="detail-tabs mx-profile-tabs" aria-label="Repair order sections">
+    <a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}" class="{{ active == 'repair_order' ? 'is-active' }}" {{ active == 'repair_order' ? 'aria-current="page"' }}>Repair Order</a>
+    {% if is_granted('/accounting/view') %}
+        <a href="{{ path('maxeme_repair_order_invoices', { id: repairOrder.id }) }}" class="{{ active == 'invoices' ? 'is-active' }}" {{ active == 'invoices' ? 'aria-current="page"' }}>Invoices</a>
+    {% endif %}
+</nav>

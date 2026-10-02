@@ -1,0 +1,15 @@
+{# A PrintedDocument as dompdf renders it (App\Maxeme\Document\PdfRenderer::renderDocument()). Vars: document, fontFamily. #}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { margin: 0.8cm; }
+        body { font-family: {{ fontFamily ? "'" ~ fontFamily ~ "', " }}'DejaVu Sans', Helvetica, sans-serif; font-size: 9px; color: #1e293b; margin: 0; }
+        {% include 'maxeme/invoice/_document_styles.html.twig' with { c: { band: '#206eb8', bandInk: '#ffffff', accent: '#3071a9', ink: '#1e293b', line: '#d8dee9', soft: '#eef1f6', muted: '#64748b', card: '#ffffff' } } only %}
+    </style>
+</head>
+<body>
+    {% include document.kind.printedTemplate with { document: document } only %}
+</body>
+</html>

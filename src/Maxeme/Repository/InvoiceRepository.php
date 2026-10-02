@@ -6,6 +6,8 @@ namespace App\Maxeme\Repository;
 
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Entity\RepairOrder;
+use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
@@ -26,6 +28,25 @@ final class InvoiceRepository extends ServiceEntityRepository
     public function findOneByKey(string $invoiceKey): ?Invoice
     {
         return $this->findOneBy(['invoiceKey' => $invoiceKey]);
+    }
+
+    /** @return list<Invoice> a repair order's invoices, newest first */
+    public function findForRepairOrder(RepairOrder $repairOrder): array
+    {
+        return $this->findBy(['repairOrder' => $repairOrder], ['id' => 'DESC']);
+    }
+
+    /** The invoice "Go to Invoice" opens: the newest not cancelled, else the newest. */
+    public function findCurrentForRepairOrder(RepairOrder $repairOrder): ?Invoice
+    {
+        $invoices = $this->findForRepairOrder($repairOrder);
+        foreach ($invoices as $invoice) {
+            if ($invoice->getStatus() !== InvoiceStatus::Cancelled) {
+                return $invoice;
+            }
+        }
+
+        return $invoices[0] ?? null;
     }
 
     public function findOneByAppointment(Appointment $appointment): ?Invoice

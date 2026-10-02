@@ -1,4 +1,6 @@
-{# One custom fee or discount under the subtotal. Vars: index (number, or "__CHARGE__" in the JS template), charge (RepairOrderChargeData or null), chargeKinds, errors. #}
+{# One custom fee or discount under the subtotal (a repair order's or an invoice's). Vars: index (number, or
+   "__CHARGE__" in the JS template), charge (DocumentChargeData or null), chargeKinds, errors, removeClass
+   (the Delete button's hook: the repair order page's "charge-remove", else maxeme.js's "js-row-remove"). #}
 {% set base = 'charges[' ~ index ~ ']' %}
 {% set errorAt = 'charges.' ~ index ~ '.' %}
 <tr class="mx-charge-row">
@@ -12,5 +14,5 @@
         </span>
     </td>
     <td class="num"><input class="charge-amount {{ errors[errorAt ~ 'amount'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[amount]" value="{{ charge ? charge.amount }}" placeholder="0.00" {{ input_rule('money') }} aria-label="Amount"></td>
-    <td class="ctl"><button type="button" class="button mx-btn-sm danger charge-remove">Delete</button></td>
+    <td class="ctl"><button type="button" class="button mx-btn-sm danger {{ removeClass|default('charge-remove') }}">Delete</button></td>
 </tr>

@@ -16,7 +16,7 @@
                 <p class="eyebrow">Accounting · {{ kind.title }}</p>
                 <div class="title-with-status">
                     <h1>{{ kind.title }}{{ invoice.saved ? ' ' ~ doc_number(invoice, kind) }}</h1>
-                    {% if invoice.saved %}<span class="badge {{ invoice.paid ? 'success' : 'warn' }}">{{ invoice.status.label }}</span>{% endif %}
+                    {% if invoice.saved %}<span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span>{% endif %}
                 </div>
                 <p class="lead">{{ invoice.clientFullName }} · {{ invoice.vehicleFullName }}{% if invoice.lastModified %} · completed {{ invoice.lastModified|date('m/d/Y h:i a') }}{% endif %}</p>
             </div>

@@ -12,7 +12,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         {% block stylesheets %}
             <link rel="stylesheet" href="/assets/css/app.css?v=150-inventory-region-cards">
-            <link rel="stylesheet" href="/assets/css/maxeme-theme.css?v=32">
+            <link rel="stylesheet" href="/assets/css/maxeme-theme.css?v=33">
         {% endblock %}
         {# Read by the AJAX helper in app.js to set X-CSRF-TOKEN on the admin's JS-only
            endpoints. Ordinary forms never need it - they carry {{ csrf_field() }} server-side. #}
@@ -99,7 +99,7 @@
         {% block javascripts %}
             <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
             <script src="/assets/js/app.js?v=159-drag-backdrop"></script>
-            <script src="/assets/js/maxeme.js?v=13"></script>
+            <script src="/assets/js/maxeme.js?v=14"></script>
         {% endblock %}
         {% block body_end %}{% endblock %}
     </body>

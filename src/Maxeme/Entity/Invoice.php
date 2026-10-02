@@ -43,6 +43,10 @@ class Invoice
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?RepairOrder $repairOrder = null;
 
+    /** Issued from a repair order (a copy of its services, charge-through lines and charges), not built in the legacy invoice builder. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $issuedFromRepairOrder = false;
+
     #[ORM\ManyToOne(targetEntity: Client::class)]
     private ?Client $client = null;
 
@@ -127,6 +131,11 @@ class Invoice
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $serviceLines;
 
+    /** @var Collection<int, InvoiceCharge> custom fees and discounts, under the subtotal */
+    #[ORM\OneToMany(targetEntity: InvoiceCharge::class, mappedBy: 'invoice', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    private Collection $charges;
+
     /** @var Collection<int, InvoicePartLine> every part, standalone and service materials */
     #[ORM\OneToMany(targetEntity: InvoicePartLine::class, mappedBy: 'invoice', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
@@ -140,6 +149,25 @@ class Invoice
         $this->pstRate = $pstRate;
         $this->serviceLines = new ArrayCollection();
         $this->partLines = new ArrayCollection();
+        $this->charges = new ArrayCollection();
+    }
+
+    /**
+     * A new invoice for a repair order (Issue Invoice): its customer and vehicle copied in as on any
+     * invoice, its mileage and tax rates. The services and charges are added by RepairOrderInvoicing.
+     */
+    public static function forRepairOrder(RepairOrder $repairOrder): self
+    {
+        $client = $repairOrder->getClient();
+        $invoice = $client !== null
+            ? self::forClient($client, $repairOrder->getVehicle(), $repairOrder->getGstRate(), $repairOrder->getPstRate())
+            : new self($repairOrder->getGstRate(), $repairOrder->getPstRate());
+        $invoice->repairOrder = $repairOrder;
+        $invoice->issuedFromRepairOrder = true;
+        $invoice->vehicleMileage = $repairOrder->getMileage() ?? $invoice->vehicleMileage;
+        $invoice->note = $repairOrder->getConcern();
+
+        return $invoice;
     }
 
     /** A new invoice for an appointment, with its client and vehicle copied in (legacy AppointmentToInvoiceFactory). */
@@ -198,6 +226,7 @@ class Invoice
     public function getInvoiceKey(): string { return $this->invoiceKey; }
     public function getAppointment(): ?Appointment { return $this->appointment; }
     public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
+    public function isIssuedFromRepairOrder(): bool { return $this->issuedFromRepairOrder; }
     public function getClient(): ?Client { return $this->client; }
     public function getVehicle(): ?Vehicle { return $this->vehicle; }
 
@@ -331,6 +360,50 @@ class Invoice
     /** @return Collection<int, InvoicePartLine> */
     public function getPartLines(): Collection { return $this->partLines; }
 
+    /** @return list<InvoiceServiceLine> the services, without the charge-through lines billed under them */
+    public function getTopServiceLines(): array
+    {
+        return array_values(array_filter($this->serviceLines->toArray(), static fn (InvoiceServiceLine $line): bool => !$line->isChargeThrough()));
+    }
+
+    /** @return list<InvoiceServiceLine> the charge-through lines billed under $service */
+    public function getChargeThroughLines(InvoiceServiceLine $service): array
+    {
+        return array_values(array_filter($this->serviceLines->toArray(), static fn (InvoiceServiceLine $line): bool => $line->getParent() === $service));
+    }
+
+    /** @return list<InvoiceCharge> in order */
+    public function getCharges(): array { return array_values($this->charges->toArray()); }
+
+    public function addCharge(InvoiceCharge $charge): void
+    {
+        $charge->setPosition($this->charges->count());
+        $this->charges->add($charge);
+    }
+
+    /** Removes every line and charge (an issued invoice's edit posts them all again). */
+    public function clearCharges(): void
+    {
+        $this->charges->clear();
+    }
+
+    /** Σ the billed lines (services, charge-through lines and parts billed on their own), before the discount and charges. */
+    public function getLinesTotal(): string
+    {
+        return Money::fromCents(
+            array_sum(array_map(static fn (InvoiceServiceLine $line): int => $line->totalCents(), $this->serviceLines->toArray()))
+            + array_sum(array_map(static fn (InvoicePartLine $line): int => $line->totalCents(), $this->getStandalonePartLines())),
+        );
+    }
+
+    /** Every discount, negative: the legacy one and the custom discount lines (the Summary Report's Discount). */
+    public function getDiscountTotal(): string
+    {
+        $charges = array_sum(array_map(static fn (InvoiceCharge $charge): int => min(0, $charge->getSignedCents()), $this->getCharges()));
+
+        return Money::fromCents(Money::toCents($this->discountAmount) + $charges);
+    }
+
     /** @return list<InvoicePartLine> the parts billed on their own lines */
     public function getStandalonePartLines(): array
     {
@@ -347,6 +420,31 @@ class Invoice
     public function addServiceLine(InvoiceServiceLine $line): void
     {
         $this->serviceLines->add($line);
+    }
+
+    /** Removes a line, with the charge-through lines billed under it. */
+    public function removeServiceLine(InvoiceServiceLine $line): void
+    {
+        foreach ($this->getChargeThroughLines($line) as $child) {
+            $this->serviceLines->removeElement($child);
+        }
+        $this->serviceLines->removeElement($line);
+    }
+
+    /** @param list<InvoiceCharge> $charges this invoice's, in order; one left out is removed */
+    public function replaceCharges(array $charges): void
+    {
+        foreach ($this->charges as $charge) {
+            if (!in_array($charge, $charges, true)) {
+                $this->charges->removeElement($charge);
+            }
+        }
+        foreach ($charges as $position => $charge) {
+            $charge->setPosition($position);
+            if (!$this->charges->contains($charge)) {
+                $this->charges->add($charge);
+            }
+        }
     }
 
     public function addPartLine(InvoicePartLine $line): void

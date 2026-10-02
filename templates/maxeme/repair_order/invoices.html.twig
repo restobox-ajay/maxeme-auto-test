@@ -1,0 +1,62 @@
+{# A repair order's Invoices tab: "+ Issue Invoice" (a copy of the repair order as it is now) and its
+   invoices: Date, Amount, Status (Issued / Paid / Cancelled), View / Edit / Delete. Vars: repairOrder, invoices. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Invoices · Repair Order {{ ro_number(repairOrder) }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule · Repair Order', title: 'Repair Order ' ~ ro_number(repairOrder) } %}
+        {% block title_actions %}<span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span>{% endblock %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_repair_order_index') }}">Back</a>{% endblock %}
+    {% endembed %}
+    {% include 'maxeme/repair_order/_nav.html.twig' with { repairOrder: repairOrder, active: 'invoices' } only %}
+
+    <section class="table-card no-paginate" id="ro-invoices">
+        <div class="table-header">
+            <div>
+                <h2>Invoices</h2>
+                <p class="muted-line">Issuing an invoice copies the services, charge-through lines, fees and discounts as they are now; later changes to the repair order do not change it.</p>
+            </div>
+            {% if is_granted('/accounting/edit') %}
+                <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}">
+                    {{ csrf_field() }}
+                    <button class="button mx-btn-sm mx-success" type="submit">+ Issue Invoice</button>
+                </form>
+            {% endif %}
+        </div>
+        <div class="wide-table-wrap">
+            <table>
+                <thead><tr><th>Invoice #</th><th>Date</th><th class="num">Amount</th><th>Status</th><th style="text-align:center;">Actions</th></tr></thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                        <tr id="invoice_{{ invoice.id }}">
+                            <td data-label="Invoice #" class="mx-nowrap"><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">{{ doc_number(invoice) }}</a></td>
+                            <td data-label="Date" class="mx-nowrap">{{ invoice.documentDate|date('m/d/Y') }}</td>
+                            <td data-label="Amount" class="num">{{ mx.money(invoice.totalPrice) }}</td>
+                            <td data-label="Status"><span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span></td>
+                            <td data-label="Actions" style="text-align:center;">
+                                <div class="mx-actions">
+                                    <a class="button mx-btn-sm primary" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">View</a>
+                                    {% if is_granted('/accounting/edit') %}
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_invoice_edit', { invoiceKey: invoice.invoiceKey }) }}">Edit</a>
+                                        {% if invoice.issuedFromRepairOrder and not invoice.paid %}
+                                            <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#invoice_{{ invoice.id }}"
+                                                    data-url="{{ path('maxeme_invoice_issued_delete', { invoiceKey: invoice.invoiceKey }) }}"
+                                                    data-token="{{ csrf_token_value() }}"
+                                                    data-confirm-title="Delete Confirmation"
+                                                    data-confirm-before="Delete invoice "
+                                                    data-item="{{ doc_number(invoice) }}"
+                                                    data-confirm-after="?">Delete</button>
+                                        {% endif %}
+                                    {% endif %}
+                                    {{ mx.logs_link(invoice) }}
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-table-cell">No invoices yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

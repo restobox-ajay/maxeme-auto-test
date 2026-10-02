@@ -15,7 +15,7 @@ use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Entity\Vehicle;
-use App\Maxeme\Enum\RepairOrderChargeKind;
+use App\Maxeme\Enum\DocumentChargeKind;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Listing\ListQuery;
@@ -191,7 +191,7 @@ final class RepairOrderController extends AbstractMaxemeController
             'appointmentRows' => $this->appointmentRows($repairOrder, $form, $request->isMethod('POST')),
             'statuses' => RepairOrderStatus::cases(),
             'lineTypes' => ServiceLineType::cases(),
-            'chargeKinds' => RepairOrderChargeKind::cases(),
+            'chargeKinds' => DocumentChargeKind::cases(),
             'advisors' => $this->entityManager->getRepository(AdminUser::class)->findBy(['status' => 'Active'], ['firstName' => 'ASC', 'lastName' => 'ASC']),
             'technicians' => $this->technicians->findActive(),
             'history' => $repairOrder->getId() !== null ? $this->activityLog->latestFor($repairOrder, self::HISTORY_ROWS) : [],
