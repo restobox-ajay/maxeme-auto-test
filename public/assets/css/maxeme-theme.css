@@ -442,3 +442,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-pick-search input { flex: 1; }
 .mx-count-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .mx-count-footer label { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
+
+/* A checkbox row in a label-left form: the text in the label column, the box on the left of the
+   input column (the text comes first in the markup). */
+.form-grid > label.mx-check > input[type="checkbox"] { justify-self: start; }
+.form-grid > label.mx-check small { display: block; }
