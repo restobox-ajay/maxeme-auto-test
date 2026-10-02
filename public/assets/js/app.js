@@ -1,3 +1,25 @@
+/* ── Popups: a drag that ends on the backdrop is not a click on it ──────────────
+ * Pressing inside a popup (selecting text in a field, say) and letting go over the dark backdrop
+ * makes the browser fire "click" on the backdrop, the nearest element both ends share, and every
+ * backdrop below closes its popup on a click. This runs first (capture, on window) and swallows
+ * such a click, so a popup only closes when the press and the release are both on its backdrop.
+ */
+(function () {
+    var BACKDROPS = '.admin-modal-overlay, #delete-modal, .note-modal, .customer-tax-modal, .customer-tax-modal__backdrop';
+    var pressedOn = null;
+
+    window.addEventListener('mousedown', function (event) { pressedOn = event.target; }, true);
+    window.addEventListener('click', function (event) {
+        var target = event.target;
+        var startedElsewhere = pressedOn !== null && pressedOn !== target;
+        pressedOn = null;
+        if (startedElsewhere && target instanceof Element && target.matches(BACKDROPS)) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+        }
+    }, true);
+})();
+
 /* ── CSRF for AJAX-only endpoints ─────────────────────────────────────────────
  * Forms do NOT depend on this: every form carries a server-rendered {{ csrf_field() }}, so a
  * no-JS browser submits fine. This only serves the admin endpoints that have no form at all
