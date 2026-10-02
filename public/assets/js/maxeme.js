@@ -136,9 +136,11 @@
     }
 
     /*
-     * Click-to-edit cells (Parts Inventory): <tr data-inline-url> holds <td data-inline-field="name">.
+     * Click-to-edit cells (the Services list): <tr data-inline-url> holds <td data-inline-field="name">.
      * Enter POSTs { field, value, _token } and shows the JSON { value } it answers; Esc or leaving
-     * the cell cancels. data-inline-options='{"value":"Label"}' edits the cell with a select.
+     * the cell cancels. data-inline-options='{"value":"Label"}' edits the cell with a select, and
+     * data-inline-value is the value it starts from when the text shown is not (the select's key,
+     * a price without its thousands separators); the answer's { raw } replaces it.
      */
     function closeInline($cell, text) {
         $cell.removeClass('is-editing').text(text);
@@ -147,6 +149,7 @@
     $(document).on('click', 'td[data-inline-field]:not(.is-editing)', function () {
         var $cell = $(this);
         var original = $cell.text().trim();
+        var initial = $cell.is('[data-inline-value]') ? String($cell.attr('data-inline-value')) : original;
         var options = $cell.data('inline-options');
         var $input;
 
@@ -159,7 +162,7 @@
             $input = $('<input type="text">');
         }
 
-        $cell.addClass('is-editing').empty().append($input.val(original));
+        $cell.addClass('is-editing').empty().append($input.val(initial));
         $input.trigger('focus');
 
         function save() {
@@ -169,6 +172,7 @@
                 value: $input.val(),
                 _token: $('meta[name="csrf-token"]').attr('content')
             }).done(function (response) {
+                if (response.raw !== undefined) { $cell.attr('data-inline-value', response.raw === null ? '' : response.raw); }
                 closeInline($cell, response.value === null ? '' : response.value);
                 window.WC.showToast(response.message || 'Saved.', 'success');
             }).fail(function (xhr) {

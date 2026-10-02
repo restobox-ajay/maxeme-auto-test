@@ -12,6 +12,7 @@ use App\Maxeme\Dto\ServiceLineData;
 use App\Maxeme\Entity\AbstractCharge;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceLine;
+use App\Maxeme\Entity\TaxClass;
 use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ItemLabel;
@@ -40,6 +41,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/admin/services', name: 'maxeme_service_')]
 final class ServiceItemController extends AbstractMaxemeController
 {
+    /** The columns the Services list edits in place (ServiceItemData::FIELDS keys). */
+    private const INLINE_FIELDS = ['name', 'preferred_name', 'price', 'tax_class_id'];
+
     public function __construct(
         private readonly RecordWriter $records,
         private readonly ServiceCategoryRepository $categories,
@@ -54,10 +58,17 @@ final class ServiceItemController extends AbstractMaxemeController
     #[RequiresPermission(Permission::SERVICE_VIEW)]
     public function index(Request $request, ServiceItemRepository $repository): Response
     {
+        $taxClasses = $this->taxClasses->findAllOrdered();
+
         return $this->render('maxeme/service/index.html.twig', [
             'page' => $repository->findPage(ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS))),
             'categories' => $this->categories->findTree(),
-            'taxClasses' => $this->taxClasses->findAllOrdered(),
+            'taxClasses' => $taxClasses,
+            // The Tax Class cell's choices, id => label, none first.
+            'taxOptions' => ['' => '—'] + array_combine(
+                array_map(static fn (TaxClass $class): int => (int) $class->getId(), $taxClasses),
+                array_map(static fn (TaxClass $class): string => $class->getLabel(), $taxClasses),
+            ),
         ]);
     }
 
@@ -113,6 +124,53 @@ final class ServiceItemController extends AbstractMaxemeController
         };
 
         return $this->json($items);
+    }
+
+    /**
+     * The Services list's click-to-edit cells (maxeme.js td[data-inline-field]): one field of the
+     * service form, checked as the service page checks it.
+     */
+    #[Route('/{id}/inline', name: 'inline', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
+    public function inline(#[MapEntity] ServiceItem $service, Request $request): JsonResponse
+    {
+        $field = (string) $request->request->get('field', '');
+        $property = ServiceItemData::FIELDS[$field] ?? null;
+        if ($property === null || !in_array($field, self::INLINE_FIELDS, true)) {
+            return $this->json(['message' => 'That column cannot be edited here.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = ServiceItemData::fromEntity($service);
+        $value = trim((string) $request->request->get('value', ''));
+        // A price may be typed as shown, with thousands separators.
+        $data->{$property} = $value === '' ? null : ($field === 'price' ? str_replace(',', '', $value) : $value);
+        $errors = $this->records->validate($data);
+        $taxClass = $service->getTaxClass();
+        if ($field === 'tax_class_id') {
+            $taxClass = $data->taxClassId !== null ? $this->taxClasses->find((int) $data->taxClassId) : null;
+            if ($data->taxClassId !== null && $taxClass === null) {
+                $errors['taxClassId'] = 'Choose a tax class from the list.';
+            }
+        }
+        if (isset($errors[$property])) {
+            return $this->json(['message' => $errors[$property]], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $service->setTaxClass($taxClass);
+        $this->records->save($service, $data);
+
+        return $this->json([
+            'message' => sprintf('%s saved.', $service->getName()),
+            'value' => match ($field) {
+                'price' => $service->getPrice() !== null ? number_format((float) $service->getPrice(), 2) : '',
+                'tax_class_id' => $service->getTaxClass()?->getLabel() ?? '—',
+                default => $data->{$property},
+            },
+            'raw' => match ($field) {
+                'tax_class_id' => $service->getTaxClass()?->getId(),
+                default => $data->{$property},
+            },
+        ]);
     }
 
     #[Route('/{id}/delete', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]

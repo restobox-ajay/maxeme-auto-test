@@ -2,7 +2,8 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Services | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Services with their standard price and their lines (labour, parts, sublet, government fees, discount), used on invoices and work orders.' } %}
+    {% set canEdit = is_granted('/service/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Manage Service', lead: 'Services with their standard price and their lines (labour, parts, sublet, government fees, discount), used on invoices and work orders. Click a name, label, price or tax class to change it in place.' } %}
         {% block title_actions %}
             <a id="manageAddButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_new', { _return: app.request.requestUri }) }}">+ Add a new service</a>
             {# The current view (column search boxes, sort), every page. #}
@@ -32,11 +33,11 @@
                 </thead>
                 <tbody>
                     {% for service in page.items %}
-                        <tr id="row_{{ service.id }}">
-                            <td data-label="Name">{{ service.name }}</td>
-                            <td data-label="Label">{{ service.preferredName }}</td>
-                            <td data-label="Default Price" class="num">{{ mx.money(service.price) }}</td>
-                            <td data-label="Tax Class">{% if service.taxClass %}{{ service.taxClass.label }}{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                        <tr id="row_{{ service.id }}" {% if canEdit %}data-inline-url="{{ path('maxeme_service_inline', { id: service.id }) }}"{% endif %}>
+                            <td data-label="Name" {% if canEdit %}data-inline-field="name" title="Click to edit"{% endif %}>{{ service.name }}</td>
+                            <td data-label="Label" {% if canEdit %}data-inline-field="preferred_name" title="Click to edit"{% endif %}>{{ service.preferredName }}</td>
+                            <td data-label="Default Price" class="num" {% if canEdit %}data-inline-field="price" data-inline-value="{{ service.price }}" title="Click to edit"{% endif %}>{{ mx.money(service.price) }}</td>
+                            <td data-label="Tax Class" {% if canEdit %}data-inline-field="tax_class_id" data-inline-value="{{ service.taxClass ? service.taxClass.id }}" data-inline-options="{{ taxOptions|json_encode }}" title="Click to edit"{% endif %}>{{ service.taxClass ? service.taxClass.label : '—' }}</td>
                             <td data-label="Colour">{% include 'maxeme/service/_colour.html.twig' with { colour: service.colour, label: service.ownColour ? 'Own colour' : (service.category ? service.category.path) } only %}</td>
                             <td data-label="Service Lines">
                                 {% if service.lines is empty %}<span class="mx-muted-cell">—</span>{% else %}
