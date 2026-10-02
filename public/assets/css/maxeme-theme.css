@@ -307,6 +307,13 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-calendar .fc-event.appt-complete { background: var(--mx-appt-complete); border-color: var(--mx-appt-complete); }
 .mx-calendar .fc-event.appt-extended { background: var(--mx-appt-extended); border-color: var(--mx-appt-extended); }
 .mx-calendar .fc-event.appt-no_show { background: var(--mx-appt-no-show); border-color: var(--mx-appt-no-show); }
+.mx-calendar .mx-event-lines { overflow: hidden; font-size: 0.78rem; line-height: 1.3; padding: 1px 2px; }
+.mx-calendar .mx-event-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-calendar .fc-timegrid-event .mx-event-line { white-space: normal; }
+/* Week / day views: an event the mouse is over comes to the top, whole, over the ones it overlaps. */
+.mx-calendar .fc-timegrid-event-harness:hover { z-index: 40 !important; }
+.mx-calendar .fc-timegrid-event-harness:hover .fc-timegrid-event { box-shadow: 0 6px 18px rgba(0,0,0,.25); min-height: max-content; }
+.mx-calendar .fc-timegrid-event-harness:hover .fc-event-main { overflow: visible; }
 .mx-calendar .fc-event.appt-cancelled { background: var(--mx-appt-cancelled); border-color: var(--mx-appt-cancelled); text-decoration: line-through; }
 .page-alerts .alert { margin-bottom: 14px; }
 

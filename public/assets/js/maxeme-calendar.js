@@ -15,7 +15,6 @@
     var ICON = {
         dollar: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
         user: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-        check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
         trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
     };
 
@@ -33,6 +32,12 @@
                     return json;
                 });
             });
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
     }
 
     function fail(error) { window.WC.showToast(error.message || 'Something went wrong.', 'error'); }
@@ -53,10 +58,8 @@
         }
         // The invoice for Accounting, the work order for everyone else (the server decides).
         items.push('<li><a class="view_event_btn" title="invoice" href="' + urls.invoice + '" target="_blank" rel="noopener">' + ICON.dollar + '</a></li>');
-        if (config.canManage && status === 'new') {
-            items.push('<li><button type="button" class="checkin_event_btn" title="check-in">' + ICON.check + '</button></li>');
-        }
-        if (config.canManage && (status === 'new' || status === 'in_progress')) {
+        // Check-in is on the appointment and repair order pages, not here.
+        if (config.canManage && status !== 'complete') {
             items.push('<li><button type="button" class="delete_event_btn" title="delete">' + ICON.trash + '</button></li>');
         }
 
@@ -67,18 +70,6 @@
         strip.style.top = (box.top + window.scrollY) + 'px';
         strip.style.left = (box.left + window.scrollX - 29) + 'px';
         document.body.appendChild(strip);
-
-        var checkIn = strip.querySelector('.checkin_event_btn');
-        if (checkIn) {
-            checkIn.addEventListener('click', function () {
-                post(urls.checkIn).then(function (json) {
-                    removeStrip();
-                    event.remove();
-                    calendar.addEvent(json.event);
-                    window.WC.showToast(json.message, 'success');
-                }).catch(fail);
-            });
-        }
 
         var remove = strip.querySelector('.delete_event_btn');
         if (remove) {
@@ -125,6 +116,15 @@
         events: config.feedUrl,
         dateClick: function (info) { calendar.changeView('timeGridDay', info.date); },
         eventClick: function (info) { info.jsEvent.preventDefault(); showStrip(info.event, info.el); },
+        // Time [status] vehicle, then the customer, the phone and the description, each on its own line.
+        eventContent: function (arg) {
+            var lines = arg.event.extendedProps.lines || [arg.event.title];
+            var html = '<div class="mx-event-lines">';
+            lines.forEach(function (line, i) {
+                html += '<div class="mx-event-line">' + (i === 0 && arg.timeText ? '<b>' + escapeHtml(arg.timeText) + '</b> ' : '') + escapeHtml(line) + '</div>';
+            });
+            return { html: html + '</div>' };
+        },
         eventDrop: saveTime,
         eventResize: saveTime,
         moreLinkClick: function () { removeStrip(); return 'popover'; },

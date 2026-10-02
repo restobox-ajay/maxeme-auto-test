@@ -47,6 +47,10 @@ class Appointment
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?RepairOrder $repairOrder = null;
 
+    /** "#1f77b4": its own calendar colour, over its service's; null to use the service's. */
+    #[ORM\Column(length: 7, nullable: true)]
+    private ?string $colour = null;
+
     /** When the shop promised the vehicle back, in UTC. */
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $promisedAt = null;
@@ -72,6 +76,31 @@ class Appointment
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
     public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
     public function getPromisedAt(): ?\DateTimeImmutable { return $this->promisedAt; }
+    public function getColour(): ?string { return $this->colour; }
+
+    public function setColour(?string $colour): void
+    {
+        $this->colour = $colour !== null ? strtolower($colour) : null;
+        $this->touch();
+    }
+
+    /**
+     * The calendar colour: its own, else its repair order's first service's (the service's own
+     * colour, else its category's); null leaves the status colour.
+     */
+    public function getCalendarColour(): ?string
+    {
+        if ($this->colour !== null) {
+            return $this->colour;
+        }
+        foreach ($this->repairOrder?->getJobs() ?? [] as $job) {
+            if (($colour = $job->getService()?->getColour()) !== null) {
+                return $colour;
+            }
+        }
+
+        return null;
+    }
 
     /** Booked from a repair order: it schedules that repair order's vehicle. */
     public function attachTo(RepairOrder $repairOrder): void

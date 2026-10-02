@@ -35,6 +35,10 @@ final class AppointmentData
     #[Assert\Regex('/^\d+$/', message: 'Choose a repair order from the list.')]
     public ?string $repairOrderId = null;
 
+    /** Its own calendar colour, or blank for its service's. */
+    #[Assert\Regex('/^#[0-9a-fA-F]{6}$/', message: "Colour must look like #1f77b4, or be blank to use the service's.")]
+    public ?string $colour = null;
+
     /** An AppointmentStatus value; blank keeps it (a new appointment is New). */
     #[Assert\Choice(callback: [self::class, 'statuses'], message: 'Choose a status from the list.')]
     public ?string $status = null;
@@ -42,7 +46,7 @@ final class AppointmentData
     public static function fromRequest(Request $request): self
     {
         $data = new self();
-        foreach (['vehicleId' => 'vehicle_id', 'start' => 'start', 'end' => 'end', 'note' => 'note', 'repairOrderId' => 'repair_order_id', 'status' => 'status'] as $property => $field) {
+        foreach (['vehicleId' => 'vehicle_id', 'start' => 'start', 'end' => 'end', 'note' => 'note', 'repairOrderId' => 'repair_order_id', 'status' => 'status', 'colour' => 'colour'] as $property => $field) {
             $value = trim((string) $request->request->get($field, ''));
             $data->{$property} = $value !== '' ? $value : null;
         }
@@ -60,6 +64,7 @@ final class AppointmentData
         $data->note = $appointment->getNote();
         $data->repairOrderId = $appointment->getRepairOrder()?->getId() !== null ? (string) $appointment->getRepairOrder()->getId() : null;
         $data->status = $appointment->getStatus()->value;
+        $data->colour = $appointment->getColour();
 
         return $data;
     }

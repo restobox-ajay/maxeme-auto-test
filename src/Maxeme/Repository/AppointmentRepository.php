@@ -37,10 +37,15 @@ final class AppointmentRepository extends ServiceEntityRepository
      */
     public function startingBetween(\DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
+        // With the repair order's services and their categories: the event's colour and description.
         return $this->createQueryBuilder('a')
-            ->addSelect('c', 'v')
+            ->addSelect('c', 'v', 'ro', 'job', 'service', 'category')
             ->join('a.client', 'c')
             ->join('a.vehicle', 'v')
+            ->leftJoin('a.repairOrder', 'ro')
+            ->leftJoin('ro.jobs', 'job')
+            ->leftJoin('job.service', 'service')
+            ->leftJoin('service.category', 'category')
             ->andWhere('a.startTime >= :from AND a.startTime < :to')
             ->setParameter('from', $from)
             ->setParameter('to', $to)

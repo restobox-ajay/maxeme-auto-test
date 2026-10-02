@@ -72,6 +72,14 @@ final class InvoiceController extends AbstractMaxemeController
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
     public function forAppointment(#[MapEntity] Appointment $appointment, Request $request): Response
     {
+        // An appointment of a repair order: its invoices are on the repair order (its work order for roles without Accounting).
+        $repairOrder = $appointment->getRepairOrder();
+        if ($repairOrder !== null) {
+            return $this->isGranted(Permission::ACCOUNTING_VIEW)
+                ? $this->redirectToRoute('maxeme_repair_order_invoices', ['id' => $repairOrder->getId()])
+                : $this->redirectToRoute('maxeme_repair_order_work_order', ['id' => $repairOrder->getId()]);
+        }
+
         $invoice = $this->invoices->forAppointment($appointment);
 
         if (!$this->isGranted(Permission::ACCOUNTING_VIEW)) {

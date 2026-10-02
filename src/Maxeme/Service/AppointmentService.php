@@ -34,6 +34,7 @@ final class AppointmentService
         [$start, $end] = $this->times((string) $data->start, (string) $data->end);
         $appointment = new Appointment($this->vehicle($client, (int) $data->vehicleId), $start, $end);
         $appointment->setNote($data->note);
+        $appointment->setColour($data->colour);
         $this->useRepairOrder($appointment, $data);
 
         $this->entityManager->persist($appointment);
@@ -48,6 +49,7 @@ final class AppointmentService
         $appointment->changeVehicle($this->vehicle($appointment->getClient(), (int) $data->vehicleId));
         $appointment->reschedule(...$this->times((string) $data->start, (string) $data->end));
         $appointment->setNote($data->note);
+        $appointment->setColour($data->colour);
         $this->useRepairOrder($appointment, $data);
         if ($data->status !== null) {
             $appointment->setStatus(AppointmentStatus::from($data->status));

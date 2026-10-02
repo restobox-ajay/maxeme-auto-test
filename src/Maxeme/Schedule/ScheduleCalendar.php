@@ -36,32 +36,40 @@ final class ScheduleCalendar
         );
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * One event: "[status] vehicle", the customer, the phone and the description (the repair order's
+     * short description, else the appointment's note) on lines of their own; coloured by its
+     * service (or its own colour), else by its status.
+     *
+     * @return array<string, mixed>
+     */
     public function event(Appointment $appointment): array
     {
         $client = $appointment->getClient();
         $id = ['id' => $appointment->getId()];
+        $description = $appointment->getRepairOrder()?->getName() ?: $appointment->getNote();
+        $lines = [
+            sprintf('[%s] %s', $appointment->getStatus()->label(), $appointment->getVehicle()->getFullName()),
+            $client->getFullName(),
+            (string) $client->getPhone1(),
+            sprintf('Description: %s', $description),
+        ];
+        $colour = $appointment->getCalendarColour();
 
         return [
             'id' => (string) $appointment->getId(),
-            'title' => sprintf(
-                '[%s] %s %s %s Description: %s',
-                $appointment->getStatus()->label(),
-                $appointment->getVehicle()->getFullName(),
-                $client->getFullName(),
-                $client->getPhone1(),
-                $appointment->getNote(),
-            ),
+            'title' => implode(' ', $lines),
             'start' => $this->local($appointment->getStartTime()),
             'end' => $this->local($appointment->getEndTime()),
             'classNames' => ['appt-' . $appointment->getStatus()->value],
+            ...($colour !== null ? ['backgroundColor' => $colour, 'borderColor' => $colour] : []),
             'extendedProps' => [
                 'status' => $appointment->getStatus()->value,
+                'lines' => $lines,
                 'urls' => [
                     'client' => $this->urls->generate('maxeme_appointment_client', $id),
                     'invoice' => $this->urls->generate('maxeme_invoice_for_appointment', $id),
                     'time' => $this->urls->generate('maxeme_appointment_time', $id),
-                    'checkIn' => $this->urls->generate('maxeme_appointment_check_in', $id),
                     'delete' => $this->urls->generate('maxeme_appointment_delete', $id),
                 ],
             ],
