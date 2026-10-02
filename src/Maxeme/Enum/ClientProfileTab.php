@@ -13,6 +13,7 @@ enum ClientProfileTab: string
     case Addresses = 'addresses';
     case Vehicles = 'vehicles';
     case Appointments = 'appointments';
+    case WorkOrders = 'work_orders';
 
     public function label(): string
     {
@@ -21,6 +22,7 @@ enum ClientProfileTab: string
             self::Addresses => 'Address Book',
             self::Vehicles => 'Vehicles',
             self::Appointments => 'Appointments',
+            self::WorkOrders => 'Work Orders',
         };
     }
 

@@ -164,5 +164,7 @@
         {% endif %}
     {% elseif tab.value == 'appointments' %}
         {% include 'maxeme/client/_appointments.html.twig' %}
+    {% elseif tab.value == 'work_orders' %}
+        {% include 'maxeme/client/_work_orders.html.twig' with { client: client, page: repairOrders } only %}
     {% endif %}
 {% endblock %}

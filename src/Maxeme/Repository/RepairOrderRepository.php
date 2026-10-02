@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Repository;
 
+use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
@@ -44,6 +45,12 @@ final class RepairOrderRepository extends ServiceEntityRepository
     public function findPage(ListQuery $list): ListPage
     {
         return ListPage::paginate($this->inView($list), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
+    }
+
+    /** @return ListPage<RepairOrder> a client's repair orders, newest first (the client profile's Work Orders tab) */
+    public function findPageForClient(Client $client, ListQuery $list): ListPage
+    {
+        return ListPage::paginate($this->inView($list)->andWhere('r.client = :client')->setParameter('client', $client), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
     }
 
     /** One repair order with its services, their lines and their items, for the edit page. */

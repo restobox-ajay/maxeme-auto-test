@@ -1,0 +1,42 @@
+{# Client Profile › Work Orders: the client's repair orders, newest first, each opening its repair order
+   and its work order. Vars: client, page (ListPage of RepairOrder). #}
+{% import 'maxeme/_macros.html.twig' as mx %}
+<section class="table-card" id="client-work-orders" {{ mx.list_card_attrs(page) }}>
+    <div class="table-header">
+        <h2>Work Orders</h2>
+        {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new', { id: client.id }) }}">+ New repair order</a>{% endif %}
+    </div>
+    <div class="wide-table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    {% for key, label in { id: 'RO #', createdOn: 'Date' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                    <th>Vehicle</th>
+                    {% for key, label in { name: 'Repair Name', status: 'Status', total: 'Total' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repairOrder in page.items %}
+                    <tr>
+                        <td data-label="RO #" class="mx-nowrap">{{ ro_number(repairOrder) }}</td>
+                        <td data-label="Date" class="mx-nowrap">{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                        <td data-label="Vehicle">{{ repairOrder.vehicle ? repairOrder.vehicle.fullName : '—' }}</td>
+                        <td data-label="Repair Name">{{ repairOrder.name ?: '—' }}</td>
+                        <td data-label="Status"><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
+                        <td data-label="Total" class="num">{{ mx.money(repairOrder.total) }}</td>
+                        <td data-label="Actions" style="text-align:center;">
+                            <div class="mx-actions">
+                                {% if is_granted('/work-order/view') %}<a class="button mx-btn-sm mx-warning" href="{{ path('maxeme_repair_order_work_order', { id: repairOrder.id }) }}">Work Order</a>{% endif %}
+                                {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm primary" href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">Open</a>{% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-table-cell">No work orders yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {{ mx.list_footer(page) }}
+</section>

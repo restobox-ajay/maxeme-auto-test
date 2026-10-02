@@ -14,6 +14,7 @@ use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\InvoiceRepository;
+use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Repository\VehicleRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -120,7 +121,7 @@ final class ClientController extends AbstractMaxemeController
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
-    public function show(#[MapEntity] Client $client, Request $request, VehicleRepository $vehicles, AppointmentRepository $appointments, InvoiceRepository $invoices): Response
+    public function show(#[MapEntity] Client $client, Request $request, VehicleRepository $vehicles, AppointmentRepository $appointments, InvoiceRepository $invoices, RepairOrderRepository $repairOrders): Response
     {
         $this->denyUnlessActive($client);
         $tab = ClientProfileTab::fromRequest($request);
@@ -138,6 +139,7 @@ final class ClientController extends AbstractMaxemeController
             'pending' => $pending,
             'past' => $past,
             'invoiceKeys' => $invoices->keysByAppointment([...$pending, ...($past?->items ?? [])]),
+            'repairOrders' => $tab === ClientProfileTab::WorkOrders ? $repairOrders->findPageForClient($client, ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc')) : null,
         ]);
     }
 
