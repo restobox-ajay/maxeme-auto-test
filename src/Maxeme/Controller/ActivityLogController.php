@@ -12,7 +12,7 @@ use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Security\StaffRole;
 use App\Maxeme\Service\StaffAccountService;
-use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -45,12 +45,27 @@ final class ActivityLogController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(#[MapEntity] AuditLog $entry, Request $request): Response
+    /**
+     * One entry. Its route parameter is `entry`, as `id` is the filter's record id (one record's
+     * history), carried back to the list. The Details link once sent the record id here instead
+     * (/activity/{record id}?record=ClientNote); such a link opens that record's history.
+     */
+    #[Route('/{entry}', name: 'show', requirements: ['entry' => '\d+'], methods: ['GET'])]
+    public function show(int $entry, Request $request, EntityManagerInterface $entityManager): Response
     {
+        $log = $entityManager->find(AuditLog::class, $entry);
+        if ($log === null) {
+            $record = trim((string) $request->query->get('record', ''));
+            if ($record !== '' && !$request->query->has('id')) {
+                return $this->redirectToRoute('maxeme_activity_log_index', ['record' => $record, 'id' => $entry]);
+            }
+
+            throw $this->createNotFoundException('No such Activity Log entry.');
+        }
+
         return $this->render('maxeme/activity_log/show.html.twig', [
-            'entry' => $entry,
-            'changes' => ActivityLog::changes($entry, all: true),
+            'entry' => $log,
+            'changes' => ActivityLog::changes($log, all: true),
             'back' => ActivityLogFilter::fromRequest($request)->toQuery(),
         ]);
     }
