@@ -479,6 +479,11 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .site-admin .content-frame > form > .form-actions { display: flex; align-items: center; }
 .site-admin .content-frame > form > .form-actions .button { width: auto; }
 
+/* The Services list's Service Lines cell: one line per row, small. */
+.mx-service-lines { margin: 0; padding: 0; list-style: none; font-size: 0.8rem; line-height: 1.5; }
+.mx-service-lines li { white-space: nowrap; }
+.mx-service-lines .badge { font-size: 0.68rem; padding: 1px 6px; }
+
 /* The service page's "+ Add line", under its lines table. */
 .mx-line-actions { padding: 12px 16px; }
 
