@@ -475,7 +475,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* A page form holding several cards (the service page): each card and the Cancel / Save row below
    them share the header's 20px inset, so they line up with each other, and sit 20px apart. */
-.site-admin .content-frame > form > :is(.form-card, .table-card, .form-actions) { margin: 20px 20px 0; }
+.site-admin .content-frame > form > :is(.form-card, .table-card, .mx-card, .form-actions) { margin: 20px 20px 0; }
 .site-admin .content-frame > form > .form-actions { display: flex; align-items: center; }
 .site-admin .content-frame > form > .form-actions .button { width: auto; }
 
@@ -500,3 +500,42 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-modal-sectioned .mx-modal-body > label.mx-check { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font-weight: 600; }
 .mx-modal-sectioned .mx-modal-body > label.mx-check small { display: block; font-weight: 400; }
 .mx-modal-sectioned .mx-modal-body > label.mx-check input[type="checkbox"] { justify-self: end; }
+
+/* ── Repair order page (templates/maxeme/repair_order/form.html.twig) ───────────────────────── */
+/* Customer · Vehicle · Visit, side by side (stacked on a phone). */
+.mx-ro-head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 28px; align-items: start; }
+@media (max-width: 980px) { .mx-ro-head { grid-template-columns: 1fr; } }
+.mx-ro-col { display: grid; gap: 10px; align-content: start; }
+.mx-ro-col > .button { justify-self: start; width: auto; }
+.mx-ro-info { font-size: 0.88rem; line-height: 1.6; }
+.mx-ro-new { display: grid; gap: 8px; padding: 10px; border: 1px dashed var(--line); border-radius: 6px; }
+.mx-ro-new[hidden] { display: none; }
+/* A card holding several tables (the repair order's services): .table-card's look, without its list script. */
+.mx-card { border: 1.5px solid var(--line); background: #fff; padding-bottom: 4px; }
+.mx-ro-field { display: grid; gap: 4px; font-weight: 600; font-size: 0.85rem; }
+.site-admin .is-invalid { border-color: var(--red); }
+/* A service: its name, category, price and Delete on one row; its lines under it. */
+#ro-jobs { display: grid; gap: 14px; padding: 14px 16px 0; }
+.mx-job { border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.mx-job-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; background: var(--line-light); border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.mx-job-number { font-weight: 800; min-width: 1.6em; }
+.mx-job-name { flex: 1 1 280px; }
+.mx-job-name .mx-name-group input { flex: 1; }
+.mx-job-category { white-space: nowrap; }
+.mx-job-price { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.mx-job-price input { width: 110px; text-align: right; }
+.mx-job .mx-lines-table { font-size: 0.88rem; }
+/* Appointments: label and its date/time input together. */
+.mx-appt-field { display: flex; align-items: center; gap: 8px; }
+.mx-appt-field strong { white-space: nowrap; }
+/* Totals, with the custom fee / discount rows between the subtotal and the taxes. */
+.mx-ro-totals .mx-ro-label { text-align: right; font-weight: 600; }
+.mx-ro-totals td.num { width: 140px; }
+.mx-ro-totals .mx-charge-fields { display: flex; gap: 8px; justify-content: flex-end; }
+.mx-ro-totals .charge-kind { width: auto; }
+.mx-ro-totals .charge-label { max-width: 320px; }
+.mx-ro-totals .charge-amount { width: 120px; text-align: right; }
+.mx-ro-totals .mx-ro-total td { font-size: 1.05rem; font-weight: 800; }
+/* A service with no lines: a short note, not a tall empty table. */
+.mx-lines-editor .mx-lines-empty { margin: 0; padding: 10px 16px; }
+.mx-ro-after { display: grid; gap: 20px; margin: 20px 20px 0; }

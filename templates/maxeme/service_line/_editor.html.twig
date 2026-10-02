@@ -1,0 +1,20 @@
+{# A service's lines, editable: the rows, "+ Add line" and the empty note (maxeme-service-lines.js).
+   Vars: base (the lines' field name, e.g. "lines" or "jobs[0][lines]"), errorBase (the error keys'
+   prefix), lines (list of ServiceLineData), lineTypes, errors. The page renders the row template once
+   (service_line/_template.html.twig) and carries data-line-items-url on its form. #}
+<div class="mx-lines-editor" data-base="{{ base }}" data-next="{{ lines|length }}">
+    <div class="wide-table-wrap">
+        <table class="mx-lines-table">
+            <thead><tr><th>Type</th><th>Item</th><th class="num">Qty / Hours</th><th class="num">Price per unit</th><th>Charge through</th><th class="ctl"></th></tr></thead>
+            <tbody class="mx-lines-body">
+                {% for line in lines %}
+                    {% include 'maxeme/service_line/_row.html.twig' with { base: base, errorBase: errorBase, index: loop.index0, line: line, lineTypes: lineTypes, errors: errors } only %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="mx-lines-empty muted-line" {{ lines is not empty ? 'hidden' }}>No lines yet.</p>
+    <div class="mx-line-actions">
+        <button type="button" class="button mx-btn-sm mx-success mx-lines-add">+ Add line</button>
+    </div>
+</div>

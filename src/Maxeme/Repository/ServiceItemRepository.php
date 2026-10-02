@@ -80,6 +80,15 @@ final class ServiceItemRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('s')->andWhere('s.active = true');
     }
 
+    /** @return list<ServiceItem> as search(), each with its lines (and their items) loaded */
+    public function searchWithLines(string $term, int $limit = 30): array
+    {
+        $services = $this->search($term, $limit);
+        $this->loadLines($services);
+
+        return $services;
+    }
+
     /** @return list<ServiceItem> active services whose name or preferred name contains $term */
     public function search(string $term, int $limit = 50): array
     {

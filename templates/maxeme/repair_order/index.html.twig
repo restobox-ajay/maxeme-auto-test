@@ -1,0 +1,64 @@
+{# Schedule › Repair Order: every repair order, newest first. Vars: page (ListPage of RepairOrder), statuses. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Repair Orders | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Repair Orders', lead: 'Every visit starts as a repair order: its customer and vehicle, appointments, services and totals.' } %}
+        {% block title_actions %}
+            {% if is_granted('/work-order/edit') %}<a id="repairOrderNewButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new') }}">+ New repair order</a>{% endif %}
+        {% endblock %}
+    {% endembed %}
+
+    <section class="table-card" id="repair-order-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header">
+            <h2>Repair Orders</h2>
+        </div>
+        <div class="wide-table-wrap">
+            <table id="repair-order-table">
+                <thead>
+                    <tr>
+                        {% for key, label in { id: 'RO #', createdOn: 'Date', customer: 'Customer' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th>Vehicle</th>
+                        {% for key, label in { name: 'Repair Name', status: 'Status', total: 'Total' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th style="text-align:center;">Actions</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th><th></th>
+                        {% for field, label in { customer: 'Customer', vehicle: 'Vehicle', name: 'Repair Name' } %}
+                            <th><input type="search" value="{{ page.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}"></th>
+                        {% endfor %}
+                        <th>
+                            <select data-filter-field="status" aria-label="Filter by status">
+                                <option value="">All</option>
+                                {% for status in statuses %}<option value="{{ status.value }}" {{ (page.query.filters.status ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th></th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for repairOrder in page.items %}
+                        <tr id="row_{{ repairOrder.id }}">
+                            <td data-label="RO #" class="mx-nowrap"><a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a></td>
+                            <td data-label="Date" class="mx-nowrap">{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                            <td data-label="Customer">{% if repairOrder.client %}<a href="{{ path('maxeme_client_show', { id: repairOrder.client.id }) }}">{{ repairOrder.client.fullName }}</a>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                            <td data-label="Vehicle">{{ repairOrder.vehicle ? repairOrder.vehicle.fullName : '—' }}{% if repairOrder.vehicle and repairOrder.vehicle.licensePlate %}<div class="muted-line">{{ repairOrder.vehicle.licensePlate }}</div>{% endif %}</td>
+                            <td data-label="Repair Name">{{ repairOrder.name ?: '—' }}</td>
+                            <td data-label="Status"><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
+                            <td data-label="Total" class="num">{{ mx.money(repairOrder.total) }}</td>
+                            <td data-label="Actions" style="text-align:center;">
+                                <div class="mx-actions">
+                                    {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">Open</a>{% endif %}
+                                    {{ mx.logs_link(repairOrder) }}
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-table-cell">No repair orders match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

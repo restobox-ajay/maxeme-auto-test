@@ -12,7 +12,8 @@ use App\Service\AuditLogger;
 
 /**
  * The shop's named actions that change no record, so core's automatic entity diff never sees them:
- * signing in and out, a refused page, a document downloaded or emailed. Written through core's
+ * signing in and out, a refused page, a document downloaded or emailed, a bulk data conversion
+ * (written in SQL, so its rows are not diffed one by one). Written through core's
  * AuditLogger into the same audit_log, where AuditLogEnricher adds the role.
  */
 final class ActivityRecorder
@@ -25,6 +26,7 @@ final class ActivityRecorder
     public const EMAILED = 'emailed';
     public const EXPORTED = 'exported';
     public const SETTINGS_CHANGED = 'settings_changed';
+    public const CONVERTED = 'converted';
 
     public const AREA_SIGN_IN = 'Sign-in';
     public const AREA_SECURITY = 'Security';
@@ -98,6 +100,17 @@ final class ActivityRecorder
             array_intersect_key($before, array_flip($changed)),
             array_intersect_key($after, array_flip($changed)),
         );
+    }
+
+    /**
+     * A one-off conversion of existing data, e.g. legacy invoices into repair orders: one line for
+     * the whole run.
+     *
+     * @param string $area a Permission::AREAS key
+     */
+    public function converted(string $area, string $entityType, string $summary): void
+    {
+        $this->auditLogger->log(Permission::AREAS[$area], $entityType, null, self::CONVERTED, $summary);
     }
 
     private static function area(DocumentKind $kind): string

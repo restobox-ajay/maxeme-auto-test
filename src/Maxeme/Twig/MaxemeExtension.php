@@ -20,6 +20,7 @@ use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceReminder;
 use App\Maxeme\Entity\Labour;
@@ -65,6 +66,13 @@ final class MaxemeExtension
     }
 
     /** {{ staff_role(user).label }} */
+    /** {{ ro_number(repairOrder) }}: "RO-00000042". */
+    #[AsTwigFunction('ro_number')]
+    public function repairOrderNumber(RepairOrder $repairOrder): string
+    {
+        return $this->numbers->repairOrderNumber($repairOrder);
+    }
+
     #[AsTwigFunction('staff_role')]
     public function staffRole(AdminUser $user): StaffRole
     {

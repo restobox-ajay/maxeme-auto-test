@@ -99,6 +99,20 @@ final class ActivityLog
         return ['fields' => array_slice($fields, 0, self::LIST_CHANGES, true), 'more' => max(0, count($fields) - self::LIST_CHANGES)];
     }
 
+    /**
+     * A record's latest history, newest first (the repair order page's History): the same rows its
+     * Logs button lists, the records that belong to it included.
+     *
+     * @return list<AuditLog>
+     */
+    public function latestFor(object $record, int $limit): array
+    {
+        $qb = $this->entityManager->createQueryBuilder()->select('a')->from(AuditLog::class, 'a');
+        $this->recordHistory->apply($qb, 'a', (new \ReflectionClass($record))->getShortName(), (int) $record->getId());
+
+        return $qb->orderBy('a.occurredAt', 'DESC')->addOrderBy('a.id', 'DESC')->setMaxResults($limit)->getQuery()->getResult();
+    }
+
     private function filtered(ActivityLogFilter $filter, bool $withRole = true): QueryBuilder
     {
         $qb = $this->entityManager->createQueryBuilder()->select('a')->from(AuditLog::class, 'a');

@@ -68,8 +68,22 @@ final class ClientRepository extends ServiceEntityRepository
         return $clients;
     }
 
-    /** Active clients matching $find and the list's filter row. */
-    private function inView(SearchTerm $find, ListQuery $list): QueryBuilder
+    /** @return list<Client> up to $limit active clients the repair order page's Customer box finds (as the sidebar box does), by name */
+    public function suggest(string $text, int $limit = 15): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        return $this->inView(SearchTerm::of($text), null)
+            ->orderBy('c.firstName', 'ASC')->addOrderBy('c.lastName', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Active clients matching $find and the list's filter row (none for a suggestion). */
+    private function inView(SearchTerm $find, ?ListQuery $list): QueryBuilder
     {
         $query = $this->createQueryBuilder('c')->andWhere('c.active = true');
         $find->apply(
@@ -81,7 +95,7 @@ final class ClientRepository extends ServiceEntityRepository
             self::anyAddressLike(...),
         );
 
-        foreach (array_intersect_key($list->filters, array_flip(self::FILTERS)) as $field => $text) {
+        foreach (array_intersect_key($list?->filters ?? [], array_flip(self::FILTERS)) as $field => $text) {
             $param = 'filter_' . $field;
             if ($field !== 'phone') {
                 $query->setParameter($param, '%' . mb_strtolower($text) . '%');

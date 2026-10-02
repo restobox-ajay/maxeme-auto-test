@@ -35,7 +35,7 @@ enum ClientPickPurpose: string
     {
         return match ($this) {
             self::Appointment => 'maxeme_appointment_new',
-            self::RepairOrder => 'maxeme_work_order_blank',
+            self::RepairOrder => 'maxeme_repair_order_new',
             self::Reminder => 'maxeme_reminder_new',
         };
     }
@@ -44,7 +44,7 @@ enum ClientPickPurpose: string
     {
         return match ($this) {
             self::Appointment => Permission::APPOINTMENT_EDIT,
-            self::RepairOrder => Permission::WORK_ORDER_VIEW,
+            self::RepairOrder => Permission::WORK_ORDER_EDIT,
             self::Reminder => Permission::REMINDER_EDIT,
         };
     }

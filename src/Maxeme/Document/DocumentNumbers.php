@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Document;
 
 use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Entity\RepairOrder;
 use App\Service\AppSettings;
 use App\Service\Document\DocumentPrefixCatalogue;
 
@@ -39,6 +40,12 @@ final class DocumentNumbers
     public function number(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
     {
         return $invoice->isSaved() ? $this->prefix($kind->prefixKey()) . $invoice->getDisplayedId() : '';
+    }
+
+    /** "RO-00000042"; blank while the repair order is not saved. */
+    public function repairOrderNumber(RepairOrder $repairOrder): string
+    {
+        return $repairOrder->getId() !== null ? $this->prefix(MaxemeDocumentPrefixProvider::REPAIR_ORDER) . str_pad((string) $repairOrder->getId(), 8, '0', \STR_PAD_LEFT) : '';
     }
 
     /** "INV-00001482.pdf" */

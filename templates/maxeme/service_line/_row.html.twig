@@ -1,8 +1,11 @@
-{# One row of the service page's lines. Vars: index (row number, or "__ROW__" for the JS template), line (ServiceLineData or null), lineTypes, errors. #}
-{% set base = 'lines[' ~ index ~ ']' %}
+{# One service line row (the service page's, or a repair order service's). Vars: base (the lines' field
+   name, e.g. "lines" or "jobs[0][lines]"; "__BASE__" in the JS template), errorBase (the error keys'
+   prefix, e.g. "lines" or "jobs.0.lines"), index (row number, or "__ROW__"), line (ServiceLineData or
+   null), lineTypes, errors. #}
+{% set errorAt = errorBase ~ '.' ~ index ~ '.' %}
+{% set base = base ~ '[' ~ index ~ ']' %}
 {% set type = line ? line.type : 'labour' %}
 {% set isDiscount = type == 'discount' %}
-{% set errorAt = 'lines.' ~ index ~ '.' %}
 <tr class="service-line-row">
     <td data-label="Type">
         <input type="hidden" name="{{ base }}[id]" value="{{ line ? line.id }}">
@@ -24,7 +27,7 @@
         <input class="line-price {{ errors[errorAt ~ 'unitPrice'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[unit_price]" value="{{ line ? line.unitPrice }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Price per unit">
     </td>
     <td data-label="Charge through">
-        <select name="{{ base }}[charge_through]" aria-label="Charge through">
+        <select class="line-charge-through" name="{{ base }}[charge_through]" aria-label="Charge through">
             <option value="0">No</option>
             <option value="1" {{ line and line.chargeThrough ? 'selected' }}>Yes</option>
         </select>

@@ -46,20 +46,7 @@
                     <p class="muted-line">What the service is made of. Charge through <strong>Yes</strong>: the invoice shows the line and adds qty × price to the total, on top of the service's price (e.g. a government levy). <strong>No</strong>: the line is hidden from the customer and its price is not added.</p>
                 </div>
             </div>
-            <div class="wide-table-wrap">
-                <table id="service-line-table">
-                    <thead><tr><th>Type</th><th>Item</th><th class="num">Qty / Hours</th><th class="num">Price per unit</th><th>Charge through</th><th class="ctl"></th></tr></thead>
-                    <tbody id="service-line-body">
-                        {% for line in lines %}
-                            {% include 'maxeme/service/_line_row.html.twig' with { index: loop.index0, line: line, lineTypes: lineTypes, errors: errors } only %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <p id="service-line-empty" class="empty-table-cell" {{ lines is not empty ? 'hidden' }}>No lines yet.</p>
-            <div class="mx-line-actions">
-                <button type="button" id="service-line-add" class="button mx-btn-sm mx-success">+ Add line</button>
-            </div>
+            {% include 'maxeme/service_line/_editor.html.twig' with { base: 'lines', errorBase: 'lines', lines: lines, lineTypes: lineTypes, errors: errors } only %}
         </section>
 
         <div class="form-actions">
@@ -68,9 +55,9 @@
         </div>
     </form>
 
-    <template id="service-line-template">{% include 'maxeme/service/_line_row.html.twig' with { index: '__ROW__', line: null, lineTypes: lineTypes, errors: {} } only %}</template>
+    {% include 'maxeme/service_line/_template.html.twig' with { lineTypes: lineTypes } only %}
 {% endblock %}
 {% block javascripts %}
     {{ parent() }}
-    <script src="/assets/js/maxeme-service-form.js?v=1"></script>
+    <script src="/assets/js/maxeme-service-lines.js?v=1"></script>
 {% endblock %}

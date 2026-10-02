@@ -1,0 +1,16 @@
+{# One custom fee or discount under the subtotal. Vars: index (number, or "__CHARGE__" in the JS template), charge (RepairOrderChargeData or null), chargeKinds, errors. #}
+{% set base = 'charges[' ~ index ~ ']' %}
+{% set errorAt = 'charges.' ~ index ~ '.' %}
+<tr class="mx-charge-row">
+    <td colspan="2">
+        <input type="hidden" name="{{ base }}[id]" value="{{ charge ? charge.id }}">
+        <span class="mx-charge-fields">
+            <select class="charge-kind" name="{{ base }}[kind]" aria-label="Fee or discount">
+                {% for kind in chargeKinds %}<option value="{{ kind.value }}" {{ (charge ? charge.kind : 'fee') == kind.value ? 'selected' }}>{{ kind.label }}</option>{% endfor %}
+            </select>
+            <input class="charge-label {{ errors[errorAt ~ 'label'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[label]" value="{{ charge ? charge.label }}" maxlength="120" placeholder="e.g. Shop supplies" aria-label="What it is for">
+        </span>
+    </td>
+    <td class="num"><input class="charge-amount {{ errors[errorAt ~ 'amount'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[amount]" value="{{ charge ? charge.amount }}" placeholder="0.00" {{ input_rule('money') }} aria-label="Amount"></td>
+    <td class="ctl"><button type="button" class="button mx-btn-sm danger charge-remove">Delete</button></td>
+</tr>

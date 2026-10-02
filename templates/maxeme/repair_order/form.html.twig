@@ -1,0 +1,224 @@
+{# The repair order page (new / edit). Vars: title, repairOrder, form (RepairOrderForm), errors, client (the
+   customer shown), clientVehicles, appointmentRows, statuses, lineTypes, chargeKinds, advisors, technicians,
+   history (latest AuditLog rows), timezone. Everything is optional; one Save stores it all. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set data = form.data %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule · Repair Order', title: title } %}
+        {% block title_actions %}
+            {% if repairOrder.id %}<span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span>{% endif %}
+        {% endblock %}
+        {% block actions %}
+            {% import 'maxeme/_macros.html.twig' as mx %}
+            {% if repairOrder.id %}{{ mx.logs_link(repairOrder) }}{% endif %}
+            <a class="button back-button" href="{{ path('maxeme_repair_order_index') }}">Back</a>
+        {% endblock %}
+    {% endembed %}
+
+    <form id="repair-order-form" method="post"
+          data-line-items-url="{{ path('maxeme_service_line_items') }}"
+          data-services-url="{{ path('maxeme_repair_order_services') }}"
+          data-clients-url="{{ path('maxeme_repair_order_clients') }}"
+          data-gst-rate="{{ repairOrder.gstRate }}" data-pst-rate="{{ repairOrder.pstRate }}">
+        {{ csrf_field() }}
+
+        {# ── Customer · Vehicle · Visit ─────────────────────────────────────────── #}
+        <section class="form-card">
+            {{ mx.form_errors(errors) }}
+            <div class="mx-ro-head">
+                <div class="mx-ro-col">
+                    <div class="section-label">Customer</div>
+                    <input id="ro-client-id" type="hidden" name="client_id" value="{{ data.clientId }}">
+                    <div class="mx-name-group">
+                        <input id="ro-client-search" type="text" value="{{ client ? client.fullName }}" placeholder="Search name or phone" autocomplete="off" aria-label="Customer"
+                               class="{{ errors.clientId is defined ? 'is-invalid' }}" {{ data.clientId == 'new' ? 'hidden' }}>
+                    </div>
+                    <div id="ro-client-info" class="mx-ro-info" {{ client is null or data.clientId == 'new' ? 'hidden' }}>
+                        {% if client %}
+                            <div><a href="{{ path('maxeme_client_show', { id: client.id }) }}">{{ client.fullName }}</a></div>
+                            {% for phone in client.phones %}<div>Phone {{ loop.index }}: {{ phone }}</div>{% endfor %}
+                            {% if client.email %}<div>{{ client.email }}</div>{% endif %}
+                        {% endif %}
+                    </div>
+                    <div id="ro-new-client" class="mx-ro-new" {{ data.clientId != 'new' ? 'hidden' }}>
+                        <input type="text" name="new_client[first_name]" value="{{ form.newClient.firstName }}" placeholder="First name" maxlength="255" class="{{ errors['new_client.firstName'] is defined ? 'is-invalid' }}" aria-label="New customer first name">
+                        <input type="text" name="new_client[last_name]" value="{{ form.newClient.lastName }}" placeholder="Last name" maxlength="255" aria-label="New customer last name">
+                        <input type="text" name="new_client[phone_1]" value="{{ form.newClient.phone1 }}" placeholder="Phone" {{ input_rule('phone') }} aria-label="New customer phone">
+                        <input type="email" name="new_client[email]" value="{{ form.newClient.email }}" placeholder="Email" aria-label="New customer email">
+                    </div>
+                    <button id="ro-client-toggle" type="button" class="button mx-btn-sm outline" data-new-label="+ New customer" data-search-label="Search customers">{{ data.clientId == 'new' ? 'Search customers' : '+ New customer' }}</button>
+                </div>
+
+                <div class="mx-ro-col">
+                    <div class="section-label">Vehicle</div>
+                    <select id="ro-vehicle" name="vehicle_id" aria-label="Vehicle" class="{{ errors.vehicleId is defined ? 'is-invalid' }}">
+                        <option value="">{{ client or data.clientId == 'new' ? '(none)' : 'Choose the customer first' }}</option>
+                        {% for vehicle in clientVehicles %}<option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ~ '' ? 'selected' }}>{{ vehicle.label }}</option>{% endfor %}
+                        <option value="new" {{ data.vehicleId == 'new' ? 'selected' }}>+ New vehicle</option>
+                    </select>
+                    <div id="ro-new-vehicle" class="mx-ro-new" {{ data.vehicleId != 'new' ? 'hidden' }}>
+                        <input type="text" name="new_vehicle[year]" value="{{ form.newVehicle.year }}" placeholder="Year" maxlength="4" inputmode="numeric" aria-label="New vehicle year">
+                        <input type="text" name="new_vehicle[manufacturer]" value="{{ form.newVehicle.manufacturer }}" placeholder="Make" aria-label="New vehicle make">
+                        <input type="text" name="new_vehicle[model]" value="{{ form.newVehicle.model }}" placeholder="Model" class="{{ errors['new_vehicle.model'] is defined ? 'is-invalid' }}" aria-label="New vehicle model">
+                        <input type="text" name="new_vehicle[license_plate]" value="{{ form.newVehicle.licensePlate }}" placeholder="Licence plate" {{ input_rule('license_plate') }} aria-label="New vehicle licence plate">
+                        <input type="text" name="new_vehicle[vin]" value="{{ form.newVehicle.vin }}" placeholder="VIN" {{ input_rule('vin') }} aria-label="New vehicle VIN">
+                    </div>
+                    <label class="mx-ro-field"><span>Odometer in</span>
+                        <span class="mx-mileage"><input type="text" name="mileage" value="{{ data.mileage }}" maxlength="20" placeholder="Mileage"><span>KM</span></span>
+                    </label>
+                </div>
+
+                <div class="mx-ro-col">
+                    <div class="section-label">Visit</div>
+                    <label class="mx-ro-field"><span>Status</span>
+                        <select name="status">
+                            {% for status in statuses %}<option value="{{ status.value }}" {{ (data.status ?: repairOrder.status.value) == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label class="mx-ro-field"><span>Advisor</span>
+                        <select name="advisor_id">
+                            <option value="">(none)</option>
+                            {% for advisor in advisors %}<option value="{{ advisor.id }}" {{ data.advisorId == advisor.id ~ '' ? 'selected' }}>{{ (advisor.firstName ~ ' ' ~ advisor.lastName)|trim ?: advisor.email }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label class="mx-ro-field"><span>Tag / Key</span><input type="text" name="tag_key" value="{{ data.tagKey }}" maxlength="60"></label>
+                    <label class="mx-ro-field"><span>Master Technician</span>
+                        <select name="master_technician_id">
+                            <option value="">(none)</option>
+                            {% for technician in technicians %}<option value="{{ technician.id }}" {{ data.masterTechnicianId == technician.id ~ '' ? 'selected' }}>{{ technician.name }}</option>{% endfor %}
+                        </select>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        {# ── Repair name and concern ────────────────────────────────────────────── #}
+        <section class="form-card">
+            <div class="form-grid">
+                <label class="span-2"><span>Repair Name <small class="muted-line">(a short description: used internally, on the calendar and the repair order list)</small></span>
+                    <input type="text" name="name" value="{{ data.name }}" maxlength="255" placeholder="e.g. Front brakes + diagnose clunk">
+                </label>
+                <label class="span-2"><span>Concern <small class="muted-line">(the customer's own words, for the technician)</small></span>
+                    <textarea name="concern" rows="3" placeholder="e.g. clunk over bumps, brakes squeal when cold">{{ data.concern }}</textarea>
+                </label>
+            </div>
+        </section>
+
+        {# ── Appointments (1 repair order : many) ──────────────────────────────── #}
+        <section class="table-card no-paginate">
+            <div class="table-header"><h2>Appointments</h2></div>
+            <div class="wide-table-wrap">
+                <table id="ro-appointment-table">
+                    <tbody id="ro-appointment-body" data-next="{{ appointmentRows|length }}">
+                        {% for row in appointmentRows %}
+                            {% include 'maxeme/repair_order/_appointment_row.html.twig' with { index: loop.index0, number: loop.index, appointment: row.appointment, data: row.data, repairOrder: repairOrder, errors: errors } only %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mx-line-actions">
+                <button type="button" id="ro-appointment-add" class="button mx-btn-sm mx-success">+ Add appointment</button>
+                <span class="muted-line">A new appointment lasts an hour; change its length on the calendar.</span>
+            </div>
+        </section>
+
+        {# ── Services (a plain card: core's .table-card script expects one table per card) ── #}
+        <section class="mx-card" id="ro-services">
+            <div class="table-header">
+                <div>
+                    <h2>Services</h2>
+                    <p class="muted-line">A service's price comes from its default price and can be changed. Its lines are advice only; a line with Charge through <strong>Yes</strong> is added to the total on top of the price.</p>
+                </div>
+            </div>
+            <div id="ro-jobs" data-next="{{ form.jobs|length }}">
+                {% for job in form.jobs %}
+                    {% include 'maxeme/repair_order/_job.html.twig' with { index: loop.index0, job: job, lineTypes: lineTypes, errors: errors } only %}
+                {% endfor %}
+            </div>
+            <p id="ro-jobs-empty" class="empty-table-cell" {{ form.jobs is not empty ? 'hidden' }}>No services yet: the customer may not know what is wrong.</p>
+            <div class="mx-line-actions">
+                <button type="button" id="ro-job-add" class="button mx-btn-sm mx-success">+ Add Service</button>
+            </div>
+        </section>
+
+        {# ── Totals: subtotal, custom fees / discounts, GST, PST, total ─────────── #}
+        <section class="table-card no-paginate">
+            <div class="table-header"><h2>Totals</h2></div>
+            <div class="wide-table-wrap">
+                <table class="mx-ro-totals">
+                    <tbody>
+                        <tr><td colspan="2" class="mx-ro-label">Subtotal</td><td class="num" id="ro-subtotal">{{ mx.money(repairOrder.subtotal) }}</td><td></td></tr>
+                    </tbody>
+                    <tbody id="ro-charge-body" data-next="{{ form.charges|length }}">
+                        {% for charge in form.charges %}
+                            {% include 'maxeme/repair_order/_charge_row.html.twig' with { index: loop.index0, charge: charge, chargeKinds: chargeKinds, errors: errors } only %}
+                        {% endfor %}
+                    </tbody>
+                    <tbody>
+                        <tr><td colspan="4" class="mx-ro-label"><button type="button" id="ro-charge-add" class="button mx-btn-sm outline">+ Add fee / discount</button></td></tr>
+                        <tr><td colspan="2" class="mx-ro-label">GST ({{ repairOrder.gstRate }}%)</td><td class="num" id="ro-gst">{{ mx.money(repairOrder.gst) }}</td><td></td></tr>
+                        <tr><td colspan="2" class="mx-ro-label">PST ({{ repairOrder.pstRate }}%)</td><td class="num" id="ro-pst">{{ mx.money(repairOrder.pst) }}</td><td></td></tr>
+                        <tr class="mx-ro-total"><td colspan="2" class="mx-ro-label">Total</td><td class="num" id="ro-total">{{ mx.money(repairOrder.total) }}</td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <a class="button outline" href="{{ path('maxeme_repair_order_index') }}">Cancel</a>
+            <button class="button primary" type="submit">Save</button>
+        </div>
+    </form>
+
+    {% if repairOrder.id %}
+        <div class="mx-ro-after">
+            {% include 'maxeme/_notes.html.twig' with {
+                notes: repairOrder.notes,
+                owner: ro_number(repairOrder),
+                createUrl: path('maxeme_repair_order_note_create', { id: repairOrder.id }),
+                updateUrl: path('maxeme_repair_order_note_update', { id: repairOrder.id }),
+                deleteRoute: 'maxeme_repair_order_note_delete',
+                routeParams: { id: repairOrder.id },
+                canEdit: is_granted('/work-order/edit'),
+            } only %}
+
+            <section class="table-card no-paginate" id="ro-history">
+                <div class="table-header">
+                    <h2>History</h2>
+                    {{ mx.logs_link(repairOrder) }}
+                </div>
+                <div class="wide-table-wrap">
+                    <table>
+                        <thead><tr><th>When</th><th>User</th><th>Action</th><th>What</th></tr></thead>
+                        <tbody>
+                            {% for entry in history %}
+                                <tr>
+                                    <td data-label="When" class="mx-nowrap">{{ entry.occurredAt|date('m/d/Y h:i A') }}</td>
+                                    <td data-label="User">{{ entry.actorName ?: '—' }}</td>
+                                    <td data-label="Action"><span class="badge {{ { created: 'success', updated: 'info', deleted: 'danger' }[entry.action]|default('') }}">{{ entry.action|replace({ '_': ' ' }) }}</span></td>
+                                    <td data-label="What">{{ entry.summary }}</td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="4" class="empty-table-cell">No history yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    {% else %}
+        <p class="muted-line mx-ro-after">Notes and history appear once the repair order is saved.</p>
+    {% endif %}
+
+    {% include 'maxeme/service_line/_template.html.twig' with { lineTypes: lineTypes } only %}
+    <template id="ro-job-template">{% include 'maxeme/repair_order/_job.html.twig' with { index: '__JOB__', job: null, lineTypes: lineTypes, errors: {} } only %}</template>
+    <template id="ro-charge-template">{% include 'maxeme/repair_order/_charge_row.html.twig' with { index: '__CHARGE__', charge: null, chargeKinds: chargeKinds, errors: {} } only %}</template>
+    <template id="ro-appointment-template">{% include 'maxeme/repair_order/_appointment_row.html.twig' with { index: '__APPT__', number: '__NUMBER__', appointment: null, data: null, repairOrder: repairOrder, errors: {} } only %}</template>
+{% endblock %}
+{% block javascripts %}
+    {{ parent() }}
+    <script src="/assets/js/maxeme-service-lines.js?v=1"></script>
+    <script src="/assets/js/maxeme-repair-order.js?v=1"></script>
+{% endblock %}

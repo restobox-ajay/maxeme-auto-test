@@ -143,7 +143,7 @@ final class ServiceItemController extends AbstractMaxemeController
             if ($data->taxClassId !== null && $taxClass === null) {
                 $errors['taxClassId'] = 'Choose a tax class from the list.';
             }
-            $built = $this->lineBuilder->build($service, $lines);
+            $built = $this->lineBuilder->build($service->getLines(), $lines, static fn (ServiceLineType $type): ServiceLine => new ServiceLine($service, $type));
             $errors += $built['errors'];
 
             if ($errors === []) {

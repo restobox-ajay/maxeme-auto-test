@@ -22,18 +22,6 @@ final class TaxRateData extends FormData
     #[Assert\Regex('/^\d{1,2}$|^100$/', message: 'A tax rate is a whole percent from 0 to 100.')]
     public ?string $rate = null;
 
-    /** @param array<mixed> $row */
-    public static function fromArray(array $row): self
-    {
-        $data = new self();
-        foreach (self::FIELDS as $field => $property) {
-            $value = trim((string) ($row[$field] ?? ''));
-            $data->{$property} = $value !== '' ? $value : null;
-        }
-
-        return $data;
-    }
-
     protected function toEntityValue(string $property, ?string $value): mixed
     {
         return match ($property) {

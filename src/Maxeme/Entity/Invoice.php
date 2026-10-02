@@ -38,6 +38,11 @@ class Invoice
     #[ORM\JoinColumn(unique: true, onDelete: 'SET NULL')]
     private ?Appointment $appointment = null;
 
+    /** The repair order it bills (set when legacy invoices were converted, and by Issue Invoice). */
+    #[ORM\ManyToOne(targetEntity: RepairOrder::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?RepairOrder $repairOrder = null;
+
     #[ORM\ManyToOne(targetEntity: Client::class)]
     private ?Client $client = null;
 
@@ -192,6 +197,7 @@ class Invoice
     public function getId(): ?int { return $this->id; }
     public function getInvoiceKey(): string { return $this->invoiceKey; }
     public function getAppointment(): ?Appointment { return $this->appointment; }
+    public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
     public function getClient(): ?Client { return $this->client; }
     public function getVehicle(): ?Vehicle { return $this->vehicle; }
 

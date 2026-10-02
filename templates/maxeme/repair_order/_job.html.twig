@@ -1,0 +1,26 @@
+{# One service on the repair order page: the service (search the catalogue, or type a name), its
+   category, its price (loaded from the service's default price, editable; no quantity) and its lines.
+   Vars: index (number, or "__JOB__" in the JS template), job (RepairOrderJobData or null), lineTypes, errors. #}
+{% set base = 'jobs[' ~ index ~ ']' %}
+{% set errorAt = 'jobs.' ~ index ~ '.' %}
+<div class="mx-job" data-job>
+    <div class="mx-job-head">
+        <span class="mx-job-number" aria-hidden="true"></span>
+        <input type="hidden" name="{{ base }}[id]" value="{{ job ? job.id }}">
+        <input class="job-service-id" type="hidden" name="{{ base }}[service_id]" value="{{ job ? job.serviceId }}">
+        <input class="job-category-value" type="hidden" name="{{ base }}[category]" value="{{ job ? job.category }}">
+        <label class="mx-job-name">
+            <span class="sr-only">Service</span>
+            <span class="mx-name-group">
+                <input class="job-name {{ errors[errorAt ~ 'name'] is defined or errors[errorAt ~ 'serviceId'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[name]" value="{{ job ? job.name }}" maxlength="255" placeholder="Search services, or type a name" autocomplete="off" aria-label="Service">
+            </span>
+        </label>
+        <span class="mx-job-category muted-line">{% if job and job.category %}Cat: {{ job.category }}{% endif %}</span>
+        <label class="mx-job-price">
+            <span>Price</span>
+            <input class="job-price {{ errors[errorAt ~ 'price'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[price]" value="{{ job ? job.price }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Service price">
+        </label>
+        <button type="button" class="button mx-btn-sm danger job-remove">Delete</button>
+    </div>
+    {% include 'maxeme/service_line/_editor.html.twig' with { base: base ~ '[lines]', errorBase: errorAt ~ 'lines', lines: job ? job.lines : [], lineTypes: lineTypes, errors: errors } only %}
+</div>

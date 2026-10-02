@@ -42,6 +42,15 @@ class Appointment
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $note = null;
 
+    /** The repair order it schedules (a repair order can have many); null for a legacy one without. */
+    #[ORM\ManyToOne(targetEntity: RepairOrder::class, inversedBy: 'appointments')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?RepairOrder $repairOrder = null;
+
+    /** When the shop promised the vehicle back, in UTC. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $promisedAt = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $lastUpdated;
 
@@ -61,6 +70,30 @@ class Appointment
     public function getStatus(): AppointmentStatus { return $this->status; }
     public function getNote(): ?string { return $this->note; }
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
+    public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
+    public function getPromisedAt(): ?\DateTimeImmutable { return $this->promisedAt; }
+
+    /** Booked from a repair order: it schedules that repair order's vehicle. */
+    public function attachTo(RepairOrder $repairOrder): void
+    {
+        if ($repairOrder->getVehicle() !== $this->vehicle) {
+            throw new \DomainException('The appointment is for another vehicle than the repair order.');
+        }
+        $this->repairOrder = $repairOrder;
+        $this->touch();
+    }
+
+    public function setPromisedAt(?\DateTimeImmutable $promisedAt): void
+    {
+        $this->promisedAt = $promisedAt;
+        $this->touch();
+    }
+
+    /** Started before now: shown, not edited, on its repair order. */
+    public function isPast(\DateTimeImmutable $now = new \DateTimeImmutable()): bool
+    {
+        return $this->startTime < $now;
+    }
 
     /** Another of the same client's vehicles. */
     public function changeVehicle(Vehicle $vehicle): void

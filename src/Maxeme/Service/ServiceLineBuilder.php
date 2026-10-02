@@ -7,15 +7,17 @@ namespace App\Maxeme\Service;
 use App\Entity\ProductCore;
 use App\Maxeme\Accounting\Money;
 use App\Maxeme\Dto\ServiceLineData;
+use App\Maxeme\Entity\AbstractServiceLine;
 use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Labour;
-use App\Maxeme\Entity\ServiceItem;
-use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Enum\ServiceLineType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-/** Checks the service page's line rows and turns them into the service's lines. */
+/**
+ * Checks line rows (the service page's, or one repair order service's) and turns them into lines:
+ * a kept row keeps its line, a new row gets one from $newLine.
+ */
 final class ServiceLineBuilder
 {
     public function __construct(
@@ -25,15 +27,21 @@ final class ServiceLineBuilder
     }
 
     /**
-     * @param list<ServiceLineData> $rows
+     * @template T of AbstractServiceLine
      *
-     * @return array{lines: list<ServiceLine>, errors: array<string, string>} errors keyed "lines.{n}.{property}"; lines only when there are none
+     * @param list<T>                          $existing the lines saved before
+     * @param list<ServiceLineData>            $rows
+     * @param callable(ServiceLineType): T     $newLine  a new line of that type, on the right parent
+     * @param string                           $key      the error keys' prefix, e.g. "lines" or "jobs.0.lines"
+     * @param string                           $label    the messages' prefix, e.g. "Line" or "Service 1, line"
+     *
+     * @return array{lines: list<T>, errors: array<string, string>} errors keyed "{key}.{n}.{property}"; lines only when there are none
      */
-    public function build(ServiceItem $service, array $rows): array
+    public function build(array $existing, array $rows, callable $newLine, string $key = 'lines', string $label = 'Line'): array
     {
-        $existing = [];
-        foreach ($service->getLines() as $line) {
-            $existing[(string) $line->getId()] = $line;
+        $byId = [];
+        foreach ($existing as $line) {
+            $byId[(string) $line->getId()] = $line;
         }
 
         $lines = [];
@@ -42,7 +50,7 @@ final class ServiceLineBuilder
             $rowErrors = FieldErrors::from($this->validator->validate($row));
             $type = $row->getType();
             // A kept row keeps its line (and id) unless its type changed.
-            $line = $existing[(string) $row->id] ?? null;
+            $line = $byId[(string) $row->id] ?? null;
             if ($line !== null && $line->getType() !== $type) {
                 $line = null;
             }
@@ -59,13 +67,13 @@ final class ServiceLineBuilder
                 }
             }
             foreach ($rowErrors as $property => $message) {
-                $errors[sprintf('lines.%d.%s', $n, $property)] = sprintf('Line %d: %s', $n + 1, $message);
+                $errors[sprintf('%s.%d.%s', $key, $n, $property)] = sprintf('%s %d: %s', $label, $n + 1, $message);
             }
             if ($rowErrors !== [] || $type === null) {
                 continue;
             }
 
-            $lines[] = ($line ?? new ServiceLine($service, $type))
+            $lines[] = ($line ?? $newLine($type))
                 ->setItem($item)
                 ->setQuantity(Money::rounded($row->quantity))
                 ->setUnitPrice(Money::rounded($row->unitPrice))

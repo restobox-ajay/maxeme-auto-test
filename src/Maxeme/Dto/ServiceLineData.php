@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Entity\ServiceLine;
+use App\Maxeme\Entity\AbstractServiceLine;
 use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
@@ -78,7 +78,7 @@ final class ServiceLineData
         return $lines;
     }
 
-    public static function fromEntity(ServiceLine $line): self
+    public static function fromEntity(AbstractServiceLine $line): self
     {
         $data = new self();
         $data->id = (string) $line->getId();

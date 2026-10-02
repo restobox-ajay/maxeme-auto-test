@@ -22,9 +22,15 @@ abstract class FormData
 
     public static function fromRequest(Request $request): static
     {
+        return static::fromArray($request->request->all());
+    }
+
+    /** @param array<mixed> $values form field => posted value (a nested part of a bigger form) */
+    public static function fromArray(array $values): static
+    {
         $data = new static();
         foreach (static::FIELDS as $field => $property) {
-            $value = trim((string) $request->request->get($field, ''));
+            $value = is_scalar($values[$field] ?? null) ? trim((string) $values[$field]) : '';
             $data->{$property} = $value !== '' ? $value : null;
         }
 

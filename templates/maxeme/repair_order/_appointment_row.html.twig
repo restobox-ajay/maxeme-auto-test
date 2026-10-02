@@ -1,0 +1,46 @@
+{# One appointment on the repair order: a past one as it was; an upcoming one with its times editable
+   and Check-in / Delete; a new one ("__APPT__" in the JS template) with just its times.
+   Vars: index, number (Appt n), appointment (Appointment or null), data (RepairOrderAppointmentData or null), repairOrder, errors. #}
+{% set base = 'appointments[' ~ index ~ ']' %}
+{% set errorAt = 'appointments.' ~ index ~ '.' %}
+<tr class="mx-appointment-row" id="{{ appointment ? 'appointment_' ~ appointment.id }}">
+    {% if appointment and data is null %}
+        <td data-label="Appointment"><strong>Appt {{ number }}</strong> {{ appointment.startTime|date('M j, Y g:i A') }} <span class="muted-line">(past)</span></td>
+        <td data-label="Promised"><strong>Promised {{ number }}</strong> {{ appointment.promisedAt ? appointment.promisedAt|date('M j, Y g:i A') : '—' }}</td>
+        <td data-label="Status"><span class="badge">{{ appointment.status.label }}</span></td>
+        <td class="ctl muted-line">In the past, can't edit</td>
+    {% else %}
+        <td data-label="Appointment">
+            <input type="hidden" name="{{ base }}[id]" value="{{ data ? data.id }}">
+            <label class="mx-appt-field"><strong>Appt {{ number }}</strong>
+                <input class="{{ errors[errorAt ~ 'start'] is defined ? 'is-invalid' }}" type="datetime-local" name="{{ base }}[start]" value="{{ data ? data.start|replace({ ' ': 'T' }) }}" aria-label="Appointment {{ number }} time">
+            </label>
+        </td>
+        <td data-label="Promised">
+            <label class="mx-appt-field"><strong>Promised {{ number }}</strong>
+                <input class="{{ errors[errorAt ~ 'promised'] is defined ? 'is-invalid' }}" type="datetime-local" name="{{ base }}[promised]" value="{{ data ? data.promised|replace({ ' ': 'T' }) }}" aria-label="Promised {{ number }} time">
+            </label>
+        </td>
+        <td data-label="Status">{% if appointment %}<span class="badge">{{ appointment.status.label }}</span>{% else %}<span class="muted-line">New</span>{% endif %}</td>
+        <td class="ctl">
+            {% if appointment %}
+                <div class="mx-actions">
+                    {% if appointment.status.value == 'new' %}
+                        <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
+                                data-url="{{ path('maxeme_repair_order_appointment_check_in', { id: repairOrder.id, appointmentId: appointment.id }) }}"
+                                data-token="{{ csrf_token_value() }}">Check-in</button>
+                    {% endif %}
+                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#appointment_{{ appointment.id }}"
+                            data-url="{{ path('maxeme_repair_order_appointment_delete', { id: repairOrder.id, appointmentId: appointment.id }) }}"
+                            data-token="{{ csrf_token_value() }}"
+                            data-confirm-title="Delete Confirmation"
+                            data-confirm-before="Delete "
+                            data-item="Appt {{ number }}"
+                            data-confirm-after="?">Delete</button>
+                </div>
+            {% else %}
+                <button type="button" class="button mx-btn-sm danger appointment-remove">Remove</button>
+            {% endif %}
+        </td>
+    {% endif %}
+</tr>

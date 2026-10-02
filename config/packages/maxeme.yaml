@@ -148,7 +148,7 @@ parameters:
           icon: calendar
           children:
               - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_],
-                  add: { label: New repair order, route: maxeme_client_pick, params: { purpose: repair_order }, role: /people/view } }
+                  add: { label: New repair order, route: maxeme_repair_order_new, role: /work-order/edit } }
               - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_],
                   add: { label: New appointment, route: maxeme_client_pick, params: { purpose: appointment }, role: /appointment/edit } }
               - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_],
