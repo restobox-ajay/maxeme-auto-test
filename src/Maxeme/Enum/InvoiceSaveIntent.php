@@ -18,13 +18,15 @@ enum InvoiceSaveIntent: string
     case Complete = 'complete';
     /** Work Order: the Paid box as it is, to the work order. */
     case WorkOrder = 'work_order';
+    /** Save as Quote: the Paid box as it is, then the quote PDF (QUOTE on top). */
+    case Quote = 'quote';
 
     public function status(InvoiceData $data): InvoiceStatus
     {
         return match ($this) {
             self::Save => InvoiceStatus::Unpaid,
             self::Complete => InvoiceStatus::Paid,
-            self::WorkOrder => $data->paid ? InvoiceStatus::Paid : InvoiceStatus::Unpaid,
+            self::WorkOrder, self::Quote => $data->paid ? InvoiceStatus::Paid : InvoiceStatus::Unpaid,
         };
     }
 }

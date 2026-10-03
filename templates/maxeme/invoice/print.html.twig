@@ -2,6 +2,7 @@
 {% extends 'maxeme/invoice/_document_page.html.twig' %}
 {% block actions %}
     <a class="button mx-success" id="save-pdf" href="{{ path('maxeme_invoice_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as PDF invoice</a>
+    <a class="button mx-success" id="save-as-quote" href="{{ path('maxeme_invoice_quote_pdf', { invoiceKey: invoice.invoiceKey }) }}">Save as Quote</a>
     {% if is_granted('/accounting/edit') %}
         <button class="button mx-success" type="button" id="save-and-email" data-modal-open="#email-invoice-modal">Save and Email PDF invoice</button>
     {% endif %}

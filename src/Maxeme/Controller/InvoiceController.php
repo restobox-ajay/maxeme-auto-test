@@ -139,6 +139,21 @@ final class InvoiceController extends AbstractMaxemeController
             : $this->downloadDocument($invoice, DocumentKind::Invoice, $pdf, $activity, $numbers);
     }
 
+    /**
+     * Save as Quote: the invoice's items as a quote PDF, QUOTE on top with its QO- number and no
+     * payment lines; an invoice issued from a repair order gives that repair order's quote.
+     */
+    #[Route('/admin/invoices/{invoiceKey}/quote.pdf', name: 'maxeme_invoice_quote_pdf', methods: ['GET'])]
+    #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
+    public function quotePdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity, DocumentNumbers $numbers): Response
+    {
+        $repairOrder = $invoice->getRepairOrder();
+
+        return $repairOrder !== null
+            ? $this->downloadPrinted($this->documents->quote($repairOrder), $pdf, $activity, 'RepairOrder', $repairOrder->getId())
+            : $this->downloadDocument($invoice, DocumentKind::Quote, $pdf, $activity, $numbers);
+    }
+
     /** An invoice's "Save and Email" page (the invoice detail page's Invoice PDF menu). */
     #[Route('/admin/invoices/{invoiceKey}/send', name: 'maxeme_invoice_send', methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
@@ -291,6 +306,7 @@ final class InvoiceController extends AbstractMaxemeController
             InvoiceSaveIntent::Save => $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
             InvoiceSaveIntent::Complete => $this->redirectToRoute('maxeme_invoice_print', ['invoiceKey' => $invoice->getInvoiceKey()]),
             InvoiceSaveIntent::WorkOrder => $this->redirectToRoute('maxeme_work_order_show', ['invoiceKey' => $invoice->getInvoiceKey()]),
+            InvoiceSaveIntent::Quote => $this->redirectToRoute('maxeme_invoice_quote_pdf', ['invoiceKey' => $invoice->getInvoiceKey()]),
         };
     }
 
