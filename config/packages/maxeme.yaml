@@ -45,8 +45,8 @@ parameters:
         address: '2-2300 Simpson Rd, Richmond, BC V6X 2P9'
         phone: '(604)285-8200'
         pst_number: '1051 4680'
-        # The website's booking / contact form, linked from service reminder emails ({{booking link}}).
-        # TODO: ask Ken for the link. Blank leaves the link out.
+        # The website's booking / contact form, linked from service reminder emails ({{booking link}}),
+        # until one is saved in Config › Settings › Reminder Emails. Blank leaves the link out.
         booking_url: ''
 
     # PDFs are rendered by dompdf, whose bundled fonts have no Chinese glyphs. Point this at a
@@ -234,6 +234,7 @@ parameters:
                   add: { label: Add a payment type, route: maxeme_settings_payment_type_index, modal: manageAddModal } }
               - { key: technicians, label: Technicians, route: maxeme_settings_technician_index, match: [maxeme_settings_technician_],
                   add: { label: Add a technician, route: maxeme_settings_technician_index, modal: manageAddModal } }
+              - { key: reminder_emails, label: Reminder Emails, route: maxeme_settings_reminder_emails, match: [maxeme_settings_reminder_emails] }
         - key: logs
           label: Logs
           icon: log

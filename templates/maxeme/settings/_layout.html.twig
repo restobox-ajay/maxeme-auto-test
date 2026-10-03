@@ -8,11 +8,12 @@
     prefixes: { label: 'Doc Prefixes', route: 'maxeme_settings_prefixes' },
     payment_types: { label: 'Payment Types', route: 'maxeme_settings_payment_type_index' },
     technicians: { label: 'Technicians', route: 'maxeme_settings_technician_index' },
+    reminder_emails: { label: 'Reminder Emails', route: 'maxeme_settings_reminder_emails' },
 } %}
 {% block title %}{{ tabs[tab].label }} · Settings | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set settingsActions = block('title_actions') is defined ? block('title_actions')|trim : '' %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Settings', lead: 'Taxes, document numbering, payment methods and technicians.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Settings', lead: 'Taxes, document numbering, payment methods, technicians and reminder emails.' } %}
         {% block title_actions %}{{ settingsActions|raw }}{% endblock %}
     {% endembed %}
 

@@ -1,0 +1,16 @@
+{# Config › Settings › Reminder Emails. Vars: bookingUrl (the link in force, or ''). #}
+{% extends 'maxeme/settings/_layout.html.twig' %}
+{% set tab = 'reminder_emails' %}
+{% block settings_body %}
+    <section class="panel">
+        <h2>Reminder Emails</h2>
+        <form class="form-grid" method="post" action="{{ path('maxeme_settings_reminder_emails_save') }}">
+            {{ csrf_field() }}
+            <label class="span-2">Booking link
+                <input type="url" name="booking_url" value="{{ bookingUrl }}" maxlength="500" placeholder="https://www.maxemeauto.com/book">
+                <small class="muted-line">The website's booking form. Service reminder emails link to it where their template has {{ '{{booking link}}' }}. Blank leaves the link out.</small>
+            </label>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Save</button></div>
+        </form>
+    </section>
+{% endblock %}

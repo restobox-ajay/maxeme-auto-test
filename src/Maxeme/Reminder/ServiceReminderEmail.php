@@ -26,7 +26,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  */
 final class ServiceReminderEmail
 {
-    /** @param array{phone: string, booking_url: string} $company */
+    /** @param array{phone: string} $company */
     public function __construct(
         private readonly MailerInterface $mailer,
         private readonly AppSettings $appSettings,
@@ -34,6 +34,7 @@ final class ServiceReminderEmail
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityRecorder $activity,
         private readonly LoggerInterface $logger,
+        private readonly ReminderSettings $settings,
         #[Autowire(param: 'maxeme.company')]
         private readonly array $company,
     ) {
@@ -57,7 +58,7 @@ final class ServiceReminderEmail
             '{{client name}}' => $entry->getClient()->getFullName(),
             '{{service}}' => $entry->getServiceName(),
             '{{shop phone}}' => $this->company['phone'],
-            '{{booking link}}' => $this->company['booking_url'],
+            '{{booking link}}' => $this->settings->bookingUrl(),
         ];
 
         return [

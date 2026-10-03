@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Document\DocPrefixSettings;
+use App\Maxeme\Reminder\ReminderSettings;
 use App\Maxeme\Dto\TaxRateData;
 use App\Maxeme\Repository\TaxRateRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -78,5 +79,22 @@ final class SettingsController extends AbstractMaxemeController
         $this->addFlash($error === null ? 'success' : 'error', $error ?? 'Document prefixes saved.');
 
         return $this->redirectToRoute('maxeme_settings_prefixes');
+    }
+
+    #[Route('/reminder-emails', name: '_reminder_emails', methods: ['GET'])]
+    #[RequiresPermission(Permission::SETTINGS)]
+    public function reminderEmails(ReminderSettings $settings): Response
+    {
+        return $this->render('maxeme/settings/reminder_emails.html.twig', ['bookingUrl' => $settings->bookingUrl()]);
+    }
+
+    #[Route('/reminder-emails', name: '_reminder_emails_save', methods: ['POST'])]
+    #[RequiresPermission(Permission::SETTINGS)]
+    public function saveReminderEmails(Request $request, ReminderSettings $settings): RedirectResponse
+    {
+        $error = $settings->saveBookingUrl((string) $request->request->get('booking_url', ''));
+        $this->addFlash($error === null ? 'success' : 'error', $error ?? 'Reminder email settings saved.');
+
+        return $this->redirectToRoute('maxeme_settings_reminder_emails');
     }
 }
