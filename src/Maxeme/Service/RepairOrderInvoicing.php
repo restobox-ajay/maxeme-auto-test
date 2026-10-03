@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Service;
 
+use App\Maxeme\Accounting\RepairOrderCalculator;
+use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\InvoiceCalculator;
 use App\Maxeme\Accounting\Money;
 use App\Maxeme\Dto\IssuedInvoiceForm;
@@ -47,10 +49,11 @@ final class RepairOrderInvoicing
 
         $invoice = Invoice::forRepairOrder($repairOrder);
         foreach ($repairOrder->getJobs() as $job) {
-            $service = new InvoiceServiceLine($invoice, PrintedDocuments::billedName($job), '1', $job->getPrice(), $job->getService());
+            $serviceTax = RepairOrderCalculator::serviceTax($job);
+            $service = (new InvoiceServiceLine($invoice, PrintedDocuments::billedName($job), '1', $job->getPrice(), $job->getService()))->setTax($serviceTax);
             $invoice->addServiceLine($service);
             foreach ($job->getChargeThroughLines() as $line) {
-                $invoice->addServiceLine(new InvoiceServiceLine($invoice, mb_substr($line->getItemLabel(), 0, 255), $line->getQuantity(), $line->getUnitPrice(), null, $service));
+                $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($line->getItemLabel(), 0, 255), $line->getQuantity(), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax)));
             }
         }
         foreach ($repairOrder->getCharges() as $charge) {

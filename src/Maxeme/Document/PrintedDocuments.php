@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Document;
 
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Accounting\RepairOrderCalculator;
+use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
@@ -28,9 +30,9 @@ final class PrintedDocuments
     {
         $rows = [];
         foreach ($invoice->getTopServiceLines() as $service) {
-            $rows[] = self::row((string) $service->getName(), null, null, $service->totalCents(), false);
+            $rows[] = self::row((string) $service->getName(), null, null, $service->totalCents(), false, $service->getTax());
             foreach ($invoice->getChargeThroughLines($service) as $line) {
-                $rows[] = self::row((string) $line->getName(), $line->getQuantity(), $line->getSalePrice(), $line->totalCents(), true);
+                $rows[] = self::row((string) $line->getName(), $line->getQuantity(), $line->getSalePrice(), $line->totalCents(), true, $line->getTax());
             }
         }
         foreach ($invoice->getStandalonePartLines() as $part) {
@@ -95,9 +97,10 @@ final class PrintedDocuments
     {
         $rows = [];
         foreach ($repairOrder->getJobs() as $job) {
-            $rows[] = self::row(self::billedName($job), null, null, Money::toCents($job->getPrice()), false);
+            $serviceTax = RepairOrderCalculator::serviceTax($job);
+            $rows[] = self::row(self::billedName($job), null, null, Money::toCents($job->getPrice()), false, $serviceTax);
             foreach ($job->getChargeThroughLines() as $line) {
-                $rows[] = self::row($line->getItemLabel(), $line->getQuantity(), $line->getUnitPrice(), $line->getExtendedCents(), true);
+                $rows[] = self::row($line->getItemLabel(), $line->getQuantity(), $line->getUnitPrice(), $line->getExtendedCents(), true, LineTax::ofLine($line, $serviceTax));
             }
         }
         $client = $repairOrder->getClient();
@@ -138,8 +141,8 @@ final class PrintedDocuments
         );
     }
 
-    /** @return array{name: string, quantity: ?string, unitPrice: ?string, amount: string, chargeThrough: bool} */
-    private static function row(string $name, ?string $quantity, ?string $unitPrice, int $cents, bool $chargeThrough): array
+    /** @return array{name: string, quantity: ?string, unitPrice: ?string, amount: string, chargeThrough: bool, taxNote: ?string} */
+    private static function row(string $name, ?string $quantity, ?string $unitPrice, int $cents, bool $chargeThrough, ?LineTax $tax = null): array
     {
         return [
             'name' => $name,
@@ -147,6 +150,8 @@ final class PrintedDocuments
             'unitPrice' => $unitPrice !== null ? Money::fromCents(Money::toCents($unitPrice)) : null,
             'amount' => Money::fromCents($cents),
             'chargeThrough' => $chargeThrough,
+            // "GST only" / "PST only" / "Tax exempt" when the line isn't taxed both.
+            'taxNote' => $tax?->note(),
         ];
     }
 }

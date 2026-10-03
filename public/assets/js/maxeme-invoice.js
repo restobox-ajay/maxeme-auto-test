@@ -21,21 +21,43 @@
     function money(c) { return (c / 100).toFixed(2); }
 
     /* ── Totals (legacy calculatePrice) ─────────────────────────────────── */
+    /* Per-line taxes (App\Maxeme\Accounting\LineTax): a saved service keeps its own (data-gst /
+       data-pst), a service picked now takes its Tax Class's from the tax map, a part is taxed both;
+       charge-through lines carry their taxable amounts. The discount is taxed both. */
+    var taxMap = config.taxMap || {};
+    function serviceTax(row) {
+        if (row.dataset.gst !== undefined) { return { gst: row.dataset.gst === '1', pst: row.dataset.pst === '1' }; }
+        if ($('.item-type', row).value !== 'Services') { return { gst: true, pst: true }; }
+        return (taxMap.service || {})[$('.item-value', row).value] || { gst: true, pst: true };
+    }
+
     function calculate() {
-        var lines = 0;
+        var lines = 0, gstBase = 0, pstBase = 0;
         body.querySelectorAll('tr.item-row').forEach(function (row) {
             var qty = parseInt($('.item-quantity-field', row).value, 10) || 0;
-            lines += qty * cents($('.item-price-field', row).value);
-            // A service's charge-through lines: those kept on the invoice (a fixed amount), or the
+            var amount = qty * cents($('.item-price-field', row).value);
+            var tax = serviceTax(row);
+            lines += amount;
+            if (tax.gst) { gstBase += amount; }
+            if (tax.pst) { pstBase += amount; }
+            // A service's charge-through lines: those kept on the invoice (fixed amounts), or the
             // catalogue's for a service picked now (per one service, saved with it).
             var kept = $('.mx-charge-through', row);
-            lines += kept ? (parseInt(kept.dataset.cents, 10) || 0) : qty * (parseInt(row.dataset.chargeThroughCents, 10) || 0);
+            if (kept) {
+                lines += parseInt(kept.dataset.cents, 10) || 0;
+                gstBase += parseInt(kept.dataset.gstCents, 10) || 0;
+                pstBase += parseInt(kept.dataset.pstCents, 10) || 0;
+            } else {
+                lines += qty * (parseInt(row.dataset.chargeThroughCents, 10) || 0);
+                gstBase += qty * (parseInt(row.dataset.chargeThroughGstCents, 10) || 0);
+                pstBase += qty * (parseInt(row.dataset.chargeThroughPstCents, 10) || 0);
+            }
         });
         var discountInput = $('#total-discount-amount');
         var discount = -Math.abs(cents(discountInput.value));
         var subtotal = lines + discount;
-        var gst = Math.round(subtotal * (parseInt($('#tax-gst-amount').value, 10) || 0) / 100);
-        var pst = Math.round(subtotal * (parseInt($('#tax-pst-amount').value, 10) || 0) / 100);
+        var gst = Math.round((gstBase + discount) * (parseInt($('#tax-gst-amount').value, 10) || 0) / 100);
+        var pst = Math.round((pstBase + discount) * (parseInt($('#tax-pst-amount').value, 10) || 0) / 100);
         var total = subtotal + gst + pst;
 
         $('#total-discount-display').textContent = money(discount);
@@ -107,6 +129,11 @@
             var kept = $('.mx-charge-through', row);
             if (kept) { kept.remove(); }
             row.dataset.chargeThroughCents = item.chargeThroughCents || 0;
+            row.dataset.chargeThroughGstCents = item.chargeThroughGstCents || 0;
+            row.dataset.chargeThroughPstCents = item.chargeThroughPstCents || 0;
+            // A new pick is a new line: its taxes come from the tax map, not the saved line's.
+            delete row.dataset.gst;
+            delete row.dataset.pst;
             $('.add_part', row).hidden = item.category !== 'Services';
             calculate();
         }

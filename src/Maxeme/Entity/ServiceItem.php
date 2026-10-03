@@ -37,7 +37,7 @@ class ServiceItem implements SoftDeletable
     #[ORM\JoinColumn(nullable: true)]
     private ?ServiceCategory $category = null;
 
-    /** Config › Settings › Tax Classes. Optional: legacy services have none. */
+    /** Config › Settings › Tax Classes: the taxes the service is billed with (LineTax). Optional: none = GST + PST. */
     #[ORM\ManyToOne(targetEntity: TaxClass::class)]
     #[ORM\JoinColumn(nullable: true)]
     private ?TaxClass $taxClass = null;

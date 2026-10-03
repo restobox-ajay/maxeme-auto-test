@@ -1,9 +1,10 @@
 {# One row of the builder's item table. Vars: index (row number or "__ROW__" for the JS template),
    type ('Services' | 'Parts'), id, name, quantity, price, parts (the service's InvoicePartLines),
    chargeThrough (optional: the service's charge-through InvoiceServiceLines, shown read-only; they are
-   kept on save and their amount counts in the live total). #}
+   kept on save and their amount counts in the live total), tax (optional: the saved service line's
+   LineTax, which it keeps; otherwise the live total takes the service's from the tax map). #}
 {% set base = 'items[' ~ index ~ ']' %}
-<tr class="item-row">
+<tr class="item-row"{% if tax|default(null) %} data-gst="{{ tax.gst ? 1 : 0 }}" data-pst="{{ tax.pst ? 1 : 0 }}"{% endif %}>
     <td class="item-name">
         <div class="mx-name-group">
             <input class="item-name-search" type="text" name="{{ base }}[name]" value="{{ name }}" placeholder="Enter item name here" autocomplete="off">
@@ -17,8 +18,9 @@
             {% endfor %}
         </ul>
         {% if chargeThrough|default([])|length %}
-            {% set extraCents = 0 %}{% for extra in chargeThrough %}{% set extraCents = extraCents + extra.totalCents %}{% endfor %}
-            <ul class="mx-charge-through muted-line" data-cents="{{ extraCents }}" title="Charge-through lines of the service, billed with it">
+            {% set extraCents = 0 %}{% set extraGst = 0 %}{% set extraPst = 0 %}
+            {% for extra in chargeThrough %}{% set extraCents = extraCents + extra.totalCents %}{% set extraGst = extraGst + (extra.chargesGst ? extra.totalCents : 0) %}{% set extraPst = extraPst + (extra.chargesPst ? extra.totalCents : 0) %}{% endfor %}
+            <ul class="mx-charge-through muted-line" data-cents="{{ extraCents }}" data-gst-cents="{{ extraGst }}" data-pst-cents="{{ extraPst }}" title="Charge-through lines of the service, billed with it">
                 {% for extra in chargeThrough %}<li>&#8627; {{ extra.name }} · x{{ extra.quantity + 0 }} @ {{ extra.salePrice|number_format(2, '.', ',') }} = {{ (extra.totalCents / 100)|number_format(2, '.', ',') }}</li>{% endfor %}
             </ul>
         {% endif %}

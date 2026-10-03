@@ -11,8 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Which sales taxes a charge carries (Config › Settings › Tax Classes), e.g. S = GST + PST,
- * G = GST only, E = Exempt. Labour and government fees pick one; invoices still tax every line at
- * GST + PST until per-line tax classes are specified (see the project notes).
+ * G = GST only, E = Exempt. Services, labour and government fees pick one, and each line of a
+ * repair order or invoice is taxed by it (App\Maxeme\Accounting\LineTax).
  */
 #[ORM\Entity(repositoryClass: TaxClassRepository::class)]
 #[ORM\Table(name: 'maxeme_tax_class')]
@@ -66,6 +66,12 @@ class TaxClass
         }
 
         return $this;
+    }
+
+    /** Whether it carries the tax with this code, e.g. "GST". */
+    public function charges(string $code): bool
+    {
+        return $this->rates->exists(static fn (int $key, TaxRate $rate): bool => strcasecmp($rate->getCode(), $code) === 0);
     }
 
     /** "GST + PST", or "None" when exempt. */

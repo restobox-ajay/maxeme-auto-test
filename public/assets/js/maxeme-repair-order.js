@@ -46,13 +46,29 @@
     var gstRate = parseInt(form.getAttribute('data-gst-rate'), 10) || 0;
     var pstRate = parseInt(form.getAttribute('data-pst-rate'), 10) || 0;
 
+    /* Per-line taxes (App\Maxeme\Accounting\LineTax): a service by its service's Tax Class, a labour or
+       govt fee line by its item's, a part both, a sublet or discount line by its service's. The
+       form's data-tax-map lists the catalogue items not taxed both. */
+    var taxMap = JSON.parse(form.getAttribute('data-tax-map') || '{}');
+    var BOTH = { gst: true, pst: true };
+    function taxOf(kind, id) { return (taxMap[kind] || {})[id] || BOTH; }
+
     function calculate() {
-        var subtotal = 0;
+        var subtotal = 0, gstBase = 0, pstBase = 0;
+        function add(amount, tax) {
+            subtotal += amount;
+            if (tax.gst) { gstBase += amount; }
+            if (tax.pst) { pstBase += amount; }
+        }
         $$('#ro-jobs [data-job]').forEach(function (job) {
-            subtotal += cents($('.job-price', job).value);
+            var serviceTax = taxOf('service', $('.job-service-id', job).value);
+            add(cents($('.job-price', job).value), serviceTax);
             $$('.mx-lines-body tr', job).forEach(function (row) {
                 if ($('.line-charge-through', row).value === '1') {
-                    subtotal += Math.round((parseFloat($('.line-quantity', row).value) || 0) * cents($('.line-price', row).value));
+                    var type = $('.line-type', row).value;
+                    var itemId = $('.line-item-id', row).value;
+                    var tax = type === 'labour' || type === 'govt_fee' ? taxOf(type, itemId) : (type === 'part' ? BOTH : serviceTax);
+                    add(Math.round((parseFloat($('.line-quantity', row).value) || 0) * cents($('.line-price', row).value)), tax);
                 }
             });
         });
@@ -62,8 +78,8 @@
             charges += $('.charge-kind', row).value === 'discount' ? -amount : amount;
         });
         var taxable = subtotal + charges;
-        var gst = Math.round(taxable * gstRate / 100);
-        var pst = Math.round(taxable * pstRate / 100);
+        var gst = Math.round((gstBase + charges) * gstRate / 100);
+        var pst = Math.round((pstBase + charges) * pstRate / 100);
 
         $('#ro-subtotal').textContent = money(subtotal);
         $('#ro-gst').textContent = money(gst);

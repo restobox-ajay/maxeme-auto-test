@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Accounting\InvoiceSettings;
+use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\Money;
 use App\Service\Product\ProductPicker;
 use App\Maxeme\Audit\ActivityRecorder;
@@ -191,8 +192,21 @@ final class InvoiceController extends AbstractMaxemeController
         }
         if ($type !== 'parts') {
             foreach ($services->search($term) as $service) {
-                $chargeThrough = array_sum(array_map(static fn ($line): int => $line->isChargeThrough() ? $line->getExtendedCents() : 0, $service->getLines()));
-                $items[] = ['label' => $service->getFullName(), 'category' => 'Services', 'value' => $service->getId(), 'price' => $service->getPrice(), 'chargeThroughCents' => $chargeThrough];
+                // Its catalogue charge-through lines, per one service, and what of them carries each tax.
+                $serviceTax = LineTax::of($service->getTaxClass());
+                $chargeThrough = ['all' => 0, 'gst' => 0, 'pst' => 0];
+                foreach ($service->getLines() as $line) {
+                    if ($line->isChargeThrough()) {
+                        $tax = LineTax::ofLine($line, $serviceTax);
+                        $chargeThrough['all'] += $line->getExtendedCents();
+                        $chargeThrough['gst'] += $tax->gst ? $line->getExtendedCents() : 0;
+                        $chargeThrough['pst'] += $tax->pst ? $line->getExtendedCents() : 0;
+                    }
+                }
+                $items[] = [
+                    'label' => $service->getFullName(), 'category' => 'Services', 'value' => $service->getId(), 'price' => $service->getPrice(),
+                    'chargeThroughCents' => $chargeThrough['all'], 'chargeThroughGstCents' => $chargeThrough['gst'], 'chargeThroughPstCents' => $chargeThrough['pst'],
+                ];
             }
         }
 

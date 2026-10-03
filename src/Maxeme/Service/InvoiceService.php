@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Service;
 
+use App\Maxeme\Accounting\LineTax;
 use App\Entity\ProductCore;
 use App\Maxeme\Accounting\InvoiceCalculator;
 use App\Maxeme\Accounting\Money;
@@ -110,10 +111,10 @@ final class InvoiceService
         foreach ($invoice->getTopServiceLines() as $old) {
             $serviceId = $old->getService()?->getId();
             if ($serviceId !== null && !isset($kept[$serviceId])) {
-                $kept[$serviceId] = array_map(
-                    static fn (InvoiceServiceLine $line): array => [(string) $line->getName(), $line->getQuantity(), $line->getSalePrice()],
+                $kept[$serviceId] = [$old->getTax(), array_map(
+                    static fn (InvoiceServiceLine $line): array => [(string) $line->getName(), $line->getQuantity(), $line->getSalePrice(), $line->getTax()],
                     $invoice->getChargeThroughLines($old),
-                );
+                )];
             }
         }
         $invoice->clearLines();
@@ -123,14 +124,15 @@ final class InvoiceService
                 $service = $this->find(ServiceItem::class, $item->id);
                 $isNew = $service === null || !array_key_exists($service->getId(), $kept);
                 $line = new InvoiceServiceLine($invoice, $isNew ? self::billedName($service, $item->name) : $item->name, (string) $item->quantity, $item->price, $service);
+                $line->setTax($isNew ? LineTax::of($service?->getTaxClass()) : $kept[$service->getId()][0]);
                 $invoice->addServiceLine($line);
                 $chargeThrough = match (true) {
                     $service === null => [],
-                    !$isNew => $kept[$service->getId()],
-                    default => self::catalogueChargeThrough($service, (string) $item->quantity),
+                    !$isNew => $kept[$service->getId()][1],
+                    default => self::catalogueChargeThrough($service, (string) $item->quantity, $line->getTax()),
                 };
-                foreach ($chargeThrough as [$name, $quantity, $price]) {
-                    $invoice->addServiceLine(new InvoiceServiceLine($invoice, mb_substr($name, 0, 255), $quantity, $price, null, $line));
+                foreach ($chargeThrough as [$name, $quantity, $price, $tax]) {
+                    $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($name, 0, 255), $quantity, $price, null, $line))->setTax($tax));
                 }
                 unset($kept[$service?->getId()]);
 
@@ -159,14 +161,14 @@ final class InvoiceService
     /**
      * The catalogue service's charge-through lines, for $quantity of the service.
      *
-     * @return list<array{0: string, 1: string, 2: string}> name, quantity, price of one
+     * @return list<array{0: string, 1: string, 2: string, 3: LineTax}> name, quantity, price of one, taxes
      */
-    private static function catalogueChargeThrough(ServiceItem $service, string $quantity): array
+    private static function catalogueChargeThrough(ServiceItem $service, string $quantity, LineTax $serviceTax): array
     {
         $lines = [];
         foreach ($service->getLines() as $line) {
             if ($line->isChargeThrough()) {
-                $lines[] = [$line->getItemLabel(), number_format((float) $line->getQuantity() * max(1.0, (float) $quantity), 2, '.', ''), $line->getUnitPrice()];
+                $lines[] = [$line->getItemLabel(), number_format((float) $line->getQuantity() * max(1.0, (float) $quantity), 2, '.', ''), $line->getUnitPrice(), LineTax::ofLine($line, $serviceTax)];
             }
         }
 

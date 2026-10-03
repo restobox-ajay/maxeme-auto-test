@@ -6,6 +6,7 @@ namespace App\Maxeme\Twig;
 
 use App\Entity\AdminUser;
 use App\Entity\AuditLog;
+use App\Maxeme\Accounting\TaxMap;
 use App\Maxeme\Audit\ActivityLog;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentNumbers;
@@ -55,7 +56,15 @@ final class MaxemeExtension
 
     public function __construct(
         private readonly DocumentNumbers $numbers,
+        private readonly TaxMap $taxMap,
     ) {
+    }
+
+    /** {{ tax_map()|json_encode }}: the catalogue items not taxed both GST and PST, for live totals (TaxMap). */
+    #[AsTwigFunction('tax_map')]
+    public function taxMap(): array
+    {
+        return $this->taxMap->get();
     }
 
     /** {{ doc_number(invoice) }} "INV-00001482"; {{ doc_number(invoice, kind) }} for the work order's "WO-00001482". */

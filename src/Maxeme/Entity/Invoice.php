@@ -117,6 +117,10 @@ class Invoice
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, options: ['default' => 0])]
     private string $subtotal = '0.00';
 
+    /** The GST part of salesTax, stored since per-line taxes (null on older invoices: see getGstAmount()). */
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
+    private ?string $gstAmount = null;
+
     /** GST + PST. */
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, options: ['default' => 0])]
     private string $salesTax = '0.00';
@@ -320,14 +324,18 @@ class Invoice
     public function getSalesTax(): string { return $this->salesTax; }
     public function getTotalPrice(): string { return $this->totalPrice; }
 
+    /** The GST as calculated (lines may carry only one tax, LineTax); an invoice saved before that: its rate of the subtotal. */
     public function getGstAmount(): string
     {
-        return Money::fromCents(Money::percentOf(Money::toCents($this->subtotal), $this->gstRate));
+        return $this->gstAmount ?? Money::fromCents(Money::percentOf(Money::toCents($this->subtotal), $this->gstRate));
     }
 
+    /** The PST: the sales tax less the GST; an invoice saved before per-line taxes: its rate of the subtotal. */
     public function getPstAmount(): string
     {
-        return Money::fromCents(Money::percentOf(Money::toCents($this->subtotal), $this->pstRate));
+        return $this->gstAmount !== null
+            ? Money::fromCents(Money::toCents($this->salesTax) - Money::toCents($this->gstAmount))
+            : Money::fromCents(Money::percentOf(Money::toCents($this->subtotal), $this->pstRate));
     }
 
     /** Payment − total: negative when under-paid, −total when nothing was paid (legacy getChangeAmount()). */
@@ -468,6 +476,7 @@ class Invoice
         $this->pstRate = $pstRate;
         $this->subtotal = $totals->subtotal;
         $this->salesTax = $totals->salesTax;
+        $this->gstAmount = $totals->gst;
         $this->totalPrice = $totals->total;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\Money;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -34,6 +35,13 @@ class InvoiceServiceLine
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $parts;
 
+    /** The taxes it carries, frozen when it was added (its Tax Class then; LineTax). Existing lines carry both. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $chargesGst = true;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $chargesPst = true;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'serviceLines')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -56,6 +64,18 @@ class InvoiceServiceLine
     ) {
         $this->createdOn = new \DateTimeImmutable();
         $this->parts = new ArrayCollection();
+    }
+
+    public function chargesGst(): bool { return $this->chargesGst; }
+    public function chargesPst(): bool { return $this->chargesPst; }
+    public function getTax(): LineTax { return new LineTax($this->chargesGst, $this->chargesPst); }
+
+    public function setTax(LineTax $tax): self
+    {
+        $this->chargesGst = $tax->gst;
+        $this->chargesPst = $tax->pst;
+
+        return $this;
     }
 
     public function getId(): ?int { return $this->id; }

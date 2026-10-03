@@ -36,7 +36,7 @@
         </div>
     </nav>
 
-    <form id="invoice-builder-form" method="post" action="{{ action }}" data-invoice-builder="{{ { itemsUrl: path('maxeme_invoice_items') }|json_encode }}">
+    <form id="invoice-builder-form" method="post" action="{{ action }}" data-invoice-builder="{{ { itemsUrl: path('maxeme_invoice_items'), taxMap: tax_map() }|json_encode }}">
         {{ csrf_field() }}
         <div class="mx-builder-body">
             {{ mx.form_errors(errors) }}
@@ -85,7 +85,7 @@
                         <tbody id="mx-item-body">
                             {% set index = 0 %}
                             {% for line in invoice.topServiceLines %}
-                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Services', id: line.service ? line.service.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: line.parts, chargeThrough: invoice.chargeThroughLines(line) } only %}
+                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Services', id: line.service ? line.service.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: line.parts, chargeThrough: invoice.chargeThroughLines(line), tax: line.tax } only %}
                                 {% set index = index + 1 %}
                             {% endfor %}
                             {% for line in invoice.standalonePartLines %}

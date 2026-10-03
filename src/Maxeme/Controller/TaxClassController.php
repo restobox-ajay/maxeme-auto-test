@@ -21,8 +21,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Config › Settings › Tax Classes: code, name and the taxes charged (e.g. S = GST + PST). Labour and
- * government fees pick one; a class in use cannot be deleted.
+ * Config › Settings › Tax Classes: code, name and the taxes charged (e.g. S = GST + PST). Services,
+ * labour and government fees pick one, and repair order and invoice lines are taxed by it (LineTax);
+ * a class in use cannot be deleted.
  *
  * @extends AbstractSettingsListController<TaxClass>
  */

@@ -48,7 +48,7 @@
             <tbody>
                 {% for row in document.rows %}
                     <tr class="item-row{{ row.chargeThrough ? ' charge-through' }}">
-                        <td>{% if row.chargeThrough %}<span class="ct-mark">↳</span> {% endif %}{{ row.name }}</td>
+                        <td>{% if row.chargeThrough %}<span class="ct-mark">↳</span> {% endif %}{{ row.name }}{% if row.taxNote|default(null) %} <span class="tax-note">({{ row.taxNote }})</span>{% endif %}</td>
                         <td class="r">{{ row.quantity }}</td>
                         <td class="r">{{ row.unitPrice is not null ? mx.money(row.unitPrice) }}</td>
                         <td class="r">{{ mx.money(row.amount) }}</td>
