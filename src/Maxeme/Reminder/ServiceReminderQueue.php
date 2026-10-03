@@ -24,7 +24,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * - When the customer books a new appointment, every queued reminder of the same client and
  *   vehicle becomes Booked and is not sent.
  *
- * ServiceReminderQueueSubscriber calls these; nothing here flushes.
+ * App\Maxeme\Doctrine\RepairOrderCompletionSubscriber calls these; nothing here flushes.
  */
 final class ServiceReminderQueue
 {

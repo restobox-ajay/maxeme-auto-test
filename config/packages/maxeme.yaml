@@ -54,6 +54,16 @@ parameters:
     # exist the PDFs use DejaVu Sans.
     maxeme.pdf_font: '%kernel.project_dir%/var/fonts/NotoSansTC-Regular.ttf'
 
+    # Webhook to GHL: a completed repair order's customer is found or created in GoHighLevel by email
+    # and tagged review_tag, which a GoHighLevel automation answers with the Google review email.
+    # token = a Private Integration token of the sub-account (Contacts read + write), location_id =
+    # that sub-account's id. Set them only on the live site: while either is blank nothing is sent.
+    maxeme.ghl:
+        base_url: 'https://services.leadconnectorhq.com'
+        token: '%env(GHL_API_TOKEN)%'
+        location_id: '%env(GHL_LOCATION_ID)%'
+        review_tag: 'send-review-request'
+
     # Reminder Todo's: an appointment this many months ago, with nothing booked since, becomes a reminder.
     maxeme.reminder_after_months: 6
 

@@ -28,6 +28,8 @@ framework:
             # this message to the bus automatically once Messenger is installed and routed here (#337).
             # No call site (~17 across 10 files) needs to change.
             Symfony\Component\Mailer\Messenger\SendEmailMessage: async
+            # Webhook to GHL: the GoHighLevel calls after a repair order is completed.
+            App\Maxeme\Ghl\ReviewRequestMessage: async
 
 when@test:
     framework:

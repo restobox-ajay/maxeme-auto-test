@@ -7,6 +7,7 @@ namespace App\Maxeme\Audit;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Document\PrintedDocument;
+use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Security\Permission;
 use App\Service\AuditLogger;
@@ -28,6 +29,7 @@ final class ActivityRecorder
     public const EXPORTED = 'exported';
     public const SETTINGS_CHANGED = 'settings_changed';
     public const CONVERTED = 'converted';
+    public const GHL_REVIEW_REQUEST = 'ghl_review_request';
 
     public const AREA_SIGN_IN = 'Sign-in';
     public const AREA_SECURITY = 'Security';
@@ -84,6 +86,12 @@ final class ActivityRecorder
     public function reminderEmailed(?int $entryId, string $summary): void
     {
         $this->auditLogger->log(Permission::AREAS['reminder'], 'ServiceReminderQueueEntry', $entryId, self::EMAILED, $summary);
+    }
+
+    /** The GoHighLevel review request for a completed repair order's customer (App\Maxeme\Ghl\ReviewRequestHandler). */
+    public function ghlReviewRequest(Client $client, string $summary): void
+    {
+        $this->auditLogger->log(Permission::AREAS['people'], 'Client', $client->getId(), self::GHL_REVIEW_REQUEST, $summary);
     }
 
     /**
