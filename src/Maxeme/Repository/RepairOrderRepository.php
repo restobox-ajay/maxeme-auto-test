@@ -49,6 +49,12 @@ final class RepairOrderRepository extends ServiceEntityRepository
         return ListPage::paginate($this->inView($list), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
     }
 
+    /** @return list<RepairOrder> every repair order of the current view (search boxes, status, sort; no page), for its CSV */
+    public function findAllInView(ListQuery $list): array
+    {
+        return ListPage::filter($this->inView($list), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
+    }
+
     /** @return ListPage<RepairOrder> a client's repair orders, newest first (the client profile's Work Orders tab) */
     public function findPageForClient(Client $client, ListQuery $list): ListPage
     {

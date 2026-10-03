@@ -16,6 +16,7 @@ use App\Maxeme\Dto\InvoiceData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceSaveIntent;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ItemLabel;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
@@ -180,6 +181,34 @@ final class InvoiceController extends AbstractMaxemeController
         }
 
         return $this->json($items);
+    }
+
+    /** Invoices › Export CSV: every invoice of the current view (search, sort), not just the page. */
+    #[Route('/admin/invoices/export.csv', name: 'maxeme_invoice_export', methods: ['GET'], priority: 10)]
+    #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc');
+        $invoices = $this->repository->findAllInView(SearchTerm::fromRequest($request), $list);
+        $filename = sprintf('invoices-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('accounting', 'Invoice', $filename, count($invoices), $list->describe());
+        $numbers = $this->numbers;
+
+        return CsvExport::response($filename, ['Invoice #', 'Date', 'Client', 'Vehicle', 'Status', 'Payment method', 'Subtotal', 'Sales Tax', 'Total'], (static function () use ($invoices, $numbers, $timezone): \Generator {
+            foreach ($invoices as $invoice) {
+                yield [
+                    $numbers->number($invoice),
+                    $invoice->getDocumentDate()->setTimezone(new \DateTimeZone($timezone))->format('m/d/Y'),
+                    $invoice->getClientFullName(),
+                    $invoice->getVehicleFullName(),
+                    $invoice->getStatus()->label(),
+                    $invoice->getPaymentType()?->getName(),
+                    $invoice->getSubtotal(),
+                    $invoice->getSalesTax(),
+                    $invoice->getTotalPrice(),
+                ];
+            }
+        })());
     }
 
     /** Accounting › Invoices: every invoice, newest first, and the sidebar Invoice # box's results. */

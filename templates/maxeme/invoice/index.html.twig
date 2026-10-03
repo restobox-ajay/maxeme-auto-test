@@ -2,7 +2,9 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Invoices | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Invoices', lead: 'Every invoice, newest first. Open one to see it printed, or in the builder while it can still be changed.' } only %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Invoices', lead: 'Every invoice, newest first. Open one to see it printed, or in the builder while it can still be changed.' } %}
+        {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_invoice_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
+    {% endembed %}
 
     <section class="table-card" id="invoice-list" {{ mx.list_card_attrs(page) }}>
         {% include 'maxeme/_search_results.html.twig' with { find: find, page: page, clear: 'maxeme_invoice_index' } only %}

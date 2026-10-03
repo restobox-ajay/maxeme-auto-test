@@ -186,7 +186,8 @@ parameters:
           icon: chart
           role: /accounting/view
           children:
-              - { key: summary_report, label: Summary Report, route: maxeme_report_summary, match: [maxeme_report_, maxeme_invoice_index, maxeme_invoice_find] }
+              - { key: summary_report, label: Payment Report, route: maxeme_report_summary, match: [maxeme_report_summary, maxeme_invoice_index, maxeme_invoice_find] }
+              - { key: service_report, label: Service Report, route: maxeme_report_service, match: [maxeme_report_service] }
         # No role on the group: each row has its own (staff screens for /staff/view, the service
         # set-up screens for /service/view).
         - key: config

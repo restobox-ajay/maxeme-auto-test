@@ -44,6 +44,12 @@ final class ActivityLog
         return ListPage::paginate($this->filtered($filter), $list, self::SORTS, self::SEARCH_COLUMNS);
     }
 
+    /** @return list<AuditLog> every row of the current filter and sort (no page), for its CSV */
+    public function all(ActivityLogFilter $filter, ListQuery $list): array
+    {
+        return ListPage::filter($this->filtered($filter), $list, self::SORTS, self::SEARCH_COLUMNS)->getQuery()->getResult();
+    }
+
     /**
      * Rows per role for the current filter (the role filter itself aside), for the summary chips.
      *

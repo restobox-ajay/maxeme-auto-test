@@ -8,6 +8,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles', lead: 'Every vehicle of every customer. Open one for its repair history and notes.' } %}
         {% block title_actions %}
             {% if is_granted('/car/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_vehicle_new') }}">+ Add a vehicle</a>{% endif %}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_vehicle_export', app.request.query.all) }}">Export CSV</a>
         {% endblock %}
     {% endembed %}
     {% if not find.empty %}

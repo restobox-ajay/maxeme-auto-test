@@ -6,6 +6,8 @@ namespace App\Maxeme\Controller;
 
 use App\Entity\AuditLog;
 use App\Maxeme\Audit\ActivityLog;
+use App\Maxeme\Audit\ActivityRecorder;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Audit\ActivityLogFilter;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -13,6 +15,7 @@ use App\Maxeme\Security\Permission;
 use App\Maxeme\Security\StaffRole;
 use App\Maxeme\Service\StaffAccountService;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -43,6 +46,24 @@ final class ActivityLogController extends AbstractController
             'actions' => $this->log->distinct('action'),
             'records' => array_values(array_filter($this->log->distinct('entityType'))),
         ]);
+    }
+
+    /** Activity Log › Export CSV: every row of the current filter and sort, not just the page. */
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    #[RequiresPermission(Permission::LOG_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $filter = ActivityLogFilter::fromRequest($request);
+        $list = ListQuery::fromRequest($request, array_keys(ActivityLog::SORTS), 'desc');
+        $rows = $this->log->all($filter, $list);
+        $filename = sprintf('activity-log-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('log', 'AuditLog', $filename, count($rows), $list->describe());
+
+        return CsvExport::response($filename, ['When', 'User', 'Role', 'Area', 'Action', 'What', 'Record', 'Record id'], (static function () use ($rows, $timezone): \Generator {
+            foreach ($rows as $row) {
+                yield [$row->getOccurredAt()->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d H:i:s'), $row->getActorName(), $row->getActorRole(), $row->getArea(), $row->getAction(), $row->getSummary(), $row->getEntityType(), $row->getEntityId()];
+            }
+        })());
     }
 
     /**

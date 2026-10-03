@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Audit\ActivityRecorder;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\RepairOrder;
@@ -23,6 +25,7 @@ use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -119,6 +122,23 @@ final class VehicleController extends AbstractMaxemeController
             'page' => $this->vehicles->findPage($find, ListQuery::fromRequest($request, array_keys(VehicleRepository::LIST_SORTS))),
             'find' => $find,
         ]);
+    }
+
+    /** Vehicles › Export CSV: every vehicle of the current view (search, search boxes, sort), not just the page. */
+    #[Route('/admin/vehicles/export.csv', name: 'maxeme_vehicle_export', methods: ['GET'], priority: 10)]
+    #[RequiresPermission(Permission::CAR_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(VehicleRepository::LIST_SORTS));
+        $vehicles = $this->vehicles->findAllInView(SearchTerm::fromRequest($request), $list);
+        $filename = sprintf('vehicles-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('car', 'Vehicle', $filename, count($vehicles), $list->describe());
+
+        return CsvExport::response($filename, ['Customer', 'Year', 'Make', 'Model', 'Colour', 'Licence Plate', 'VIN', 'Mileage'], (static function () use ($vehicles): \Generator {
+            foreach ($vehicles as $vehicle) {
+                yield [$vehicle->getClient()->getFullName(), $vehicle->getYear(), $vehicle->getManufacturer(), $vehicle->getModel(), $vehicle->getColor(), $vehicle->getLicensePlate(), $vehicle->getVin(), $vehicle->getMileage()];
+            }
+        })());
     }
 
     /** The sidebar Vehicle box: one match opens its vehicle page, otherwise the Vehicles list of matches. */

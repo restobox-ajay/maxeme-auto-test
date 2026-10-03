@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\AbstractChargeData;
 use App\Maxeme\Dto\LabourData;
 use App\Maxeme\Entity\AbstractCharge;
@@ -16,6 +17,7 @@ use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -40,6 +42,13 @@ final class LabourController extends AbstractChargeController
     public function index(Request $request): Response
     {
         return $this->renderList($request, ['units' => LabourUnit::cases()]);
+    }
+
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    #[RequiresPermission(Permission::SERVICE_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        return $this->exportList($request, $activity, $timezone, 'labour', 'Labour');
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

@@ -38,6 +38,12 @@ abstract class AbstractChargeRepository extends ServiceEntityRepository
         return ListPage::paginate($this->createQueryBuilder('x'), $list, static::SORTS, ['x.code', 'x.name'], static::FILTERS);
     }
 
+    /** @return list<T> every one of the list's current view (no page), for its CSV */
+    public function findAllInView(ListQuery $list): array
+    {
+        return ListPage::filter($this->createQueryBuilder('x'), $list, static::SORTS, ['x.code', 'x.name'], static::FILTERS)->getQuery()->getResult();
+    }
+
     /** @return T|null the one with this code (any case), active or not */
     public function findOneByCode(string $code): ?AbstractCharge
     {

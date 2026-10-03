@@ -1,0 +1,59 @@
+{# Accounting › Payment Report: invoices by their invoice (payment) date, payment method as a filter of the
+   table, each split into Parts, Labour, Discounts, Govt Fees, then Subtotal, Taxes, Grand Total.
+   Vars: period (ReportPeriod), method (PaymentType or null), methods, result, amounts (key => heading). #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Payment Report | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set query = period.toQuery|merge(method ? { method: method.id } : {}) %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Payment Report', lead: 'The payment of invoices, by the date they were paid. Labour is what each invoice billed beyond its parts, discounts and government fees.' } %}
+        {% block title_actions %}<a class="button mx-btn-sm outline" id="payment-report-export" href="{{ path('maxeme_report_summary_export', query) }}">Export CSV</a>{% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-search no-paginate">
+        <form class="mx-report-query" method="get" action="{{ path('maxeme_report_summary') }}" id="payment-report-form">
+            {% include 'maxeme/report/_period.html.twig' with { period: period } only %}
+        </form>
+
+        <div class="wide-table-wrap">
+            <table class="list-report-table" id="payment-report">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th><th>Date</th><th>Time</th><th>Payment method</th>
+                        {% for heading in amounts %}<th class="num">{{ heading }}</th>{% endfor %}
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th><th></th><th></th>
+                        <th>
+                            <select name="method" form="payment-report-form" aria-label="Filter by payment method" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                {% for option in methods %}<option value="{{ option.id }}" {{ method == option ? 'selected' }}>{{ option.name }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        {% for heading in amounts %}<th></th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in result.rows %}
+                        {% set invoice = row.invoice %}
+                        <tr data-invoice-key="{{ invoice.invoiceKey }}">
+                            <td><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}" target="_blank" rel="noopener">{{ doc_number(invoice) }}</a></td>
+                            <td>{{ invoice.documentDate|date('m/d/Y') }}</td>
+                            <td>{{ invoice.documentDate|date('h:i:s A') }}</td>
+                            <td>{{ invoice.paymentType ? invoice.paymentType.name }}</td>
+                            {% for key, heading in amounts %}<td class="num">{{ mx.money(row.amounts[key]) }}</td>{% endfor %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ 4 + amounts|length }}" class="empty-table-cell">No invoices in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Overall:</td><td></td><td></td><td></td>
+                        {% for key, heading in amounts %}<td class="num">{{ mx.money(result.totals[key]) }}</td>{% endfor %}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+{% endblock %}

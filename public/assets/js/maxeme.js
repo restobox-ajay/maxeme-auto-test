@@ -369,6 +369,54 @@
 }());
 
 /*
+ * A report's period presets (templates/maxeme/report/_period.html.twig): choosing Today, Last Week…
+ * only fills in the form's From and To; the report runs on those. Typing a date sets it to Custom.
+ */
+(function () {
+    'use strict';
+
+    function iso(date) {
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        return date.getFullYear() + '-' + month + '-' + day;
+    }
+
+    /* [from, to] for a preset, weeks starting on Monday. */
+    function range(preset) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var day = (today.getDay() + 6) % 7;
+        var add = function (base, days) { var d = new Date(base); d.setDate(d.getDate() + days); return d; };
+        switch (preset) {
+            case 'today': return [today, today];
+            case 'yesterday': return [add(today, -1), add(today, -1)];
+            case 'this_week': return [add(today, -day), add(today, 6 - day)];
+            case 'last_week': return [add(today, -day - 7), add(today, -day - 1)];
+            case 'this_month': return [new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 0)];
+            case 'last_month': return [new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 0)];
+            default: return null;
+        }
+    }
+
+    document.querySelectorAll('select[data-period-preset]').forEach(function (select) {
+        var form = select.form;
+        var from = form.querySelector('input[name=from]');
+        var to = form.querySelector('input[name=to]');
+        // Show which preset the period already is, if any.
+        ['today', 'yesterday', 'this_week', 'this_month', 'last_week', 'last_month'].some(function (preset) {
+            var r = range(preset);
+            if (iso(r[0]) === from.value && iso(r[1]) === to.value) { select.value = preset; return true; }
+            return false;
+        });
+        select.addEventListener('change', function () {
+            var r = range(select.value);
+            if (r) { from.value = iso(r[0]); to.value = iso(r[1]); }
+        });
+        [from, to].forEach(function (input) { input.addEventListener('input', function () { select.value = 'custom'; }); });
+    });
+}());
+
+/*
  * Browser errors into Logs › Error Log (ClientErrorController): script errors and unhandled promise
  * rejections on any admin page. At most 5 reports per page load, each distinct message once.
  */

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\AbstractChargeData;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Entity\AbstractCharge;
 use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Labour;
@@ -60,6 +62,22 @@ abstract class AbstractChargeController extends AbstractMaxemeController
             'taxClasses' => $this->taxClasses()->findAllOrdered(),
             ...$extra,
         ]);
+    }
+
+    /** Export CSV: every charge of the list's current view (search boxes, sort), not just the page. */
+    protected function exportList(Request $request, ActivityRecorder $activity, string $timezone, string $name, string $entityType): Response
+    {
+        $repository = $this->repository();
+        $list = ListQuery::fromRequest($request, array_keys($repository::SORTS));
+        $charges = $repository->findAllInView($list);
+        $filename = sprintf('%s-%s.csv', $name, (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('service', $entityType, $filename, count($charges), $list->describe());
+
+        return CsvExport::response($filename, ['Code', 'Name', 'Price', 'Tax Class', 'Active'], (static function () use ($charges): \Generator {
+            foreach ($charges as $charge) {
+                yield [$charge->getCode(), $charge->getName(), $charge->getPrice(), $charge->getTaxClass()?->getLabel(), $charge->isActive() ? 'Yes' : 'No'];
+            }
+        })());
     }
 
     protected function create(Request $request): RedirectResponse

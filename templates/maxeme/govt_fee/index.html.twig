@@ -7,6 +7,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Government Fees', lead: 'Fees added to invoices by hand, or automatically by fee rules that look for their code.' } %}
         {% block title_actions %}
             {% if is_granted('/service/edit') %}<button id="manageAddButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#manageAddModal">+ Add government fee</button>{% endif %}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_govt_fee_export', app.request.query.all) }}">Export CSV</a>
         {% endblock %}
     {% endembed %}
 

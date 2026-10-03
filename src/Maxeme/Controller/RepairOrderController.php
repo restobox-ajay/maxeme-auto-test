@@ -6,6 +6,8 @@ namespace App\Maxeme\Controller;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Audit\ActivityLog;
+use App\Maxeme\Audit\ActivityRecorder;
+use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\RepairOrderAppointmentData;
 use App\Maxeme\Dto\RepairOrderForm;
@@ -30,6 +32,7 @@ use App\Maxeme\Service\AppointmentService;
 use App\Maxeme\Service\RepairOrderWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -67,6 +70,33 @@ final class RepairOrderController extends AbstractMaxemeController
             'page' => $this->repairOrders->findPage(ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc')),
             'statuses' => RepairOrderStatus::cases(),
         ]);
+    }
+
+    /** Repair Orders › Export CSV: every repair order of the current view (search boxes, status, sort), not just the page. */
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
+    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc');
+        $repairOrders = $this->repairOrders->findAllInView($list);
+        $filename = sprintf('repair-orders-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $activity->exported('work-order', 'RepairOrder', $filename, count($repairOrders), $list->describe());
+        $numbers = $this->numbers;
+
+        return CsvExport::response($filename, ['RO #', 'Date', 'Customer', 'Vehicle', 'Licence Plate', 'Repair Name', 'Status', 'Total'], (static function () use ($repairOrders, $numbers, $timezone): \Generator {
+            foreach ($repairOrders as $repairOrder) {
+                yield [
+                    $numbers->repairOrderNumber($repairOrder),
+                    $repairOrder->getCreatedOn()->setTimezone(new \DateTimeZone($timezone))->format('m/d/Y'),
+                    $repairOrder->getClient()?->getFullName(),
+                    $repairOrder->getVehicle()?->getFullName(),
+                    $repairOrder->getVehicle()?->getLicensePlate(),
+                    $repairOrder->getName(),
+                    $repairOrder->getStatus()->label(),
+                    $repairOrder->getTotal(),
+                ];
+            }
+        })());
     }
 
     /** A new repair order; ?id= starts it for that client (Choose a client links so). */

@@ -6,6 +6,7 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Repair Orders', lead: 'Every visit starts as a repair order: its customer and vehicle, appointments, services and totals.' } %}
         {% block title_actions %}
             {% if is_granted('/work-order/edit') %}<a id="repairOrderNewButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new') }}">+ New repair order</a>{% endif %}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_export', app.request.query.all) }}">Export CSV</a>
         {% endblock %}
     {% endembed %}
 

@@ -13,6 +13,7 @@ use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -20,6 +21,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 final class InvoiceRepository extends ServiceEntityRepository
 {
+    /** The list's search box columns. */
+    private const LIST_SEARCH_COLUMNS = ['i.clientFirstName', 'i.clientLastName', 'i.vehicleManufacturer', 'i.vehicleModel', 'i.vehicleLicense'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Invoice::class);
@@ -78,13 +82,24 @@ final class InvoiceRepository extends ServiceEntityRepository
      */
     public function findPage(SearchTerm $find, ListQuery $list): ListPage
     {
+        return ListPage::paginate($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS);
+    }
+
+    /** @return list<Invoice> every invoice of the Invoices list's current view (no page), for its CSV */
+    public function findAllInView(SearchTerm $find, ListQuery $list): array
+    {
+        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)->getQuery()->getResult();
+    }
+
+    private function listQuery(SearchTerm $find): QueryBuilder
+    {
         $query = $this->createQueryBuilder('i');
         if (!$find->isEmpty()) {
             $number = $find->invoiceNumber();
             $query->andWhere('i.id LIKE :number')->setParameter('number', $number !== null ? $number . '%' : '-');
         }
 
-        return ListPage::paginate($query, $list, self::LIST_SORTS, ['i.clientFirstName', 'i.clientLastName', 'i.vehicleManufacturer', 'i.vehicleModel', 'i.vehicleLicense']);
+        return $query;
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -50,6 +51,9 @@ final class VehicleRepository extends ServiceEntityRepository
         'vin' => 'v.vin',
     ];
 
+    /** The list's search box columns. */
+    private const LIST_SEARCH_COLUMNS = ['v.manufacturer', 'v.model', 'v.vin', 'v.licensePlate', 'v.color', 'c.firstName', 'c.lastName', 'c.preferredName'];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Vehicle::class);
@@ -71,12 +75,23 @@ final class VehicleRepository extends ServiceEntityRepository
      */
     public function findPage(SearchTerm $find, ListQuery $list): ListPage
     {
+        return ListPage::paginate($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS, self::LIST_FILTERS);
+    }
+
+    /** @return list<Vehicle> every vehicle of the Vehicles list's current view (no page), for its CSV */
+    public function findAllInView(SearchTerm $find, ListQuery $list): array
+    {
+        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS, self::LIST_FILTERS)->getQuery()->getResult();
+    }
+
+    private function listQuery(SearchTerm $find): QueryBuilder
+    {
         $query = $this->createQueryBuilder('v')
             ->join('v.client', 'c')->addSelect('c')
             ->andWhere('v.active = true')
             ->andWhere('c.active = true');
         $find->apply($query, ['v.vin', 'v.licensePlate', 'v.manufacturer', 'v.model', 'v.year', 'v.color']);
 
-        return ListPage::paginate($query, $list, self::LIST_SORTS, ['v.manufacturer', 'v.model', 'v.vin', 'v.licensePlate', 'v.color', 'c.firstName', 'c.lastName', 'c.preferredName'], self::LIST_FILTERS);
+        return $query;
     }
 }

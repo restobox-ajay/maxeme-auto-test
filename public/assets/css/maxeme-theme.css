@@ -593,3 +593,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .site-admin td[data-inline-field] { cursor: text; }
 .site-admin td[data-inline-field]:not(.is-editing):hover { background: var(--mx-primary-soft); box-shadow: inset 0 -2px 0 var(--mx-primary); }
 .site-admin td[data-inline-field].is-editing input, .site-admin td[data-inline-field].is-editing select { width: 100%; min-width: 90px; }
+
+/* A report's time filter: [preset] From [ ] to [ ] [Run]. */
+.mx-period { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.mx-period-field { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.mx-period-field select, .mx-period-field input { width: auto; }

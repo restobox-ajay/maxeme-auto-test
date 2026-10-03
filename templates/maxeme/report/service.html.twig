@@ -1,0 +1,47 @@
+{# Accounting › Service Report: one row per service of the repair orders made in the period. Vars: period
+   (ReportPeriod), result, amounts (key => heading). #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Service Report | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Service Report', lead: 'Every service on the repair orders made in the period, one row each. Labour is what the service billed beyond its parts, discounts and government fees.' } %}
+        {% block title_actions %}<a class="button mx-btn-sm outline" id="service-report-export" href="{{ path('maxeme_report_service_export', period.toQuery) }}">Export CSV</a>{% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-search no-paginate">
+        <form class="mx-report-query" method="get" action="{{ path('maxeme_report_service') }}">
+            {% include 'maxeme/report/_period.html.twig' with { period: period } only %}
+        </form>
+
+        <div class="wide-table-wrap">
+            <table class="list-report-table" id="service-report">
+                <thead>
+                    <tr>
+                        <th>Repair Order Date</th><th>Repair Order #</th><th>Service Name</th><th>Customer</th>
+                        {% for heading in amounts %}<th class="num">{{ heading }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in result.rows %}
+                        {% set repairOrder = row.repairOrder %}
+                        <tr>
+                            <td>{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                            <td>{% if is_granted('/work-order/edit') %}<a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a>{% else %}{{ ro_number(repairOrder) }}{% endif %}</td>
+                            <td>{{ row.job.name }}</td>
+                            <td>{{ repairOrder.client ? repairOrder.client.fullName : '—' }}</td>
+                            {% for key, heading in amounts %}<td class="num">{{ mx.money(row.amounts[key]) }}</td>{% endfor %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ 4 + amounts|length }}" class="empty-table-cell">No repair orders in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Overall:</td><td></td><td></td><td></td>
+                        {% for key, heading in amounts %}<td class="num">{{ mx.money(result.totals[key]) }}</td>{% endfor %}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+{% endblock %}

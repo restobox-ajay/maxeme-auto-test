@@ -5,10 +5,12 @@
     {% set noRole = constant('App\\Maxeme\\Audit\\ActivityLogFilter::NO_ROLE') %}
     {% if filter.isRecordHistory %}
         {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: filter.record ~ ' #' ~ filter.recordId ~ ' history', lead: 'Who changed what, and when: this record and the records that belong to it.' } only %}
-            {% block actions %}<a class="button outline" href="{{ path('maxeme_activity_log_index') }}">All activity</a>{% endblock %}
+            {% block actions %}<a class="button outline" href="{{ path('maxeme_activity_log_export', app.request.query.all) }}">Export CSV</a> <a class="button outline" href="{{ path('maxeme_activity_log_index') }}">All activity</a>{% endblock %}
         {% endembed %}
     {% else %}
-        {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+        {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+            {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_activity_log_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
+        {% endembed %}
     {% endif %}
 
     <section class="panel compact-panel">
