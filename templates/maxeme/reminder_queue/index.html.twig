@@ -1,0 +1,91 @@
+{# Schedule › Service Reminder Queue: one row per reminder a completed repair order queued, newest first.
+   Vars: page (ListPage of ServiceReminderQueueEntry), statuses. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Service Reminder Queue | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canManage = is_granted('/reminder/edit') %}
+    {% set canBook = is_granted('/appointment/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Service Reminder Queue', lead: 'When a repair order is completed, its services with a reminder are queued and emailed on their day. Reminders of the same visit within ' ~ constant('App\\Maxeme\\Reminder\\ServiceReminderQueue::QUEUE_AFTER_DAYS') ~ ' days of each other are skipped; a new appointment for the vehicle books them.' } %}
+        {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_reminder_queue_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
+    {% endembed %}
+
+    <section class="table-card" id="reminder-queue-card" {{ mx.list_card_attrs(page) }}>
+        <div class="table-header">
+            <h2>Service Reminders</h2>
+            {{ mx.list_search(page, 'service reminders') }}
+        </div>
+        <div class="wide-table-wrap">
+            <table id="reminder-queue-table">
+                <thead>
+                    <tr>
+                        {% for key, label in { queuedAt: 'Queued', sentAt: 'Sent', email: 'Email Address' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th>Phone</th>
+                        {{ mx.sort_th(page, 'client', 'Client Info') }}
+                        <th>Vehicle</th>
+                        {% for key, label in { service: 'Reference Service', reminderDays: 'Reminder Days', status: 'Status' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
+                        <th style="text-align:center;">Action</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th><th></th>
+                        {% for field, label in { email: 'Email address', phone: 'Phone', client: 'Client', vehicle: 'Vehicle', service: 'Service' } %}
+                            <th><input type="search" value="{{ page.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}"></th>
+                        {% endfor %}
+                        <th></th>
+                        <th>
+                            <select data-filter-field="status" aria-label="Filter by status">
+                                <option value="">All</option>
+                                {% for status in statuses %}<option value="{{ status.value }}" {{ (page.query.filters.status ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in page.items %}
+                        {% set client = entry.client %}
+                        {% set repairOrder = entry.repairOrder %}
+                        <tr id="reminder_queue_{{ entry.id }}">
+                            <td data-label="Queued" class="mx-nowrap">{{ entry.queuedAt|date('m/d/Y') }}<div class="muted-line">{{ entry.queuedAt|date('h:i A') }}</div></td>
+                            <td data-label="Sent" class="mx-nowrap">{% if entry.sentAt %}{{ entry.sentAt|date('m/d/Y') }}<div class="muted-line">{{ entry.sentAt|date('h:i A') }}</div>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                            <td data-label="Email Address">{{ entry.email ?: client.email ?: '—' }}</td>
+                            <td data-label="Phone" class="mx-nowrap">
+                                {% set phones = client.phones %}
+                                {% for number in phones|slice(0, 2) %}<div class="phone-line">{{ number }}</div>{% else %}<span class="mx-muted-cell">—</span>{% endfor %}
+                                {% if phones|length > 2 %}
+                                    <details class="mx-more-lines"><summary title="More phone numbers">+</summary>{% for number in phones|slice(2) %}<div class="phone-line">{{ number }}</div>{% endfor %}</details>
+                                {% endif %}
+                            </td>
+                            <td data-label="Client Info"><a href="{{ path('maxeme_client_show', { id: client.id }) }}">{{ client.fullName }}</a></td>
+                            <td data-label="Vehicle">{{ entry.vehicle.fullName }}{% if entry.vehicle.licensePlate %}<div class="muted-line">{{ entry.vehicle.licensePlate }}</div>{% endif %}</td>
+                            <td data-label="Reference Service">
+                                {% if repairOrder %}<a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ repairOrder.createdOn|date('m/d/Y') }} · {{ ro_number(repairOrder) }}</a>{% endif %}
+                                <div>{{ entry.serviceName }}</div>
+                            </td>
+                            <td data-label="Reminder Days" class="num">{{ entry.reminderDays }}<div class="muted-line">due {{ entry.dueAt|date('m/d/Y') }}</div></td>
+                            <td data-label="Status"><span class="badge {{ entry.status.badge }}">{{ entry.status.label }}</span>{% if entry.error %}<div class="muted-line">{{ entry.error }}</div>{% endif %}</td>
+                            <td data-label="Action" style="text-align:center;">
+                                <div class="mx-actions">
+                                    <a class="button outline mx-btn-sm" href="{{ path('maxeme_reminder_queue_email', { id: entry.id }) }}">View email</a>
+                                    {% if canManage %}
+                                        <button type="button" class="button outline mx-btn-sm js-post-action" data-reload data-url="{{ path('maxeme_reminder_queue_resend', { id: entry.id }) }}" data-token="{{ csrf_token_value() }}">{{ entry.status.value == 'sent' ? 'Resend' : 'Send now' }}</button>
+                                    {% endif %}
+                                    {% if canBook and entry.status.value not in ['booked', 'resolved'] %}
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_appointment_new', { id: client.id, vehicle: entry.vehicle.id }) }}">Book</a>
+                                    {% endif %}
+                                    {% if canManage and entry.status.value not in ['booked', 'resolved'] %}
+                                        <button type="button" class="button primary mx-btn-sm js-post-action" data-reload data-url="{{ path('maxeme_reminder_queue_resolve', { id: entry.id }) }}" data-token="{{ csrf_token_value() }}">Resolved</button>
+                                    {% endif %}
+                                    {{ mx.logs_link(entry) }}
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="10" class="empty-table-cell">No service reminders match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {{ mx.list_footer(page) }}
+    </section>
+{% endblock %}

@@ -80,6 +80,12 @@ final class ActivityRecorder
         $this->auditLogger->log(self::area($document->kind), $entityType, $entityId, self::EMAILED, sprintf('Emailed %s to %s.', $document->filename(), $recipients));
     }
 
+    /** A service reminder emailed from the Service Reminder Queue (sent when due, or re-sent). */
+    public function reminderEmailed(?int $entryId, string $summary): void
+    {
+        $this->auditLogger->log(Permission::AREAS['reminder'], 'ServiceReminderQueueEntry', $entryId, self::EMAILED, $summary);
+    }
+
     /**
      * A list exported to CSV: which list, how many rows, and the view it was (search and sort).
      *

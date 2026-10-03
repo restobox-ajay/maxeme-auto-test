@@ -9,7 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * A service reminder email: a friendly note asking the customer to call in (tap to call) or book
  * on the website (tap to the form). A ServiceReminder picks one; its TAGS are filled in when the
- * reminder goes out (sending is not built yet): {{message}} is the Service Reminder's own Message.
+ * reminder goes out (App\Maxeme\Reminder\ServiceReminderEmail): {{message}} is the Service
+ * Reminder's own Message.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'maxeme_service_reminder_template')]

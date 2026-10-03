@@ -51,6 +51,11 @@ final class AppointmentController extends AbstractMaxemeController
     private function handle(Request $request, Client $client, ?Appointment $appointment): Response
     {
         $data = $appointment !== null ? AppointmentData::fromAppointment($appointment, $this->settings) : new AppointmentData();
+        // ?vehicle= picks the vehicle of a new appointment (the Service Reminder Queue's Book).
+        $vehicleId = $appointment === null ? self::idParam($request->query, 'vehicle') : null;
+        if ($vehicleId !== null) {
+            $data->vehicleId = (string) $vehicleId;
+        }
         $errors = [];
 
         if ($request->isMethod('POST')) {

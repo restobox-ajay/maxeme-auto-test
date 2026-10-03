@@ -7,7 +7,7 @@ namespace App\Maxeme\Entity;
 /**
  * A rule that reminds a customer to come back: a number of days after the work was done (an
  * invoice completed), an email template, and a message dropped into the template's {{message}}.
- * ServiceReminder is one per service; sending and the schedule are specified later.
+ * ServiceReminder is one per service; the Service Reminder Queue sends them.
  */
 interface ReminderRule
 {

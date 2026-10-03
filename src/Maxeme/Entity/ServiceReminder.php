@@ -9,8 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * How long after a service to remind the customer (Parts & Services › Service Reminders): e.g.
- * Oil change, 90 days after its invoice is completed, with this template and message. One per
- * service. Nothing sends them yet; Emails Sent counts what will.
+ * Oil change, 90 days after its repair order is completed, with this template and message. One per
+ * service. A completed repair order queues it (App\Maxeme\Reminder\ServiceReminderQueue);
+ * Emails Sent counts what the queue sent.
  */
 #[ORM\Entity(repositoryClass: ServiceReminderRepository::class)]
 #[ORM\Table(name: 'maxeme_service_reminder')]

@@ -598,3 +598,12 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-period { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .mx-period-field { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .mx-period-field select, .mx-period-field input { width: auto; }
+
+/* Service Reminder Queue: phone numbers past the second behind a +, and the email preview. */
+.mx-more-lines summary { cursor: pointer; display: inline-block; font-weight: 700; padding: 0 6px; border: 1px solid var(--line, #d8dee9); border-radius: 4px; line-height: 1.3; }
+.mx-more-lines summary::-webkit-details-marker { display: none; }
+.mx-reminder-email { padding: 16px 20px; }
+.mx-reminder-email-meta { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; }
+.mx-reminder-email-meta dt { font-weight: 600; }
+.mx-reminder-email-meta dd { margin: 0; }
+.mx-reminder-email-body { width: 100%; min-height: 420px; border: 1px solid var(--line, #d8dee9); border-radius: 6px; background: #fff; }

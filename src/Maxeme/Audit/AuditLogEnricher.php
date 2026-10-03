@@ -24,6 +24,7 @@ final class AuditLogEnricher
     private const ENTITY_AREAS = [
         'Appointment' => 'appointment',
         'Reminder' => 'reminder',
+        'ServiceReminderQueueEntry' => 'reminder',
         'ServiceItem' => 'service',
         'ServiceLine' => 'service',
         'ServiceCategory' => 'service',

@@ -153,6 +153,7 @@ parameters:
                   add: { label: New appointment, route: maxeme_client_pick, params: { purpose: appointment }, role: /appointment/edit } }
               - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_],
                   add: { label: New reminder, route: maxeme_client_pick, params: { purpose: reminder }, role: /reminder/edit } }
+              - { key: reminder_queue, label: Service Reminder Queue, route: maxeme_reminder_queue_index, role: /reminder/view, match: [maxeme_reminder_queue_] }
         - key: parts
           label: Parts & Service
           icon: wrench
