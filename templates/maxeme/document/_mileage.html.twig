@@ -1,0 +1,5 @@
+{# A work order's Mileage: the odometer in KM (a line to fill in when unknown), and a line for Miles
+   underneath, for the technician. Vars: mileage (as typed, or null). #}
+{# A legacy mileage may carry its own unit ("219823 MILES"); KM is added only to a plain number. #}
+<p class="wo-mileage">Mileage: {% if not mileage %}<span class="wo-blank"></span> KM{% elseif mileage matches '/^[0-9,. ]+$/' %}{{ mileage }} KM{% else %}{{ mileage }}{% endif %}</p>
+<p class="wo-mileage wo-mileage-miles"><span class="wo-blank"></span> Miles</p>

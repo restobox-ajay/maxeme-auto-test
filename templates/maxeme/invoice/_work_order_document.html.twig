@@ -1,5 +1,7 @@
-{# The repair order for the technicians (legacy invoice_workorder / invoice_workorder_pdf): each
-   service and standalone part, the parts to use, and a Technician line. Vars: invoice, kind,
+{# The repair order for the technicians (legacy invoice_workorder / invoice_workorder_pdf): the master
+   technician (its repair order's, else a line to fill in), Phone 1, 2… and Address, the vehicle's
+   Make, Year, Model, VIN, License and Mileage (KM, and a line for Miles), then each service and
+   standalone part, the parts to use, and a Technician line. Vars: invoice, kind,
    vehicles, addresses + address (optional: the blank work order's vehicle switch and its
    pickup-address pick, the client's addresses in the client's order). #}
 {% if vehicles|default([])|length > 1 or addresses|default([])|length > 1 %}<form id="wo-switch" method="get" hidden></form>{% endif %}
@@ -12,10 +14,18 @@
                 <td style="width:50%"><strong>Last Modified On:</strong> {{ (invoice.saved ? invoice.documentDate : 'now')|date('m/d/Y h:i a') }}</td>
             </tr>
             <tr>
+                {% set technician = invoice.repairOrder and invoice.repairOrder.masterTechnician ? invoice.repairOrder.masterTechnician.name %}
+                <td colspan="2" class="wo-master"><strong>Master Technician:</strong> {% if technician %}{{ technician }}{% else %}<span class="wo-blank wo-blank-wide"></span>{% endif %}</td>
+            </tr>
+            <tr>
                 <td>
-                    <p><strong>Bill to</strong><br>{{ invoice.clientFullName }}<br>Phone: {{ invoice.clientHomeNumber }}<br>
+                    <p><strong>Bill to</strong></p>
+                    <p>{{ invoice.clientFullName }}</p>
+                    {% set phones = [invoice.clientHomeNumber, invoice.clientCellNumber]|filter(phone => phone) %}
+                    {% for phone in phones %}<p>Phone {{ loop.index }}: {{ phone }}</p>{% else %}<p>Phone: <span class="wo-blank"></span></p>{% endfor %}
+                    <p>Address:
                         {% if addresses|default([])|length > 1 %}
-                            Pickup address : <select class="no-print-border" name="address" form="wo-switch" onchange="this.form.submit()" aria-label="Pickup address">
+                            <select class="no-print-border" name="address" form="wo-switch" onchange="this.form.submit()" aria-label="Pickup address">
                                 {% for option in addresses %}<option value="{{ option.id }}" {{ option == address ? 'selected' }}>{{ loop.index }}. {{ option.label ? option.label ~ ' — ' }}{{ option.oneLine }}</option>{% endfor %}
                             </select>
                         {% else %}
@@ -25,18 +35,18 @@
                     {% if invoice.saved %}<p><strong>Appointment Note:</strong> {{ invoice.note }}</p>{% endif %}
                 </td>
                 <td>
-                    <p><strong>Vehicle</strong><br>
-                        {% if vehicles|default([])|length > 1 %}
-                            Name : <select class="no-print-border" name="vehicle" form="wo-switch" onchange="this.form.submit()" aria-label="Vehicle">
-                                {% for vehicle in vehicles %}<option value="{{ vehicle.id }}" {{ vehicle == invoice.vehicle ? 'selected' }}>{{ vehicle.fullName }}</option>{% endfor %}
-                            </select><br>
-                        {% else %}
-                            Name : {{ invoice.vehicleFullName }}<br>
-                        {% endif %}
-                        VIN: {{ invoice.vehicleVin }}<br>
-                        License: {{ invoice.vehicleLicense }}<br>
-                        Mileage: {{ invoice.vehicleMileage }} KM
-                    </p>
+                    <p><strong>Vehicle</strong></p>
+                    {% if vehicles|default([])|length > 1 %}
+                        <p>Vehicle: <select class="no-print-border" name="vehicle" form="wo-switch" onchange="this.form.submit()" aria-label="Vehicle">
+                            {% for vehicle in vehicles %}<option value="{{ vehicle.id }}" {{ vehicle == invoice.vehicle ? 'selected' }}>{{ vehicle.fullName }}</option>{% endfor %}
+                        </select></p>
+                    {% endif %}
+                    <p>Make: {{ invoice.vehicleManufacturer }}</p>
+                    <p>Year: {{ invoice.vehicleYear }}</p>
+                    <p>Model: {{ invoice.vehicleModel }}</p>
+                    <p>VIN: {{ invoice.vehicleVin }}</p>
+                    <p>License: {{ invoice.vehicleLicense }}</p>
+                    {% include 'maxeme/document/_mileage.html.twig' with { mileage: invoice.vehicleMileage } only %}
                 </td>
             </tr>
         </table>

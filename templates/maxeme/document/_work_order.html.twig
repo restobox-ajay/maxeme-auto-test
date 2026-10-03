@@ -1,5 +1,7 @@
-{# A repair order's work order for the technicians (a PrintedDocument): each service, what to use for
-   it, and a Technician line. Vars: document. #}
+{# A repair order's work order for the technicians (a PrintedDocument): the master technician at the
+   top (a line to fill in when none is set), the customer's Phone 1, 2… and Address, the vehicle's
+   Make, Year, Model, VIN, License and Mileage (KM, and a line for Miles), then each service, what to
+   use for it, and a Technician line. Vars: document. #}
 <div class="invoice-document">
     {% include 'maxeme/invoice/_band.html.twig' with { label: 'REPAIR ORDER', detail: maxeme_company.address ~ ' · Company Phone: ' ~ maxeme_company.phone } only %}
     <div class="invoice-body">
@@ -9,20 +11,24 @@
                 <td style="width:50%"><strong>Last Modified On:</strong> {{ document.date|date('m/d/Y h:i a') }}</td>
             </tr>
             <tr>
+                <td colspan="2" class="wo-master"><strong>Master Technician:</strong> {% if document.masterTechnician %}{{ document.masterTechnician }}{% else %}<span class="wo-blank wo-blank-wide"></span>{% endif %}</td>
+            </tr>
+            <tr>
                 <td>
-                    <p><strong>Bill to</strong><br>{{ document.clientName }}<br>
-                        {% for phone in document.phones|slice(0, 1) %}Phone: {{ phone }}<br>{% endfor %}
-                        {{ document.address }}
-                    </p>
-                    <p><strong>Concern:</strong> {{ document.note }}</p>
+                    <p><strong>Bill to</strong></p>
+                    <p>{{ document.clientName }}</p>
+                    {% for phone in document.phones %}<p>Phone {{ loop.index }}: {{ phone }}</p>{% else %}<p>Phone: <span class="wo-blank"></span></p>{% endfor %}
+                    <p>Address: {{ document.address }}</p>
+                    {% if document.note %}<p><strong>Concern:</strong> {{ document.note }}</p>{% endif %}
                 </td>
                 <td>
-                    <p><strong>Vehicle</strong><br>
-                        Name : {{ document.vehicleName }}<br>
-                        VIN: {{ document.vehicleVin }}<br>
-                        License: {{ document.vehicleLicense }}<br>
-                        Mileage: {{ document.mileage }} KM
-                    </p>
+                    <p><strong>Vehicle</strong></p>
+                    <p>Make: {{ document.vehicleMake }}</p>
+                    <p>Year: {{ document.vehicleYear }}</p>
+                    <p>Model: {{ document.vehicleModel }}</p>
+                    <p>VIN: {{ document.vehicleVin }}</p>
+                    <p>License: {{ document.vehicleLicense }}</p>
+                    {% include 'maxeme/document/_mileage.html.twig' with { mileage: document.mileage } only %}
                 </td>
             </tr>
         </table>
