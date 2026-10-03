@@ -621,3 +621,23 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* The invoice builder's charge-through lines under a service (read-only), and on the printed invoice. */
 .mx-charge-through { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; font-size: 0.8rem; }
+
+/* The footer, as in the mockup (mockup-maxeme-auto mx.css .footer): one slim line,
+   "© 2026 Maxeme Auto · Powered by Restobox", fixed to the bottom of the window beside the sidebar.
+   The content frame keeps 80px clear at its bottom, so nothing hides behind it. */
+.site-admin .site-footer {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    margin: 0; padding: 14px 24px; gap: 6px;
+    justify-content: flex-start; text-align: left; font-size: 0.75rem;
+}
+.site-admin .site-footer .footer-powered::before { content: '·'; margin-right: 6px; }
+.site-admin .content-frame { padding-bottom: 80px; }
+/* A short page stays white down to the footer (no grey band under the content). */
+@media (min-width: 981px) { .site-admin .content-frame { min-height: calc(100vh - 48px); box-sizing: border-box; } }
+@media (min-width: 981px) {
+    .site-admin .site-footer { left: 218px; margin: 0; transition: left 220ms ease; }
+    body.admin-sidebar-collapsed.site-admin .site-footer { left: 76px; margin: 0; }
+}
+@media (max-width: 980px) {
+    .site-admin .site-footer { flex-direction: row; align-items: center; }
+}
