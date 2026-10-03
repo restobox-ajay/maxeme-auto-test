@@ -607,3 +607,14 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-reminder-email-meta dt { font-weight: 600; }
 .mx-reminder-email-meta dd { margin: 0; }
 .mx-reminder-email-body { width: 100%; min-height: 420px; border: 1px solid var(--line, #d8dee9); border-radius: 6px; background: #fff; }
+
+/* Work Order Board: one card per category, in the vehicle's order; the current one is outlined. */
+.mx-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 16px 20px 6px; }
+.mx-board-stage { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: inherit; text-decoration: none; position: relative; }
+.mx-board-stage:hover { border-color: var(--mx-primary, #3071a9); }
+.mx-board-stage.is-current { border-color: var(--mx-primary, #3071a9); box-shadow: 0 0 0 2px rgba(48, 113, 169, 0.18); }
+.mx-board-step { position: absolute; top: 10px; right: 12px; font-size: 0.75rem; font-weight: 700; color: var(--muted, #64748b); }
+.mx-board-label { font-weight: 600; font-size: 0.85rem; padding-right: 18px; }
+.mx-board-count { font-size: 1.9rem; font-weight: 700; line-height: 1.1; color: var(--mx-primary, #3071a9); }
+.mx-board-total { font-size: 0.85rem; color: var(--muted, #64748b); }
+.mx-board-note { padding: 0 20px 14px; }

@@ -9,7 +9,8 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * A report's From and To (shop dates, whole days, both included), as its filter posts them
  * (?from=2026-10-01&to=2026-10-03). The preset dropdown only fills those two in the browser; the
- * report reads nothing else. Today when a date is blank or not a date.
+ * report reads nothing else. Today when a date is blank or not a date (a page may default From
+ * further back).
  */
 final class ReportPeriod
 {
@@ -21,10 +22,11 @@ final class ReportPeriod
     ) {
     }
 
-    public static function fromRequest(Request $request, \DateTimeZone $timezone): self
+    /** @param string $defaultFrom when From is blank, e.g. '-29 days' (Today otherwise) */
+    public static function fromRequest(Request $request, \DateTimeZone $timezone, string $defaultFrom = 'today'): self
     {
         $today = new \DateTimeImmutable('today', $timezone);
-        $from = self::date((string) $request->query->get('from', ''), $timezone) ?? $today;
+        $from = self::date((string) $request->query->get('from', ''), $timezone) ?? $today->modify($defaultFrom);
         $to = self::date((string) $request->query->get('to', ''), $timezone) ?? $today;
 
         return $to < $from ? new self($to, $from) : new self($from, $to);

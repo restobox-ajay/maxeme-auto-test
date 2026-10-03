@@ -117,6 +117,23 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** @return list<RepairOrder> repair orders dated (created) within the period, newest first, with customer, vehicle and technician (the Work Order Board) */
+    public function findCreatedBetween(\DateTimeImmutable $startUtc, \DateTimeImmutable $endUtc): array
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('c', 'v', 't')
+            ->leftJoin('r.client', 'c')
+            ->leftJoin('r.vehicle', 'v')
+            ->leftJoin('r.masterTechnician', 't')
+            ->andWhere('r.createdOn BETWEEN :start AND :end')
+            ->setParameter('start', $startUtc)
+            ->setParameter('end', $endUtc)
+            ->orderBy('r.createdOn', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     private function inView(ListQuery $list): QueryBuilder
     {
         $query = $this->createQueryBuilder('r')

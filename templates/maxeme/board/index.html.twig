@@ -1,0 +1,66 @@
+{# Schedule › Work Order Board: a period's repair orders in the vehicle's categories, each with its count
+   and total; a count lists that category's repair orders underneath.
+   Vars: period (ReportPeriod), board (stage key => {stage, count, total, repairOrders}), stage (WorkOrderStage or null), rows. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Work Order Board | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set query = period.toQuery|merge(stage ? { stage: stage.value } : {}) %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Work Order Board', lead: 'Where each vehicle is, for the repair orders dated in the period. Click a count to see those repair orders.' } %}
+        {% block title_actions %}<a class="button mx-btn-sm outline" id="board-export" href="{{ path('maxeme_board_export', query) }}">Export CSV</a>{% endblock %}
+    {% endembed %}
+
+    <section class="table-card no-search no-paginate">
+        <form class="mx-report-query" method="get" action="{{ path('maxeme_board_index') }}" id="board-form">
+            {% include 'maxeme/report/_period.html.twig' with { period: period, hidden: { stage: stage ? stage.value } } only %}
+        </form>
+
+        <div class="mx-board" id="work-order-board">
+            {% for key, column in board %}
+                <a class="mx-board-stage {{ stage and stage.value == key ? 'is-current' }}" data-stage="{{ key }}"
+                   href="{{ path('maxeme_board_index', period.toQuery|merge(stage and stage.value == key ? {} : { stage: key })) }}#board-list"
+                   title="{{ column.stage.covers }}">
+                    <span class="mx-board-step">{{ loop.index }}</span>
+                    <span class="mx-board-label">{{ column.stage.label }}</span>
+                    <span class="mx-board-count">{{ column.count }}</span>
+                    <span class="mx-board-total">${{ mx.money(column.total) }}</span>
+                </a>
+            {% endfor %}
+        </div>
+        <p class="muted-line mx-board-note">Hover a category for the repair order statuses it counts. Cancelled repair orders are left out.</p>
+    </section>
+
+    {% if stage %}
+        <section class="table-card no-search no-paginate" id="board-list">
+            <div class="table-header">
+                <h2>{{ stage.label }} <span class="muted-line">{{ rows|length }} repair order{{ rows|length == 1 ? '' : 's' }}</span></h2>
+            </div>
+            <div class="wide-table-wrap">
+                <table class="list-report-table" id="board-table">
+                    <thead>
+                        <tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Repair Name</th><th>Status</th><th>Master Technician</th><th class="num">Total</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for repairOrder in rows %}
+                            <tr id="board_row_{{ repairOrder.id }}">
+                                <td class="mx-nowrap"><a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a></td>
+                                <td class="mx-nowrap">{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                                <td>{% if repairOrder.client %}<a href="{{ path('maxeme_client_show', { id: repairOrder.client.id }) }}">{{ repairOrder.client.fullName }}</a>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                                <td>{{ repairOrder.vehicle ? repairOrder.vehicle.fullName : '—' }}{% if repairOrder.vehicle and repairOrder.vehicle.licensePlate %}<div class="muted-line">{{ repairOrder.vehicle.licensePlate }}</div>{% endif %}</td>
+                                <td>{{ repairOrder.name ?: '—' }}</td>
+                                <td><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
+                                <td>{{ repairOrder.masterTechnician ? repairOrder.masterTechnician.name : '—' }}</td>
+                                <td class="num">{{ mx.money(repairOrder.total) }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="8" class="muted-line">No repair orders in this category for the period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if rows|length %}
+                        <tfoot><tr><td colspan="7">Total:</td><td class="num">{{ mx.money(board[stage.value].total) }}</td></tr></tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}
