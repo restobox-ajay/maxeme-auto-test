@@ -11,6 +11,7 @@ use App\Maxeme\Enum\ServiceReminderQueueStatus;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Reminder\ServiceReminderEmail;
+use App\Maxeme\Reminder\ServiceReminderQueue;
 use App\Maxeme\Repository\ServiceReminderQueueRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -25,7 +26,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Schedule › Service Reminder Queue: the reminder emails completed repair orders queued
  * (App\Maxeme\Reminder\ServiceReminderQueue), what each would say or said, Resend, Book (a new
- * appointment for the vehicle, which books its queued reminders) and Resolved.
+ * repair order for the client's vehicle; booking its appointment books the queued reminders) and
+ * Resolved (cancels the vehicle's queued reminders).
  */
 #[Route('/admin/service-reminder-queue', name: 'maxeme_reminder_queue_')]
 final class ServiceReminderQueueController extends AbstractMaxemeController
@@ -100,15 +102,15 @@ final class ServiceReminderQueueController extends AbstractMaxemeController
             : $this->done($request, sprintf('Could not send the service reminder: %s', $entry->getError()), false);
     }
 
-    /** [Resolved]: dealt with by hand; it will not be sent. */
+    /** [Resolved]: dealt with by hand; it and every queued reminder of the client's vehicle will not be sent. */
     #[Route('/{id}/resolve', name: 'resolve', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::REMINDER_EDIT)]
-    public function resolve(#[MapEntity] ServiceReminderQueueEntry $entry, Request $request): Response
+    public function resolve(#[MapEntity] ServiceReminderQueueEntry $entry, Request $request, ServiceReminderQueue $queue): Response
     {
-        $entry->changeStatus(ServiceReminderQueueStatus::Resolved);
+        $cancelled = count($queue->resolve($entry)) - 1;
         $this->entityManager->flush();
 
-        return $this->done($request, sprintf('Service reminder for %s resolved.', $entry->getClient()->getFullName()));
+        return $this->done($request, sprintf('Service reminder for %s resolved%s.', $entry->getClient()->getFullName(), $cancelled > 0 ? sprintf('; %d more queued for the vehicle cancelled', $cancelled) : ''));
     }
 
     /** A form post (with the return field) goes back with a flash; a .js-post-action gets JSON { message }. */

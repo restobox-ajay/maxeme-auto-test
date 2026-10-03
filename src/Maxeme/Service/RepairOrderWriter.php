@@ -49,12 +49,13 @@ final class RepairOrderWriter
     }
 
     /** A new, unsaved repair order: today's tax rates, the person starting it as advisor, and the customer when known. */
-    public function start(?AdminUser $advisor, ?Client $client = null): RepairOrder
+    /** A new repair order, for $client (and $vehicle, when it is one of the client's) if given. */
+    public function start(?AdminUser $advisor, ?Client $client = null, ?Vehicle $vehicle = null): RepairOrder
     {
         $repairOrder = new RepairOrder($this->taxRates->gstRate(), $this->taxRates->pstRate());
         $repairOrder->setAdvisor($advisor);
         if ($client !== null) {
-            $repairOrder->setCustomer($client, null);
+            $repairOrder->setCustomer($client, $vehicle !== null && $vehicle->getClient() === $client && $vehicle->isActive() ? $vehicle : null);
         }
 
         return $repairOrder;

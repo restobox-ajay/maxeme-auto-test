@@ -23,6 +23,8 @@ use Doctrine\ORM\EntityManagerInterface;
  *   skipped as well.) A repair order is queued once, however often it is completed.
  * - When the customer books a new appointment, every queued reminder of the same client and
  *   vehicle becomes Booked and is not sent.
+ * - Resolved (by hand) resolves the reminder and cancels the queued ones of the same client and
+ *   vehicle: no more emails for it.
  *
  * App\Maxeme\Doctrine\RepairOrderCompletionSubscriber calls these; nothing here flushes.
  */
@@ -75,6 +77,21 @@ final class ServiceReminderQueue
         }
 
         return $entries;
+    }
+
+    /** @return list<ServiceReminderQueueEntry> the entry and the queued reminders of its client's vehicle, all now Resolved */
+    public function resolve(ServiceReminderQueueEntry $entry): array
+    {
+        $resolved = [$entry];
+        $entry->changeStatus(ServiceReminderQueueStatus::Resolved);
+        foreach ($this->queue->findQueuedFor($entry->getClient(), $entry->getVehicle()) as $other) {
+            if ($other !== $entry) {
+                $other->changeStatus(ServiceReminderQueueStatus::Resolved);
+                $resolved[] = $other;
+            }
+        }
+
+        return $resolved;
     }
 
     /** @return list<ServiceReminderQueueEntry> the queued reminders a new appointment booked */

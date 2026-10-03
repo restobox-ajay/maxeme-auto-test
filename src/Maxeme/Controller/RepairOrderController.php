@@ -99,7 +99,7 @@ final class RepairOrderController extends AbstractMaxemeController
         })());
     }
 
-    /** A new repair order; ?id= starts it for that client (Choose a client links so). */
+    /** A new repair order; ?id= starts it for that client (Choose a client links so), ?vehicle= with that vehicle. */
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::WORK_ORDER_EDIT)]
     public function new(Request $request): Response
@@ -107,8 +107,11 @@ final class RepairOrderController extends AbstractMaxemeController
         $user = $this->getUser();
         $clientId = self::idParam($request->query, 'id');
         $client = $clientId !== null ? $this->entityManager->getRepository(Client::class)->findOneBy(['id' => $clientId, 'active' => true]) : null;
+        // ?vehicle= also picks one of the client's vehicles (the Service Reminder Queue's Book).
+        $vehicleId = self::idParam($request->query, 'vehicle');
+        $vehicle = $vehicleId !== null ? $this->entityManager->find(Vehicle::class, $vehicleId) : null;
 
-        return $this->form($this->writer->start($user instanceof AdminUser ? $user : null, $client), $request, 'New Repair Order');
+        return $this->form($this->writer->start($user instanceof AdminUser ? $user : null, $client, $vehicle), $request, 'New Repair Order');
     }
 
     #[Route('/{id}/edit', name: 'edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]

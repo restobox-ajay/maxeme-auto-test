@@ -5,8 +5,8 @@
 {% block title %}Service Reminder Queue | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/reminder/edit') %}
-    {% set canBook = is_granted('/appointment/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Service Reminder Queue', lead: 'When a repair order is completed, its services with a reminder are queued and emailed on their day. Reminders of the same visit within ' ~ constant('App\\Maxeme\\Reminder\\ServiceReminderQueue::QUEUE_AFTER_DAYS') ~ ' days of each other are skipped; a new appointment for the vehicle books them.' } %}
+    {% set canBook = is_granted('/work-order/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Service Reminder Queue', lead: 'When a repair order is completed, its services with a reminder are queued and emailed on their day. Reminders of the same visit within ' ~ constant('App\\Maxeme\\Reminder\\ServiceReminderQueue::QUEUE_AFTER_DAYS') ~ ' days of each other are skipped; a new appointment for the vehicle books them, and Resolved cancels the vehicle\'s queued ones.' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_reminder_queue_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 
@@ -71,7 +71,7 @@
                                         <button type="button" class="button outline mx-btn-sm js-post-action" data-reload data-url="{{ path('maxeme_reminder_queue_resend', { id: entry.id }) }}" data-token="{{ csrf_token_value() }}">{{ entry.status.value == 'sent' ? 'Resend' : 'Send now' }}</button>
                                     {% endif %}
                                     {% if canBook and entry.status.value not in ['booked', 'resolved'] %}
-                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_appointment_new', { id: client.id, vehicle: entry.vehicle.id }) }}">Book</a>
+                                        <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new', { id: client.id, vehicle: entry.vehicle.id }) }}">Book</a>
                                     {% endif %}
                                     {% if canManage and entry.status.value not in ['booked', 'resolved'] %}
                                         <button type="button" class="button primary mx-btn-sm js-post-action" data-reload data-url="{{ path('maxeme_reminder_queue_resolve', { id: entry.id }) }}" data-token="{{ csrf_token_value() }}">Resolved</button>
