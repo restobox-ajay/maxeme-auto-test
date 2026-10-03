@@ -55,11 +55,12 @@
         <table class="wo-table wo-items item-table">
             <thead><tr><th style="width:50%">Repair Items</th><th>Results</th></tr></thead>
             <tbody>
-                {% for line in invoice.serviceLines|merge(invoice.standalonePartLines) %}
+                {% for line in invoice.topServiceLines|merge(invoice.standalonePartLines) %}
                     <tr>
                         <td>{{ line.name }}</td>
                         <td>
                             {% if line.parts is defined %}{% for part in line.parts %}<div>x{{ part.quantity }} {{ part.name }}</div>{% endfor %}{% endif %}
+                            {% if line.parent is defined %}{% for extra in invoice.chargeThroughLines(line) %}<div>x{{ extra.quantity + 0 }} {{ extra.name }}</div>{% endfor %}{% endif %}
                             <div class="wo-tech">Technician:</div>
                         </td>
                     </tr>

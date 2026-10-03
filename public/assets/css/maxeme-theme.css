@@ -618,3 +618,6 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-board-count { font-size: 1.9rem; font-weight: 700; line-height: 1.1; color: var(--mx-primary, #3071a9); }
 .mx-board-total { font-size: 0.85rem; color: var(--muted, #64748b); }
 .mx-board-note { padding: 0 20px 14px; }
+
+/* The invoice builder's charge-through lines under a service (read-only), and on the printed invoice. */
+.mx-charge-through { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; font-size: 0.8rem; }

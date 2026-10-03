@@ -96,15 +96,43 @@ final class InvoiceService
         $this->entityManager->remove($invoice);
     }
 
-    /** @param list<InvoiceItemData> $items */
+    /**
+     * The builder posts every service and part again; its charge-through lines are not posted. A
+     * service already on the invoice keeps the charge-through lines it had (an old invoice's total
+     * doesn't move when the catalogue changes); a service added now brings its catalogue service's
+     * charge-through lines, and is billed under the service's Label when it kept the service's name.
+     *
+     * @param list<InvoiceItemData> $items
+     */
     private function replaceLines(Invoice $invoice, array $items): void
     {
+        $kept = [];
+        foreach ($invoice->getTopServiceLines() as $old) {
+            $serviceId = $old->getService()?->getId();
+            if ($serviceId !== null && !isset($kept[$serviceId])) {
+                $kept[$serviceId] = array_map(
+                    static fn (InvoiceServiceLine $line): array => [(string) $line->getName(), $line->getQuantity(), $line->getSalePrice()],
+                    $invoice->getChargeThroughLines($old),
+                );
+            }
+        }
         $invoice->clearLines();
 
         foreach ($items as $item) {
             if ($item->isService()) {
-                $line = new InvoiceServiceLine($invoice, $item->name, (string) $item->quantity, $item->price, $this->find(ServiceItem::class, $item->id));
+                $service = $this->find(ServiceItem::class, $item->id);
+                $isNew = $service === null || !array_key_exists($service->getId(), $kept);
+                $line = new InvoiceServiceLine($invoice, $isNew ? self::billedName($service, $item->name) : $item->name, (string) $item->quantity, $item->price, $service);
                 $invoice->addServiceLine($line);
+                $chargeThrough = match (true) {
+                    $service === null => [],
+                    !$isNew => $kept[$service->getId()],
+                    default => self::catalogueChargeThrough($service, (string) $item->quantity),
+                };
+                foreach ($chargeThrough as [$name, $quantity, $price]) {
+                    $invoice->addServiceLine(new InvoiceServiceLine($invoice, mb_substr($name, 0, 255), $quantity, $price, null, $line));
+                }
+                unset($kept[$service?->getId()]);
 
                 foreach ($item->parts as $material) {
                     $product = $this->find(ProductCore::class, $material['id']);
@@ -115,6 +143,34 @@ final class InvoiceService
                 $invoice->addPartLine(new InvoicePartLine($invoice, $item->name, $item->quantity, self::cost($product), $item->price, $product));
             }
         }
+    }
+
+    /** The service's Label (its printed name) when the line kept the service's name, as picked; else the name as typed. */
+    private static function billedName(?ServiceItem $service, ?string $name): ?string
+    {
+        $label = $service?->getPreferredName();
+        if ($service === null || $label === null || $label === '') {
+            return $name;
+        }
+
+        return in_array(trim((string) $name), [$service->getName(), $service->getFullName()], true) ? $label : $name;
+    }
+
+    /**
+     * The catalogue service's charge-through lines, for $quantity of the service.
+     *
+     * @return list<array{0: string, 1: string, 2: string}> name, quantity, price of one
+     */
+    private static function catalogueChargeThrough(ServiceItem $service, string $quantity): array
+    {
+        $lines = [];
+        foreach ($service->getLines() as $line) {
+            if ($line->isChargeThrough()) {
+                $lines[] = [$line->getItemLabel(), number_format((float) $line->getQuantity() * max(1.0, (float) $quantity), 2, '.', ''), $line->getUnitPrice()];
+            }
+        }
+
+        return $lines;
     }
 
     /** The product's cost, in dollars to the cent (core keeps 6 decimals): the line's material cost. */

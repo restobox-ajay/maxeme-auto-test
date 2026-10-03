@@ -48,7 +48,7 @@
             <tbody>
                 {% set rows = invoice.serviceLines|merge(invoice.standalonePartLines) %}
                 {% for line in rows %}
-                    <tr class="item-row"><td>{{ line.name }}</td><td class="r">{{ line.quantity }}</td><td class="r">{{ (line.totalCents / 100)|number_format(2, '.', ',') }}</td></tr>
+                    <tr class="item-row"><td>{% if line.parent is defined and line.parent %}<span class="inv-charge-through">&#8627; {{ line.name }}</span>{% else %}{{ line.name }}{% endif %}</td><td class="r">{{ line.quantity }}</td><td class="r">{{ (line.totalCents / 100)|number_format(2, '.', ',') }}</td></tr>
                 {% else %}
                     <tr class="item-row"><td></td><td class="r">1</td><td class="r">0.00</td></tr>
                 {% endfor %}

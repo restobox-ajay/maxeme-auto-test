@@ -84,8 +84,8 @@
                         <thead><tr><th>Item</th><th class="num">Quantity</th><th class="num">Price</th><th class="ctl"></th></tr></thead>
                         <tbody id="mx-item-body">
                             {% set index = 0 %}
-                            {% for line in invoice.serviceLines %}
-                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Services', id: line.service ? line.service.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: line.parts } only %}
+                            {% for line in invoice.topServiceLines %}
+                                {% include 'maxeme/invoice/_item_row.html.twig' with { index: index, type: 'Services', id: line.service ? line.service.id, name: line.name, quantity: line.quantity, price: line.salePrice, parts: line.parts, chargeThrough: invoice.chargeThroughLines(line) } only %}
                                 {% set index = index + 1 %}
                             {% endfor %}
                             {% for line in invoice.standalonePartLines %}

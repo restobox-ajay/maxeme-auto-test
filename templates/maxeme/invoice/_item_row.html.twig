@@ -1,5 +1,7 @@
 {# One row of the builder's item table. Vars: index (row number or "__ROW__" for the JS template),
-   type ('Services' | 'Parts'), id, name, quantity, price, parts (the service's InvoicePartLines). #}
+   type ('Services' | 'Parts'), id, name, quantity, price, parts (the service's InvoicePartLines),
+   chargeThrough (optional: the service's charge-through InvoiceServiceLines, shown read-only; they are
+   kept on save and their amount counts in the live total). #}
 {% set base = 'items[' ~ index ~ ']' %}
 <tr class="item-row">
     <td class="item-name">
@@ -14,6 +16,12 @@
                 {% include 'maxeme/invoice/_part_row.html.twig' with { base: base, index: loop.index0, part: { id: line.product ? line.product.id, name: line.name, quantity: line.quantity } } only %}
             {% endfor %}
         </ul>
+        {% if chargeThrough|default([])|length %}
+            {% set extraCents = 0 %}{% for extra in chargeThrough %}{% set extraCents = extraCents + extra.totalCents %}{% endfor %}
+            <ul class="mx-charge-through muted-line" data-cents="{{ extraCents }}" title="Charge-through lines of the service, billed with it">
+                {% for extra in chargeThrough %}<li>&#8627; {{ extra.name }} · x{{ extra.quantity + 0 }} @ {{ extra.salePrice|number_format(2, '.', ',') }} = {{ (extra.totalCents / 100)|number_format(2, '.', ',') }}</li>{% endfor %}
+            </ul>
+        {% endif %}
     </td>
     <td class="item-quantity num"><input type="number" class="item-quantity-field" name="{{ base }}[quantity]" value="{{ quantity }}" min="1" max="99" step="1" aria-label="Quantity"></td>
     <td class="item-price num"><input type="text" class="item-price-field" name="{{ base }}[price]" value="{{ price }}" {{ input_rule('money') }} aria-label="Price"></td>

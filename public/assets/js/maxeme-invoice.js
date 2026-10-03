@@ -26,6 +26,10 @@
         body.querySelectorAll('tr.item-row').forEach(function (row) {
             var qty = parseInt($('.item-quantity-field', row).value, 10) || 0;
             lines += qty * cents($('.item-price-field', row).value);
+            // A service's charge-through lines: those kept on the invoice (a fixed amount), or the
+            // catalogue's for a service picked now (per one service, saved with it).
+            var kept = $('.mx-charge-through', row);
+            lines += kept ? (parseInt(kept.dataset.cents, 10) || 0) : qty * (parseInt(row.dataset.chargeThroughCents, 10) || 0);
         });
         var discountInput = $('#total-discount-amount');
         var discount = -Math.abs(cents(discountInput.value));
@@ -100,6 +104,9 @@
             $('.item-type', row).value = item.category;
             $('.item-price-field', row).value = item.price === null ? '' : money(cents(item.price));
             $('.mx-parts-list', row).innerHTML = '';
+            var kept = $('.mx-charge-through', row);
+            if (kept) { kept.remove(); }
+            row.dataset.chargeThroughCents = item.chargeThroughCents || 0;
             $('.add_part', row).hidden = item.category !== 'Services';
             calculate();
         }

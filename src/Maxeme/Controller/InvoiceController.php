@@ -191,7 +191,8 @@ final class InvoiceController extends AbstractMaxemeController
         }
         if ($type !== 'parts') {
             foreach ($services->search($term) as $service) {
-                $items[] = ['label' => $service->getFullName(), 'category' => 'Services', 'value' => $service->getId(), 'price' => $service->getPrice()];
+                $chargeThrough = array_sum(array_map(static fn ($line): int => $line->isChargeThrough() ? $line->getExtendedCents() : 0, $service->getLines()));
+                $items[] = ['label' => $service->getFullName(), 'category' => 'Services', 'value' => $service->getId(), 'price' => $service->getPrice(), 'chargeThroughCents' => $chargeThrough];
             }
         }
 
