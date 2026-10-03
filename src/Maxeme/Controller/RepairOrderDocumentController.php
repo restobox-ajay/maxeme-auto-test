@@ -7,6 +7,7 @@ namespace App\Maxeme\Controller;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentActions;
 use App\Maxeme\Document\DocumentKind;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Document\DocumentMailer;
 use App\Maxeme\Document\PdfRenderer;
 use App\Maxeme\Document\PrintedDocument;
@@ -37,6 +38,7 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
         private readonly RepairOrderRepository $repairOrders,
         private readonly PrintedDocuments $documents,
         private readonly DocumentActions $actions,
+        private readonly DocumentNumbers $numbers,
         #[Autowire(param: 'maxeme.company')]
         private readonly array $company,
     ) {
@@ -140,6 +142,12 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
             'invoice' => null,
             'actions' => $this->actions->for($kind, $repairOrder),
             'backUrl' => $this->generateUrl('maxeme_repair_order_edit', ['id' => $repairOrder->getId()]),
+            'numberChange' => $kind === DocumentKind::WorkOrder && $this->isGranted(Permission::WORK_ORDER_EDIT) ? [
+                'label' => 'Change Work Order #',
+                'url' => $this->generateUrl('maxeme_document_number_work_order', ['id' => $repairOrder->getId()]),
+                'value' => $repairOrder->getWorkOrderNumber(),
+                'automatic' => $this->numbers->automaticRepairOrderNumber($repairOrder, DocumentKind::WorkOrder),
+            ] : null,
         ]);
     }
 

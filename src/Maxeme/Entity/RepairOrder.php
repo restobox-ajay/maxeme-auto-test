@@ -25,6 +25,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: RepairOrderRepository::class)]
 #[ORM\Table(name: 'maxeme_repair_order')]
 #[ORM\Index(name: 'idx_maxeme_repair_order_status', columns: ['status'])]
+#[ORM\UniqueConstraint(name: 'uniq_maxeme_repair_order_wo_number', fields: ['workOrderNumber'])]
 class RepairOrder implements HasNotes
 {
     #[ORM\Id]
@@ -98,6 +99,10 @@ class RepairOrder implements HasNotes
      */
     #[ORM\Column(options: ['default' => false])]
     private bool $holdsStock = true;
+
+    /** The work order number typed in (Change Work Order #), shown and printed instead of "WO-00000042"; null = the automatic one. */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $workOrderNumber = null;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdOn;
@@ -214,6 +219,9 @@ class RepairOrder implements HasNotes
     }
 
     public function holdsStock(): bool { return $this->holdsStock; }
+
+    public function getWorkOrderNumber(): ?string { return $this->workOrderNumber; }
+    public function setWorkOrderNumber(?string $number): void { $this->workOrderNumber = $number; }
 
     public function getCreatedOn(): \DateTimeImmutable { return $this->createdOn; }
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }

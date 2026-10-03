@@ -36,22 +36,47 @@ final class DocumentNumbers
         return $this->appSettings->get($key) ?: (string) $this->prefixes->get($key)?->defaultPrefix;
     }
 
-    /** "INV-00001482"; blank while the invoice is not saved. */
+    /**
+     * "INV-00001482"; blank while the invoice is not saved. A number typed in replaces it: the
+     * invoice's own for the invoice, its repair order's work order number for the work order.
+     */
     public function number(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
     {
-        return $invoice->isSaved() ? $this->prefix($kind->prefixKey()) . $invoice->getDisplayedId() : '';
+        $custom = match ($kind) {
+            DocumentKind::Invoice => $invoice->getCustomNumber(),
+            DocumentKind::WorkOrder => $invoice->getRepairOrder()?->getWorkOrderNumber(),
+            DocumentKind::Quote => null,
+        };
+
+        return $custom ?? ($invoice->isSaved() ? $this->automaticNumber($invoice, $kind) : '');
+    }
+
+    /** The number it has when none is typed in: "INV-00001482" / "WO-00001482". */
+    public function automaticNumber(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
+    {
+        return $this->prefix($kind->prefixKey()) . $invoice->getDisplayedId();
     }
 
     /**
      * "RO-00000042", or its quote's "QO-00000042" / work order's "WO-00000042" (a repair order has
-     * one of each, numbered as it is); blank while the repair order is not saved.
+     * one of each, numbered as it is; a work order number typed in replaces the automatic one); blank
+     * while the repair order is not saved.
      */
     public function repairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
     {
         if ($repairOrder->getId() === null) {
             return '';
         }
+        if ($kind === DocumentKind::WorkOrder && $repairOrder->getWorkOrderNumber() !== null) {
+            return $repairOrder->getWorkOrderNumber();
+        }
 
+        return $this->automaticRepairOrderNumber($repairOrder, $kind);
+    }
+
+    /** The number it has when none is typed in: "RO-00000042" / "QO-00000042" / "WO-00000042". */
+    public function automaticRepairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
+    {
         return $this->prefix($kind?->prefixKey() ?? MaxemeDocumentPrefixProvider::REPAIR_ORDER) . str_pad((string) $repairOrder->getId(), 8, '0', \STR_PAD_LEFT);
     }
 

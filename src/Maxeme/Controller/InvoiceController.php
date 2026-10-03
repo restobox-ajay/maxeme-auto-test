@@ -275,6 +275,12 @@ final class InvoiceController extends AbstractMaxemeController
             'invoice' => $invoice,
             'actions' => $actions,
             'backUrl' => $repairOrder !== null ? $this->generateUrl('maxeme_repair_order_invoices', ['id' => $repairOrder->getId()]) : $this->generateUrl('maxeme_invoice_index'),
+            'numberChange' => $this->isGranted(Permission::ACCOUNTING_EDIT) ? [
+                'label' => 'Change Invoice #',
+                'url' => $this->generateUrl('maxeme_document_number_invoice', ['invoiceKey' => $invoice->getInvoiceKey()]),
+                'value' => $invoice->getCustomNumber(),
+                'automatic' => $this->numbers->automaticNumber($invoice),
+            ] : null,
         ]);
     }
 

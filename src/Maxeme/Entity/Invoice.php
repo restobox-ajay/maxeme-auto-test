@@ -22,6 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: InvoiceRepository::class)]
 #[ORM\Table(name: 'maxeme_invoice')]
 #[ORM\UniqueConstraint(name: 'uniq_maxeme_invoice_key', fields: ['invoiceKey'])]
+#[ORM\UniqueConstraint(name: 'uniq_maxeme_invoice_custom_number', fields: ['customNumber'])]
 #[ORM\Index(name: 'idx_maxeme_invoice_last_modified', columns: ['last_modified'])]
 class Invoice
 {
@@ -46,6 +47,10 @@ class Invoice
     /** Issued from a repair order (a copy of its services, charge-through lines and charges), not built in the legacy invoice builder. */
     #[ORM\Column(options: ['default' => false])]
     private bool $issuedFromRepairOrder = false;
+
+    /** The invoice number typed in (Change Invoice #), shown and printed instead of "INV-00001482"; null = the automatic one. */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $customNumber = null;
 
     #[ORM\ManyToOne(targetEntity: Client::class)]
     private ?Client $client = null;
@@ -227,6 +232,8 @@ class Invoice
     public function getAppointment(): ?Appointment { return $this->appointment; }
     public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
     public function isIssuedFromRepairOrder(): bool { return $this->issuedFromRepairOrder; }
+    public function getCustomNumber(): ?string { return $this->customNumber; }
+    public function setCustomNumber(?string $number): void { $this->customNumber = $number; }
     public function getClient(): ?Client { return $this->client; }
     public function getVehicle(): ?Vehicle { return $this->vehicle; }
 

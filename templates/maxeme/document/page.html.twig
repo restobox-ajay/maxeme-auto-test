@@ -1,7 +1,8 @@
 {# The on-screen page of an invoice, quote or work order (a PrintedDocument): title, the action bar
    (each document's PDF menu and a link to the others), the document, print styles. ?print=1 prints
    it on arrival (the other documents' Print). Vars: document, repairOrder (or null), invoice (or null),
-   actions (list of {label, url} links and {menu: {label, printUrl, pdfUrl, emailUrl}} menus), backUrl. #}
+   actions (list of {label, url} links and {menu: {label, printUrl, pdfUrl, emailUrl}} menus), backUrl,
+   numberChange ({label, url, value, automatic} for the Change Invoice # / Work Order # dialog, or null). #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% import 'maxeme/document/_menus.html.twig' as menus %}
@@ -36,11 +37,32 @@
                     <a class="button {{ action.class|default('outline') }}" href="{{ action.url }}">{{ action.label }}</a>
                 {% endif %}
             {% endfor %}
+            {% if numberChange|default(null) %}<button class="button outline" type="button" id="change-number" data-modal-open="#change-number-modal">{{ numberChange.label }}</button>{% endif %}
             {{ mx.logs_link(invoice ?? repairOrder, 'button outline') }}
         </div>
     </nav>
     <div class="invoice-page-container">
         {% include document.kind.printedTemplate with { document: document } only %}
     </div>
+    {% if numberChange|default(null) %}
+        <div class="admin-modal-overlay" id="change-number-modal" role="dialog" aria-modal="true" aria-labelledby="change-number-title">
+            <div class="admin-modal">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <div class="admin-modal-header"><h2 id="change-number-title">{{ numberChange.label }}</h2></div>
+                <form method="post" action="{{ numberChange.url }}">
+                    {{ csrf_field() }}{{ mx.return_field() }}
+                    <div class="admin-modal-body">
+                        <label class="form-label" for="change-number-input">Number</label>
+                        <input type="text" id="change-number-input" name="number" value="{{ numberChange.value }}" maxlength="{{ constant('App\\Maxeme\\Document\\DocumentNumberEditor::MAX_LENGTH') }}" placeholder="{{ numberChange.automatic }}">
+                        <p class="muted-line">Leave it blank for the automatic number, {{ numberChange.automatic }}. It is printed and emailed as typed.</p>
+                    </div>
+                    <div class="admin-modal-footer-split">
+                        <button type="button" class="button outline js-modal-close">Close</button>
+                        <button type="submit" class="button primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
     {% if app.request.query.get('print') %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
 {% endblock %}

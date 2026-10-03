@@ -71,6 +71,15 @@ final class InvoiceRepository extends ServiceEntityRepository
     /** The sidebar Invoice # box: the invoice number as shown, leading zeros and "#" optional. */
     public function findOneByNumber(SearchTerm $find): ?Invoice
     {
+        // A number typed in (Change Invoice #) first, as it is printed.
+        if (trim($find->text) !== '') {
+            $custom = $this->createQueryBuilder('i')
+                ->andWhere('LOWER(i.customNumber) = :number')->setParameter('number', mb_strtolower(trim($find->text)))
+                ->setMaxResults(1)->getQuery()->getOneOrNullResult();
+            if ($custom instanceof Invoice) {
+                return $custom;
+            }
+        }
         $number = $find->invoiceNumber();
 
         return $number !== null ? $this->find($number) : null;
