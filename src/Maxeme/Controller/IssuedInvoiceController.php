@@ -14,6 +14,7 @@ use App\Maxeme\Schedule\ScheduleSettings;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RepairOrderInvoicing;
+use App\Maxeme\Service\InvoicePayments;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,7 +38,7 @@ final class IssuedInvoiceController extends AbstractMaxemeController
 
     #[Route('/edit-issued', name: 'edit', methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
-    public function edit(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, PaymentTypeRepository $paymentTypes, ScheduleSettings $schedule): Response
+    public function edit(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, PaymentTypeRepository $paymentTypes, ScheduleSettings $schedule, InvoicePayments $payments): Response
     {
         if (!$invoice->isIssuedFromRepairOrder()) {
             throw new NotFoundHttpException('Only an invoice issued from a repair order is edited here.');
@@ -49,6 +50,7 @@ final class IssuedInvoiceController extends AbstractMaxemeController
             $form = IssuedInvoiceForm::fromRequest($request);
             $errors = $this->invoicing->update($invoice, $form);
             if ($errors === []) {
+                $payments->sync($invoice, true);
                 $this->addFlash('success', sprintf('Invoice %s saved.', $this->numbers->number($invoice)));
                 // Paid while its repair order is still open (paid ahead of time): the invoice page asks whether to complete and lock it.
                 $repairOrder = $invoice->getRepairOrder();

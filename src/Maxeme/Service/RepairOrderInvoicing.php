@@ -83,10 +83,6 @@ final class RepairOrderInvoicing
     public function update(Invoice $invoice, IssuedInvoiceForm $form): array
     {
         $errors = FieldErrors::from($this->validator->validate($form));
-        $paymentType = $form->paymentTypeId !== null ? $this->entityManager->find(PaymentType::class, (int) $form->paymentTypeId) : null;
-        if ($form->paymentTypeId !== null && $paymentType === null) {
-            $errors['paymentTypeId'] = 'Choose a payment type from the list.';
-        }
 
         $lines = [];
         foreach ($invoice->getServiceLines() as $line) {
@@ -139,9 +135,12 @@ final class RepairOrderInvoicing
         }
         $invoice->replaceCharges(array_map(static fn (array $charge): InvoiceCharge => $charge[0]->setKind($charge[2])->setLabel((string) $charge[1]->label)->setAmount((string) Money::rounded($charge[1]->amount)), $charges));
 
-        $invoice->setStatus(InvoiceStatus::from((string) $form->status));
-        $invoice->setPaymentType($paymentType);
-        $invoice->setPaymentAmount(Money::rounded($form->paymentAmount));
+        // Cancelled or not; Paid / Unpaid follow its payments (InvoicePayments::sync, run by the caller).
+        if ($form->status === InvoiceStatus::Cancelled->value) {
+            $invoice->setStatus(InvoiceStatus::Cancelled);
+        } elseif ($invoice->getStatus() === InvoiceStatus::Cancelled) {
+            $invoice->setStatus(InvoiceStatus::Unpaid);
+        }
         $invoice->setRecommendations($form->recommendations);
         $invoice->setAdminNote($form->adminNote);
         $invoice->setLastModified($form->date !== null ? $this->schedule->toUtc($form->date) : $invoice->getLastModified());

@@ -1,0 +1,34 @@
+{# Add / Edit a payment (mockup 345c037): amount (at most the balance due, plus its own amount when
+   editing), method, date and time, note. Vars: invoice, payment (or null), values, error, paid, balance, types. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}{{ payment ? 'Edit payment' : 'Add payment' }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with {
+        eyebrow: (invoice.repairOrder ? 'Repair Order ' ~ ro_number(invoice.repairOrder) ~ ' · ' : '') ~ 'Invoice ' ~ doc_number(invoice),
+        title: payment ? 'Edit payment' : 'Add payment',
+        lead: 'Invoice total $' ~ mx.money(invoice.totalPrice) ~ ' · paid $' ~ mx.money(paid) ~ ' · balance due $' ~ mx.money(balance)
+    } %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">Back</a>{% endblock %}
+    {% endembed %}
+
+    <form method="post" id="payment-form" class="form-card">
+        {{ csrf_field() }}
+        {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+        <div class="form-grid inline-form-grid mx-form-four">
+            <label><span>Amount *</span><input type="text" name="amount" value="{{ values.amount }}" required {{ input_rule('money') }} autocomplete="off"></label>
+            <label><span>Method *</span>
+                <select name="payment_type_id" required>
+                    <option value="">Choose…</option>
+                    {% for type in types %}<option value="{{ type.id }}" {{ values.payment_type_id == type.id ~ '' ? 'selected' }}>{{ type.name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label><span>Date and time</span><input type="datetime-local" name="paid_at" value="{{ values.paid_at }}"></label>
+            <label><span>Note</span><input type="text" name="note" value="{{ values.note }}" maxlength="255" placeholder="e.g. Deposit"></label>
+        </div>
+        <div class="form-actions">
+            <a class="button outline" href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">Cancel</a>
+            <button class="button primary" type="submit">Save</button>
+        </div>
+    </form>
+{% endblock %}

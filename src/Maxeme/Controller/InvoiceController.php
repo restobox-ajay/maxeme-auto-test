@@ -31,6 +31,8 @@ use App\Maxeme\Security\Permission;
 use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Document\DocumentActions;
 use App\Maxeme\Service\RepairOrderInvoicing;
+use App\Maxeme\Service\InvoicePayments;
+use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Document\PrintedDocuments;
 use App\Maxeme\Service\InvoiceService;
 use App\Maxeme\Service\RecordWriter;
@@ -68,6 +70,7 @@ final class InvoiceController extends AbstractMaxemeController
         private readonly PrintedDocuments $documents,
         private readonly DocumentActions $actions,
         private readonly RepairOrderInvoicing $repairOrderInvoicing,
+        private readonly InvoicePayments $invoicePayments,
         #[Autowire(param: 'maxeme.company')]
         private readonly array $company,
     ) {
@@ -308,6 +311,13 @@ final class InvoiceController extends AbstractMaxemeController
         return $this->render('maxeme/document/page.html.twig', [
             'document' => $this->documents->invoice($invoice),
             'repairOrder' => $repairOrder,
+            // Payment ▾ (mockup 345c037): Mark Paid (the whole balance), Add Payment, View Payments.
+            'paymentMenu' => $this->isGranted(Permission::ACCOUNTING_VIEW) ? [
+                'count' => count($this->invoicePayments->of($invoice)),
+                'balance' => Money::fromCents($this->invoicePayments->balanceCents($invoice)),
+                'canEdit' => $this->isGranted(Permission::ACCOUNTING_EDIT) && $invoice->getStatus() !== InvoiceStatus::Cancelled,
+                'types' => $this->paymentTypes->findActive(),
+            ] : null,
             // Mockup 84d136d: asked after a payment made the invoice Paid while the repair order is open.
             'offerClose' => $repairOrder !== null && $this->isGranted(Permission::WORK_ORDER_EDIT) && $this->repairOrderInvoicing->paidWhileOpen($repairOrder),
             'invoice' => $invoice,
@@ -344,6 +354,8 @@ final class InvoiceController extends AbstractMaxemeController
 
         $intent = InvoiceSaveIntent::tryFrom((string) $request->request->get('intent')) ?? InvoiceSaveIntent::Save;
         $this->invoices->save($invoice, $data, $intent);
+        // The builder's own payment (an invoice with no repair order) becomes a payment row (mockup 345c037).
+        $this->invoicePayments->adoptBuilderPayment($invoice);
         $this->addFlash('success', sprintf('Invoice %s saved.', $this->numbers->number($invoice)));
 
         return match ($intent) {

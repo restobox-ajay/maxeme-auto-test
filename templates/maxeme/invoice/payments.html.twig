@@ -1,0 +1,53 @@
+{# An invoice's Payments (mockup 345c037): total, paid, balance due, each payment with Edit / Delete,
+   "+ Add payment" while something is due. Vars: invoice, payments (list of InvoicePayment), paid, balance. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Payments {{ doc_number(invoice) }} | {{ site_name() }}{% endblock %}
+{% block admin_body %}
+    {% set canEdit = is_granted('/accounting/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: (invoice.repairOrder ? 'Repair Order ' ~ ro_number(invoice.repairOrder) ~ ' · ' : '') ~ 'Invoice ' ~ doc_number(invoice), title: 'Payments' } %}
+        {% block title_actions %}<span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span>{% endblock %}
+        {% block actions %}<a class="button back-button" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Back to invoice</a>{% endblock %}
+    {% endembed %}
+
+    <section class="panel compact-panel">
+        <div class="mx-stats">
+            <div class="mx-stat"><span class="mx-stat-value">{{ doc_number(invoice) }}</span><span class="mx-stat-label">Invoice</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">${{ mx.money(invoice.totalPrice) }}</span><span class="mx-stat-label">Total</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">${{ mx.money(paid) }}</span><span class="mx-stat-label">Paid</span></div>
+            <div class="mx-stat"><span class="mx-stat-value" style="color: {{ balance > 0 ? 'var(--mx-danger, #b42318)' : 'var(--mx-success-dark, #1a7f37)' }}">${{ mx.money(balance) }}</span><span class="mx-stat-label">Balance due</span></div>
+        </div>
+        {% if canEdit and balance > 0 and invoice.status.value != 'cancelled' %}
+            <p style="margin-top:12px"><a class="button mx-success" id="payment-add" href="{{ path('maxeme_invoice_payment_new', { invoiceKey: invoice.invoiceKey }) }}">+ Add payment</a></p>
+        {% endif %}
+    </section>
+
+    <section class="table-card no-search no-paginate" id="invoice-payments">
+        <div class="table-header"><h2>Payments</h2></div>
+        <div class="wide-table-wrap">
+            <table>
+                <thead><tr><th>When</th><th>Method</th><th class="num">$</th><th>Note</th>{% if canEdit %}<th></th>{% endif %}</tr></thead>
+                <tbody>
+                    {% for payment in payments %}
+                        <tr id="payment_{{ payment.id }}">
+                            <td class="mx-nowrap">{{ payment.paidAt|date('m/d/Y h:i A') }}</td>
+                            <td>{{ payment.paymentType ? payment.paymentType.name : '—' }}</td>
+                            <td class="num">{{ mx.money(payment.amount) }}</td>
+                            <td>{{ payment.note }}</td>
+                            {% if canEdit %}
+                                <td><div class="mx-actions">
+                                    <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_invoice_payment_edit', { id: payment.id }) }}">Edit</a>
+                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-reload
+                                            data-url="{{ path('maxeme_invoice_payment_delete', { id: payment.id }) }}" data-token="{{ csrf_token_value() }}"
+                                            data-confirm-title="Delete payment" data-confirm-before="Delete the payment of " data-item="${{ mx.money(payment.amount) }}" data-confirm-after="? The invoice balance goes back up.">Delete</button>
+                                </div></td>
+                            {% endif %}
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="{{ canEdit ? 5 : 4 }}" class="empty-table-cell">No payments yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

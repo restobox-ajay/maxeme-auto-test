@@ -43,6 +43,20 @@
                 {% for action in actions|filter(a => a.menu is not defined) %}
                     <a class="button {{ action.class|default('outline') }}" href="{{ action.url }}">{{ action.label }}</a>
                 {% endfor %}
+                {% set pay = paymentMenu|default(null) %}
+                {% if invoice and pay %}
+                    {# Payment ▾ (mockup 345c037). #}
+                    <details class="mx-menu" id="payment-menu">
+                        <summary class="button outline">Payment <span aria-hidden="true">▾</span></summary>
+                        <div class="mx-menu-list" role="menu">
+                            {% if pay.canEdit and pay.balance > 0 %}
+                                <button role="menuitem" type="button" data-modal-open="#mark-paid-modal">Mark Paid</button>
+                                <a role="menuitem" href="{{ path('maxeme_invoice_payment_new', { invoiceKey: invoice.invoiceKey }) }}">Add Payment</a>
+                            {% endif %}
+                            <a role="menuitem" href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">View Payments ({{ pay.count }})</a>
+                        </div>
+                    </details>
+                {% endif %}
                 {% for action in actions|filter(a => a.menu is defined) %}
                     {{ menus.pdf_menu(action.menu.label, action.menu.printUrl, action.menu.pdfUrl, action.menu.emailUrl) }}
                 {% endfor %}
@@ -110,6 +124,28 @@
         </div>
     {% endif %}
     {% if document.kind.value == 'work_order' and repairOrder %}<script src="/assets/js/maxeme-first-printed.js?v=1" data-url="{{ path('maxeme_repair_order_work_order_printed', { id: repairOrder.id }) }}" data-token="{{ csrf_token_value() }}"></script>{% endif %}
+    {% if invoice and paymentMenu|default(null) and paymentMenu.canEdit and paymentMenu.balance > 0 %}
+        <div class="admin-modal-overlay" id="mark-paid-modal" role="dialog" aria-modal="true" aria-labelledby="mark-paid-title">
+            <div class="admin-modal">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <div class="admin-modal-header"><h2 id="mark-paid-title">Mark {{ doc_number(invoice) }} paid</h2></div>
+                <form method="post" action="{{ path('maxeme_invoice_mark_paid', { invoiceKey: invoice.invoiceKey }) }}">
+                    {{ csrf_field() }}
+                    <div class="admin-modal-body">
+                        <p>One payment of the balance due, <strong>${{ mx.money(paymentMenu.balance) }}</strong>, now.</p>
+                        <label class="form-label" for="mark-paid-method">Payment method</label>
+                        <select id="mark-paid-method" name="payment_type_id" required>
+                            {% for type in paymentMenu.types %}<option value="{{ type.id }}" {{ invoice.paymentType == type ? 'selected' }}>{{ type.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="admin-modal-footer-split">
+                        <button type="button" class="button outline js-modal-close">Close</button>
+                        <button type="submit" class="button mx-success">Mark Paid</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
     {% if decision and decision.open and decision.canDecide %}
         {% for mode in ['approve', 'decline'] %}
             {% set approve = mode == 'approve' %}

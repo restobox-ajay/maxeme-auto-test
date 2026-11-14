@@ -14,19 +14,15 @@
         <section class="form-card">
             <div class="form-grid inline-form-grid mx-form-two">
                 {{ mx.form_errors(errors) }}
+                {# Paid / Unpaid follow the payments (Payment ▾ on the invoice, mockup 345c037); here it is only cancelled or not. #}
                 <label><span>Status</span>
                     <select name="status">
-                        {% for status in statuses %}<option value="{{ status.value }}" {{ form.status == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+                        <option value="{{ form.status == 'cancelled' ? 'unpaid' : form.status }}" {{ form.status != 'cancelled' ? 'selected' }}>{{ form.status == 'paid' ? 'Paid (follows its payments)' : 'Not cancelled (follows its payments)' }}</option>
+                        <option value="cancelled" {{ form.status == 'cancelled' ? 'selected' }}>Cancelled</option>
                     </select>
                 </label>
                 <label><span>Invoice date</span><input type="datetime-local" name="date" value="{{ form.date|replace({ ' ': 'T' }) }}"></label>
-                <label><span>Payment method</span>
-                    <select name="payment_type_id">
-                        <option value="">(none)</option>
-                        {% for type in paymentTypes %}<option value="{{ type.id }}" {{ form.paymentTypeId == type.id ~ '' ? 'selected' }}>{{ type.name }}</option>{% endfor %}
-                    </select>
-                </label>
-                <label><span>Amount paid</span><input type="text" name="payment_amount" value="{{ form.paymentAmount }}" placeholder="0.00" {{ input_rule('money') }}></label>
+                <p class="muted-line span-2">Payments are recorded under Payment ▾ on the invoice (<a href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">view payments</a>).</p>
                 <label class="span-2"><span>Recommendations</span><textarea name="recommendations" rows="3">{{ form.recommendations }}</textarea></label>
                 <label class="span-2"><span>Remark <small class="muted-line">(internal: never printed, shown in the Payment report)</small></span><textarea name="admin_note" rows="2" maxlength="1000">{{ form.adminNote }}</textarea></label>
             </div>
