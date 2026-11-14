@@ -87,7 +87,12 @@ final class InvoiceService
         $discount = $data->negativeDiscount();
         $gst = $this->settings->gst($data->gstRate);
         $pst = $this->settings->pst($data->pstRate);
-        $invoice->applyTotals($this->calculator->calculate($invoice, $discount, $gst, $pst), $discount, $gst, $pst);
+        $totals = $this->calculator->calculate($invoice, $discount, $gst, $pst);
+        // A discount is never more than the items plus fees: it would take the total below zero (mockup 8b30420).
+        if (Money::toCents($totals->subtotal) < 0) {
+            throw new \DomainException("A discount can't be more than the subtotal plus fees: it would take the total below zero.");
+        }
+        $invoice->applyTotals($totals, $discount, $gst, $pst);
 
         $this->entityManager->persist($invoice);
         $this->entityManager->flush();

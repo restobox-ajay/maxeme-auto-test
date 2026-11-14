@@ -11,6 +11,13 @@
 
     <form method="post" id="issued-invoice-form">
         {{ csrf_field() }}
+        {% if invoice.paid %}
+            {# Paid, so locked (mockup 6611dd0). #}
+            <div class="mx-alert mx-alert-info" id="issued-locked" role="status"><div><strong>&#128274; This invoice is paid, so it is locked.</strong>
+                <p class="muted-line">To change it, edit or remove its payments first (<a href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">view payments</a>). Its remark can still be changed on the invoice page.</p></div></div>
+        {% else %}
+            <p class="muted-line">An issued line keeps its name and price; a quantity can only be lowered. To charge more, change the repair order and issue another invoice.</p>
+        {% endif %}
         <section class="form-card">
             <div class="form-grid inline-form-grid mx-form-two">
                 {{ mx.form_errors(errors) }}
@@ -46,18 +53,16 @@
                                 <tr class="{{ line.chargeThrough ? 'mx-ct-row' }}">
                                     <td>
                                         <input type="hidden" name="lines[{{ loop.index0 }}][id]" value="{{ row.id }}">
-                                        <span class="mx-ct-name">{% if line.chargeThrough %}<span aria-hidden="true">↳</span>{% endif %}
-                                            <input type="text" name="lines[{{ loop.index0 }}][name]" value="{{ row.name }}" maxlength="255" aria-label="Item name" class="{{ errors[errorAt ~ 'name'] is defined ? 'is-invalid' }}">
-                                        </span>
+                                        <span class="mx-ct-name">{% if line.chargeThrough %}<span aria-hidden="true">↳</span>{% endif %}{{ line.name }}</span>
                                     </td>
                                     <td class="num">
                                         {% if line.chargeThrough %}
-                                            <input type="text" name="lines[{{ loop.index0 }}][quantity]" value="{{ row.quantity }}" {{ input_rule('quantity') }} aria-label="Quantity" class="{{ errors[errorAt ~ 'quantity'] is defined ? 'is-invalid' }}">
+                                            <input type="number" name="lines[{{ loop.index0 }}][quantity]" value="{{ row.quantity }}" min="0.01" max="{{ line.quantity }}" step="any" aria-label="Quantity (can only be lowered)" title="Can only be lowered, to at most {{ line.quantity + 0 }}" class="{{ errors[errorAt ~ 'quantity'] is defined ? 'is-invalid' }}">
                                         {% else %}
                                             <input type="hidden" name="lines[{{ loop.index0 }}][quantity]" value="1">—
                                         {% endif %}
                                     </td>
-                                    <td class="num"><input type="text" name="lines[{{ loop.index0 }}][price]" value="{{ row.price }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Price" class="{{ errors[errorAt ~ 'price'] is defined ? 'is-invalid' }}"></td>
+                                    <td class="num">{{ line.salePrice|number_format(2) }}</td>
                                     <td class="ctl"><button type="button" class="button mx-btn-sm danger js-row-remove">Delete</button></td>
                                 </tr>
                             {% endif %}

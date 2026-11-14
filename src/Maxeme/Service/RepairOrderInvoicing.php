@@ -19,6 +19,7 @@ use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\RepairOrder;
+use App\Maxeme\Enum\DocumentChargeKind;
 use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Repository\InvoiceRepository;
@@ -82,6 +83,10 @@ final class RepairOrderInvoicing
      */
     public function update(Invoice $invoice, IssuedInvoiceForm $form): array
     {
+        // Paid, so locked (mockup 6611dd0): change its payments first. Its Remark saves on its own.
+        if ($invoice->isPaid()) {
+            return ['status' => 'This invoice is paid, so it is locked. To change it, edit or remove its payments first.'];
+        }
         $errors = FieldErrors::from($this->validator->validate($form));
 
         $lines = [];
@@ -94,14 +99,14 @@ final class RepairOrderInvoicing
             if ($line === null) {
                 continue;
             }
-            if ($row['name'] === null) {
-                $errors[sprintf('lines.%d.name', $n)] = sprintf('Line %d: enter its name.', $n + 1);
-            }
+            // An issued line keeps its name and price; its quantity can only be lowered (mockup 6611dd0):
+            // to charge more, change the repair order and issue another invoice.
+            $row['name'] = $line->getName();
+            $row['price'] = $line->getSalePrice();
             if ($row['quantity'] === null || preg_match(InputRule::Quantity->regex(), $row['quantity']) !== 1 || (float) $row['quantity'] <= 0) {
                 $errors[sprintf('lines.%d.quantity', $n)] = sprintf('Line %d: %s', $n + 1, InputRule::Quantity->message());
-            }
-            if ($row['price'] !== null && preg_match(InputRule::SignedMoney->regex(), $row['price']) !== 1) {
-                $errors[sprintf('lines.%d.price', $n)] = sprintf('Line %d: %s', $n + 1, InputRule::SignedMoney->message());
+            } elseif ((float) $row['quantity'] > (float) $line->getQuantity() + 0.00001) {
+                $errors[sprintf('lines.%d.quantity', $n)] = sprintf('Line %d: a quantity can only be lowered, to at most %s. To charge more, change the repair order and issue another invoice.', $n + 1, (string) (float) $line->getQuantity());
             }
             $kept[$row['id']] = [$line, $row];
         }
@@ -118,6 +123,25 @@ final class RepairOrderInvoicing
             $kind = $row->getKind();
             if ($kind !== null) {
                 $charges[] = [$existingCharges[(string) $row->id] ?? new InvoiceCharge($invoice, $kind), $row, $kind];
+            }
+        }
+
+        // A discount can't take the total below zero (mockup 8b30420): items + fees must cover the discounts.
+        if ($errors === []) {
+            $cents = 0;
+            foreach ($kept as [$line, $row]) {
+                $cents += (int) round((float) $row['quantity'] * Money::toCents((string) $row['price']));
+            }
+            foreach ($invoice->getPartLines() as $part) {
+                $cents += $part->totalCents();
+            }
+            $cents += Money::toCents($invoice->getDiscountAmount());
+            foreach ($form->charges as $row) {
+                $amount = abs(Money::toCents((string) Money::rounded($row->amount)));
+                $cents += $row->getKind() === DocumentChargeKind::Discount ? -$amount : $amount;
+            }
+            if ($cents < 0) {
+                $errors['charges'] = "A discount can't be more than the subtotal plus fees: it would take the total below zero.";
             }
         }
 

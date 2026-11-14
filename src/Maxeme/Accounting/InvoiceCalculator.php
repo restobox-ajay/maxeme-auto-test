@@ -36,8 +36,9 @@ final class InvoiceCalculator
             $gstBase += $line->chargesGst() ? $cents : 0;
             $pstBase += $line->chargesPst() ? $cents : 0;
         }
-        $gst = Money::percentOf($gstBase, $gstRate);
-        $pst = Money::percentOf($pstBase, $pstRate);
+        // A discount only reduces a base that exists (mockup 8b30420): a GST-only invoice never gets negative PST.
+        $gst = Money::percentOf(max(0, $gstBase), $gstRate);
+        $pst = Money::percentOf(max(0, $pstBase), $pstRate);
 
         return new InvoiceTotals(
             Money::fromCents($subtotal),

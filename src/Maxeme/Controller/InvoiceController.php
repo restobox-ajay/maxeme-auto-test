@@ -353,7 +353,11 @@ final class InvoiceController extends AbstractMaxemeController
         }
 
         $intent = InvoiceSaveIntent::tryFrom((string) $request->request->get('intent')) ?? InvoiceSaveIntent::Save;
-        $this->invoices->save($invoice, $data, $intent);
+        try {
+            $this->invoices->save($invoice, $data, $intent);
+        } catch (\DomainException $exception) {
+            return $this->renderForm($invoice, ['discount' => $exception->getMessage()], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
+        }
         // The builder's own payment (an invoice with no repair order) becomes a payment row (mockup 345c037).
         $this->invoicePayments->adoptBuilderPayment($invoice);
         $this->addFlash('success', sprintf('Invoice %s saved.', $this->numbers->number($invoice)));
