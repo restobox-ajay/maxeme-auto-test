@@ -50,13 +50,17 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
 
     #[Route('/invoices', name: 'invoices', methods: ['GET'])]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
-    public function invoices(int $id, InvoiceRepository $invoices): Response
+    public function invoices(int $id, InvoiceRepository $invoices, RepairOrderInvoicing $invoicing): Response
     {
         $repairOrder = $this->repairOrder($id);
+        $list = $invoices->findForRepairOrder($repairOrder);
 
         return $this->render('maxeme/repair_order/invoices.html.twig', [
             'repairOrder' => $repairOrder,
-            'invoices' => $invoices->findForRepairOrder($repairOrder),
+            'invoices' => $list,
+            // Charged so far (mockup 6611dd0) and which unpaid invoice no longer matches it (mockup 0a4baef).
+            'billing' => $invoicing->hasLiveInvoice($repairOrder) ? $invoicing->billing($repairOrder) : [],
+            'outOfDate' => array_map(static fn ($invoice): int => (int) $invoice->getId(), array_values(array_filter($list, $invoicing->isOutOfDate(...)))),
         ]);
     }
 
@@ -72,14 +76,28 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
 
             return $this->redirectToRoute('maxeme_repair_order_invoices', ['id' => $id]);
         }
+        // Another invoice charges only what was picked, at most what remains of each line (mockup 6611dd0).
+        $pick = null;
+        if ($invoicing->hasLiveInvoice($repairOrder)) {
+            $remaining = array_column($invoicing->billing($repairOrder), 'remaining', 'key');
+            $pick = [];
+            foreach ((array) $request->request->all('pick') as $row) {
+                $key = is_array($row) ? (string) ($row['key'] ?? '') : '';
+                $quantity = is_array($row) && is_numeric($row['qty'] ?? null) ? (float) $row['qty'] : 0.0;
+                if (isset($remaining[$key]) && $quantity > 0) {
+                    $pick[$key] = min($quantity, $remaining[$key]);
+                }
+            }
+            $pick = array_filter($pick, static fn (float $quantity): bool => $quantity > 0);
+        }
         try {
-            $invoice = $invoicing->issue($repairOrder);
+            $invoice = $invoicing->issue($repairOrder, $pick);
         } catch (\DomainException $exception) {
             $this->addFlash('error', $exception->getMessage());
 
             return $this->redirectToRoute('maxeme_repair_order_invoices', ['id' => $id]);
         }
-        $this->addFlash('success', 'Invoice issued.');
+        $this->addFlash('success', $pick === null ? 'Invoice issued.' : 'Invoice issued for the picked quantities.');
 
         return $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
     }

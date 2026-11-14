@@ -43,24 +43,23 @@ final class RepairOrderInvoicing
     ) {
     }
 
-    /** @throws \DomainException when the repair order has nothing to bill */
-    public function issue(RepairOrder $repairOrder): Invoice
+    /**
+     * Issues an invoice: a copy of the repair order as it is now; with $pick (billing key => quantity,
+     * partial invoicing, mockup 6611dd0) only those quantities.
+     *
+     * @param array<string, float>|null $pick
+     *
+     * @throws \DomainException when there is nothing to bill
+     */
+    public function issue(RepairOrder $repairOrder, ?array $pick = null): Invoice
     {
         if ($repairOrder->getJobs() === [] && $repairOrder->getCharges() === []) {
             throw new \DomainException('Add a service to the repair order before issuing an invoice.');
         }
 
         $invoice = Invoice::forRepairOrder($repairOrder);
-        foreach ($repairOrder->getJobs() as $job) {
-            $serviceTax = RepairOrderCalculator::serviceTax($job);
-            $service = (new InvoiceServiceLine($invoice, PrintedDocuments::billedName($job), '1', $job->getPrice(), $job->getService()))->setTax($serviceTax);
-            $invoice->addServiceLine($service);
-            foreach ($job->getChargeThroughLines() as $line) {
-                $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($line->getItemLabel(), 0, 255), $line->getQuantity(), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax, $this->partTaxes)));
-            }
-        }
-        foreach ($repairOrder->getCharges() as $charge) {
-            $invoice->addCharge((new InvoiceCharge($invoice, $charge->getKind()))->setLabel($charge->getLabel())->setAmount($charge->getAmount()));
+        if (!$this->writeRows($invoice, $repairOrder, $pick)) {
+            throw new \DomainException('Nothing was picked to invoice: enter a quantity for at least one line.');
         }
         $this->recalculate($invoice);
 
@@ -69,6 +68,181 @@ final class RepairOrderInvoicing
 
         return $invoice;
     }
+
+    /**
+     * What has been charged so far on a repair order (mockup 6611dd0): every line (service,
+     * charge-through line, fee / discount) with what was ordered, what is charged on its invoices that
+     * are not cancelled, and what remains. Lines are matched by name: a service by its name, a line by
+     * its service and name, a fee by its kind and label.
+     *
+     * @return list<array{key: string, kind: string, label: string, parent: ?string, ordered: float, charged: float, remaining: float, unit: string}>
+     */
+    public function billing(RepairOrder $repairOrder): array
+    {
+        $charged = [];
+        $add = static function (string $key, float $quantity) use (&$charged): void {
+            $charged[$key] = ($charged[$key] ?? 0) + $quantity;
+        };
+        foreach ($this->invoices->findForRepairOrder($repairOrder) as $invoice) {
+            if ($invoice->getStatus() === InvoiceStatus::Cancelled) {
+                continue;
+            }
+            foreach ($invoice->getTopServiceLines() as $service) {
+                if (!$service->isContinued()) {
+                    $add(self::serviceKey((string) $service->getName()), 1);
+                }
+                foreach ($invoice->getChargeThroughLines($service) as $line) {
+                    $add(self::lineKey((string) $service->getName(), (string) $line->getName()), (float) $line->getQuantity());
+                }
+            }
+            foreach ($invoice->getCharges() as $charge) {
+                $add(self::chargeKey($charge->getKind()->value, $charge->getLabel()), 1);
+            }
+        }
+
+        $rows = [];
+        $push = static function (string $key, array $row) use (&$rows): void {
+            if (isset($rows[$key])) {
+                $rows[$key]['ordered'] += $row['ordered'];
+
+                return;
+            }
+            $rows[$key] = ['key' => $key] + $row;
+        };
+        foreach ($repairOrder->getJobs() as $job) {
+            $name = PrintedDocuments::billedName($job);
+            $push(self::serviceKey($name), ['kind' => 'service', 'label' => $name, 'parent' => null, 'ordered' => 1.0, 'unit' => $job->getPrice()]);
+            foreach ($job->getChargeThroughLines() as $line) {
+                $label = mb_substr($line->getItemLabel(), 0, 255);
+                $push(self::lineKey($name, $label), ['kind' => 'line', 'label' => $label, 'parent' => $name, 'ordered' => (float) $line->getQuantity(), 'unit' => $line->getUnitPrice()]);
+            }
+        }
+        foreach ($repairOrder->getCharges() as $charge) {
+            $push(self::chargeKey($charge->getKind()->value, $charge->getLabel()), ['kind' => 'charge', 'label' => $charge->getLabel(), 'parent' => null, 'ordered' => 1.0, 'unit' => $charge->getAmount()]);
+        }
+
+        return array_values(array_map(static function (array $row) use ($charged): array {
+            $row['charged'] = round($charged[$row['key']] ?? 0, 2);
+            $row['remaining'] = max(0, round($row['ordered'] - $row['charged'], 2));
+
+            return $row;
+        }, $rows));
+    }
+
+    /**
+     * An unpaid invoice issued from a repair order is out of date (mockup 0a4baef) when the repair order
+     * would now give other lines, fees or totals; with several invoices each is a share of the repair
+     * order, not a copy of it, so none is.
+     */
+    public function isOutOfDate(Invoice $invoice): bool
+    {
+        $repairOrder = $invoice->getRepairOrder();
+        if ($repairOrder === null || !$invoice->isIssuedFromRepairOrder() || $invoice->getStatus() !== InvoiceStatus::Unpaid) {
+            return false;
+        }
+        if (count(array_filter($this->invoices->findForRepairOrder($repairOrder), static fn (Invoice $other): bool => $other->getStatus() !== InvoiceStatus::Cancelled)) > 1) {
+            return false;
+        }
+        $shape = static fn (Invoice $source): string => (string) json_encode([
+            array_map(static fn (InvoiceServiceLine $service): array => [$service->getName(), Money::toCents((string) $service->getSalePrice()), array_map(static fn (InvoiceServiceLine $line): array => [$line->getName(), (float) $line->getQuantity(), Money::toCents((string) $line->getSalePrice())], $source->getChargeThroughLines($service))], $source->getTopServiceLines()),
+            array_map(static fn (InvoiceCharge $charge): array => [$charge->getKind()->value, $charge->getLabel(), Money::toCents($charge->getAmount())], $source->getCharges()),
+        ]);
+        $fresh = Invoice::forRepairOrder($repairOrder);
+        $this->writeRows($fresh, $repairOrder, null);
+        $this->recalculate($fresh);
+        $same = $shape($fresh) === $shape($invoice) && Money::toCents($fresh->getTotalPrice()) === Money::toCents($invoice->getTotalPrice());
+        // The comparison copy is never saved.
+        foreach ([...$fresh->getServiceLines()->toArray(), ...$fresh->getCharges()] as $row) {
+            if ($this->entityManager->contains($row)) {
+                $this->entityManager->detach($row);
+            }
+        }
+
+        return !$same;
+    }
+
+    /**
+     * Sync Repair Order (mockup 0a4baef): the unpaid invoice takes the repair order's current lines,
+     * fees, totals, rates, concern and recommendations; its number, date and payments stay. The caller
+     * then lets the payments re-check it (a deposit may now cover the whole total).
+     */
+    public function syncFromRepairOrder(Invoice $invoice): void
+    {
+        $repairOrder = $invoice->getRepairOrder();
+        if ($repairOrder === null || $invoice->getStatus() !== InvoiceStatus::Unpaid) {
+            throw new \DomainException('Only an unpaid invoice issued from a repair order can be synced.');
+        }
+        foreach ($invoice->getTopServiceLines() as $service) {
+            $invoice->removeServiceLine($service);
+        }
+        $invoice->replaceCharges([]);
+        $invoice->setNote($repairOrder->getConcern());
+        $invoice->setRecommendations($repairOrder->getRecommendations());
+        $invoice->applyTotals($this->calculator->calculate($invoice, $invoice->getDiscountAmount(), $repairOrder->getGstRate(), $repairOrder->getPstRate()), $invoice->getDiscountAmount(), $repairOrder->getGstRate(), $repairOrder->getPstRate());
+        $this->writeRows($invoice, $repairOrder, null);
+        $this->recalculate($invoice);
+        $this->entityManager->flush();
+    }
+
+    /**
+     * The invoice rows the repair order gives (all of it, or $pick's quantities): each service with
+     * its charge-through lines, then each fee / discount. A service already charged with lines left
+     * comes along at 0, marked continued.
+     *
+     * @param array<string, float>|null $pick
+     *
+     * @return bool whether anything was written
+     */
+    private function writeRows(Invoice $invoice, RepairOrder $repairOrder, ?array $pick): bool
+    {
+        $want = static fn (string $key, float $full): float => $pick === null ? $full : (float) ($pick[$key] ?? 0);
+        $used = [];
+        $wrote = false;
+        foreach ($repairOrder->getJobs() as $job) {
+            $name = PrintedDocuments::billedName($job);
+            $serviceTax = RepairOrderCalculator::serviceTax($job);
+            $children = [];
+            foreach ($job->getChargeThroughLines() as $line) {
+                $label = mb_substr($line->getItemLabel(), 0, 255);
+                $key = self::lineKey($name, $label);
+                $quantity = isset($used[$key]) ? 0.0 : $want($key, (float) $line->getQuantity());
+                $used[$key] = true;
+                if ($quantity > 0) {
+                    $children[] = [$line, $label, $quantity];
+                }
+            }
+            $serviceKey = self::serviceKey($name);
+            $takeService = !isset($used[$serviceKey]) && $want($serviceKey, 1) > 0;
+            $used[$serviceKey] = true;
+            if (!$takeService && $children === []) {
+                continue;
+            }
+            $service = (new InvoiceServiceLine($invoice, $name, '1', $takeService ? $job->getPrice() : '0.00', $job->getService()))->setTax($serviceTax);
+            if (!$takeService) {
+                $service->markContinued();
+            }
+            $invoice->addServiceLine($service);
+            foreach ($children as [$line, $label, $quantity]) {
+                $invoice->addServiceLine((new InvoiceServiceLine($invoice, $label, Money::rounded((string) $quantity), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax, $this->partTaxes)));
+            }
+            $wrote = true;
+        }
+        foreach ($repairOrder->getCharges() as $charge) {
+            $key = self::chargeKey($charge->getKind()->value, $charge->getLabel());
+            $take = !isset($used[$key]) && $want($key, 1) > 0;
+            $used[$key] = true;
+            if ($take) {
+                $invoice->addCharge((new InvoiceCharge($invoice, $charge->getKind()))->setLabel($charge->getLabel())->setAmount($charge->getAmount()));
+                $wrote = true;
+            }
+        }
+
+        return $wrote;
+    }
+
+    private static function serviceKey(string $name): string { return 'S|' . $name; }
+    private static function lineKey(string $service, string $line): string { return 'L|' . $service . '|' . $line; }
+    private static function chargeKey(string $kind, string $label): string { return 'C|' . $kind . '|' . $label; }
 
     /** Totals from the invoice's own lines and charges (after issuing or editing it). */
     public function recalculate(Invoice $invoice): void

@@ -75,6 +75,27 @@ final class IssuedInvoiceController extends AbstractMaxemeController
         ], new Response('', $errors !== [] ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
+    /**
+     * Sync Repair Order (mockup 0a4baef): an unpaid invoice that no longer matches its repair order
+     * takes its current lines, fees and totals; the number, date and payments stay.
+     */
+    #[Route('/sync', name: 'sync', methods: ['POST'])]
+    #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
+    public function sync(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, InvoicePayments $payments): Response
+    {
+        try {
+            $this->invoicing->syncFromRepairOrder($invoice);
+            // A payment already made may now cover the new total.
+            $payments->sync($invoice);
+            $this->addFlash('success', sprintf('Invoice %s synced with its repair order.', $this->numbers->number($invoice)));
+        } catch (\DomainException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+        $back = (string) $request->request->get('back', '');
+
+        return str_starts_with($back, '/admin/') ? $this->redirect($back) : $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+    }
+
     #[Route('/delete', name: 'delete', methods: ['POST'])]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
     public function delete(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): JsonResponse

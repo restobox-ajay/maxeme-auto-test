@@ -1,5 +1,6 @@
 {# A repair order's Invoices tab: "+ Issue Invoice" (a copy of the repair order as it is now) and its
-   invoices: Date, Amount, Status (Issued / Paid / Cancelled), View / Edit / Delete. Vars: repairOrder, invoices. #}
+   invoices: Date, Amount, Status (Issued / Paid / Cancelled), View / Edit / Delete. Vars: repairOrder, invoices,
+   billing (charged so far, mockup 6611dd0), outOfDate (ids, mockup 0a4baef). #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Invoices · Repair Order {{ ro_number(repairOrder) }} | {{ site_name() }}{% endblock %}
@@ -31,23 +32,15 @@
             {% if is_granted('/accounting/edit') %}
                 {# A second invoice (one not cancelled is already there) asks first (mockup 34181b0). #}
                 {% set live = invoices|filter(i => i.status.value != 'cancelled') %}
-                <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}" id="ro-invoice-issue"
-                      {% if live is not empty %}data-confirm-another="{{ ro_number(repairOrder) }} already has {{ live|map(i => doc_number(i))|join(', ') }}. Issue another invoice for what the repair order says now?"{% endif %}>
-                    {{ csrf_field() }}
-                    <input type="hidden" name="confirmed" value="">
-                    <button class="button mx-btn-sm mx-success" type="submit">+ Issue Invoice</button>
-                </form>
-                <script>
-                    (function () {
-                        var form = document.getElementById('ro-invoice-issue');
-                        if (!form || !form.getAttribute('data-confirm-another')) { return; }
-                        form.addEventListener('submit', function (event) {
-                            if (form.elements.confirmed.value === '1') { return; }
-                            event.preventDefault();
-                            window.WC.confirm('Issue another invoice', '', '', form.getAttribute('data-confirm-another'), function () { form.elements.confirmed.value = '1'; form.submit(); });
-                        });
-                    })();
-                </script>
+                {% if live is empty %}
+                    <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}" id="ro-invoice-issue">
+                        {{ csrf_field() }}
+                        <button class="button mx-btn-sm mx-success" type="submit">+ Issue Invoice</button>
+                    </form>
+                {% else %}
+                    {# Another invoice charges only what is picked of what remains (mockup 6611dd0). #}
+                    <button class="button mx-btn-sm mx-success" type="button" data-modal-open="#issue-another-modal" id="ro-invoice-another">+ Issue another invoice</button>
+                {% endif %}
             {% endif %}
         </div>
         <div class="wide-table-wrap">
@@ -59,7 +52,7 @@
                             <td data-label="Invoice #" class="mx-nowrap"><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">{{ doc_number(invoice) }}</a></td>
                             <td data-label="Date" class="mx-nowrap">{{ invoice.documentDate|date('m/d/Y') }}</td>
                             <td data-label="Amount" class="num">{{ mx.money(invoice.totalPrice) }}</td>
-                            <td data-label="Status"><span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span></td>
+                            <td data-label="Status"><span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span>{% if invoice.id in outOfDate|default([]) %} <span class="badge danger" title="Its repair order changed since it was issued">Out of date</span>{% endif %}</td>
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
                                     <a class="button mx-btn-sm primary" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">View</a>
@@ -75,6 +68,7 @@
                                                     data-confirm-after="?">Delete</button>
                                         {% endif %}
                                     {% endif %}
+                                    {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="back" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}
                                     {{ mx.logs_link(invoice) }}
                                 </div>
                             </td>
@@ -86,4 +80,69 @@
             </table>
         </div>
     </section>
+
+    {% if billing is not empty %}
+        {% set left = billing|filter(r => r.remaining > 0) %}
+        <section class="table-card no-paginate" id="ro-billing">
+            <div class="table-header"><div>
+                <h2>Charged so far</h2>
+                <p class="muted-line">What the repair order orders, what its invoices that are not cancelled charge, and what remains. Lines are matched by name.</p>
+            </div></div>
+            <div class="wide-table-wrap">
+                <table>
+                    <thead><tr><th>Item</th><th class="num">Ordered</th><th class="num">Charged</th><th class="num">Remaining</th></tr></thead>
+                    <tbody>
+                        {% for row in billing %}
+                            <tr class="{{ row.remaining > 0 ? 'mx-row-open' : 'muted-line' }}">
+                                <td data-label="Item">{% if row.kind == 'line' %}<span aria-hidden="true">&#8627;</span> {% endif %}{{ row.label }}{% if row.kind == 'charge' %} <span class="muted-line">(fee / discount)</span>{% endif %}</td>
+                                <td data-label="Ordered" class="num">{{ row.ordered + 0 }}</td>
+                                <td data-label="Charged" class="num">{{ row.charged + 0 }}</td>
+                                <td data-label="Remaining" class="num">{% if row.remaining > 0 %}<strong>{{ row.remaining + 0 }}</strong>{% else %}&#10003;{% endif %}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if left is empty %}<p class="muted-line">Everything on the repair order is charged.</p>{% endif %}
+        </section>
+
+        {% if is_granted('/accounting/edit') %}
+            <div class="admin-modal-overlay" id="issue-another-modal" role="dialog" aria-modal="true" aria-labelledby="issue-another-title">
+                <div class="admin-modal">
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                    <div class="admin-modal-header"><h2 id="issue-another-title">Issue another invoice</h2></div>
+                    <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}" id="ro-invoice-issue">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="confirmed" value="1">
+                        <div class="admin-modal-body">
+                            <p class="muted-line">{{ ro_number(repairOrder) }} already has {{ live|map(i => doc_number(i))|join(', ') }}. Enter how much of each remaining line to charge on the new invoice (0 leaves it out). A service already charged comes along at 0 as the heading of its remaining lines.</p>
+                            {% if left is empty %}
+                                <p><strong>Nothing remains to charge.</strong> Change the repair order first (add a line or raise a quantity).</p>
+                            {% else %}
+                                <table>
+                                    <thead><tr><th>Item</th><th class="num">Remaining</th><th class="num">Charge now</th></tr></thead>
+                                    <tbody>
+                                        {% for row in left %}
+                                            <tr>
+                                                <td>{% if row.kind == 'line' %}<span aria-hidden="true">&#8627;</span> {{ row.parent }} · {% endif %}{{ row.label }}</td>
+                                                <td class="num">{{ row.remaining + 0 }}</td>
+                                                <td class="num">
+                                                    <input type="hidden" name="pick[{{ loop.index0 }}][key]" value="{{ row.key }}">
+                                                    <input type="number" name="pick[{{ loop.index0 }}][qty]" value="{{ row.remaining + 0 }}" min="0" max="{{ row.remaining }}" step="{{ row.kind == 'line' ? 'any' : 1 }}" aria-label="Charge now: {{ row.label }}" style="width:6rem">
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% endif %}
+                        </div>
+                        <div class="admin-modal-footer-split">
+                            <button type="button" class="button outline js-modal-close">Cancel</button>
+                            {% if left is not empty %}<button type="submit" class="button mx-success">Issue invoice</button>{% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
 {% endblock %}

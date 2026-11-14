@@ -255,9 +255,13 @@ final class InvoiceController extends AbstractMaxemeController
     {
         $find = SearchTerm::fromRequest($request);
 
+        $page = $this->repository->findPage($find, ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc'));
+
         return $this->render('maxeme/invoice/index.html.twig', [
-            'page' => $this->repository->findPage($find, ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc')),
+            'page' => $page,
             'find' => $find,
+            // Mockup 0a4baef: unpaid invoices whose repair order changed since.
+            'outOfDate' => array_map(static fn (Invoice $invoice): int => (int) $invoice->getId(), array_values(array_filter($page->items, $this->repairOrderInvoicing->isOutOfDate(...)))),
         ]);
     }
 
@@ -319,6 +323,8 @@ final class InvoiceController extends AbstractMaxemeController
                 'types' => $this->paymentTypes->findActive(),
             ] : null,
             // Mockup 84d136d: asked after a payment made the invoice Paid while the repair order is open.
+            // Mockup 0a4baef: the repair order changed since this unpaid invoice was issued.
+            'outOfDate' => $this->repairOrderInvoicing->isOutOfDate($invoice),
             'offerClose' => $repairOrder !== null && $this->isGranted(Permission::WORK_ORDER_EDIT) && $this->repairOrderInvoicing->paidWhileOpen($repairOrder),
             'invoice' => $invoice,
             'actions' => $actions,

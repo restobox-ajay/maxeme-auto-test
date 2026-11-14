@@ -42,6 +42,10 @@ class InvoiceServiceLine
     #[ORM\Column(options: ['default' => true])]
     private bool $chargesPst = true;
 
+    /** A service already charged on an earlier invoice, here at 0 as the heading of its remaining lines (partial invoicing, mockup 6611dd0). */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $continued = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Invoice::class, inversedBy: 'serviceLines')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -66,6 +70,8 @@ class InvoiceServiceLine
         $this->parts = new ArrayCollection();
     }
 
+    public function isContinued(): bool { return $this->continued; }
+    public function markContinued(): self { $this->continued = true; return $this; }
     public function chargesGst(): bool { return $this->chargesGst; }
     public function chargesPst(): bool { return $this->chargesPst; }
     public function getTax(): LineTax { return new LineTax($this->chargesGst, $this->chargesPst); }
