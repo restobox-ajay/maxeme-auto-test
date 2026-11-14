@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Maxeme\Enum\MileageUnit;
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -60,6 +61,9 @@ final class VehicleData extends FormData
         return match (true) {
             $property === 'year' && $value !== null => (int) $value,
             $property === 'mileageUnit' => MileageUnit::fromValue($value),
+            // "88,000" is stored as 88000; a VIN and a plate in capitals (audit fix 34181b0).
+            $property === 'mileage' => ContactFormat::normalizeMileage($value),
+            $property === 'vin', $property === 'licensePlate' => $value !== null ? strtoupper(trim($value)) : null,
             default => $value,
         };
     }

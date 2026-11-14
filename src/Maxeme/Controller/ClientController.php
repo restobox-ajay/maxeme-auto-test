@@ -21,6 +21,7 @@ use App\Maxeme\Repository\VehicleRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use App\Maxeme\Service\RecordRules;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -108,10 +109,14 @@ final class ClientController extends AbstractMaxemeController
 
     #[Route('', name: 'create', methods: ['POST'])]
     #[RequiresPermission(Permission::PEOPLE_EDIT)]
-    public function create(Request $request): Response
+    public function create(Request $request, RecordRules $rules): Response
     {
         $data = ClientData::fromRequest($request);
-        if (($errors = $this->records->validate($data)) !== []) {
+        $errors = $this->records->validate($data);
+        if ($errors === [] && ($duplicate = $rules->clientDuplicate($data)) !== null) {
+            $errors['email'] = $duplicate;
+        }
+        if ($errors !== []) {
             $this->flashErrors($errors);
 
             return $this->redirectBack($request, 'maxeme_client_index');
@@ -227,12 +232,16 @@ final class ClientController extends AbstractMaxemeController
 
     #[Route('/{id}', name: 'update', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::PEOPLE_EDIT)]
-    public function update(#[MapEntity] Client $client, Request $request): Response
+    public function update(#[MapEntity] Client $client, Request $request, RecordRules $rules): Response
     {
         $this->denyUnlessActive($client);
 
         $data = ClientData::fromRequest($request);
-        if (($errors = $this->records->validate($data)) !== []) {
+        $errors = $this->records->validate($data);
+        if ($errors === [] && ($duplicate = $rules->clientDuplicate($data, $client)) !== null) {
+            $errors['email'] = $duplicate;
+        }
+        if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
             $this->records->save($client, $data);

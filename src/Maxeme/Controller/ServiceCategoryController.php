@@ -11,6 +11,7 @@ use App\Maxeme\Repository\ServiceCategoryRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use App\Maxeme\Service\RecordRules;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +33,7 @@ final class ServiceCategoryController extends AbstractMaxemeController
     public function __construct(
         private readonly ServiceCategoryRepository $categories,
         private readonly RecordWriter $records,
+        private readonly RecordRules $rules,
     ) {
     }
 
@@ -112,6 +114,7 @@ final class ServiceCategoryController extends AbstractMaxemeController
 
     private function form(ServiceCategory $category, Request $request, string $title, string $saved): Response
     {
+        $rules = $this->rules;
         $data = ServiceCategoryData::fromEntity($category);
         $errors = [];
 
@@ -121,6 +124,9 @@ final class ServiceCategoryController extends AbstractMaxemeController
             $parent = $data->parentId !== null ? $this->categories->find((int) $data->parentId) : null;
             if ($data->parentId !== null && $parent === null) {
                 $errors['parentId'] = 'Choose a parent category from the list.';
+            }
+            if (!isset($errors['name']) && ($taken = $rules->categoryNameTaken($data->name, $parent, $category)) !== null) {
+                $errors['name'] = $taken;
             }
             if ($errors === []) {
                 try {

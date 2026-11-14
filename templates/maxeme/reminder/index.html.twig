@@ -84,7 +84,7 @@
                                 {% endif %}
                             </td>
                             <td class="mx-nowrap">
-                                {% for n, number in client.phones %}<div class="phone-line" title="Phone Number {{ n }}">{{ mx_icon('phone') }} {{ number }}</div>{% else %}<span class="muted-line">—</span>{% endfor %}
+                                {% for n, number in client.phones %}<div class="phone-line" title="Phone Number {{ n }}">{{ mx_icon('phone') }} {{ number|phone }}</div>{% else %}<span class="muted-line">—</span>{% endfor %}
                             </td>
                             <td>
                                 {% if canManage %}

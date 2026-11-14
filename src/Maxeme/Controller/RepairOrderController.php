@@ -27,6 +27,7 @@ use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Staff\Technicians;
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Schedule\ScheduleSettings;
@@ -157,7 +158,7 @@ final class RepairOrderController extends AbstractMaxemeController
                 'label' => $client->getFullName(),
                 'category' => null,
                 'price' => null,
-                'phones' => $client->getPhones(),
+                'phones' => array_map(ContactFormat::phone(...), $client->getPhones()),
                 'email' => $client->getEmail(),
                 'vehicles' => array_map(self::vehicleOption(...), array_values($client->getVehicles()->toArray())),
                 'addresses' => array_map(self::addressOption(...), array_values($client->getAddresses()->toArray())),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -61,4 +62,10 @@ final class ClientAddressData extends FormData
 
     #[Assert\Length(max: 65535)]
     public ?string $deliveryInstructions = null;
+
+    /** A Canadian postal code is stored as "V6X 2P9" however it was typed (audit fix 34181b0). */
+    protected function toEntityValue(string $property, ?string $value): mixed
+    {
+        return $property === 'postalCode' ? ContactFormat::normalizePostalCode($value) : $value;
+    }
 }

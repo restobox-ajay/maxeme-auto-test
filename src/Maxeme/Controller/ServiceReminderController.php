@@ -7,6 +7,8 @@ namespace App\Maxeme\Controller;
 use App\Maxeme\Dto\ServiceReminderData;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceReminder;
+use App\Maxeme\Entity\ServiceReminderQueueEntry;
+use App\Maxeme\Enum\ServiceReminderQueueStatus;
 use App\Maxeme\Entity\ServiceReminderTemplate;
 use App\Maxeme\Repository\ServiceReminderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -64,6 +66,11 @@ final class ServiceReminderController extends AbstractMaxemeController
     #[RequiresPermission(Permission::SERVICE_EDIT)]
     public function delete(#[MapEntity] ServiceReminder $reminder): JsonResponse
     {
+        // Not while reminder emails of it wait to be sent (audit fix 8b30420).
+        $queued = $this->entityManager->getRepository(ServiceReminderQueueEntry::class)->count(['rule' => $reminder, 'status' => ServiceReminderQueueStatus::Queued]);
+        if ($queued > 0) {
+            return $this->json(['message' => sprintf('The reminder for %s is used by %d queued reminder email%s waiting to be sent, so it cannot be deleted.', $reminder->getService()->getName(), $queued, $queued === 1 ? '' : 's')], Response::HTTP_CONFLICT);
+        }
         $this->entityManager->remove($reminder);
         $this->entityManager->flush();
 

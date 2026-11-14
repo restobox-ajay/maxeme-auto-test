@@ -51,6 +51,7 @@ final class RepairOrderWriter
         private readonly Technicians $technicians,
         private readonly RepairOrderStatusChange $statusChange,
         private readonly DocumentNumbers $numbers,
+        private readonly RecordRules $rules,
     ) {
     }
 
@@ -234,6 +235,9 @@ final class RepairOrderWriter
             if ($form->newClient->firstName === null && $form->newClient->lastName === null) {
                 $errors['new_client.firstName'] = 'Enter the new customer\'s name.';
             }
+            if ($errors === [] && ($duplicate = $this->rules->clientDuplicate($form->newClient)) !== null) {
+                $errors['new_client.email'] = $duplicate;
+            }
             $client = new Client();
             if ($errors === []) {
                 $form->newClient->applyTo($client);
@@ -261,6 +265,9 @@ final class RepairOrderWriter
             $errors = self::prefixed('new_vehicle.', FieldErrors::from($this->validator->validate($form->newVehicle)));
             if ($form->newVehicle->manufacturer === null && $form->newVehicle->model === null && $form->newVehicle->licensePlate === null && $form->newVehicle->vin === null) {
                 $errors['new_vehicle.model'] = 'Enter the new vehicle\'s make, model, licence plate or VIN.';
+            }
+            if ($errors === [] && ($taken = $this->rules->vinTaken($form->newVehicle->vin)) !== null) {
+                $errors['new_vehicle.vin'] = $taken;
             }
             $vehicle = new Vehicle($client);
             if ($errors === []) {

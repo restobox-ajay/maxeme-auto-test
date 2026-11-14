@@ -92,10 +92,8 @@ final class TaxClassController extends AbstractSettingsListController
 
     protected function inUse(object $record): ?string
     {
-        $uses = $this->taxClasses->countUses($record);
+        $uses = $this->taxClasses->describeUses($record);
 
-        return $uses > 0
-            ? sprintf('%s is used by %d labour rate%s or government fee%2$s. Give them another tax class first.', $record->getName(), $uses, $uses === 1 ? '' : 's')
-            : null;
+        return $uses !== '' ? sprintf('%s is used by %s, so it cannot be deleted. Give them another tax class first.', $record->getName(), $uses) : null;
     }
 }

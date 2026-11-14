@@ -32,8 +32,10 @@ use App\Maxeme\Entity\TaxClass;
 use App\Maxeme\Dto\PaymentTypeData;
 use App\Maxeme\Dto\TaxClassData;
 use App\Maxeme\Security\StaffRole;
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Validation\InputRule;
 use App\Menu\Admin\AdminMenuIconSet;
+use Twig\Attribute\AsTwigFilter;
 use Twig\Attribute\AsTwigFunction;
 
 final class MaxemeExtension
@@ -77,6 +79,13 @@ final class MaxemeExtension
     public function repairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
     {
         return $this->numbers->repairOrderNumber($repairOrder, $kind);
+    }
+
+    /** {{ number|phone }}: "604-285-8200" (ContactFormat); text that is not a phone as it is. */
+    #[AsTwigFilter('phone')]
+    public function phone(?string $value): string
+    {
+        return ContactFormat::phone($value);
     }
 
     /** {% for role in staff_roles(user) %}: every shop role the account holds, highest first. */

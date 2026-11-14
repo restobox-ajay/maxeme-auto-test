@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -63,5 +64,24 @@ final class ClientData extends FormData
         if ($this->firstName === null && $this->lastName === null && $this->preferredName === null) {
             $context->buildViolation('Enter a first name, last name or preferred name.')->atPath('firstName')->addViolation();
         }
+    }
+
+    /** The edit form shows phones as 604-285-8200 (audit fix 34181b0). */
+    public static function fromEntity(object $entity): static
+    {
+        $data = parent::fromEntity($entity);
+        foreach (['phone1', 'phone2', 'phone3', 'phone4'] as $property) {
+            if ($data->{$property} !== null) {
+                $data->{$property} = ContactFormat::phone($data->{$property});
+            }
+        }
+
+        return $data;
+    }
+
+    /** A phone is stored as its digits (text that is not a phone as typed). */
+    protected function toEntityValue(string $property, ?string $value): mixed
+    {
+        return str_starts_with($property, 'phone') ? ContactFormat::normalizePhone($value) : $value;
     }
 }

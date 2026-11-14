@@ -10,6 +10,7 @@ use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Entity\AbstractCharge;
 use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Labour;
+use App\Maxeme\Entity\RepairOrderJobLine;
 use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Entity\TaxClass;
 use App\Maxeme\Repository\TaxClassRepository;
@@ -99,6 +100,13 @@ abstract class AbstractChargeController extends AbstractMaxemeController
         $services = $charge instanceof Labour || $charge instanceof GovtFee ? $lines->serviceNamesUsing($charge) : [];
         if ($services !== []) {
             return $this->json(['message' => sprintf('%s is on the lines of %s: %s. Remove it from them first, or switch it off.', $charge->getName(), count($services) === 1 ? 'a service' : count($services) . ' services', implode(', ', $services))], Response::HTTP_CONFLICT);
+        }
+        // Repair order lines too (audit fix 8b30420): their lines would lose what they charge for.
+        $roLines = $charge instanceof Labour || $charge instanceof GovtFee
+            ? (int) $this->entityManager->getRepository(RepairOrderJobLine::class)->count([$charge instanceof Labour ? 'labour' : 'govtFee' => $charge])
+            : 0;
+        if ($roLines > 0) {
+            return $this->json(['message' => sprintf('%s is on %d repair order line%s, so it cannot be deleted. Switch it off instead.', $charge->getName(), $roLines, $roLines === 1 ? '' : 's')], Response::HTTP_CONFLICT);
         }
 
         $this->entityManager->remove($charge);

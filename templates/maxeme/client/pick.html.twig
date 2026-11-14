@@ -39,7 +39,7 @@
                             <td data-label="First name">{{ client.firstName }}</td>
                             <td data-label="Last name">{{ client.lastName }}</td>
                             <td data-label="Preferred name">{{ client.preferredName }}</td>
-                            <td data-label="Phone">{{ client.phones|join(' · ') }}</td>
+                            <td data-label="Phone">{{ client.phones|map(p => p|phone)|join(' · ') }}</td>
                             <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
                             <td data-label="Actions"><a class="button primary mx-btn-sm" href="{{ path(for.route, { id: client.id }) }}">Choose</a></td>
                         </tr>

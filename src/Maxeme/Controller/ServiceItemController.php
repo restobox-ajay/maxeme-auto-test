@@ -25,6 +25,7 @@ use App\Maxeme\Repository\TaxClassRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use App\Maxeme\Service\RecordRules;
 use App\Maxeme\Service\ServiceLineBuilder;
 use App\Service\Product\ProductPicker;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -51,6 +52,7 @@ final class ServiceItemController extends AbstractMaxemeController
         private readonly LabourRepository $labour,
         private readonly GovtFeeRepository $govtFees,
         private readonly ServiceLineBuilder $lineBuilder,
+        private readonly RecordRules $rules,
     ) {
     }
 
@@ -152,6 +154,9 @@ final class ServiceItemController extends AbstractMaxemeController
                 $errors['taxClassId'] = 'Choose a tax class from the list.';
             }
         }
+        if ($property === 'name' && !isset($errors['name']) && ($taken = $this->rules->serviceNameTaken($data->name, $service)) !== null) {
+            $errors['name'] = $taken;
+        }
         if (isset($errors[$property])) {
             return $this->json(['message' => $errors[$property]], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -200,6 +205,9 @@ final class ServiceItemController extends AbstractMaxemeController
             }
             if ($data->taxClassId !== null && $taxClass === null) {
                 $errors['taxClassId'] = 'Choose a tax class from the list.';
+            }
+            if (!isset($errors['name']) && ($taken = $this->rules->serviceNameTaken($data->name, $service)) !== null) {
+                $errors['name'] = $taken;
             }
             $built = $this->lineBuilder->build($service->getLines(), $lines, static fn (ServiceLineType $type): ServiceLine => new ServiceLine($service, $type));
             $errors += $built['errors'];

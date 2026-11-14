@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Maxeme\Enum\MileageUnit;
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Enum\RepairOrderStatus;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -94,6 +95,7 @@ final class RepairOrderData extends FormData
     {
         return match ($property) {
             'mileageUnit' => MileageUnit::fromValue($value),
+            'mileage' => ContactFormat::normalizeMileage($value),
             'gstRate', 'pstRate' => (int) $value,
             default => $value,
         };

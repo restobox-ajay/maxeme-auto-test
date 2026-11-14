@@ -10,6 +10,7 @@ use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientPickPurpose;
+use App\Maxeme\Service\RecordRules;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
@@ -45,6 +46,7 @@ final class VehicleController extends AbstractMaxemeController
         private readonly RecordWriter $records,
         private readonly VehicleRepository $vehicles,
         private readonly EntityManagerInterface $entityManager,
+        private readonly RecordRules $rules,
     ) {
     }
 
@@ -159,10 +161,14 @@ final class VehicleController extends AbstractMaxemeController
 
     #[Route('/admin/clients/{id}/vehicles', name: 'maxeme_vehicle_create', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::CAR_EDIT)]
-    public function create(#[MapEntity] Client $client, Request $request): RedirectResponse
+    public function create(#[MapEntity] Client $client, Request $request, RecordRules $rules): RedirectResponse
     {
         $data = VehicleData::fromRequest($request);
-        if (($errors = $this->records->validate($data)) !== []) {
+        $errors = $this->records->validate($data);
+        if ($errors === [] && ($taken = $rules->vinTaken($data->vin)) !== null) {
+            $errors['vin'] = $taken;
+        }
+        if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
             $this->records->save($vehicle = new Vehicle($client), $data);
@@ -174,10 +180,14 @@ final class VehicleController extends AbstractMaxemeController
 
     #[Route('/admin/vehicles/{id}', name: 'maxeme_vehicle_update', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::CAR_EDIT)]
-    public function update(#[MapEntity] Vehicle $vehicle, Request $request): RedirectResponse
+    public function update(#[MapEntity] Vehicle $vehicle, Request $request, RecordRules $rules): RedirectResponse
     {
         $data = VehicleData::fromRequest($request);
-        if (($errors = $this->records->validate($data)) !== []) {
+        $errors = $this->records->validate($data);
+        if ($errors === [] && ($taken = $rules->vinTaken($data->vin, $vehicle)) !== null) {
+            $errors['vin'] = $taken;
+        }
+        if ($errors !== []) {
             $this->flashErrors($errors);
         } else {
             $this->records->save($vehicle, $data);
@@ -209,6 +219,9 @@ final class VehicleController extends AbstractMaxemeController
             if ($client === null) {
                 $errors['clientId'] = 'Choose the client the vehicle belongs to.';
             }
+            if (!isset($errors['vin']) && ($taken = $this->rules->vinTaken($data->vin, $vehicle)) !== null) {
+                $errors['vin'] = $taken;
+            }
             if ($errors === [] && $client !== null) {
                 if ($vehicle === null) {
                     $vehicle = new Vehicle($client);
@@ -238,18 +251,18 @@ final class VehicleController extends AbstractMaxemeController
     }
 
     /**
-     * @param list<RepairOrder> $repairOrders newest first
+     * @param list<RepairOrder> $repairOrders newest first (only the finished ones count)
      *
      * @return array{visits: int, spent: string, first: ?\DateTimeImmutable, last: ?\DateTimeImmutable, services: int}
      */
     private static function stats(array $repairOrders): array
     {
+        // Finished work only (audit fix 34181b0): Completed, Picked Up or Invoiced; estimates, open and cancelled ones are not visits yet.
+        $repairOrders = array_values(array_filter($repairOrders, static fn (RepairOrder $repairOrder): bool => $repairOrder->getStatus()->isWorkDone()));
         $spent = 0;
         $services = 0;
         foreach ($repairOrders as $repairOrder) {
-            if ($repairOrder->getStatus() !== RepairOrderStatus::Cancelled) {
-                $spent += Money::toCents($repairOrder->getTotal());
-            }
+            $spent += Money::toCents($repairOrder->getTotal());
             $services += count($repairOrder->getJobs());
         }
 

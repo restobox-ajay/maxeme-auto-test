@@ -7,6 +7,7 @@ namespace App\Maxeme\Schedule;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Repository\AppointmentRepository;
+use App\Maxeme\Validation\ContactFormat;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -56,7 +57,7 @@ final class ScheduleCalendar
             // "[New] 2011 TOYOTA CAMRY"; a direct booking says what it is for: "[New · Bodywork] …".
             sprintf('[%s%s] %s', $appointment->getStatus()->label(), $type->hasRepairOrder() ? '' : ' · ' . $type->label(), $appointment->getVehicle()?->getFullName() ?? '(no vehicle)'),
             $client->getFullName(),
-            (string) $client->getPhone1(),
+            ContactFormat::phone($client->getPhone1()),
             sprintf('Description: %s', $description),
         ];
         // Its own technician, else its repair order's (mockup 986d771).

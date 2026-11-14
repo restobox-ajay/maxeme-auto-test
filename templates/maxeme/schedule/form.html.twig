@@ -54,7 +54,7 @@
                     <input id="client_full_name" type="text" value="{{ client.fullName }}" readonly>
                 </label>
                 <label>Phone number:
-                    <input type="text" value="{{ client.phones|join(' · ') }}" readonly>
+                    <input type="text" value="{{ client.phones|map(p => p|phone)|join(' · ') }}" readonly>
                 </label>
                 <label for="appointment_type">Appointment for:
                     <select id="appointment_type" name="type">

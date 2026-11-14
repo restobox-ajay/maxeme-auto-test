@@ -10,6 +10,7 @@ use App\Maxeme\Entity\ServiceReminderTemplate;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use App\Maxeme\Service\RecordRules;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -28,6 +29,7 @@ final class ServiceReminderTemplateController extends AbstractMaxemeController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly RecordWriter $records,
+        private readonly RecordRules $rules,
     ) {
     }
 
@@ -77,6 +79,9 @@ final class ServiceReminderTemplateController extends AbstractMaxemeController
         if ($request->isMethod('POST')) {
             $data = ServiceReminderTemplateData::fromRequest($request);
             $errors = $this->records->validate($data);
+            if (!isset($errors['name']) && ($taken = $this->rules->templateNameTaken($data->name, $template)) !== null) {
+                $errors['name'] = $taken;
+            }
             if ($errors === []) {
                 $this->records->save($template, $data);
                 $this->addFlash('success', sprintf($saved, $template->getName()));

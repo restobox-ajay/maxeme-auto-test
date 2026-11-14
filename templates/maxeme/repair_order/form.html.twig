@@ -74,7 +74,7 @@
                     <div id="ro-client-info" class="mx-ro-info" {{ client is null or data.clientId == 'new' ? 'hidden' }}>
                         {% if client %}
                             <div><a href="{{ path('maxeme_client_show', { id: client.id }) }}">{{ client.fullName }}</a></div>
-                            {% for phone in client.phones %}<div>Phone {{ loop.index }}: {{ phone }}</div>{% endfor %}
+                            {% for phone in client.phones %}<div>Phone {{ loop.index }}: {{ phone|phone }}</div>{% endfor %}
                             {% if client.email %}<div>{{ client.email }}</div>{% endif %}
                         {% endif %}
                     </div>

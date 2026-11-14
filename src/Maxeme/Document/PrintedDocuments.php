@@ -13,6 +13,7 @@ use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\WorkStatus;
+use App\Maxeme\Validation\ContactFormat;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\RepairOrder;
@@ -119,7 +120,7 @@ final class PrintedDocuments
             date: $repairOrder->getLastUpdated(),
             status: $repairOrder->getStatus()->label(),
             clientName: (string) $client?->getFullName(),
-            phones: $client?->getPhones() ?? [],
+            phones: array_map(ContactFormat::phone(...), $client?->getPhones() ?? []),
             address: $client?->getPrimaryAddress()?->getOneLine(),
             email: $client?->getEmail(),
             vehicleYear: $vehicle?->getYear() !== null ? (string) $vehicle->getYear() : null,
