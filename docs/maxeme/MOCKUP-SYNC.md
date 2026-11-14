@@ -77,7 +77,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 77bc586 | RO "Concern" → "Internal Comment (staff only, never printed)" | done 2b53d29 | P2 |
 | 1e3b16c | Client appointments: Repair Order button | done 2b53d29 | P3 |
 | 33caa46 | Check-in button on the calendar popup and client's pending appointments | done 2b53d29 | P3 |
-| f556ee8 | Work order "First Printed On" replaces "Last Modified On": set on the first print (or PDF), never changed (RO; invoice with no RO) | done (this step) | P2 |
+| f556ee8 | Work order "First Printed On" replaces "Last Modified On": set on the first print (or PDF), never changed (RO; invoice with no RO) | done 7381719 | P2 |
 | 84d136d | New-appointment RO list = open orders only (estimate … awaiting parts) with status; a payment that makes an invoice Paid while its RO is still open asks "Complete and lock?" | partial — RO list done 355a9f8; the complete-and-lock prompt goes with the paid-lock rules | P5 |
 
 ## Audit fixes inside 8b30420 / 34181b0
