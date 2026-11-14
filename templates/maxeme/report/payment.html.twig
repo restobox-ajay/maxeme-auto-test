@@ -1,19 +1,30 @@
-{# Accounting › Payment Report: invoices by their invoice (payment) date, payment method as a filter of the
-   table, each split into Parts, Labour, Discounts, Govt Fees, then Subtotal, Taxes, Grand Total.
-   Vars: period (ReportPeriod), method (PaymentType or null), methods, result, amounts (key => heading). #}
+{# Accounting › Payment Report (mockups c857353 … 28b649a, df38f34, d16ca79, 8b30420): the payments of a period
+   (paid invoices, by their invoice date), filtered by ticking payment methods (it applies by itself a moment
+   after the last tick), with Subtotal, Taxes, Grand Total and the invoice's Remark (the pencil edits it here);
+   what each method took with tax; and the invoices issued in the period that are not paid yet, apart.
+   Vars: period (ReportPeriod), picked (ticked PaymentTypes), methods, result, amounts (key => heading), latestDay. #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Payment Report | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% set query = period.toQuery|merge(method ? { method: method.id } : {}) %}
+    {% set pickedIds = picked|map(m => m.id) %}
+    {% set query = period.toQuery|merge(picked is not empty ? { method: pickedIds|join(',') } : {}) %}
+    {% set canEdit = is_granted('/accounting/edit') %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Payment Report' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" id="payment-report-export" href="{{ path('maxeme_report_summary_export', query) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 
-    <section class="table-card no-search no-paginate">
+    <section class="table-card no-search no-paginate" id="payment-report-card" data-token="{{ csrf_token_value() }}">
         <form class="mx-report-query" method="get" action="{{ path('maxeme_report_summary') }}" id="payment-report-form">
-            {% include 'maxeme/report/_period.html.twig' with { period: period } only %}
+            {% include 'maxeme/report/_period.html.twig' with { period: period, hidden: { method: picked is not empty ? pickedIds|join(',') } } only %}
         </form>
+        <p class="muted-line mx-board-note">
+            {% if result.rows is empty and latestDay %}The latest payment is dated {{ latestDay|date('m/d/Y', false) }}. <a href="{{ path('maxeme_report_summary', { from: latestDay, to: latestDay }) }}">Show that day</a>.
+            {% else %}Paid invoices only. Subtotal is before tax and includes fees and discounts.{% endif %}
+        </p>
+        <p class="muted-line mx-board-note" id="payment-by-method">With tax, by payment method:
+            {% for item in result.byMethod %}<strong>{{ item.method.name }}</strong> {{ mx.money(item.total) }} ({{ item.count }}){{ not loop.last ? ' · ' }}{% else %}no payments in this period{% endfor %}
+        </p>
 
         <div class="wide-table-wrap">
             <table class="list-report-table" id="payment-report">
@@ -21,16 +32,26 @@
                     <tr>
                         <th>Invoice #</th><th>Date</th><th>Time</th><th>Payment method</th>
                         {% for heading in amounts %}<th class="num">{{ heading }}</th>{% endfor %}
+                        <th>Remark</th>
                     </tr>
                     <tr class="filter-row">
                         <th></th><th></th><th></th>
                         <th>
-                            <select name="method" form="payment-report-form" aria-label="Filter by payment method" onchange="this.form.submit()">
-                                <option value="">All</option>
-                                {% for option in methods %}<option value="{{ option.id }}" {{ method == option ? 'selected' }}>{{ option.name }}</option>{% endfor %}
-                            </select>
+                            {# Tick one or more methods; it filters by itself 2.5 s after the last tick (mockup 28b649a). #}
+                            <details class="mx-menu mx-method-filter" id="payment-methods">
+                                <summary class="mx-method-summary">{{ picked is not empty ? picked|map(m => m.name)|join(', ') : 'All methods' }} ▾</summary>
+                                <div class="mx-menu-list mx-method-list">
+                                    {% for option in methods %}
+                                        <label class="mx-method-option"><input type="checkbox" class="js-method" value="{{ option.id }}" {{ option.id in pickedIds ? 'checked' }}> {{ option.name }}</label>
+                                    {% endfor %}
+                                </div>
+                            </details>
                         </th>
                         {% for heading in amounts %}<th></th>{% endfor %}
+                        <th class="mx-nowrap">
+                            <button type="button" class="button mx-btn-sm" id="payment-methods-filter">Filter</button>
+                            <a class="button mx-btn-sm outline" href="{{ path('maxeme_report_summary', period.toQuery) }}">Clear</a>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,18 +63,120 @@
                             <td>{{ invoice.documentDate|date('h:i:s A') }}</td>
                             <td>{{ invoice.paymentType ? invoice.paymentType.name }}</td>
                             {% for key, heading in amounts %}<td class="num">{{ mx.money(row.amounts[key]) }}</td>{% endfor %}
+                            <td class="mx-remark-cell">
+                                <span class="mx-remark-text">{{ invoice.adminNote }}</span>
+                                {% if canEdit %}<button type="button" class="mx-remark-edit" title="Edit remark" aria-label="Edit remark"
+                                        data-url="{{ path('maxeme_invoice_remark', { invoiceKey: invoice.invoiceKey }) }}" data-number="{{ doc_number(invoice) }}">&#9998;</button>{% endif %}
+                            </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ 4 + amounts|length }}" class="empty-table-cell">No invoices in this period.</td></tr>
+                        <tr><td colspan="{{ 5 + amounts|length }}" class="empty-table-cell">No payments in this period.</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr>
                         <td>Overall:</td><td></td><td></td><td></td>
                         {% for key, heading in amounts %}<td class="num">{{ mx.money(result.totals[key]) }}</td>{% endfor %}
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
     </section>
+
+    {% if result.unpaid is not empty %}
+        <section class="table-card no-search no-paginate" id="payment-report-unpaid">
+            <div class="table-header"><h2>Issued, not paid yet <span class="muted-line">not payments: left out of the totals above</span></h2></div>
+            <div class="wide-table-wrap">
+                <table class="list-report-table">
+                    <thead><tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Status</th><th class="num">Amount due</th></tr></thead>
+                    <tbody>
+                        {% for invoice in result.unpaid %}
+                            <tr>
+                                <td><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}" target="_blank" rel="noopener">{{ doc_number(invoice) }}</a></td>
+                                <td>{{ invoice.documentDate|date('m/d/Y') }}</td>
+                                <td>{{ (invoice.clientFirstName ~ ' ' ~ invoice.clientLastName)|trim ?: '—' }}</td>
+                                <td><span class="badge {{ invoice.status.badge }}">{{ invoice.status.label }}</span></td>
+                                <td class="num">{{ mx.money(invoice.totalPrice) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    {% if canEdit %}
+        <div class="admin-modal-overlay" id="remark-modal" role="dialog" aria-modal="true" aria-labelledby="remark-modal-title">
+            <div class="admin-modal">
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                <div class="admin-modal-header"><h2 id="remark-modal-title">Remark</h2></div>
+                <div class="admin-modal-body">
+                    <textarea id="remark-text" rows="4" maxlength="1000" placeholder="Internal remark: never printed on customer documents"></textarea>
+                </div>
+                <div class="admin-modal-footer-split">
+                    <button type="button" class="button outline js-modal-close">Cancel</button>
+                    <button type="button" class="button mx-success" id="remark-save">Save</button>
+                </div>
+            </div>
+        </div>
+        <button type="button" id="remark-modal-open" data-modal-open="#remark-modal" hidden></button>
+    {% endif %}
+
+    <script>
+        (function () {
+            var card = document.getElementById('payment-report-card');
+            var form = document.getElementById('payment-report-form');
+            var box = document.getElementById('payment-methods');
+            var boxes = Array.prototype.slice.call(document.querySelectorAll('.js-method'));
+
+            /* Payment methods: ticking filters by itself a moment after the last tick; the list opens again after the reload. */
+            function go() {
+                var ticked = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+                var params = new URLSearchParams(new FormData(form));
+                params.delete('method');
+                if (ticked.length && ticked.length < boxes.length) { params.set('method', ticked.join(',')); }
+                window.location.search = params.toString();
+            }
+            var timer;
+            boxes.forEach(function (b) {
+                b.addEventListener('change', function () {
+                    clearTimeout(timer);
+                    timer = setTimeout(function () { try { sessionStorage.setItem('mxMethodsOpen', '1'); } catch (e) {} go(); }, 2500);
+                });
+            });
+            document.getElementById('payment-methods-filter').addEventListener('click', go);
+            try { if (sessionStorage.getItem('mxMethodsOpen')) { sessionStorage.removeItem('mxMethodsOpen'); box.open = true; } } catch (e) {}
+            document.addEventListener('click', function (event) { if (!box.contains(event.target)) { box.open = false; } });
+            document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { box.open = false; } });
+
+            /* Remark pencil (mockup df38f34): edit the invoice's remark in a popup on this page. */
+            var modalOpen = document.getElementById('remark-modal-open');
+            if (!modalOpen) { return; }
+            var text = document.getElementById('remark-text'), title = document.getElementById('remark-modal-title'), current = null;
+            card.addEventListener('click', function (event) {
+                var pencil = event.target.closest('.mx-remark-edit');
+                if (!pencil) { return; }
+                current = pencil;
+                title.textContent = 'Remark · ' + pencil.getAttribute('data-number');
+                text.value = pencil.parentNode.querySelector('.mx-remark-text').textContent;
+                modalOpen.click();
+                setTimeout(function () { text.focus(); }, 50);
+            });
+            document.getElementById('remark-save').addEventListener('click', function () {
+                if (!current) { return; }
+                var body = new FormData();
+                body.append('admin_note', text.value);
+                fetch(current.getAttribute('data-url'), { method: 'POST', body: body, headers: { 'X-CSRF-TOKEN': card.getAttribute('data-token'), 'Accept': 'application/json' } })
+                    .then(function (response) { return response.json().then(function (json) { return { ok: response.ok, json: json }; }); })
+                    .then(function (result) {
+                        if (!result.ok) { window.WC.showToast(result.json.message || 'The remark could not be saved.', 'error'); return; }
+                        current.parentNode.querySelector('.mx-remark-text').textContent = result.json.remark || '';
+                        document.querySelector('#remark-modal .js-modal-close').click();
+                        window.WC.showToast('Remark saved.', 'success');
+                    })
+                    .catch(function () { window.WC.showToast('The remark could not be saved.', 'error'); });
+            });
+        })();
+    </script>
 {% endblock %}

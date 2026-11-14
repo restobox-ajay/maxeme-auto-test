@@ -1,4 +1,5 @@
-{# Accounting › Service Report: one row per service of the repair orders made in the period. Vars: period
+{# Accounting › Service Report: finished work only (mockup 8b30420): one row per service of the repair orders
+   made in the period, then their fees and discounts, taxes shared out to the cent. Vars: period
    (ReportPeriod), result, amounts (key => heading). #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
@@ -12,6 +13,7 @@
         <form class="mx-report-query" method="get" action="{{ path('maxeme_report_service') }}">
             {% include 'maxeme/report/_period.html.twig' with { period: period } only %}
         </form>
+        <p class="muted-line mx-board-note">Finished work only: Completed, Picked Up or Invoiced. Subtotal is before tax and includes fees and discounts.</p>
 
         <div class="wide-table-wrap">
             <table class="list-report-table" id="service-report">
@@ -27,12 +29,12 @@
                         <tr>
                             <td>{{ repairOrder.createdOn|date('m/d/Y') }}</td>
                             <td>{% if is_granted('/work-order/edit') %}<a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a>{% else %}{{ ro_number(repairOrder) }}{% endif %}</td>
-                            <td>{{ row.job.name }}</td>
+                            <td>{{ row.name }}</td>
                             <td>{{ repairOrder.client ? repairOrder.client.fullName : '—' }}</td>
                             {% for key, heading in amounts %}<td class="num">{{ mx.money(row.amounts[key]) }}</td>{% endfor %}
                         </tr>
                     {% else %}
-                        <tr><td colspan="{{ 4 + amounts|length }}" class="empty-table-cell">No repair orders in this period.</td></tr>
+                        <tr><td colspan="{{ 4 + amounts|length }}" class="empty-table-cell">No finished repair orders in this period.</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>

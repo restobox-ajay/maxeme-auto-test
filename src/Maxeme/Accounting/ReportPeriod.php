@@ -32,6 +32,25 @@ final class ReportPeriod
         return $to < $from ? new self($to, $from) : new self($from, $to);
     }
 
+    /**
+     * A report's default period (mockup 8b30420): $defaultFrom to today unless the filter says
+     * otherwise; when nothing is that recent, the month of the newest record ($latestUtc), so the page
+     * never opens empty.
+     */
+    public static function withFallback(Request $request, \DateTimeZone $timezone, string $defaultFrom, ?\DateTimeImmutable $latestUtc): self
+    {
+        $period = self::fromRequest($request, $timezone, $defaultFrom);
+        if ($latestUtc === null || $request->query->get('from', '') !== '' || $request->query->get('to', '') !== '') {
+            return $period;
+        }
+        $latest = $latestUtc->setTimezone($timezone)->setTime(0, 0);
+        if ($latest >= $period->from) {
+            return $period;
+        }
+
+        return new self($latest->modify('first day of this month'), $latest);
+    }
+
     /** The first instant of From, in UTC. */
     public function startUtc(): \DateTimeImmutable
     {
