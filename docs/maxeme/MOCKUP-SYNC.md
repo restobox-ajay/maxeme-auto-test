@@ -24,12 +24,12 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 
 | Mockup commit | Change | Status | Batch |
 |---|---|---|---|
-| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | done — quote title 2b53d29; pickup address + Export CSV on the remaining lists (5d; Reminder Todo's CSV goes with the merged Reminders page, P6) | P5 |
+| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | done — quote title 2b53d29; pickup address + Export CSV on the remaining lists ccf56b6 (Reminder Todo's CSV goes with the merged Reminders page, P6) | P5 |
 | 898d57e | Remove the description line under page titles (≈21 list/config pages) | done 2b53d29 | P1 |
 | 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | todo | P6 |
 | deba1ef | Appointments: 4th "List" view (paginated, filterable table) | done 2b53d29 | P3 |
 | 3d5095e | Staff can hold several roles (checkboxes; permissions = union) | todo | P7 |
-| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | done — per-service technician + work status e2dc368; charge-through default 564f67a; recommendations on the work order and invoice (5d) | P5 |
+| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | done — per-service technician + work status e2dc368; charge-through default 564f67a; recommendations on the work order and invoice ccf56b6 | P5 |
 | 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | done e2dc368 | P5 |
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
@@ -96,7 +96,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Client duplicate check (email, phone last 10 digits, name); VIN unique; mileage "88,000" → 88000 | todo | P7 |
 | Phones shown as 604-285-8200 and stored as digits when edited; postal code "V6X 2P9" | todo | P7 |
 | Appointment duration 0.5–24 h; past-day booking needs a yes; inactive vehicle already on the appointment/RO stays | done 2b53d29 (appointment; RO side with P5) | P3 |
-| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | done — inactive technician kept e2dc368; ?appointment= and customer + vehicle required (5d) | P5 |
+| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | done — inactive technician kept e2dc368; ?appointment= and customer + vehicle required ccf56b6 | P5 |
 | Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | partial | P6 |
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | todo | P7 |
