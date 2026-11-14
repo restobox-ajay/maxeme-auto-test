@@ -138,7 +138,20 @@ final class CategoryController extends AbstractAdminController
             $this->applyCategoryRequest($category, $request, $entityManager);
             $errors = $this->validateCategory($category);
             $parent = $entityManager->find(ProductCategory::class, (int) $request->request->get('parent_id'));
-            $category->setParent($parent instanceof ProductCategory && $parent->getId() !== $category->getId() ? $parent : null);
+            $parent = $parent instanceof ProductCategory ? $parent : null;
+            // Not under itself or one of its own subcategories (Maxeme audit fix 8b30420): that would make a loop.
+            $under = false;
+            for ($ancestor = $parent; $ancestor !== null; $ancestor = $ancestor->getParent()) {
+                if ($ancestor->getId() === $category->getId()) {
+                    $under = true;
+                    break;
+                }
+            }
+            if ($under) {
+                $errors[] = 'A category cannot sit under itself or one of its subcategories.';
+            } else {
+                $category->setParent($parent);
+            }
 
             if ($errors === []) {
                 $entityManager->flush();

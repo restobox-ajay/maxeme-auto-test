@@ -87,6 +87,8 @@ use InventoryDepthBundle\Repository\InventoryAdjustmentReasonRepository;
 #[ORM\UniqueConstraint(name: 'uniq_adjustment_reason_code', fields: ['code'])]
 class InventoryAdjustmentReason
 {
+    /** Stock bought from a vendor and received (Maxeme mockup 7bd9227): first in the list. */
+    public const CODE_PURCHASE = 'purchase';
     public const CODE_STOCK_FOUND = 'stock_found';
     public const CODE_REVERSE_WRITE_OFF = 'reverse_write_off';
     public const CODE_DAMAGED = 'damaged';
@@ -97,7 +99,7 @@ class InventoryAdjustmentReason
     public const CODE_RELEASE_HOLD = 'release_hold';
 
     /**
-     * The eight reasons the screen ships with, and the ONE place the (from_status, to_status) pair
+     * The nine reasons the screen ships with (Purchase first, Maxeme mockup 7bd9227), and the ONE place the (from_status, to_status) pair
      * for each is written down.
      *
      * The migration seeds from this list, InventoryAdjustmentReasonRepository::ensureCatalogue()
@@ -119,6 +121,14 @@ class InventoryAdjustmentReason
     public static function defaults(): array
     {
         return [
+            [
+                'code' => self::CODE_PURCHASE,
+                'label' => 'Purchase',
+                'from' => null,
+                'to' => InventoryDetail::STATUS_AVAILABLE,
+                'reversal' => false,
+                'help' => 'Stock bought from a vendor and received into the warehouse. Enter the quantity received and put the purchase order or vendor invoice number in Reference.',
+            ],
             [
                 'code' => self::CODE_STOCK_FOUND,
                 'label' => 'Stock found',

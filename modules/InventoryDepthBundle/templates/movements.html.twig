@@ -22,14 +22,8 @@
                         <th class="is-sortable{% if currentSort == 'product' %} is-sorted-{{ currentDir }}{% endif %}">
                             <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'product', dir: currentSort == 'product' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Product</a>
                         </th>
-                        <th>From</th>
-                        <th>To</th>
-                        {# Lot and serial have their own columns so the two filters below them
-                           have headers that mean what the boxes do. Both are inside the From/To
-                           labels as well, but a recall is read down one column, not out of two
-                           composite strings. #}
-                        <th>Lot</th>
-                        <th>Serial</th>
+                        {# From / To / Lot / Serial are gone from this list (Maxeme mockup e0fde70): the stock page and
+                           the lot trace show where each unit went; here it is what moved, when and why. #}
                         <th class="is-sortable{% if currentSort == 'quantity' %} is-sorted-{{ currentDir }}{% endif %}">
                             <a href="{{ path('admin_bundle_inventory_depth_movements', {filters: filters, limit: limit, page: 1, sort: 'quantity', dir: currentSort == 'quantity' and currentDir == 'asc' ? 'desc' : 'asc'}) }}">Qty</a>
                         </th>
@@ -50,23 +44,11 @@
                                 {% for t in types %}<option value="{{ t }}"{{ filters.type == t ? ' selected' : '' }}>{{ t }}</option>{% endfor %}
                             </select>
                         </th>
-                        <th><input type="text" name="filters[product]" form="movements-filters" value="{{ filters.product }}" placeholder="SKU or name" aria-label="Filter product"></th>
+                        {# Type to search, pick from the products that have movements (the SKU is the value, the name the label). #}
                         <th>
-                            <select name="filters[warehouse]" form="movements-filters" aria-label="Filter warehouse" onchange="this.form.submit()">
-                                <option value="">Any warehouse</option>
-                                {% for w in warehouses %}<option value="{{ w.id }}"{{ filters.warehouse == w.id ~ '' ? ' selected' : '' }}>{{ w.name }}</option>{% endfor %}
-                            </select>
+                            <input type="text" name="filters[product]" form="movements-filters" value="{{ filters.product }}" placeholder="Type to search" aria-label="Filter product" list="movement-products" autocomplete="off">
+                            <datalist id="movement-products">{% for p in movementProducts %}<option value="{{ p.sku ?: p.name }}">{{ p.name }}</option>{% endfor %}</datalist>
                         </th>
-                        <th>
-                            <select name="filters[location]" form="movements-filters" aria-label="Filter bin" onchange="this.form.submit()">
-                                <option value="">Any bin</option>
-                                {% for b in bins %}<option value="{{ b.id }}"{{ filters.location == b.id ~ '' ? ' selected' : '' }}>{{ b.warehouse.name }} — {{ b.code }}</option>{% endfor %}
-                            </select>
-                        </th>
-                        {# The controller matches this against the lot's id, which is what the
-                           lot barcode encodes (LOT-n), so it is a number and not the batch code. #}
-                        <th><input type="number" name="filters[lot]" form="movements-filters" min="1" value="{{ filters.lot }}" placeholder="Lot id" aria-label="Filter lot id"></th>
-                        <th><input type="text" name="filters[serial]" form="movements-filters" value="{{ filters.serial }}" placeholder="Serial" aria-label="Filter serial"></th>
                         <th></th>
                         <th></th>
                         <th><input type="text" name="filters[reference]" form="movements-filters" value="{{ filters.reference }}" placeholder="Order, RMA" aria-label="Filter reference"></th>
@@ -84,10 +66,6 @@
                         <td data-label="When">{{ m.group.occurredAt|date('Y-m-d H:i') }}</td>
                         <td data-label="Type">{{ m.group.type }}</td>
                         <td data-label="Product"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: m.product.id}) }}">{{ m.product.sku ?: m.product.name }}</a></td>
-                        <td data-label="From">{{ m.fromDetail ? m.fromDetail.label : 'outside the system' }}</td>
-                        <td data-label="To">{{ m.toDetail ? m.toDetail.label : 'outside the system' }}</td>
-                        <td data-label="Lot">{{ detail and detail.lot ? detail.lot.label : '—' }}</td>
-                        <td data-label="Serial">{{ detail and detail.serial ? detail.serial : '—' }}</td>
                         <td data-label="Qty"><strong>{{ m.quantity }}</strong></td>
                         {# The stored reason code and the free-text note, in that order and both
                            optional (#585). They answer different questions — what class of thing
@@ -102,7 +80,7 @@
                         <td data-label="Actor">{{ m.group.actor ?: '—' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="11" class="empty-table-cell"><strong>No movements match.</strong></td></tr>
+                    <tr><td colspan="7" class="empty-table-cell"><strong>No movements match.</strong></td></tr>
                 {% endfor %}
                 </tbody>
             </table></div></div>

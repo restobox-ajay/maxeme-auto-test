@@ -2,9 +2,13 @@
 {% block title %}Stock Adjustment | Admin{% endblock %}
 {% block admin_body %}
     <style>
-        /* The reason list is a stack of radio rows, not the right-aligned check row the shared
-           class lays out by default. Kept here rather than in a style attribute per row. */
-        .reason-row { justify-content: flex-start; gap: 10px; align-items: flex-start; }
+        .adj-search { position: relative; }
+        .adj-results { position: absolute; z-index: 60; left: 0; right: 0; top: 100%; max-height: 320px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+        .adj-results[hidden] { display: none; }
+        .adj-results button { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 7px 10px; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; }
+        .adj-results button:hover, .adj-results button.is-active { background: var(--mx-primary-soft, #eef4fb); }
+        .adj-results .muted-line { white-space: nowrap; }
+        .adj-explain { display: block; margin-top: 6px; }
     </style>
 
     {% include '@InventoryDepth/_nav.html.twig' with {
@@ -13,68 +17,64 @@
         lead: 'Say what happened and the movement follows from it. Every submission writes one movement group, so the reason, the actor and the date are on the record.'
     } only %}
 
-    {# Product first, and by GET, because everything below depends on which product it is — a lot
-       belongs to exactly one, and which fields exist at all depends on that product's tracking
-       policy. Same shape as the cycle count's bin picker. #}
-    <section class="panel">
-        <h2>Which product</h2>
-        <form method="get" class="form-grid">
-            <label>
+    {# One form (Maxeme mockups 41ebdc0, cc1f585): product, quantity, reference, note, when, location,
+       then the reason with its explanation, and below it what that reason needs to know about the goods
+       (the write-off to reverse, the held or tracked stock to take, a batch or serials). Changing the
+       product or the reason reloads the form, keeping what was typed. #}
+    <section class="panel" style="max-width: 920px">
+        <h2>Record a stock adjustment</h2>
+        <form method="post" action="{{ path('admin_bundle_inventory_depth_adjust_submit') }}" class="form-grid" id="adjust-form"
+              data-reload-url="{{ path('admin_bundle_inventory_depth_adjust') }}">
+            {{ csrf_field() }}
+            <input type="hidden" name="product_id" id="adjust-product-id" value="{{ product ? product.id }}">
+
+            <label class="span-2 adj-search">
                 Product
-                <select name="product" onchange="this.form.submit()" required>
-                    <option value="">Choose a product…</option>
-                    {% for p in products %}
-                        <option value="{{ p.id }}"{{ product and product.id == p.id ? ' selected' : '' }}>{{ p.sku ?: p.name }} — {{ p.name }}</option>
+                <input type="text" id="adjust-product-search" value="{{ product ? (product.sku ?: product.name) ~ ' — ' ~ product.name }}" placeholder="Search by SKU, name, category or vendor…" autocomplete="off" aria-label="Search products" {{ product ? '' : 'autofocus' }}>
+                <div class="adj-results" id="adjust-product-results" role="listbox" hidden></div>
+            </label>
+
+            <label>
+                Quantity
+                {# Always positive. The reason expresses the direction. #}
+                <input type="number" name="quantity" min="1" step="1" value="{{ carry.quantity ?: 1 }}" required>
+            </label>
+            <label>
+                Reference
+                <input type="text" name="reference" maxlength="160" value="{{ carry.reference }}" placeholder="Count sheet, incident number, supplier claim">
+            </label>
+            <label>
+                Note
+                <input type="text" name="note" maxlength="255" value="{{ carry.note }}" placeholder="Anything the next reader should know">
+            </label>
+            <label>
+                When
+                {# Stock found on Friday and entered on Monday belongs on Friday. #}
+                <input type="date" name="occurred_at" value="{{ carry.occurred_at ?: today }}" max="{{ today }}">
+            </label>
+            <label class="span-2">
+                Location
+                <select name="warehouse_id" required>
+                    {% for w in warehouses %}
+                        <option value="{{ w.id }}"{{ warehouseId == w.id ? ' selected' : '' }}>{{ w.name }}</option>
                     {% endfor %}
                 </select>
             </label>
-            <input type="hidden" name="warehouse" value="{{ warehouseId }}">
-            <div class="form-actions"><button class="button" type="submit">Choose</button></div>
-        </form>
-    </section>
 
-    {% if product %}
-        {# STEP 1 — what happened. A controlled list, single select, and the ONLY thing the operator
-           decides about the shape of the movement. The from/to statuses are on the reason row; the
-           bucket effect underneath each one is a consequence recomputed from the detail rows, shown
-           here because "stock found" and "reverse a write-off" have the same physical trigger and
-           opposite effects on the books. #}
-        <section class="panel">
-            <h2>1. What happened?</h2>
-            <form method="get" class="form-grid">
-                <input type="hidden" name="product" value="{{ product.id }}">
-                <input type="hidden" name="warehouse" value="{{ warehouseId }}">
-                <div class="span-2">
+            <label class="span-2">
+                Reason
+                <select name="reason" id="adjust-reason" required>
+                    <option value="">Choose a reason…</option>
                     {% for r in reasons %}
-                        <label class="check-row reason-row">
-                            <input type="radio" name="reason" value="{{ r.code }}"{{ reason and reason.code == r.code ? ' checked' : '' }}>
-                            <span>
-                                <strong>{{ r.label }}</strong>
-                                <span class="badge info">{{ r.bucketEffect }}</span>
-                                {% if r.help %}<br><span class="lead">{{ r.help }}</span>{% endif %}
-                            </span>
-                        </label>
+                        <option value="{{ r.code }}"{{ reason and reason.code == r.code ? ' selected' : '' }}>{{ r.label }}</option>
                     {% endfor %}
-                </div>
-                <div class="form-actions span-2"><button class="button" type="submit">Continue</button></div>
-            </form>
-        </section>
-    {% endif %}
+                </select>
+                {% if reason %}
+                    <span class="adj-explain"><span class="badge info">{{ reason.bucketEffect }}</span> <span class="muted-line">{{ reason.help }}</span></span>
+                {% endif %}
+            </label>
 
-    {% if product and reason %}
-    <section class="panel">
-        <h2>{{ reason.label }}</h2>
-        <p class="lead">{{ reason.help }}</p>
-
-        <form method="post" action="{{ path('admin_bundle_inventory_depth_adjust_submit') }}" class="form-grid">
-            {{ csrf_field() }}
-            <input type="hidden" name="product_id" value="{{ product.id }}">
-            {# The reason travels with the submission, not just in the URL. It is what derives the
-               movement type and both statuses, so a POST without it has not said what happened. #}
-            <input type="hidden" name="reason" value="{{ reason.code }}">
-
-            <p class="section-label span-2">2. Which goods</p>
-
+            {% if product and reason %}
             {% if reason.reversal %}
                 {# Reversing ties to the ORIGINAL ENTRY, the way Dynamics ties a reversal to the item
                    ledger entry it undoes. Bin, lot and serial all come back from that entry, so
@@ -113,14 +113,6 @@
                 {% endif %}
 
             {% elseif reason.inbound %}
-                <label>
-                    Warehouse
-                    <select name="warehouse_id" required>
-                        {% for w in warehouses %}
-                            <option value="{{ w.id }}"{{ warehouseId == w.id ? ' selected' : '' }}>{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
 
                 <label>
                     Bin
@@ -250,49 +242,83 @@
             {% else %}
                 {# Nothing to ask. The product's policy does not track identity outbound, so
                    AutomaticSourcePicker chooses: earliest expiry first, then lowest bin sort key. #}
-                <label>
-                    Warehouse
-                    <select name="warehouse_id" required>
-                        {% for w in warehouses %}
-                            <option value="{{ w.id }}"{{ warehouseId == w.id ? ' selected' : '' }}>{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
                 <p class="lead span-2">
                     This product does not carry a batch or serial on the way out, so the rows are chosen for you:
                     <strong>earliest expiry first, then lowest bin sort key</strong>. Nothing to pick.
                 </p>
             {% endif %}
 
-            <p class="section-label span-2">3. How many</p>
-            <label>
-                Quantity
-                {# Always positive. The reason expresses the direction; a negative quantity would put
-                   "which way" back into the number, which is the shape this screen replaced. #}
-                <input type="number" name="quantity" min="1" step="1" value="1" required>
-            </label>
-
-            <p class="section-label span-2">4. Paperwork</p>
-            <label>
-                Reference
-                <input type="text" name="reference" maxlength="160" placeholder="Count sheet, incident number, supplier claim">
-            </label>
-            <label>
-                Note
-                <input type="text" name="note" maxlength="255" placeholder="Anything the next reader should know">
-            </label>
-            <label>
-                When it happened
-                {# Stock found on Friday and entered on Monday belongs on Friday. Without this the
-                   real date ends up in the note, where nothing can read it. #}
-                <input type="date" name="occurred_at" value="{{ today }}">
-            </label>
+            {% elseif not product %}
+                <p class="lead span-2">Search for the product and pick it from the list.</p>
+            {% endif %}
 
             <div class="form-actions span-2">
-                <button type="submit" class="button primary">Record it</button>
+                <button type="submit" class="button primary" {{ product and reason ? '' : 'disabled' }}>Record it</button>
             </div>
         </form>
     </section>
-    {% endif %}
 
+    <script>
+        /* The product search (mockup cc1f585) and the reloads that keep what was typed. */
+        (function () {
+            var form = document.getElementById('adjust-form');
+            var products = {{ productSearch|json_encode|raw }};
+            var search = document.getElementById('adjust-product-search');
+            var results = document.getElementById('adjust-product-results');
+            var productId = document.getElementById('adjust-product-id');
+            var active = -1;
+
+            function reload() {
+                var params = new URLSearchParams();
+                if (productId.value) { params.set('product', productId.value); }
+                ['reason', 'warehouse_id', 'quantity', 'reference', 'note', 'occurred_at'].forEach(function (name) {
+                    var field = form.elements[name];
+                    if (field && field.value) { params.set(name === 'warehouse_id' ? 'warehouse' : name, field.value); }
+                });
+                window.location.href = form.getAttribute('data-reload-url') + '?' + params.toString();
+            }
+            function find(query) {
+                var words = query.toLowerCase().split(/\s+/).filter(Boolean);
+                return products.filter(function (p) { return words.every(function (w) { return p.text.indexOf(w) !== -1; }); }).slice(0, 40);
+            }
+            function draw() {
+                var found = find(search.value);
+                results.innerHTML = '';
+                if (!found.length) {
+                    var none = document.createElement('div');
+                    none.className = 'muted-line';
+                    none.style.padding = '7px 10px';
+                    none.textContent = 'No product matches.';
+                    results.appendChild(none);
+                }
+                found.forEach(function (p, i) {
+                    var row = document.createElement('button');
+                    row.type = 'button';
+                    row.setAttribute('data-id', p.id);
+                    row.className = i === active ? 'is-active' : '';
+                    var label = document.createElement('span'); label.textContent = p.label; row.appendChild(label);
+                    var meta = document.createElement('span'); meta.className = 'muted-line'; meta.textContent = p.meta; row.appendChild(meta);
+                    results.appendChild(row);
+                });
+                results.hidden = false;
+            }
+            function pick(id) { productId.value = id; results.hidden = true; reload(); }
+
+            search.addEventListener('focus', function () { search.select(); draw(); });
+            search.addEventListener('input', function () { active = -1; draw(); });
+            search.addEventListener('keydown', function (event) {
+                var rows = results.querySelectorAll('[data-id]');
+                if (event.key === 'ArrowDown') { event.preventDefault(); active = Math.min(rows.length - 1, active + 1); draw(); }
+                else if (event.key === 'ArrowUp') { event.preventDefault(); active = Math.max(0, active - 1); draw(); }
+                else if (event.key === 'Enter') { event.preventDefault(); var row = rows[active >= 0 ? active : 0]; if (row) { pick(row.getAttribute('data-id')); } }
+                else if (event.key === 'Escape') { results.hidden = true; }
+            });
+            results.addEventListener('mousedown', function (event) {
+                var row = event.target.closest('[data-id]');
+                if (row) { event.preventDefault(); pick(row.getAttribute('data-id')); }
+            });
+            document.addEventListener('click', function (event) { if (!event.target.closest('.adj-search')) { results.hidden = true; } });
+            document.getElementById('adjust-reason').addEventListener('change', reload);
+        })();
+    </script>
 {% endblock %}

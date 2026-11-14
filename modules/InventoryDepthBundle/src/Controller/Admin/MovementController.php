@@ -75,6 +75,13 @@ final class MovementController extends AbstractInventoryDepthController
             'warehouses' => $this->activeWarehouses(),
             'bins' => $this->em->getRepository(WarehouseLocation::class)->findBy([], ['sortKey' => 'ASC', 'code' => 'ASC']),
             'types' => InventoryMovementGroup::types(),
+            // The product filter's type-ahead: the products that have movements, by SKU.
+            'movementProducts' => $this->em->createQueryBuilder()
+                ->select('DISTINCT p')
+                ->from(\App\Entity\ProductCore::class, 'p')
+                ->join(InventoryMovement::class, 'mv', 'WITH', 'mv.product = p')
+                ->orderBy('p.sku', 'ASC')
+                ->getQuery()->getResult(),
             'total' => $total,
             'page' => $page,
             'limit' => $paging['limit'],

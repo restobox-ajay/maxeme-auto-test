@@ -178,6 +178,15 @@ final class AdjustmentController extends AbstractInventoryDepthController
                 // works with scripting off, and a re-render cannot lose what has been typed because
                 // nothing has been typed until the operator has enough rows.
                 'rowCount' => min(200, max(12, $request->query->getInt('rows', 12))),
+                // One form (Maxeme mockups 41ebdc0, cc1f585): the product is searched by SKU, name, category,
+                // vendor or remarks; changing the product or the reason reloads the form with what was typed.
+                'productSearch' => $this->productSearch(),
+                'carry' => [
+                    'quantity' => (string) $request->query->get('quantity', '1'),
+                    'reference' => (string) $request->query->get('reference', ''),
+                    'note' => (string) $request->query->get('note', ''),
+                    'occurred_at' => (string) $request->query->get('occurred_at', ''),
+                ],
             ],
             // Every key the template reads is present in BOTH branches. `strict_variables` is on in
             // the test environment, so a key that only exists once a reason is chosen would render
@@ -1005,6 +1014,43 @@ final class AdjustmentController extends AbstractInventoryDepthController
      *
      * @return list<ProductCore>
      */
+    /**
+     * The product search's list: each adjustable product with what it can be found by (SKU, name,
+     * category, vendors, remarks) and the line shown under it (category · vendor · status).
+     *
+     * @return list<array{id: int, label: string, meta: string, text: string}>
+     */
+    private function productSearch(): array
+    {
+        $vendors = [];
+        if (class_exists(\ProcurementBundle\Entity\VendorPrice::class)) {
+            try {
+                $rows = $this->em->createQueryBuilder()
+                    ->select('IDENTITY(vp.product) AS product', 'v.name AS vendor')
+                    ->from(\ProcurementBundle\Entity\VendorPrice::class, 'vp')
+                    ->join('vp.vendor', 'v')
+                    ->getQuery()->getArrayResult();
+                foreach ($rows as $row) {
+                    $vendors[(int) $row['product']][] = (string) $row['vendor'];
+                }
+            } catch (\Throwable) {
+                $vendors = [];
+            }
+        }
+
+        return array_map(static function (ProductCore $product) use ($vendors): array {
+            $category = $product->getCategory()?->getName();
+            $productVendors = array_values(array_unique($vendors[$product->getId()] ?? []));
+
+            return [
+                'id' => (int) $product->getId(),
+                'label' => sprintf('%s — %s', $product->getSku() ?: $product->getName(), $product->getName()),
+                'meta' => implode(' · ', array_filter([$category, implode(', ', $productVendors), $product->getStatus() !== 'Active' ? $product->getStatus() : null])),
+                'text' => mb_strtolower(implode(' ', array_filter([$product->getSku(), $product->getName(), $category, implode(' ', $productVendors), $product->getRemarks()]))),
+            ];
+        }, $this->adjustableProducts());
+    }
+
     private function adjustableProducts(): array
     {
         /** @var list<ProductCore> $rows */
