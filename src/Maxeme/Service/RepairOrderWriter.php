@@ -22,6 +22,7 @@ use App\Maxeme\Entity\RepairOrderJobLine;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Staff\Technicians;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
@@ -47,6 +48,8 @@ final class RepairOrderWriter
         private readonly InvoiceSettings $taxRates,
         private readonly ScheduleSettings $schedule,
         private readonly Technicians $technicians,
+        private readonly RepairOrderStatusChange $statusChange,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -63,11 +66,23 @@ final class RepairOrderWriter
         return $repairOrder;
     }
 
+    /** The key of save()'s errors that means "the status move needs a yes": the page shows the confirm box. */
+    public const CONFIRM_MOVE = '_confirmMove';
+
     /** @return array<string, string> field => message; empty when it was saved */
     public function save(RepairOrder $repairOrder, RepairOrderForm $form): array
     {
         $data = $form->data;
+        // Paid, so locked (mockup ee7a843): only notes, which are saved elsewhere.
+        if ($repairOrder->isLocked()) {
+            return ['status' => sprintf('%s is paid, so it is locked. Mark its invoice unpaid or cancelled first (a refund) and it unlocks.', $this->numbers->repairOrderNumber($repairOrder))];
+        }
         $errors = FieldErrors::from($this->validator->validate($data));
+        $to = RepairOrderStatus::tryFrom((string) $data->status) ?? $repairOrder->getStatus();
+        $from = $repairOrder->getStatus();
+        $errors += $this->statusRules($repairOrder, $to, $form->confirmMove);
+        $before = self::fingerprint($repairOrder);
+        $savedTotals = [$repairOrder->getSubtotal(), $repairOrder->getChargeTotal(), $repairOrder->getGst(), $repairOrder->getPst(), $repairOrder->getTotal()];
 
         [$client, $clientErrors] = $this->client($form);
         [$vehicle, $vehicleErrors] = $this->vehicle($form, $client);
@@ -100,14 +115,22 @@ final class RepairOrderWriter
         }
 
         $data->applyTo($repairOrder);
+        // Into Invoiced from Completed / Picked Up keeps which it was (to go back to on a refund).
+        if (!($to === RepairOrderStatus::Invoiced && $from !== $to && $repairOrder->followPaidInvoice(true))) {
+            $repairOrder->setStatus($to);
+        }
         $repairOrder
-            ->setStatus(RepairOrderStatus::from($data->status ?? $repairOrder->getStatus()->value))
             ->setCustomer($client, $vehicle)
             ->setMasterTechnician($technician);
         $repairOrder->replaceJobs($jobs);
         $repairOrder->replaceCharges($charges);
         if (!$this->calculator->apply($repairOrder)) {
             return ['charges' => "A discount can't be more than the subtotal plus fees: it would take the total below zero."];
+        }
+        // Finished work saved without touching its services, fees or rates keeps the money it was saved
+        // with (audit fix 34181b0): a later change in a tax class or price never re-prices it.
+        if ($from->isWorkDone() && $to->isWorkDone() && self::fingerprint($repairOrder) === $before) {
+            $repairOrder->setTotals(...$savedTotals);
         }
 
         $this->entityManager->persist($repairOrder);
@@ -117,9 +140,48 @@ final class RepairOrderWriter
         return [];
     }
 
+    /**
+     * The status rules of a save (the board's, RepairOrderStatusChange): a new repair order cannot start
+     * Invoiced or Completed, Picked Up (it has no invoice); a saved one is refused or asked first as on
+     * the board.
+     *
+     * @return array<string, string>
+     */
+    private function statusRules(RepairOrder $repairOrder, RepairOrderStatus $to, bool $confirmed): array
+    {
+        if ($repairOrder->getId() === null) {
+            return match ($to) {
+                RepairOrderStatus::Invoiced => ['status' => 'A new repair order has no paid invoice, so it cannot be Invoiced. Issue an invoice and mark it Paid: the repair order then becomes Invoiced by itself.'],
+                RepairOrderStatus::CompletedPickedUp => ['status' => 'A new repair order has no invoice yet. Save it, issue the invoice, then mark it Completed, Picked Up.'],
+                default => [],
+            };
+        }
+        try {
+            $question = $this->statusChange->confirmationFor($repairOrder, $to);
+        } catch (\DomainException $exception) {
+            return ['status' => $exception->getMessage()];
+        }
+
+        return $question !== null && !$confirmed ? ['status' => $question, self::CONFIRM_MOVE => '1'] : [];
+    }
+
+    /** What its money is made of: services, their lines, fees / discounts and rates. */
+    private static function fingerprint(RepairOrder $repairOrder): string
+    {
+        $number = static fn (?string $value): string => sprintf('%.4f', (float) $value);
+        $jobs = array_map(static fn (RepairOrderJob $job): array => [
+            $job->getService()?->getId(), $job->getName(), $number($job->getPrice()),
+            array_map(static fn (RepairOrderJobLine $line): array => [$line->getType()->value, $line->getItemId(), $number($line->getQuantity()), $number($line->getUnitPrice()), $line->isChargeThrough()], $job->getLines()),
+        ], $repairOrder->getJobs());
+        $charges = array_map(static fn (RepairOrderCharge $charge): array => [$charge->getKind()->value, $number($charge->getAmount())], $repairOrder->getCharges());
+
+        return (string) json_encode([$repairOrder->getGstRate(), $repairOrder->getPstRate(), $jobs, $charges]);
+    }
+
     /** An appointment's Check-in: the car is here; work starts if it had not. */
     public function checkIn(Appointment $appointment): void
     {
+        $appointment->assertUnlocked();
         $appointment->checkIn();
         $repairOrder = $appointment->getRepairOrder();
         if ($repairOrder !== null && $repairOrder->getStatus()->isBeforeWork()) {

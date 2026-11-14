@@ -30,8 +30,25 @@
         {% endblock %}
     {% endembed %}
     {% if repairOrder.id %}{% include 'maxeme/repair_order/_nav.html.twig' with { repairOrder: repairOrder, active: 'repair_order' } only %}{% endif %}
+    {% set locked = repairOrder.id and repairOrder.locked %}
+    {% if locked %}
+        {# Paid, so locked (mockup ee7a843): read-only except notes. #}
+        <div class="mx-alert mx-alert-info" id="ro-locked" role="status"><div><strong>&#128274; Paid and locked.</strong>
+            <p class="muted-line">This repair order and its appointments are read-only (notes can still be added). To change them, mark the invoice unpaid or cancelled first, for example for a refund.</p></div></div>
+    {% endif %}
+    {% if offerInvoice|default(false) %}
+        {# Just Completed with no invoice yet (mockup 88ddf43). #}
+        <div class="mx-alert mx-alert-warn" id="ro-offer-invoice" role="status">
+            <div><strong>Issue the invoice now?</strong>
+                <p class="muted-line">{{ ro_number(repairOrder) }} is Completed and has no invoice yet. The car cannot be marked Picked Up until it has one.</p></div>
+            <div class="mx-alert-actions">
+                <a class="button outline" href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">Not yet</a>
+                <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}">{{ csrf_field() }}<button class="button mx-success" type="submit">Issue invoice</button></form>
+            </div>
+        </div>
+    {% endif %}
 
-    <form id="repair-order-form" method="post" data-tax-map="{{ tax_map()|json_encode }}"
+    <form id="repair-order-form" method="post" {{ locked ? 'data-locked' }} data-tax-map="{{ tax_map()|json_encode }}"
           data-line-items-url="{{ path('maxeme_service_line_items') }}"
           data-services-url="{{ path('maxeme_repair_order_services') }}"
           data-clients-url="{{ path('maxeme_repair_order_clients') }}"
@@ -41,6 +58,10 @@
         {# ── Customer · Vehicle · Visit ─────────────────────────────────────────── #}
         <section class="form-card">
             {{ mx.form_errors(errors) }}
+            {% if confirmMove|default(false) %}
+                {# The status move asks first (RepairOrderStatusChange): tick and save again. #}
+                <label class="mx-check span-2" id="ro-confirm-move"><input type="checkbox" name="confirm_move" value="1"> <span>Yes, move it anyway</span></label>
+            {% endif %}
             <div class="mx-ro-head">
                 <div class="mx-ro-col">
                     <div class="section-label">Customer</div>
@@ -177,8 +198,8 @@
         </section>
 
         <div class="form-actions">
-            <a class="button outline" href="{{ path('maxeme_repair_order_index') }}">Cancel</a>
-            <button class="button primary" type="submit">Save</button>
+            <a class="button outline" href="{{ path('maxeme_repair_order_index') }}">{{ locked ? 'Back' : 'Cancel' }}</a>
+            {% if not locked %}<button class="button primary" type="submit">Save</button>{% endif %}
         </div>
     </form>
 
@@ -230,5 +251,5 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="/assets/js/maxeme-service-lines.js?v=2"></script>
-    <script src="/assets/js/maxeme-repair-order.js?v=3"></script>
+    <script src="/assets/js/maxeme-repair-order.js?v=4"></script>
 {% endblock %}

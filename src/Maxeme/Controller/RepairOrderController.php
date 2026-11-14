@@ -26,6 +26,7 @@ use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
 use App\Maxeme\Staff\Technicians;
+use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Schedule\ScheduleSettings;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -59,6 +60,7 @@ final class RepairOrderController extends AbstractMaxemeController
         private readonly EntityManagerInterface $entityManager,
         private readonly DocumentNumbers $numbers,
         private readonly Technicians $technicians,
+        private readonly RepairOrderInvoicing $invoicing,
         private readonly ActivityLog $activityLog,
         private readonly ScheduleSettings $schedule,
     ) {
@@ -204,13 +206,20 @@ final class RepairOrderController extends AbstractMaxemeController
         $form = RepairOrderForm::fromEntity($repairOrder);
         $errors = [];
 
+        $confirmMove = false;
         if ($request->isMethod('POST')) {
             $form = RepairOrderForm::fromRequest($request);
+            $wasDone = $repairOrder->getId() !== null && $repairOrder->getStatus() === RepairOrderStatus::Completed;
             $errors = $this->writer->save($repairOrder, $form);
+            $confirmMove = isset($errors[RepairOrderWriter::CONFIRM_MOVE]);
+            unset($errors[RepairOrderWriter::CONFIRM_MOVE]);
             if ($errors === []) {
                 $this->addFlash('success', sprintf('Repair order %s saved.', $this->numbers->repairOrderNumber($repairOrder)));
+                // Just Completed, with something to bill and no invoice yet: offer to issue it now (mockup 88ddf43).
+                $offer = !$wasDone && $repairOrder->getStatus() === RepairOrderStatus::Completed && !$this->invoicing->hasLiveInvoice($repairOrder)
+                    && ($repairOrder->getJobs() !== [] || $repairOrder->getCharges() !== []);
 
-                return $this->redirectToRoute('maxeme_repair_order_edit', ['id' => $repairOrder->getId()]);
+                return $this->redirectToRoute('maxeme_repair_order_edit', ['id' => $repairOrder->getId()] + ($offer ? ['offerInvoice' => 1] : []));
             }
         }
 
@@ -228,6 +237,9 @@ final class RepairOrderController extends AbstractMaxemeController
             'lineTypes' => ServiceLineType::cases(),
             'chargeKinds' => DocumentChargeKind::cases(),
             'technicians' => $this->technicians->choices($repairOrder->getMasterTechnician()),
+            'confirmMove' => $confirmMove,
+            'offerInvoice' => $request->query->get('offerInvoice') === '1' && $repairOrder->getId() !== null && $repairOrder->getStatus() === RepairOrderStatus::Completed
+                && !$this->invoicing->hasLiveInvoice($repairOrder) && $this->isGranted(Permission::ACCOUNTING_EDIT),
             'jobTechnicians' => $this->technicians->active(),
             'workStatuses' => WorkStatus::cases(),
             'history' => $repairOrder->getId() !== null ? $this->activityLog->latestFor($repairOrder, self::HISTORY_ROWS) : [],

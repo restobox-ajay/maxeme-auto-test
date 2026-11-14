@@ -57,6 +57,20 @@
             </div>
         </div>
     </section>
+    {% if offerClose|default(false) and repairOrder %}
+        {# A payment made the invoice Paid while the repair order is still open (mockup 84d136d). #}
+        <div class="mx-alert mx-alert-info no-print" id="offer-close" role="status">
+            <div>
+                <strong>Complete {{ ro_number(repairOrder) }} and lock it?</strong>
+                <p class="muted-line">{{ invoice ? doc_number(invoice) : 'The invoice' }} is paid, but {{ ro_number(repairOrder) }} is still {{ repairOrder.status.label }}. Completing it locks the repair order and marks its appointments Completed (read-only except notes). Leave it if the work is still to be done (for example a prepayment).</p>
+            </div>
+            <form method="post" action="{{ path('maxeme_repair_order_complete_and_lock', { id: repairOrder.id }) }}">
+                {{ csrf_field() }}
+                <input type="hidden" name="back" value="{{ app.request.pathInfo }}">
+                <button class="button mx-success" type="submit">Complete and lock</button>
+            </form>
+        </div>
+    {% endif %}
     <div class="invoice-page-container">
         {% include document.kind.printedTemplate with { document: document } only %}
     </div>

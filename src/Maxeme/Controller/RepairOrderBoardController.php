@@ -16,6 +16,7 @@ use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
+use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Service\RepairOrderStatusChange;
 use App\Service\AppSettings;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -74,7 +75,7 @@ final class RepairOrderBoardController extends AbstractMaxemeController
     /** A card dropped on another column: the repair order takes that status, asking first when the mockup does. */
     #[Route('/admin/repair-order-board/{id}/status', name: 'maxeme_board_move', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::WORK_ORDER_EDIT)]
-    public function move(#[MapEntity] RepairOrder $repairOrder, Request $request, RepairOrderStatusChange $statusChange, DocumentNumbers $numbers): JsonResponse
+    public function move(#[MapEntity] RepairOrder $repairOrder, Request $request, RepairOrderStatusChange $statusChange, DocumentNumbers $numbers, RepairOrderInvoicing $invoicing): JsonResponse
     {
         $to = RepairOrderStatus::tryFrom((string) $request->request->get('status', ''));
         if ($to === null) {
@@ -89,7 +90,16 @@ final class RepairOrderBoardController extends AbstractMaxemeController
             return $this->json(['confirm' => $question], Response::HTTP_CONFLICT);
         }
 
-        return $this->json(['message' => sprintf('%s moved to %s.', $numbers->repairOrderNumber($repairOrder), $to->label())]);
+        // Completed with services and no invoice yet: offer to issue it now (mockup 88ddf43).
+        $offer = $to === RepairOrderStatus::Completed && !$invoicing->hasLiveInvoice($repairOrder) && ($repairOrder->getJobs() !== [] || $repairOrder->getCharges() !== []) && $this->isGranted(Permission::ACCOUNTING_EDIT);
+
+        return $this->json([
+            'message' => sprintf('%s moved to %s.', $numbers->repairOrderNumber($repairOrder), $to->label()),
+            'offerInvoice' => $offer ? [
+                'url' => $this->generateUrl('maxeme_repair_order_invoice_issue', ['id' => $repairOrder->getId()]),
+                'question' => sprintf('%s is Completed and has no invoice yet. The car cannot be marked Picked Up until it has one. Issue the invoice now?', $numbers->repairOrderNumber($repairOrder)),
+            ] : null,
+        ]);
     }
 
     /** Export CSV: the chosen column's repair orders, or every column's when none is chosen. */

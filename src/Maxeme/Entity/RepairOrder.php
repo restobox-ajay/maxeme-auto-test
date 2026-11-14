@@ -125,6 +125,10 @@ class RepairOrder implements HasNotes
     #[ORM\Column(name: 'quote_approved_via', length: 20, nullable: true, enumType: QuoteApproval::class)]
     private ?QuoteApproval $quoteApprovedVia = null;
 
+    /** The status it had when it became Invoiced (Completed or Completed, Picked Up), to go back to when no paid invoice is left. */
+    #[ORM\Column(name: 'status_before_invoiced', length: 24, nullable: true, enumType: RepairOrderStatus::class)]
+    private ?RepairOrderStatus $statusBeforeInvoiced = null;
+
     /** When the customer declined the quote (Decline on the quote: the repair order is Cancelled). */
     #[ORM\Column(name: 'quote_declined_at', nullable: true)]
     private ?\DateTimeImmutable $quoteDeclinedAt = null;
@@ -284,6 +288,40 @@ class RepairOrder implements HasNotes
     public function setWorkOrderNumber(?string $number): void { $this->workOrderNumber = $number; }
     public function getWorkOrderFirstPrintedAt(): ?\DateTimeImmutable { return $this->workOrderFirstPrintedAt; }
     public function getQuoteApprovedAt(): ?\DateTimeImmutable { return $this->quoteApprovedAt; }
+
+    /**
+     * Paid, so locked (mockup ee7a843): an Invoiced repair order and its appointments are read-only
+     * except notes, until its paid invoice is marked unpaid or cancelled (a refund).
+     */
+    public function isLocked(): bool
+    {
+        return $this->status === RepairOrderStatus::Invoiced;
+    }
+
+    /**
+     * Follows its invoices (mockup 8b30420): with a paid invoice, a Completed / Completed, Picked Up
+     * repair order becomes Invoiced (keeping which it was); with none left, an Invoiced one goes back
+     * to that status (Completed when unknown). Returns true when the status changed.
+     */
+    public function followPaidInvoice(bool $hasPaidInvoice): bool
+    {
+        if ($hasPaidInvoice && in_array($this->status, [RepairOrderStatus::Completed, RepairOrderStatus::CompletedPickedUp], true)) {
+            $this->statusBeforeInvoiced = $this->status;
+            $this->setStatus(RepairOrderStatus::Invoiced);
+            $this->touch();
+
+            return true;
+        }
+        if (!$hasPaidInvoice && $this->status === RepairOrderStatus::Invoiced) {
+            $this->setStatus($this->statusBeforeInvoiced === RepairOrderStatus::CompletedPickedUp ? RepairOrderStatus::CompletedPickedUp : RepairOrderStatus::Completed);
+            $this->statusBeforeInvoiced = null;
+            $this->touch();
+
+            return true;
+        }
+
+        return false;
+    }
     public function getQuoteApprovedVia(): ?QuoteApproval { return $this->quoteApprovedVia; }
     public function getQuoteDeclinedAt(): ?\DateTimeImmutable { return $this->quoteDeclinedAt; }
 

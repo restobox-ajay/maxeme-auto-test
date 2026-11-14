@@ -730,3 +730,12 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 /* A repair order's own GST % / PST % in its Totals box (mockup 55f432c). */
 .mx-rate-input { width: 64px; height: 26px; padding: 2px 6px; text-align: right; }
 .mx-field-error { margin: 2px 0; color: var(--mx-danger, #b42318); font-size: 0.82rem; text-align: right; }
+/* A page notice with an action on the right (offer to complete and lock, offer to issue the invoice, paid lock). */
+.mx-alert { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 0 0 12px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.mx-alert p { margin: 4px 0 0; }
+.mx-alert-info { border-color: #b6d4f0; background: #f0f7fd; }
+.mx-alert-warn { border-color: #f1d18a; background: #fff9eb; }
+.mx-alert-actions { display: flex; gap: 8px; align-items: center; }
+/* A paid, locked repair order (mockup ee7a843): no add / delete buttons. */
+#repair-order-form[data-locked] .job-remove, #repair-order-form[data-locked] .charge-remove, #repair-order-form[data-locked] .line-remove,
+#repair-order-form[data-locked] #ro-job-add, #repair-order-form[data-locked] #ro-charge-add, #repair-order-form[data-locked] .mx-lines-add { display: none !important; }

@@ -94,6 +94,20 @@ class Appointment
     public function getColour(): ?string { return $this->colour; }
     public function getTechnician(): ?AdminUser { return $this->technician; }
 
+    /** Its repair order is paid, so it is read-only (mockup ee7a843); its note can still be changed. */
+    public function isLocked(): bool
+    {
+        return $this->repairOrder?->isLocked() ?? false;
+    }
+
+    /** @throws \DomainException when locked */
+    public function assertUnlocked(): void
+    {
+        if ($this->isLocked()) {
+            throw new \DomainException('This appointment\'s repair order is paid, so it is locked (only its note can change). Mark the invoice unpaid or cancelled first to change it.');
+        }
+    }
+
     /** Its own technician, else its repair order's: the one shown on the calendar and the lists. */
     public function getShownTechnician(): ?AdminUser
     {

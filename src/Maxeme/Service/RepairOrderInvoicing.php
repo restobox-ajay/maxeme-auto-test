@@ -28,7 +28,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * A repair order's financial documents: issuing an invoice (a frozen copy of the repair order's
  * services, their charge-through lines and its custom fees and discounts, so later changes to the
  * repair order do not alter it), deleting one, the quote being sent, and the repair order's status
- * following them (Invoiced once every invoice is paid; Pending on Estimate once the quote is sent).
+ * following them (Invoiced while a paid invoice is there; Pending on Estimate once the quote is sent).
  */
 final class RepairOrderInvoicing
 {
@@ -172,17 +172,44 @@ final class RepairOrderInvoicing
     }
 
     /**
-     * The repair order is Invoiced once it has invoices and every one not cancelled is paid. It is
-     * never moved back: an unpaid invoice later leaves its status for the shop to set.
+     * The repair order follows its invoices (RepairOrder::followPaidInvoice, mockup 8b30420): Invoiced
+     * while it has a paid invoice and its work is done; back to Completed (or Picked Up) when none is
+     * left. A paid invoice on a repair order still open (paid ahead of time) does not close it: the
+     * operator is asked (paidWhileOpen()).
      */
     public function followInvoices(RepairOrder $repairOrder): void
     {
-        $billed = array_filter($this->invoices->findBy(['repairOrder' => $repairOrder]), static fn (Invoice $invoice): bool => $invoice->getStatus() !== InvoiceStatus::Cancelled);
-        if ($billed !== [] && array_filter($billed, static fn (Invoice $invoice): bool => !$invoice->isPaid()) === [] && $repairOrder->getStatus() !== RepairOrderStatus::Invoiced) {
-            $repairOrder->setStatus(RepairOrderStatus::Invoiced);
-            $repairOrder->touch();
+        if ($repairOrder->followPaidInvoice($this->hasPaidInvoice($repairOrder))) {
             $this->entityManager->flush();
         }
+    }
+
+    /** It has a paid invoice but is still open (before Completed): ask whether to complete and lock it (mockup 84d136d). */
+    public function paidWhileOpen(RepairOrder $repairOrder): bool
+    {
+        return !$repairOrder->getStatus()->isWorkDone() && $repairOrder->getStatus() !== RepairOrderStatus::Cancelled && $this->hasPaidInvoice($repairOrder);
+    }
+
+    /** "Complete and lock": the work is done and paid, so it is Completed, then Invoiced (its appointments completed). */
+    public function completeAndLock(RepairOrder $repairOrder): void
+    {
+        if (!$this->paidWhileOpen($repairOrder)) {
+            throw new \DomainException('Only an open repair order with a paid invoice can be completed and locked here.');
+        }
+        $repairOrder->setStatus(RepairOrderStatus::Completed);
+        $repairOrder->followPaidInvoice(true);
+        $this->entityManager->flush();
+    }
+
+    /** It has invoices that are not cancelled. */
+    public function hasLiveInvoice(RepairOrder $repairOrder): bool
+    {
+        return array_filter($this->invoices->findForRepairOrder($repairOrder), static fn (Invoice $invoice): bool => $invoice->getStatus() !== InvoiceStatus::Cancelled) !== [];
+    }
+
+    private function hasPaidInvoice(RepairOrder $repairOrder): bool
+    {
+        return array_filter($this->invoices->findForRepairOrder($repairOrder), static fn (Invoice $invoice): bool => $invoice->isPaid()) !== [];
     }
 
     /** The quote was emailed: an estimate still being built now waits on the customer. */

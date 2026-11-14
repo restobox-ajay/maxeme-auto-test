@@ -30,6 +30,7 @@ use App\Maxeme\Security\InvoiceVoter;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Document\DocumentActions;
+use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Document\PrintedDocuments;
 use App\Maxeme\Service\InvoiceService;
 use App\Maxeme\Service\RecordWriter;
@@ -65,6 +66,7 @@ final class InvoiceController extends AbstractMaxemeController
         private readonly DocumentNumbers $numbers,
         private readonly PrintedDocuments $documents,
         private readonly DocumentActions $actions,
+        private readonly RepairOrderInvoicing $repairOrderInvoicing,
         #[Autowire(param: 'maxeme.company')]
         private readonly array $company,
     ) {
@@ -288,6 +290,8 @@ final class InvoiceController extends AbstractMaxemeController
         return $this->render('maxeme/document/page.html.twig', [
             'document' => $this->documents->invoice($invoice),
             'repairOrder' => $repairOrder,
+            // Mockup 84d136d: asked after a payment made the invoice Paid while the repair order is open.
+            'offerClose' => $repairOrder !== null && $this->isGranted(Permission::WORK_ORDER_EDIT) && $this->repairOrderInvoicing->paidWhileOpen($repairOrder),
             'invoice' => $invoice,
             'actions' => $actions,
             'backUrl' => $repairOrder !== null ? $this->generateUrl('maxeme_repair_order_invoices', ['id' => $repairOrder->getId()]) : $this->generateUrl('maxeme_invoice_index'),

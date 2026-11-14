@@ -63,9 +63,15 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
     /** "+ Issue Invoice": a copy of the repair order as it is now. */
     #[Route('/invoices', name: 'invoice_issue', methods: ['POST'])]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
-    public function issueInvoice(int $id, RepairOrderInvoicing $invoicing): RedirectResponse
+    public function issueInvoice(int $id, Request $request, RepairOrderInvoicing $invoicing): RedirectResponse
     {
         $repairOrder = $this->repairOrder($id);
+        // A second invoice only once confirmed (mockup 34181b0).
+        if ($invoicing->hasLiveInvoice($repairOrder) && $request->request->get('confirmed') !== '1') {
+            $this->addFlash('error', 'This repair order already has an invoice. Confirm to issue another one.');
+
+            return $this->redirectToRoute('maxeme_repair_order_invoices', ['id' => $id]);
+        }
         try {
             $invoice = $invoicing->issue($repairOrder);
         } catch (\DomainException $exception) {
@@ -76,6 +82,23 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
         $this->addFlash('success', 'Invoice issued.');
 
         return $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+    }
+
+    /** "Complete and lock" (mockup 84d136d): a paid repair order still open becomes Completed, then Invoiced. */
+    #[Route('/complete-and-lock', name: 'complete_and_lock', methods: ['POST'])]
+    #[RequiresPermission(Permission::WORK_ORDER_EDIT)]
+    public function completeAndLock(int $id, Request $request, RepairOrderInvoicing $invoicing): RedirectResponse
+    {
+        $repairOrder = $this->repairOrder($id);
+        try {
+            $invoicing->completeAndLock($repairOrder);
+            $this->addFlash('success', sprintf('%s completed and locked.', $this->numbers->repairOrderNumber($repairOrder)));
+        } catch (\DomainException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+        }
+        $back = (string) $request->request->get('back', '');
+
+        return str_starts_with($back, '/admin/') ? $this->redirect($back) : $this->redirectToRoute('maxeme_repair_order_edit', ['id' => $id]);
     }
 
     #[Route('/quote', name: 'quote', methods: ['GET'])]

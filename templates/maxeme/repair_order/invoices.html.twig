@@ -29,10 +29,25 @@
                 <p class="muted-line">Issuing an invoice copies the services, charge-through lines, fees and discounts as they are now; later changes to the repair order do not change it.</p>
             </div>
             {% if is_granted('/accounting/edit') %}
-                <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}">
+                {# A second invoice (one not cancelled is already there) asks first (mockup 34181b0). #}
+                {% set live = invoices|filter(i => i.status.value != 'cancelled') %}
+                <form method="post" action="{{ path('maxeme_repair_order_invoice_issue', { id: repairOrder.id }) }}" id="ro-invoice-issue"
+                      {% if live is not empty %}data-confirm-another="{{ ro_number(repairOrder) }} already has {{ live|map(i => doc_number(i))|join(', ') }}. Issue another invoice for what the repair order says now?"{% endif %}>
                     {{ csrf_field() }}
+                    <input type="hidden" name="confirmed" value="">
                     <button class="button mx-btn-sm mx-success" type="submit">+ Issue Invoice</button>
                 </form>
+                <script>
+                    (function () {
+                        var form = document.getElementById('ro-invoice-issue');
+                        if (!form || !form.getAttribute('data-confirm-another')) { return; }
+                        form.addEventListener('submit', function (event) {
+                            if (form.elements.confirmed.value === '1') { return; }
+                            event.preventDefault();
+                            window.WC.confirm('Issue another invoice', '', '', form.getAttribute('data-confirm-another'), function () { form.elements.confirmed.value = '1'; form.submit(); });
+                        });
+                    })();
+                </script>
             {% endif %}
         </div>
         <div class="wide-table-wrap">

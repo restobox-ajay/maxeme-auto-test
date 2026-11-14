@@ -50,8 +50,10 @@ final class IssuedInvoiceController extends AbstractMaxemeController
             $errors = $this->invoicing->update($invoice, $form);
             if ($errors === []) {
                 $this->addFlash('success', sprintf('Invoice %s saved.', $this->numbers->number($invoice)));
+                // Paid while its repair order is still open (paid ahead of time): the invoice page asks whether to complete and lock it.
+                $repairOrder = $invoice->getRepairOrder();
 
-                return $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+                return $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()] + ($repairOrder !== null && $this->invoicing->paidWhileOpen($repairOrder) ? ['offerClose' => 1] : []));
             }
         }
 

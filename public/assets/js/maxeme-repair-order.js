@@ -269,4 +269,9 @@
 
     renumberJobs();
     calculate();
+
+    /* Paid, so locked (mockup ee7a843): every field read-only; notes are saved outside this form. */
+    if (form.hasAttribute('data-locked')) {
+        Array.prototype.forEach.call(form.elements, function (element) { element.disabled = true; });
+    }
 }());

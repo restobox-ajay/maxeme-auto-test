@@ -74,6 +74,13 @@ final class AppointmentService
     /** @param AppointmentData $data already validated */
     public function update(Appointment $appointment, AppointmentData $data): void
     {
+        // Locked (its repair order is paid): only the note is kept from the form.
+        if ($appointment->isLocked()) {
+            $appointment->setNote($data->note);
+            $this->entityManager->flush();
+
+            return;
+        }
         $appointment->changeVehicle($this->vehicle($appointment->getClient(), $data->vehicleId, $appointment->getVehicle()));
         $appointment->reschedule(...$this->times((string) $data->start, (string) $data->end));
         $appointment->setNote($data->note);
@@ -96,6 +103,7 @@ final class AppointmentService
     /** Dragged or resized on the calendar. */
     public function move(Appointment $appointment, string $start, string $end): void
     {
+        $appointment->assertUnlocked();
         $appointment->reschedule(...$this->times($start, $end));
         $this->entityManager->flush();
     }
@@ -103,12 +111,14 @@ final class AppointmentService
     /** The car is here: the appointment is In Progress, and its repair order's work starts (as on the repair order page). */
     public function checkIn(Appointment $appointment): void
     {
+        $appointment->assertUnlocked();
         $this->repairOrders->checkIn($appointment);
     }
 
     /** Only while it is not completed; its invoice goes with it. */
     public function delete(Appointment $appointment): void
     {
+        $appointment->assertUnlocked();
         if ($appointment->getStatus() === AppointmentStatus::Complete) {
             throw new \DomainException('A completed appointment cannot be deleted.');
         }

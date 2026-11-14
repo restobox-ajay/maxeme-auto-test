@@ -87,8 +87,11 @@ final class RepairOrderStatusChange
             return $question;
         }
         if ($repairOrder->getStatus() !== $to) {
-            $repairOrder->setStatus($to);
-            $repairOrder->touch();
+            // Into Invoiced from Completed / Picked Up keeps which it was (to go back to on a refund).
+            if (!($to === RepairOrderStatus::Invoiced && $repairOrder->followPaidInvoice(true))) {
+                $repairOrder->setStatus($to);
+                $repairOrder->touch();
+            }
             $this->entityManager->flush();
         }
 

@@ -9,7 +9,7 @@
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: title, lead: isEdit ? 'Click another 15-minute slot to move the appointment, or change the vehicle, duration or note.' : 'Pick a vehicle, then click a 15-minute slot in the day view to set the start time.' } %}
         {% block actions %}
-            {% if isEdit %}
+            {% if isEdit and not appointment.locked %}
                 <div class="mx-doc-actions">
                     {% if appointment.status.value == 'new' %}
                         <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
@@ -29,6 +29,11 @@
 
     <div class="appt-layout">
         <section class="form-card">
+            {% if isEdit and appointment.locked %}
+                {# Its repair order is paid (mockup ee7a843): only the note can change. #}
+                <div class="mx-alert mx-alert-info" id="appointment-locked" role="status"><div><strong>&#128274; Paid and locked.</strong>
+                    <p class="muted-line">{{ ro_number(appointment.repairOrder) }} is paid, so this appointment is read-only except its note. Mark the invoice unpaid or cancelled first to change it.</p></div></div>
+            {% endif %}
             <form id="{{ isEdit ? 'make_edit_appointment_form' : 'make_new_appointment_form' }}" class="form-grid appt-form-grid" method="post"
                   action="{{ isEdit ? path('maxeme_appointment_edit', { id: appointment.id }) : path('maxeme_appointment_new', { id: client.id }) }}"
                   data-appointment-form="{{ {

@@ -24,9 +24,27 @@
                 }
                 if (result.status >= 400) { toast(result.json.message || 'The repair order could not be moved.', 'error'); return; }
                 toast(result.json.message, 'success');
+                var offer = result.json.offerInvoice;
+                if (offer) {
+                    /* Completed with no invoice yet (mockup 88ddf43): issue it now, or stay on the board. */
+                    window.WC.confirm('Issue the invoice now?', '', '', offer.question, function () { postForm(offer.url); });
+                    return;
+                }
                 window.setTimeout(function () { window.location.reload(); }, 500);
             })
             .catch(function () { toast('The repair order could not be moved.', 'error'); });
+    }
+    function postForm(action) {
+        var post = document.createElement('form');
+        post.method = 'post';
+        post.action = action;
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_token';
+        input.value = token;
+        post.appendChild(input);
+        document.body.appendChild(post);
+        post.submit();
     }
     function clearOver() {
         board.querySelectorAll('.is-over').forEach(function (el) { el.classList.remove('is-over'); });
