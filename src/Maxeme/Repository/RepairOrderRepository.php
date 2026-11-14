@@ -78,8 +78,9 @@ final class RepairOrderRepository extends ServiceEntityRepository
     }
 
     /**
-     * The client's open repair orders, newest first: not Completed Picked Up, Invoiced or Cancelled
-     * (the ones a new repair-order appointment can be for, mockup 25368c7).
+     * The client's open repair orders, newest first: estimate being built, pending on estimate,
+     * authorized, in progress or awaiting parts; not Completed, Picked Up, Invoiced or Cancelled
+     * (the ones a new repair-order appointment can be for, mockups 25368c7 and 84d136d).
      *
      * @return list<RepairOrder>
      */
@@ -89,7 +90,7 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->addSelect('v')
             ->leftJoin('r.vehicle', 'v')
             ->andWhere('r.client = :client')->setParameter('client', $client)
-            ->andWhere('r.status NOT IN (:closed)')->setParameter('closed', [RepairOrderStatus::CompletedPickedUp, RepairOrderStatus::Invoiced, RepairOrderStatus::Cancelled])
+            ->andWhere('r.status IN (:open)')->setParameter('open', [RepairOrderStatus::EstimateBeingBuilt, RepairOrderStatus::EstimateApproval, RepairOrderStatus::Authorized, RepairOrderStatus::InProgress, RepairOrderStatus::AwaitingParts])
             ->orderBy('r.id', 'DESC')
             ->getQuery()
             ->getResult();

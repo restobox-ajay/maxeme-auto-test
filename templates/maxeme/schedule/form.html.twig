@@ -80,7 +80,7 @@
                             <option value="new" {{ data.repairOrderId == 'new' ? 'selected' }}>+ Create new repair order</option>
                         {% endif %}
                         {% for repairOrder in repairOrders %}
-                            <option value="{{ repairOrder.id }}" {{ data.repairOrderId == repairOrder.id ~ '' ? 'selected' }}>{{ ro_number(repairOrder) }}{{ repairOrder.name ? ' · ' ~ (repairOrder.name|length > 40 ? repairOrder.name|slice(0, 40) ~ '…' : repairOrder.name) }}{{ repairOrder.vehicle ? ' · ' ~ repairOrder.vehicle.fullName }}</option>
+                            <option value="{{ repairOrder.id }}" {{ data.repairOrderId == repairOrder.id ~ '' ? 'selected' }}>{{ ro_number(repairOrder) }}{{ repairOrder.name ? ' · ' ~ (repairOrder.name|length > 40 ? repairOrder.name|slice(0, 40) ~ '…' : repairOrder.name) }}{{ repairOrder.vehicle ? ' · ' ~ repairOrder.vehicle.fullName }} · {{ repairOrder.status.label }}</option>
                         {% endfor %}
                     </select>
                     {% if isEdit and appointment.repairOrder %}<a class="muted-line" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Open {{ ro_number(appointment.repairOrder) }}</a>{% endif %}
