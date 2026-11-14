@@ -5,6 +5,7 @@
 <section class="table-card" id="client-work-orders" {{ mx.list_card_attrs(page) }}>
     <div class="table-header">
         <h2>Repair Orders</h2>
+        <a class="button mx-btn-sm outline" href="{{ path('maxeme_client_export_repair_orders', { id: client.id }|merge(app.request.query.all|filter((v, k) => k in ['q', 'sort', 'dir']))) }}">Export CSV</a>
         {% if is_granted('/work-order/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_repair_order_new', { id: client.id }) }}">+ New repair order</a>{% endif %}
     </div>
     <div class="wide-table-wrap">

@@ -39,12 +39,15 @@
     {%- endif -%}
     {%- if appointment.repairOrder and canEditRepairOrders -%}
         <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Repair Order</a>
+    {%- elseif canEditRepairOrders and appointment.type.hasRepairOrder -%}
+        {# Start one from this appointment (audit fix 34181b0): it is linked when the repair order is saved. #}
+        <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_new', { appointment: appointment.id }) }}">+ Repair Order</a>
     {%- endif -%}
 {%- endmacro %}
 
 <div class="mx-tab-stack">
     <section class="table-card no-paginate" id="pending-card">
-        <div class="table-header"><h2>Pending Appointments</h2></div>
+        <div class="table-header"><h2>Pending Appointments</h2>{{ mx.csv_button('pending-appointments-' ~ client.id ~ '.csv', '#pending-appointments', 'appointment', 'Appointment') }}</div>
         <div class="wide-table-wrap">
             <table id="pending-appointments">
                 <thead>
@@ -94,6 +97,7 @@
         <div class="table-header">
             <h2>Past Appointments</h2>
             {{ mx.list_search(past, 'past appointments') }}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_client_export_past_appointments', { id: client.id }|merge(app.request.query.all|filter((v, k) => k in ['q', 'sort', 'dir']))) }}">Export CSV</a>
         </div>
         <div class="wide-table-wrap">
             <table id="past-appointments">

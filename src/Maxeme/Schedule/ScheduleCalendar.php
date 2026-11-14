@@ -87,7 +87,7 @@ final class ScheduleCalendar
                     // Its repair order, or a new one for the client and vehicle (mockup 051cc07); none for a direct booking.
                     'repairOrder' => match (true) {
                         $repairOrder !== null => $this->urls->generate('maxeme_repair_order_edit', ['id' => $repairOrder->getId()]),
-                        $type->hasRepairOrder() => $this->urls->generate('maxeme_repair_order_new', ['id' => $client->getId(), ...($vehicle !== null ? ['vehicle' => $vehicle->getId()] : [])]),
+                        $type->hasRepairOrder() => $this->urls->generate('maxeme_repair_order_new', ['appointment' => $appointment->getId()]),
                         default => null,
                     },
                 ],

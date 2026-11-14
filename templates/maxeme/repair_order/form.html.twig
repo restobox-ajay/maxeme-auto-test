@@ -54,6 +54,7 @@
           data-clients-url="{{ path('maxeme_repair_order_clients') }}"
           data-gst-rate="{{ repairOrder.gstRate }}" data-pst-rate="{{ repairOrder.pstRate }}">
         {{ csrf_field() }}
+        {% if fromAppointment|default(null) %}<input type="hidden" name="from_appointment" value="{{ fromAppointment.id }}">{% endif %}
 
         {# ── Customer · Vehicle · Visit ─────────────────────────────────────────── #}
         <section class="form-card">
@@ -93,6 +94,13 @@
                         {% for vehicle in clientVehicles %}<option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ~ '' ? 'selected' }}>{{ vehicle.label }}</option>{% endfor %}
                         <option value="new" {{ data.vehicleId == 'new' ? 'selected' }}>+ New vehicle</option>
                     </select>
+                    {# Pickup address (mockup a38e7a2): the customer's address book, none by default. #}
+                    <label class="mx-ro-field" id="ro-pickup-field"><span>Pickup address</span>
+                        <select id="ro-pickup" name="pickup_address_id" aria-label="Pickup address" class="{{ errors.pickupAddressId is defined ? 'is-invalid' }}">
+                            <option value="">— none —</option>
+                            {% for address in clientAddresses %}<option value="{{ address.id }}" {{ data.pickupAddressId == address.id ~ '' ? 'selected' }}>{{ address.label }}</option>{% endfor %}
+                        </select>
+                    </label>
                     <div id="ro-new-vehicle" class="mx-ro-new" {{ data.vehicleId != 'new' ? 'hidden' }}>
                         <input type="text" name="new_vehicle[year]" value="{{ form.newVehicle.year }}" placeholder="Year" maxlength="4" inputmode="numeric" aria-label="New vehicle year">
                         <input type="text" name="new_vehicle[manufacturer]" value="{{ form.newVehicle.manufacturer }}" placeholder="Make" aria-label="New vehicle make">
@@ -131,6 +139,9 @@
                 </label>
                 <label class="span-2"><span>Internal Comment <small class="muted-line">(for staff only: never printed on the work order, quote or invoice)</small></span>
                     <textarea name="concern" rows="3" placeholder="e.g. customer says clunk over bumps, brakes squeal when cold">{{ data.concern }}</textarea>
+                </label>
+                <label class="span-2"><span>Recommendations <small class="muted-line">(for the customer: printed on the work order and carried onto the invoice)</small></span>
+                    <textarea name="recommendations" rows="3" maxlength="2000" placeholder="e.g. Front rotors scored, resurface at next visit.">{{ data.recommendations }}</textarea>
                 </label>
             </div>
         </section>
@@ -251,5 +262,5 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="/assets/js/maxeme-service-lines.js?v=2"></script>
-    <script src="/assets/js/maxeme-repair-order.js?v=4"></script>
+    <script src="/assets/js/maxeme-repair-order.js?v=5"></script>
 {% endblock %}

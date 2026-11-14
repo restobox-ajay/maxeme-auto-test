@@ -7,6 +7,12 @@
     {%- endif -%}
 {% endmacro %}
 
+{# Export CSV of a table that shows every row on the page (maxeme.js [data-csv-of], mockup a38e7a2); logged to the Activity Log. #}
+{% macro csv_button(filename, table, area, entity, class = 'button mx-btn-sm outline') -%}
+    <a class="{{ class }}" href="#" data-csv="{{ filename }}" data-csv-of="{{ table }}" data-csv-area="{{ area }}" data-csv-entity="{{ entity }}"
+       data-log-url="{{ path('maxeme_export_logged') }}" data-token="{{ csrf_token_value() }}">Export CSV</a>
+{%- endmacro %}
+
 {# Hidden field that sends a modal form back to the page (and filters) it was opened from. #}
 {% macro return_field() %}
     <input type="hidden" name="{{ constant('App\\Maxeme\\Controller\\AbstractMaxemeController::RETURN_FIELD') }}" value="{{ app.request.requestUri }}">

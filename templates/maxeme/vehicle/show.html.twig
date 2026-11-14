@@ -56,9 +56,10 @@
                 </select>
                 {% if serviceId or category %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_vehicle_show', { id: vehicle.id }) }}">Clear</a>{% endif %}
             </form>
+            {{ mx.csv_button('repair-history-' ~ vehicle.id ~ '.csv', '#vehicle-history-table', 'car', 'RepairOrder') }}
         </div>
         <div class="wide-table-wrap">
-            <table>
+            <table id="vehicle-history-table">
                 <thead><tr><th>Date</th><th>RO #</th><th>Repair Name</th><th>Services</th><th>Mileage</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
                 <tbody>
                     {% for repairOrder in history %}

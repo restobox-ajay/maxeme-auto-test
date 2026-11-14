@@ -44,5 +44,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        {# For the customer (mockup 169b599): also carried onto the invoice. #}
+        {% if document.recommendations %}<p class="wo-recommendations"><strong>Recommendations:</strong><br>{{ document.recommendations|nl2br }}</p>{% endif %}
     </div>
 </div>

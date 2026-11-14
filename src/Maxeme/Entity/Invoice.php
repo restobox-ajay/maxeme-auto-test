@@ -187,6 +187,8 @@ class Invoice
             $invoice->vehicleMileageUnit = $repairOrder->getMileageUnit();
         }
         $invoice->note = $repairOrder->getConcern();
+        // Its recommendations for the customer are carried onto the invoice (mockup 169b599).
+        $invoice->recommendations = $repairOrder->getRecommendations();
 
         return $invoice;
     }

@@ -26,6 +26,8 @@ final class RepairOrderData extends FormData
         'master_technician_id' => 'masterTechnicianId',
         'name' => 'name',
         'concern' => 'concern',
+        'recommendations' => 'recommendations',
+        'pickup_address_id' => 'pickupAddressId',
         'gst_rate' => 'gstRate',
         'pst_rate' => 'pstRate',
     ];
@@ -63,6 +65,14 @@ final class RepairOrderData extends FormData
     #[Assert\Length(max: 5000)]
     public ?string $concern = null;
 
+    /** For the customer, printed on the work order and copied onto the invoice (mockup 169b599). */
+    #[Assert\Length(max: 2000)]
+    public ?string $recommendations = null;
+
+    /** One of the client's addresses, or blank for none (mockup a38e7a2). */
+    #[Assert\Regex('/^\d+$/', message: 'Choose a pickup address from the list.')]
+    public ?string $pickupAddressId = null;
+
     /** This repair order's GST and PST, whole percent 0 to 100, editable in its Totals box (mockup 55f432c; 0 for none). */
     #[Assert\NotBlank(message: 'Enter the GST rate (0 for none).')]
     #[Assert\Regex('/^\d{1,3}$/', message: 'The GST rate is a whole percent, 0 to 100.')]
@@ -91,6 +101,6 @@ final class RepairOrderData extends FormData
 
     protected function managedElsewhere(): array
     {
-        return ['status', 'clientId', 'vehicleId', 'advisorId', 'masterTechnicianId'];
+        return ['status', 'clientId', 'vehicleId', 'advisorId', 'masterTechnicianId', 'pickupAddressId'];
     }
 }

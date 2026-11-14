@@ -133,6 +133,19 @@
         newVehicle.hidden = true;
     }
 
+    /* The pickup address: the chosen customer's address book, none by default (mockup a38e7a2). */
+    var pickup = $('#ro-pickup');
+    function setAddresses(addresses) {
+        if (!pickup) { return; }
+        pickup.innerHTML = '<option value="">— none —</option>';
+        addresses.forEach(function (address) {
+            var element = document.createElement('option');
+            element.value = address.id;
+            element.textContent = address.label;
+            pickup.appendChild(element);
+        });
+    }
+
     function showInfo(item) {
         clientInfo.innerHTML = '';
         [item.label].concat((item.phones || []).map(function (phone, i) { return 'Phone ' + (i + 1) + ': ' + phone; }), item.email ? [item.email] : [])
@@ -148,6 +161,7 @@
             clientId.value = item.value;
             showInfo(item);
             setVehicles(item.vehicles || [], '(none)');
+            setAddresses(item.addresses || []);
         }
     });
 
@@ -156,6 +170,7 @@
         clientId.value = '';
         clientInfo.hidden = true;
         setVehicles([], 'Choose the customer first');
+        setAddresses([]);
     });
 
     toggle.addEventListener('click', function () {
@@ -167,6 +182,7 @@
         newClient.hidden = !typingNew;
         toggle.textContent = toggle.getAttribute(typingNew ? 'data-search-label' : 'data-new-label');
         setVehicles([], typingNew ? '(none)' : 'Choose the customer first');
+        setAddresses([]);
         if (typingNew) {
             // A new customer has no vehicles yet: offer the new vehicle straight away.
             vehicle.value = 'new';

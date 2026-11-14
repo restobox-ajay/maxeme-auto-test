@@ -140,7 +140,7 @@ final class PrintedDocuments
             total: $repairOrder->getTotal(),
             payment: null,
             note: $repairOrder->getConcern(),
-            recommendations: null,
+            recommendations: $kind === DocumentKind::WorkOrder ? $repairOrder->getRecommendations() : null,
             masterTechnician: $repairOrder->getMasterTechnician()?->getName(),
             repairItems: array_map(static fn (RepairOrderJob $job): array => [
                 'name' => self::billedName($job),

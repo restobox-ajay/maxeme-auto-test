@@ -9,7 +9,7 @@ This file tracks which mockup commits have been ported into the Symfony app on `
 |---|---|---|
 | Fork point (main == mockup) | `7b4ed70` | 2026-10-03 |
 | **Mockup reviewed up to** | `84d136d` | 2026-11-12 |
-| **Mockup ported up to** | P1–P4 + f556ee8 and part of 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
+| **Mockup ported up to** | P1–P5 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
 
 **When new mockup commits arrive:** `git fetch maxemeauto && git log --oneline 84d136d..maxemeauto/mockup`
 (replace `84d136d` with the "reviewed up to" hash above), add the new rows below, then move the marker.
@@ -24,12 +24,12 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 
 | Mockup commit | Change | Status | Batch |
 |---|---|---|---|
-| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | partial — quote title "QUOTE / 報價單" done 2b53d29; pickup address and CSV exports left | P5 |
+| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | done — quote title 2b53d29; pickup address + Export CSV on the remaining lists (5d; Reminder Todo's CSV goes with the merged Reminders page, P6) | P5 |
 | 898d57e | Remove the description line under page titles (≈21 list/config pages) | done 2b53d29 | P1 |
 | 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | todo | P6 |
 | deba1ef | Appointments: 4th "List" view (paginated, filterable table) | done 2b53d29 | P3 |
 | 3d5095e | Staff can hold several roles (checkboxes; permissions = union) | todo | P7 |
-| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | partial — per-service technician + work status e2dc368; Govt Fees / Discount charge through Yes by default 564f67a; recommendations (5d) left | P5 |
+| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | done — per-service technician + work status e2dc368; charge-through default 564f67a; recommendations on the work order and invoice (5d) | P5 |
 | 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | done e2dc368 | P5 |
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
@@ -56,9 +56,9 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 3dddb7b + 6bfe69e | 6-digit numbers on RO, QO, WO, INV (RO-020046) | done 2b53d29 | P1 |
 | 55f432c | GST % / PST % editable per RO in the Totals box | done 564f67a (whole percent, as the rates are stored) | P5 |
 | 9d04430 | RO Totals: "+ Add discount" only; existing fees kept | done 564f67a | P5 |
-| ee7a843 | Paid (Invoiced) RO + its appointments locked except notes; refund unlocks; vehicle links on client appointments | done (5c; vehicle links already 2b53d29) | P5 |
+| ee7a843 | Paid (Invoiced) RO + its appointments locked except notes; refund unlocks; vehicle links on client appointments | done 8877be9 (vehicle links 2b53d29) | P5 |
 | ca9d795 | Appointment form hides Delete for Completed | done 2b53d29 | P3 |
-| 88ddf43 | Completed → "Issue the invoice now?"; Completed, Picked Up needs a live invoice | done (5c: repair order page and board) | P5 |
+| 88ddf43 | Completed → "Issue the invoice now?"; Completed, Picked Up needs a live invoice | done 8877be9 (repair order page and board) | P5 |
 | 689a4a1 | Appointment Type (Repair/Bodywork/Buying-selling/Other) with fixed colours; status colours; service colour removed | done 2b53d29 | P3 |
 | 25368c7 | New repair appointment must pick an open RO or "+ Create new repair order" | done 2b53d29 | P3 |
 | 9ba2951 | Buying/selling + Other appointments need no vehicle (vehicle_id nullable) | done 2b53d29 | P3 |
@@ -78,25 +78,25 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 1e3b16c | Client appointments: Repair Order button | done 2b53d29 | P3 |
 | 33caa46 | Check-in button on the calendar popup and client's pending appointments | done 2b53d29 | P3 |
 | f556ee8 | Work order "First Printed On" replaces "Last Modified On": set on the first print (or PDF), never changed (RO; invoice with no RO) | done 7381719 | P2 |
-| 84d136d | New-appointment RO list = open orders only (estimate … awaiting parts) with status; a payment that makes an invoice Paid while its RO is still open asks "Complete and lock?" | done — RO list 355a9f8; "Complete and lock?" on the invoice page after it is saved Paid (5c) | P5 |
+| 84d136d | New-appointment RO list = open orders only (estimate … awaiting parts) with status; a payment that makes an invoice Paid while its RO is still open asks "Complete and lock?" | done — RO list 355a9f8; "Complete and lock?" on the invoice page after it is saved Paid 8877be9 | P5 |
 
 ## Audit fixes inside 8b30420 / 34181b0
 
 | Change | Status | Batch |
 |---|---|---|
-| RO is Invoiced only when a **Paid** invoice exists (from Completed / Picked Up); no paid invoice left → back to the earlier status; manual Invoiced refused | done (5c) | P5 |
+| RO is Invoiced only when a **Paid** invoice exists (from Completed / Picked Up); no paid invoice left → back to the earlier status; manual Invoiced refused | done 8877be9 | P5 |
 | Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | partial — repair order done 564f67a (refused on save, JS warns); issued edit and builder with P10 | P5/P10 |
 | Part lines taxed by the product's tax class (`sales_tax_code`) | done 564f67a (PartTaxes; repair order, invoices, prints, live totals) | P5 |
-| Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | done (5c; board cf7874a) | P5 |
+| Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | done 8877be9 (board cf7874a) | P5 |
 | Cancelling a RO cancels its pending appointments | done cf7874a | P5 |
-| Finished RO keeps its saved totals (no re-pricing on untouched save) | done (5c) | P5 |
+| Finished RO keeps its saved totals (no re-pricing on untouched save) | done 8877be9 | P5 |
 | Issued-invoice edit: amount paid ≥ total; edits copy back to a finished RO | todo | P10 |
 | Invoice totals box: method/amount/change only when paid, else Balance due | done 2b53d29 | P2 |
 | Delete guards: tax class (services, products), labour/govt fee (RO lines), clients/vehicles in use, service reminder with queued entries | partial | P7 |
 | Client duplicate check (email, phone last 10 digits, name); VIN unique; mileage "88,000" → 88000 | todo | P7 |
 | Phones shown as 604-285-8200 and stored as digits when edited; postal code "V6X 2P9" | todo | P7 |
 | Appointment duration 0.5–24 h; past-day booking needs a yes; inactive vehicle already on the appointment/RO stays | done 2b53d29 (appointment; RO side with P5) | P3 |
-| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | partial — inactive technician kept e2dc368; the rest 5d | P5 |
+| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | done — inactive technician kept e2dc368; ?appointment= and customer + vehicle required (5d) | P5 |
 | Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | partial | P6 |
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | todo | P7 |
@@ -111,7 +111,7 @@ Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` +
 
 - `repair_order` / `invoice`: `wo_first_printed_at` (done, Version20261114090000).
 - `repair_order`: `quote_approved_at`, `quote_approved_via`, `quote_declined_at` (done, Version20261114100000).
-- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT; `status_before_invoiced` (done, Version20261114120000); `mileage_unit` (done); `master_technician_id` re-pointed to `admin_user` (done, Version20261114110000).
+- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT (done, Version20261114130000); `status_before_invoiced` (done, Version20261114120000); `mileage_unit` (done); `master_technician_id` re-pointed to `admin_user` (done, Version20261114110000).
 - `repair_order_job`: `technician_id` (→ admin_user), `work_status` (not_started / in_progress / done) (done, Version20261114110000).
 - `maxeme_appointment`: `appt_type` (repair / bodywork / buy_sell / other, default repair), `vehicle_id` nullable, optional `technician_id` (done); `colour` no longer used.
 - `maxeme_service_item.own_colour`: no longer used.

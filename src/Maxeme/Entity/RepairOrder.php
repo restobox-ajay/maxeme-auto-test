@@ -125,6 +125,15 @@ class RepairOrder implements HasNotes
     #[ORM\Column(name: 'quote_approved_via', length: 20, nullable: true, enumType: QuoteApproval::class)]
     private ?QuoteApproval $quoteApprovedVia = null;
 
+    /** For the customer (mockup 169b599): printed on the work order and copied onto the invoice when it is issued. */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $recommendations = null;
+
+    /** Where to pick the car up (mockup a38e7a2): one of the client's address book, or none (most visits). */
+    #[ORM\ManyToOne(targetEntity: ClientAddress::class)]
+    #[ORM\JoinColumn(name: 'pickup_address_id', nullable: true, onDelete: 'SET NULL')]
+    private ?ClientAddress $pickupAddress = null;
+
     /** The status it had when it became Invoiced (Completed or Completed, Picked Up), to go back to when no paid invoice is left. */
     #[ORM\Column(name: 'status_before_invoiced', length: 24, nullable: true, enumType: RepairOrderStatus::class)]
     private ?RepairOrderStatus $statusBeforeInvoiced = null;
@@ -217,6 +226,7 @@ class RepairOrder implements HasNotes
     public function getVehicleId(): ?int { return $this->vehicle?->getId(); }
     public function getAdvisorId(): ?int { return $this->advisor?->getId(); }
     public function getMasterTechnicianId(): ?int { return $this->masterTechnician?->getId(); }
+    public function getPickupAddressId(): ?int { return $this->pickupAddress?->getId(); }
 
     public function getMileage(): ?string { return $this->mileage; }
     public function setMileage(?string $mileage): self { $this->mileage = $mileage; return $this; }
@@ -255,6 +265,21 @@ class RepairOrder implements HasNotes
 
     public function getName(): ?string { return $this->name; }
     public function setName(?string $name): self { $this->name = $name; return $this; }
+
+    public function getRecommendations(): ?string { return $this->recommendations; }
+    public function setRecommendations(?string $recommendations): self { $this->recommendations = $recommendations; return $this; }
+    public function getPickupAddress(): ?ClientAddress { return $this->pickupAddress; }
+
+    /** One of its client's addresses, or none. */
+    public function setPickupAddress(?ClientAddress $address): self
+    {
+        if ($address !== null && $address->getClient() !== $this->client) {
+            throw new \DomainException('The pickup address is another client\'s.');
+        }
+        $this->pickupAddress = $address;
+
+        return $this;
+    }
 
     public function getConcern(): ?string { return $this->concern; }
     public function setConcern(?string $concern): self { $this->concern = $concern; return $this; }

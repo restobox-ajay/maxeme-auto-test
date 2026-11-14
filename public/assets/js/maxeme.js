@@ -471,3 +471,51 @@
         });
     });
 }());
+
+/*
+ * Export CSV of a list that shows every row on the page (mockup a38e7a2):
+ *   <a data-csv-of="#table" data-csv="name.csv" data-csv-area="service" data-csv-entity="ServiceCategory"
+ *      data-log-url="…" data-token="…">Export CSV</a>
+ * The table's header row and body rows, without the filter row and the Actions column; the export is
+ * then written to the Activity Log (ExportLogController).
+ */
+(function () {
+    'use strict';
+
+    function text(cell) { return (cell.innerText || cell.textContent || '').replace(/\s+/g, ' ').trim(); }
+    function quote(value) { return /[",\r\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value; }
+
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest('[data-csv-of]');
+        if (!link) { return; }
+        event.preventDefault();
+        var table = document.querySelector(link.getAttribute('data-csv-of'));
+        if (!table) { return; }
+        var head = table.querySelector('thead tr:not(.filter-row)');
+        var headers = head ? Array.prototype.map.call(head.cells, text) : [];
+        var keep = headers.map(function (label) { return label !== '' && label.toLowerCase() !== 'actions'; });
+        var lines = [headers.filter(function (label, i) { return keep[i]; }).map(quote).join(',')];
+        var count = 0;
+        Array.prototype.forEach.call(table.querySelectorAll('tbody tr'), function (row) {
+            if (row.querySelector('.empty-table-cell, .mx-empty-line') || row.cells.length < 2) { return; }
+            var cells = Array.prototype.filter.call(row.cells, function (cell, i) { return keep[i] !== false; });
+            lines.push(cells.map(function (cell) { return quote(text(cell)); }).join(','));
+            count++;
+        });
+        var filename = link.getAttribute('data-csv');
+        var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        var anchor = document.createElement('a');
+        anchor.href = URL.createObjectURL(blob);
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        var body = new FormData();
+        body.append('area', link.getAttribute('data-csv-area') || '');
+        body.append('entity', link.getAttribute('data-csv-entity') || '');
+        body.append('filename', filename);
+        body.append('rows', String(count));
+        fetch(link.getAttribute('data-log-url'), { method: 'POST', body: body, headers: { 'X-CSRF-TOKEN': link.getAttribute('data-token') || '', 'Accept': 'application/json' } }).catch(function () {});
+        if (window.WC && window.WC.showToast) { window.WC.showToast(filename + ' downloaded (' + count + ' rows).', 'success'); }
+    });
+}());

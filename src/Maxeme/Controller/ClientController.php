@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Audit\ActivityRecorder;
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
@@ -117,6 +118,57 @@ final class ClientController extends AbstractMaxemeController
         $this->records->save($client = new Client(), $data);
 
         return $this->redirectToRoute('maxeme_client_show', ['id' => $client->getId()]);
+    }
+
+    /** Client Profile › Appointments › Past Appointments › Export CSV (mockup a38e7a2): every row of its search and sort. */
+    #[Route('/{id}/past-appointments.csv', name: 'export_past_appointments', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
+    public function exportPastAppointments(#[MapEntity] Client $client, Request $request, AppointmentRepository $appointments, ActivityRecorder $activity, DocumentNumbers $numbers, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(AppointmentRepository::PAST_SORTS), 'desc');
+        $rows = $appointments->findCompletedForClient($client, $list);
+        $filename = sprintf('past-appointments-%d.csv', $client->getId());
+        $activity->exported('appointment', 'Appointment', $filename, count($rows), sprintf('%s, %s', $client->getFullName(), $list->describe()));
+        $zone = new \DateTimeZone($timezone);
+
+        return CsvExport::response($filename, ['Date', 'Time', 'Vehicle', 'Duration (h)', 'Status', 'Repair Order', 'Note'], (static function () use ($rows, $zone, $numbers): \Generator {
+            foreach ($rows as $appointment) {
+                yield [
+                    $appointment->getStartTime()->setTimezone($zone)->format('m/d/Y'),
+                    $appointment->getStartTime()->setTimezone($zone)->format('g:i A'),
+                    $appointment->getVehicle()?->getFullName(),
+                    $appointment->getDurationInHours(),
+                    $appointment->getStatus()->label(),
+                    $appointment->getRepairOrder() !== null ? $numbers->repairOrderNumber($appointment->getRepairOrder()) : null,
+                    $appointment->getNote(),
+                ];
+            }
+        })());
+    }
+
+    /** Client Profile › Repair Orders › Export CSV (mockup a38e7a2): every row of its search and sort. */
+    #[Route('/{id}/repair-orders.csv', name: 'export_repair_orders', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[RequiresPermission(Permission::PEOPLE_VIEW)]
+    public function exportRepairOrders(#[MapEntity] Client $client, Request $request, RepairOrderRepository $repairOrders, ActivityRecorder $activity, DocumentNumbers $numbers, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    {
+        $list = ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc');
+        $rows = $repairOrders->findForClient($client, $list);
+        $filename = sprintf('repair-orders-%d.csv', $client->getId());
+        $activity->exported('work-order', 'RepairOrder', $filename, count($rows), sprintf('%s, %s', $client->getFullName(), $list->describe()));
+        $zone = new \DateTimeZone($timezone);
+
+        return CsvExport::response($filename, ['RO #', 'Date', 'Vehicle', 'Repair Name', 'Status', 'Total'], (static function () use ($rows, $zone, $numbers): \Generator {
+            foreach ($rows as $repairOrder) {
+                yield [
+                    $numbers->repairOrderNumber($repairOrder),
+                    $repairOrder->getCreatedOn()->setTimezone($zone)->format('m/d/Y'),
+                    $repairOrder->getVehicle()?->getFullName(),
+                    $repairOrder->getName(),
+                    $repairOrder->getStatus()->label(),
+                    $repairOrder->getTotal(),
+                ];
+            }
+        })());
     }
 
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'], methods: ['GET'])]

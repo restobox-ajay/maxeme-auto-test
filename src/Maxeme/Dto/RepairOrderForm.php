@@ -11,7 +11,8 @@ use Symfony\Component\HttpFoundation\Request;
  * Everything the repair order page posts, as typed: its own fields, a customer and a vehicle typed
  * in (new_client[...], new_vehicle[...]), its services with their lines, its custom fees and
  * discounts, and its upcoming appointments; confirm_move is the yes to a status move that asks first
- * (RepairOrderStatusChange). A refused save shows it again as it was.
+ * (RepairOrderStatusChange); from_appointment the appointment a new one was started from (linked
+ * to it on save). A refused save shows it again as it was.
  */
 final class RepairOrderForm
 {
@@ -28,6 +29,7 @@ final class RepairOrderForm
         public readonly array $charges,
         public readonly array $appointments,
         public readonly bool $confirmMove = false,
+        public readonly ?string $fromAppointmentId = null,
     ) {
     }
 
@@ -43,6 +45,7 @@ final class RepairOrderForm
             DocumentChargeData::listFromRequest($posted['charges'] ?? []),
             RepairOrderAppointmentData::listFromRequest($posted['appointments'] ?? []),
             ($posted['confirm_move'] ?? '') === '1',
+            is_string($posted['from_appointment'] ?? null) && ctype_digit($posted['from_appointment']) ? $posted['from_appointment'] : null,
         );
     }
 

@@ -13,6 +13,7 @@ use App\Maxeme\Dto\RepairOrderAppointmentData;
 use App\Maxeme\Dto\RepairOrderForm;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceLine;
@@ -104,12 +105,29 @@ final class RepairOrderController extends AbstractMaxemeController
         })());
     }
 
-    /** A new repair order; ?id= starts it for that client (Choose a client links so), ?vehicle= with that vehicle. */
+    /**
+     * A new repair order; ?id= starts it for that client (Choose a client links so), ?vehicle= with that
+     * vehicle, ?appointment= from that appointment (its client, vehicle and note; the appointment becomes
+     * this repair order's when it is saved, audit fix 34181b0). An appointment that already has one opens it.
+     */
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     #[RequiresPermission(Permission::WORK_ORDER_EDIT)]
     public function new(Request $request): Response
     {
         $user = $this->getUser();
+        $appointmentId = self::idParam($request->query, 'appointment');
+        $appointment = $appointmentId !== null ? $this->entityManager->find(Appointment::class, $appointmentId) : null;
+        if ($appointment?->getRepairOrder() !== null) {
+            return $this->redirectToRoute('maxeme_repair_order_edit', ['id' => $appointment->getRepairOrder()->getId()]);
+        }
+        if ($appointment !== null && $appointment->getType()->hasRepairOrder()) {
+            $repairOrder = $this->writer->start($user instanceof AdminUser ? $user : null, $appointment->getClient(), $appointment->getVehicle());
+            if (!$request->isMethod('POST')) {
+                $repairOrder->setName($appointment->getNote() !== null ? mb_substr($appointment->getNote(), 0, 255) : null);
+            }
+
+            return $this->form($repairOrder, $request, 'New Repair Order', $appointment);
+        }
         $clientId = self::idParam($request->query, 'id');
         $client = $clientId !== null ? $this->entityManager->getRepository(Client::class)->findOneBy(['id' => $clientId, 'active' => true]) : null;
         // ?vehicle= also picks one of the client's vehicles (the Service Reminder Queue's Book).
@@ -142,6 +160,7 @@ final class RepairOrderController extends AbstractMaxemeController
                 'phones' => $client->getPhones(),
                 'email' => $client->getEmail(),
                 'vehicles' => array_map(self::vehicleOption(...), array_values($client->getVehicles()->toArray())),
+                'addresses' => array_map(self::addressOption(...), array_values($client->getAddresses()->toArray())),
             ],
             $clients->suggest(trim((string) $request->query->get('q', ''))),
         ));
@@ -201,7 +220,7 @@ final class RepairOrderController extends AbstractMaxemeController
         return $this->json(['message' => 'Appointment deleted.']);
     }
 
-    private function form(RepairOrder $repairOrder, Request $request, string $title): Response
+    private function form(RepairOrder $repairOrder, Request $request, string $title, ?Appointment $fromAppointment = null): Response
     {
         $form = RepairOrderForm::fromEntity($repairOrder);
         $errors = [];
@@ -238,6 +257,8 @@ final class RepairOrderController extends AbstractMaxemeController
             'chargeKinds' => DocumentChargeKind::cases(),
             'technicians' => $this->technicians->choices($repairOrder->getMasterTechnician()),
             'confirmMove' => $confirmMove,
+            'fromAppointment' => $fromAppointment,
+            'clientAddresses' => array_map(self::addressOption(...), array_values($client?->getAddresses()->toArray() ?? [])),
             'offerInvoice' => $request->query->get('offerInvoice') === '1' && $repairOrder->getId() !== null && $repairOrder->getStatus() === RepairOrderStatus::Completed
                 && !$this->invoicing->hasLiveInvoice($repairOrder) && $this->isGranted(Permission::ACCOUNTING_EDIT),
             'jobTechnicians' => $this->technicians->active(),
@@ -245,6 +266,12 @@ final class RepairOrderController extends AbstractMaxemeController
             'history' => $repairOrder->getId() !== null ? $this->activityLog->latestFor($repairOrder, self::HISTORY_ROWS) : [],
             'timezone' => $this->schedule->timezone(),
         ], new Response('', $errors !== [] ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+    }
+
+    /** @return array{id: ?int, label: string} "1. Home — 2-2300 Simpson Rd, Richmond" */
+    private static function addressOption(ClientAddress $address, int $index = 0): array
+    {
+        return ['id' => $address->getId(), 'label' => sprintf('%s — %s', $address->getLabel() ?: 'Pickup address', $address->getOneLine())];
     }
 
     /** The customer the form shows: the one picked (a refused save keeps the pick), else the saved one. */

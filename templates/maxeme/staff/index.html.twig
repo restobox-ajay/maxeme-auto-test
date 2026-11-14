@@ -9,6 +9,7 @@
 
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Manage Admins' } %}
         {% block actions %}
+            {% import 'maxeme/_macros.html.twig' as mx %}{{ mx.csv_button('admins.csv', '#admin-table', 'staff', 'AdminUser') }}
             {% if canAdd %}
                 <button id="add-new-admin-btn" class="button mx-success" type="button" data-modal-open="#register-modal">+ Add a new user</button>
             {% endif %}

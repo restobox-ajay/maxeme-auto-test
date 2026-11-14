@@ -82,7 +82,7 @@
                                             {% if appointment.repairOrder %}
                                                 <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Repair order</a>
                                             {% else %}
-                                                <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_new', { id: appointment.client.id }|merge(appointment.vehicle ? { vehicle: appointment.vehicle.id } : {})) }}">+ Repair order</a>
+                                                <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_new', { appointment: appointment.id }) }}">+ Repair order</a>
                                             {% endif %}
                                         {% endif %}
                                         {% if canOpenClient %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_client_show', { id: appointment.client.id, tab: 'appointments' }) }}">Client</a>{% endif %}

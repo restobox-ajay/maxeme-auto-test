@@ -15,6 +15,7 @@ use App\Maxeme\Dto\RepairOrderForm;
 use App\Maxeme\Dto\RepairOrderJobData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\RepairOrderCharge;
 use App\Maxeme\Entity\RepairOrderJob;
@@ -96,6 +97,28 @@ final class RepairOrderWriter
             $errors['masterTechnicianId'] = 'Choose an assigned technician from the list.';
         }
 
+        // Every repair order is for a customer and one of their vehicles (audit fix 34181b0).
+        if ($client === null && !isset($errors['clientId'])) {
+            $errors['clientId'] = 'Choose the customer, or add a new one.';
+        }
+        if ($vehicle === null && !isset($errors['vehicleId'])) {
+            $errors['vehicleId'] = 'Choose the vehicle, or add a new one.';
+        }
+        // The pickup address: one of the customer's address book, or none (mockup a38e7a2).
+        $pickup = null;
+        if ($data->pickupAddressId !== null && $client !== null && $client->getId() !== null) {
+            $pickup = $this->entityManager->find(ClientAddress::class, (int) $data->pickupAddressId);
+            if ($pickup === null || $pickup->getClient() !== $client) {
+                $pickup = null;
+                $errors['pickupAddressId'] = 'Choose one of the customer\'s addresses, or none.';
+            }
+        }
+        // Started from an appointment that has no repair order (?appointment=): it becomes this one's.
+        $fromAppointment = $repairOrder->getId() === null && $form->fromAppointmentId !== null ? $this->entityManager->find(Appointment::class, (int) $form->fromAppointmentId) : null;
+        if ($fromAppointment !== null && ($fromAppointment->getRepairOrder() !== null || !$fromAppointment->getType()->hasRepairOrder() || ($client !== null && $fromAppointment->getClient() !== $client))) {
+            $fromAppointment = null;
+        }
+
         [$jobs, $jobErrors] = $this->jobs($repairOrder, $form->jobs);
         [$charges, $chargeErrors] = $this->charges($repairOrder, $form->charges);
         $errors += $jobErrors + $chargeErrors;
@@ -121,6 +144,7 @@ final class RepairOrderWriter
         }
         $repairOrder
             ->setCustomer($client, $vehicle)
+            ->setPickupAddress($pickup)
             ->setMasterTechnician($technician);
         $repairOrder->replaceJobs($jobs);
         $repairOrder->replaceCharges($charges);
@@ -134,6 +158,13 @@ final class RepairOrderWriter
         }
 
         $this->entityManager->persist($repairOrder);
+        if ($fromAppointment !== null && $vehicle !== null) {
+            if ($fromAppointment->getVehicle() !== $vehicle) {
+                $fromAppointment->changeVehicle($vehicle);
+            }
+            $fromAppointment->attachTo($repairOrder);
+            $fromAppointment->setTechnician($repairOrder->getMasterTechnician() ?? $fromAppointment->getTechnician());
+        }
         $this->applyAppointments($repairOrder, $form->appointments, $vehicle);
         $this->entityManager->flush();
 

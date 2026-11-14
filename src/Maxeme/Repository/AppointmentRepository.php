@@ -144,14 +144,23 @@ final class AppointmentRepository extends ServiceEntityRepository
     /** @return ListPage<Appointment> the client's past appointments: completed, cancelled, no-show */
     public function findCompletedPageForClient(Client $client, ListQuery $list): ListPage
     {
-        $query = $this->createQueryBuilder('a')
+        return ListPage::paginate($this->pastForClient($client), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
+    }
+
+    /** @return list<Appointment> every past appointment of the client in the list's search and sort (its Export CSV) */
+    public function findCompletedForClient(Client $client, ListQuery $list): array
+    {
+        return ListPage::filter($this->pastForClient($client), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model'])->getQuery()->getResult();
+    }
+
+    private function pastForClient(Client $client): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->createQueryBuilder('a')
             ->addSelect('v', 'ro')
             ->leftJoin('a.vehicle', 'v')
             ->leftJoin('a.repairOrder', 'ro')
             ->andWhere('a.client = :client')->setParameter('client', $client)
             ->andWhere('a.status NOT IN (:pending)')->setParameter('pending', AppointmentStatus::pending());
-
-        return ListPage::paginate($query, $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
     }
 
     /** The start of the latest repair-order appointment up to $nowUtc, or null (the board's "show that day" hint). */
