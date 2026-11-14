@@ -600,7 +600,21 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-attachment { display: flex; align-items: center; gap: 10px; }
 .mx-attachment-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--line-light); font-size: 0.85rem; }
 .mx-ro-docbar { margin-bottom: 8px; }
-@media print { .mx-ro-docbar, .mx-menu { display: none !important; } }
+@media print { .mx-ro-docbar, .mx-menu, .mx-docnav { display: none !important; } }
+/* A repair order's document switcher beside its title (mockup 345c037). */
+.mx-docnav { display: inline-flex; align-items: stretch; margin-left: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 0.82rem; vertical-align: middle; }
+.mx-docnav > a, .mx-docnav > .mx-docnav-menu > summary { display: inline-flex; align-items: center; gap: 4px; padding: 5px 14px; color: var(--ink-body); text-decoration: none; }
+.mx-docnav > * + * { border-left: 1px solid var(--line); }
+.mx-docnav > a:hover, .mx-docnav > .mx-docnav-menu > summary:hover { background: var(--mx-primary-soft); }
+.mx-docnav > :first-child { border-radius: 7px 0 0 7px; }
+.mx-docnav > :last-child, .mx-docnav > :last-child > summary { border-radius: 0 7px 7px 0; }
+.mx-docnav .is-current { background: var(--mx-primary, #3071a9); color: #fff; }
+.mx-docnav .mx-menu-list { min-width: 260px; }
+.mx-docnav .mx-menu-list a.is-current { background: var(--mx-primary-soft); color: inherit; }
+.mx-menu-note { display: block; padding: 6px 10px; }
+/* The More (⋯) menu at the end of a header's actions opens to the left. */
+.mx-more .mx-menu-list { left: auto; right: 0; min-width: 190px; }
+.mx-doc-head .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
 
 /* ── Vehicle page: details beside its stats, the history filters ── */
 .mx-vehicle-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin: 20px 20px 0; align-items: start; }

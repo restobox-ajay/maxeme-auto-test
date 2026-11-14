@@ -1,0 +1,24 @@
+{# The document switcher beside a saved repair order's title (mockup 345c037): Repair Order, Quote,
+   Invoice ▾ (the Invoices list, then each invoice with its status and amount) and Work Order, the
+   current one highlighted. Each is offered only to a role allowed to open it. Vars: repairOrder,
+   current ('repair_order' | 'quote' | 'invoice' | 'work_order'), invoice (the invoice shown, or null). #}
+{% import 'maxeme/_macros.html.twig' as mx %}
+<span class="mx-docnav no-print" aria-label="Repair order documents">
+    <a class="{{ current == 'repair_order' ? 'is-current' }}" href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">Repair Order</a>
+    {% if is_granted('/work-order/view') %}<a class="{{ current == 'quote' ? 'is-current' }}" href="{{ path('maxeme_repair_order_quote', { id: repairOrder.id }) }}">Quote</a>{% endif %}
+    {% if is_granted('/accounting/view') %}
+        {% set invoices = repair_order_invoices(repairOrder) %}
+        <details class="mx-menu mx-docnav-menu">
+            <summary class="{{ current == 'invoice' ? 'is-current' }}">Invoice <span aria-hidden="true">▾</span></summary>
+            <div class="mx-menu-list" role="menu">
+                <a role="menuitem" href="{{ path('maxeme_repair_order_invoices', { id: repairOrder.id }) }}"><strong>List invoices</strong> <span class="muted-line">({{ invoices|length }})</span></a>
+                {% for item in invoices %}
+                    <a role="menuitem" class="{{ invoice|default(null) and invoice.id == item.id ? 'is-current' }}" href="{{ path('maxeme_invoice_show', { invoiceKey: item.invoiceKey }) }}">{{ doc_number(item) }} <span class="muted-line">· {{ item.status.label }} · ${{ mx.money(item.totalPrice) }}</span></a>
+                {% else %}
+                    <span class="muted-line mx-menu-note">No invoices yet</span>
+                {% endfor %}
+            </div>
+        </details>
+    {% endif %}
+    {% if is_granted('/work-order/view') %}<a class="{{ current == 'work_order' ? 'is-current' }}" href="{{ path('maxeme_repair_order_work_order', { id: repairOrder.id }) }}">Work Order</a>{% endif %}
+</span>

@@ -8,12 +8,24 @@
     {% set data = form.data %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule · Repair Order', title: title } %}
         {% block title_actions %}
-            {% if repairOrder.id %}<span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span>{% endif %}
+            {% if repairOrder.id %}
+                <span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span>
+                {% include 'maxeme/repair_order/_docnav.html.twig' with { repairOrder: repairOrder, current: 'repair_order' } only %}
+            {% endif %}
         {% endblock %}
         {% block actions %}
             {% import 'maxeme/_macros.html.twig' as mx %}
-            {% if repairOrder.id %}{{ mx.logs_link(repairOrder) }}{% endif %}
-            <a class="button back-button" href="{{ path('maxeme_repair_order_index') }}">Back</a>
+            {% if repairOrder.id %}
+            <details class="mx-menu mx-more">
+                <summary class="button outline" aria-label="More">&#8943;</summary>
+                <div class="mx-menu-list" role="menu">
+                    {{ mx.logs_link(repairOrder, '') }}
+                    <a role="menuitem" href="{{ path('maxeme_repair_order_index') }}">Back</a>
+                </div>
+            </details>
+            {% else %}
+                <a class="button back-button" href="{{ path('maxeme_repair_order_index') }}">Back</a>
+            {% endif %}
         {% endblock %}
     {% endembed %}
     {% if repairOrder.id %}{% include 'maxeme/repair_order/_nav.html.twig' with { repairOrder: repairOrder, active: 'repair_order' } only %}{% endif %}
