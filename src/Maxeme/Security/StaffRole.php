@@ -72,6 +72,31 @@ enum StaffRole: string
         return array_values(array_filter(self::cases(), static fn (self $role): bool => $role !== self::TechSupport));
     }
 
+    /**
+     * Every shop role the account holds, highest first (mockup 3d5095e: an account can hold several;
+     * what it may do is the union of their permissions).
+     *
+     * @return list<self>
+     */
+    public static function allOf(AdminUser $user): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $role): bool => in_array($role->value, $user->getRoles(), true)));
+    }
+
+    /**
+     * Posted role values (roles[]) as assignable roles, highest first, unknown ones dropped.
+     *
+     * @param mixed $values
+     *
+     * @return list<self>
+     */
+    public static function listFrom(mixed $values): array
+    {
+        $picked = array_map('strval', is_array($values) ? array_filter($values, 'is_scalar') : []);
+
+        return array_values(array_filter(self::assignable(), static fn (self $role): bool => in_array($role->value, $picked, true)));
+    }
+
     /** The highest shop role among the account's stored roles, or null for an account with none. */
     public static function of(AdminUser $user): ?self
     {

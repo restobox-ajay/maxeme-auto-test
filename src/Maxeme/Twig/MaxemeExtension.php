@@ -79,6 +79,13 @@ final class MaxemeExtension
         return $this->numbers->repairOrderNumber($repairOrder, $kind);
     }
 
+    /** {% for role in staff_roles(user) %}: every shop role the account holds, highest first. */
+    #[AsTwigFunction('staff_roles')]
+    public function staffRoles(AdminUser $user): array
+    {
+        return StaffRole::allOf($user);
+    }
+
     #[AsTwigFunction('staff_role')]
     public function staffRole(AdminUser $user): StaffRole
     {

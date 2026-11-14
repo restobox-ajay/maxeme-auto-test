@@ -25,7 +25,7 @@
                         <th>Last name</th>
                         <th>Email</th>
                         <th>Username</th>
-                        <th>Role</th>
+                        <th>Roles</th>
                         <th>Status</th>
                         {% if canManage %}<th style="text-align:center;">Actions</th>{% endif %}
                     </tr>
@@ -60,8 +60,7 @@
                             <td data-label="Last name">{{ user.lastName }}</td>
                             <td data-label="Email">{{ user.email }}</td>
                             <td data-label="Username">{{ user.username }}</td>
-                            {% set role = staff_role(user) %}
-                            <td data-label="Role">{% if role %}<span class="badge mx-role mx-role-{{ role.permissionKey|replace({'_': '-'}) }}">{{ role.label }}</span>{% else %}—{% endif %}</td>
+                            <td data-label="Roles">{% for role in staff_roles(user) %}<span class="badge mx-role mx-role-{{ role.permissionKey|replace({'_': '-'}) }}">{{ role.label }}</span> {% else %}—{% endfor %}</td>
                             {% set active = user.status == 'Active' %}
                             <td data-label="Status"><span class="badge {{ active ? 'success' : 'warn' }}">{{ user.status }}</span></td>
                             {% if canManage %}
@@ -122,14 +121,9 @@
                 <label>Repeat password<input type="password" name="password_confirm" id="reg-pass2" required autocomplete="new-password" minlength="8"></label>
                 <label>First name:<input type="text" name="first_name" id="reg-first" value="{{ account.firstName }}" required maxlength="120"></label>
                 <label>Last name:<input type="text" name="last_name" id="reg-last" value="{{ account.lastName }}" required maxlength="120"></label>
-                <label class="span-2">Role
-                    <select name="role" id="reg-role" required>
-                        <option value="">Choose a role</option>
-                        {% for role in assignableRoles %}
-                            <option value="{{ role.value }}" {{ account.role == role ? 'selected' }}>{{ role.label }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
+                <div class="span-2 mx-roles-field" id="reg-roles"><span>Roles <small class="muted-line">(pick one or more)</small></span>
+                    <div class="mx-check-row">{% for role in assignableRoles %}<label class="mx-check"><input type="checkbox" name="roles[]" value="{{ role.value }}" {{ role in account.roles ? 'checked' }}> <span>{{ role.label }}</span></label>{% endfor %}</div>
+                </div>
                 <div class="form-actions span-2">
                     <button type="submit" class="button primary">Register</button>
                     <button type="button" class="button outline cancel-back-button js-modal-close">Cancel</button>

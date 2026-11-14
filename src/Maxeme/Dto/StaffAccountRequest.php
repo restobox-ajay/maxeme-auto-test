@@ -24,9 +24,9 @@ final class StaffAccountRequest extends AccountIdentityRequest
     #[Assert\Length(max: 120)]
     public string $lastName = '';
 
-    #[Assert\NotNull(message: 'Choose a role.')]
-    #[Assert\Choice(callback: [StaffRole::class, 'assignable'], message: 'Choose a role.')]
-    public ?StaffRole $role = null;
+    /** @var list<StaffRole> one or more (mockup 3d5095e) */
+    #[Assert\Count(min: 1, minMessage: 'Pick at least one role.')]
+    public array $roles = [];
 
     public function __construct()
     {
@@ -43,7 +43,7 @@ final class StaffAccountRequest extends AccountIdentityRequest
         );
         $dto->firstName = trim((string) $request->request->get('first_name', ''));
         $dto->lastName = trim((string) $request->request->get('last_name', ''));
-        $dto->role = StaffRole::tryFrom((string) $request->request->get('role', ''));
+        $dto->roles = StaffRole::listFrom($request->request->all()['roles'] ?? []);
 
         return $dto;
     }

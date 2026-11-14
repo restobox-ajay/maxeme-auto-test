@@ -739,3 +739,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 /* A paid, locked repair order (mockup ee7a843): no add / delete buttons. */
 #repair-order-form[data-locked] .job-remove, #repair-order-form[data-locked] .charge-remove, #repair-order-form[data-locked] .line-remove,
 #repair-order-form[data-locked] #ro-job-add, #repair-order-form[data-locked] #ro-charge-add, #repair-order-form[data-locked] .mx-lines-add { display: none !important; }
+/* Several roles per staff account (mockup 3d5095e): a row of checkboxes. */
+.mx-roles-field { display: grid; gap: 6px; }
+.mx-check-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.mx-check-row .mx-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.mx-level-badges { display: inline-flex; flex-wrap: wrap; gap: 3px; }

@@ -8,7 +8,7 @@ use App\Entity\AdminUser;
 use App\Maxeme\Security\StaffRole;
 
 /**
- * Whether an account holds a permission: its shop role (StaffRole::of()) and that role's file. The
+ * Whether an account holds a permission: any of its shop roles (StaffRole::allOf()) and that role's file. The
  * one place both PermissionVoter (is_granted('/area/view')) and PermissionEnforcementSubscriber
  * (#[RequiresPermission]) ask.
  *
@@ -23,9 +23,14 @@ final class PermissionChecker
 
     public function isGranted(AdminUser $user, string $permission): bool
     {
-        $role = StaffRole::of($user);
+        // Several roles: allowed when any of them allows it (mockup 3d5095e).
+        foreach (StaffRole::allOf($user) as $role) {
+            if (self::grants($this->files->permissionsFor($role), $permission)) {
+                return true;
+            }
+        }
 
-        return $role !== null && self::grants($this->files->permissionsFor($role), $permission);
+        return false;
     }
 
     /** @param list<string> $granted */

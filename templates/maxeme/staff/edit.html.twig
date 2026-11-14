@@ -16,18 +16,14 @@
             <label>First name:<input type="text" name="first_name" value="{{ account.firstName }}" required maxlength="120"></label>
             <label>Last name:<input type="text" name="last_name" value="{{ account.lastName }}" required maxlength="120"></label>
             <label class="span-2">Phone<input type="tel" name="phone_number" value="{{ account.phoneNumber }}" maxlength="40" autocomplete="tel" {{ input_rule('phone') }}></label>
-            <label class="span-2">Role
-                {% if account.role and account.role not in assignableRoles %}
-                    <input type="text" value="{{ account.role.label }}" disabled>
+            {# One or more roles (mockup 3d5095e): the account may do what any of them allows. #}
+            <div class="span-2 mx-roles-field"><span>Roles <small class="muted-line">(pick one or more)</small></span>
+                {% if account.roles|filter(r => r not in assignableRoles) is not empty %}
+                    <input type="text" value="{{ account.roles|map(r => r.label)|join(', ') }}" disabled>
                 {% else %}
-                    <select name="role" required>
-                        <option value="">Choose a role</option>
-                        {% for role in assignableRoles %}
-                            <option value="{{ role.value }}" {{ account.role == role ? 'selected' }}>{{ role.label }}</option>
-                        {% endfor %}
-                    </select>
+                    <div class="mx-check-row">{% for role in assignableRoles %}<label class="mx-check"><input type="checkbox" name="roles[]" value="{{ role.value }}" {{ role in account.roles ? 'checked' }}> <span>{{ role.label }}</span></label>{% endfor %}</div>
                 {% endif %}
-            </label>
+            </div>
             <label>New password<input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep" minlength="8"></label>
             <label>Repeat new password<input type="password" name="password_confirm" autocomplete="new-password" placeholder="Leave blank to keep" minlength="8"></label>
             <div class="form-actions span-2">

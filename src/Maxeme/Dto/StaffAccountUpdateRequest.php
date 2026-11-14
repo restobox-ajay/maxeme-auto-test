@@ -35,8 +35,9 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
     #[Formatted(InputRule::Phone)]
     public string $phoneNumber = '';
 
-    #[Assert\NotNull(message: 'Choose a role.')]
-    public ?StaffRole $role = null;
+    /** @var list<StaffRole> one or more (mockup 3d5095e); a Tech Support account keeps its roles */
+    #[Assert\Count(min: 1, minMessage: 'Pick at least one role.')]
+    public array $roles = [];
 
     public static function fromUser(AdminUser $user): self
     {
@@ -46,7 +47,7 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
         $dto->firstName = (string) $user->getFirstName();
         $dto->lastName = (string) $user->getLastName();
         $dto->phoneNumber = (string) $user->getPhoneNumber();
-        $dto->role = StaffRole::of($user);
+        $dto->roles = StaffRole::allOf($user);
 
         return $dto;
     }
@@ -59,13 +60,9 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
         $dto->lastName = trim((string) $request->request->get('last_name', ''));
         $dto->phoneNumber = trim((string) $request->request->get('phone_number', ''));
 
-        $current = StaffRole::of($user);
-        $dto->role = $current === StaffRole::TechSupport
-            ? $current
-            : StaffRole::tryFrom((string) $request->request->get('role', ''));
-        if ($dto->role === StaffRole::TechSupport && $current !== StaffRole::TechSupport) {
-            $dto->role = null;
-        }
+        $dto->roles = StaffRole::of($user) === StaffRole::TechSupport
+            ? StaffRole::allOf($user)
+            : StaffRole::listFrom($request->request->all()['roles'] ?? []);
 
         $password = (string) $request->request->get('password', '');
         $confirm = (string) $request->request->get('password_confirm', '');

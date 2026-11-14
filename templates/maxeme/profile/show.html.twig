@@ -10,7 +10,7 @@
             <div class="profile-panel-icon">{{ (user.firstName ?: user.userIdentifier)|first|upper }}</div>
             <div>
                 <h2>{{ fullName ?: user.userIdentifier }}</h2>
-                <p>{{ staff_role(user).label }}</p>
+                <p>{{ staff_roles(user)|map(r => r.label)|join(', ') }}</p>
             </div>
         </div>
         <ul class="profile-detail-list">

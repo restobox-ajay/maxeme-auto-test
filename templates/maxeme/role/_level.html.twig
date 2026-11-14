@@ -1,6 +1,6 @@
-{# One area's access as a badge. Vars: level (Edit | View | a partial action list | null). #}
+{# One area's access: each granted action as its own badge (mockup 345c037). Vars: level (list of action names, or null). #}
 {% if level is null %}
     <span class="mx-muted">–</span>
 {% else %}
-    <span class="badge {{ level == 'Edit' ? 'success' : (level == 'View' ? 'info' : 'warn') }}">{{ level }}</span>
+    <span class="mx-level-badges">{% for action in level %}<span class="badge {{ action == 'View' ? 'info' : (action == 'Create' ? 'warn' : 'success') }}">{{ action }}</span>{% endfor %}</span>
 {% endif %}

@@ -67,7 +67,7 @@ final class StaffAccountService
         return array_values(array_filter($this->listedAccounts(), static function (AdminUser $user) use ($filters): bool {
             foreach ($filters as $field => $value) {
                 $matches = match ($field) {
-                    'role' => StaffRole::of($user)?->value === $value,
+                    'role' => in_array($value, array_map(static fn (StaffRole $role): string => $role->value, StaffRole::allOf($user)), true),
                     'status' => $user->getStatus() === $value,
                     'first_name' => mb_stripos((string) $user->getFirstName(), $value) !== false,
                     'last_name' => mb_stripos((string) $user->getLastName(), $value) !== false,
@@ -110,7 +110,7 @@ final class StaffAccountService
             ->setUsername($request->username)
             ->setFirstName($request->firstName)
             ->setLastName($request->lastName)
-            ->setRoles([$request->role->value]);
+            ->setRoles(array_map(static fn (StaffRole $role): string => $role->value, $request->roles));
         $this->setPassword($user, $request->password->password);
 
         $this->entityManager->persist($user);
@@ -139,8 +139,8 @@ final class StaffAccountService
      */
     public function update(AdminUser $user, StaffAccountUpdateRequest $request): void
     {
-        $current = StaffRole::of($user);
-        if ($current === StaffRole::SuperAdmin && $request->role !== StaffRole::SuperAdmin && $this->activeSuperAdminCount() <= 1) {
+        $current = StaffRole::allOf($user);
+        if (in_array(StaffRole::SuperAdmin, $current, true) && !in_array(StaffRole::SuperAdmin, $request->roles, true) && $this->activeSuperAdminCount() <= 1) {
             throw new \DomainException('This is the only active Super Admin. Make another account Super Admin first.');
         }
 
@@ -150,10 +150,10 @@ final class StaffAccountService
             ->setLastName($request->lastName)
             ->setPhoneNumber($request->phoneNumber !== '' ? $request->phoneNumber : null);
 
-        if ($request->role !== null && $request->role !== $current) {
+        if ($request->roles !== [] && $request->roles !== $current) {
             $staffRoles = array_map(static fn (StaffRole $role): string => $role->value, StaffRole::cases());
-            $otherRoles = array_values(array_diff($user->getRoles(), $staffRoles, ['ROLE_USER']));
-            $user->setRoles([...$otherRoles, $request->role->value]);
+            $otherRoles = array_values(array_diff($user->getRoles(), $staffRoles, ['ROLE_USER', 'ROLE_ADMIN']));
+            $user->setRoles([...$otherRoles, ...array_map(static fn (StaffRole $role): string => $role->value, $request->roles)]);
         }
         if ($request->password !== null) {
             $this->setPassword($user, $request->password->password);

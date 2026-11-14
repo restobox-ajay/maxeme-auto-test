@@ -30,10 +30,10 @@ final class RoleAccessReport
     }
 
     /**
-     * Per area: 'Edit' (every action), 'View' (view only), the granted action names for a partial
-     * grant, or null for none.
+     * Per area: the actions granted ("View", "Create", "Edit", …), each shown as its own badge
+     * (mockup 345c037), or null for none.
      *
-     * @return array<string, ?string> area key => level
+     * @return array<string, list<string>|null> area key => granted action names
      */
     public function levels(StaffRole $role): array
     {
@@ -42,12 +42,7 @@ final class RoleAccessReport
 
         foreach (Permission::byArea() as $area => $actions) {
             $held = array_values(array_filter($actions, static fn (string $action): bool => PermissionChecker::grants($granted, $action)));
-            $levels[$area] = match (true) {
-                $held === [] => null,
-                count($held) === count($actions) => 'Edit',
-                $held === ["/{$area}/view"] => 'View',
-                default => implode(', ', array_map(static fn (string $action): string => ucfirst(substr($action, strrpos($action, '/') + 1)), $held)),
-            };
+            $levels[$area] = $held === [] ? null : array_map(static fn (string $action): string => ucfirst(substr($action, strrpos($action, '/') + 1)), $held);
         }
 
         return $levels;
@@ -86,6 +81,6 @@ final class RoleAccessReport
     /** @return list<AdminUser> active accounts holding the role */
     public function accounts(StaffRole $role): array
     {
-        return array_values(array_filter($this->accounts->activeAccounts(), static fn (AdminUser $user): bool => StaffRole::of($user) === $role));
+        return array_values(array_filter($this->accounts->activeAccounts(), static fn (AdminUser $user): bool => in_array($role, StaffRole::allOf($user), true)));
     }
 }
