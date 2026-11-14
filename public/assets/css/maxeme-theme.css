@@ -756,3 +756,17 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-remark-cell { min-width: 260px; white-space: normal; }
 .mx-remark-cell .mx-remark-text { white-space: pre-wrap; }
 .mx-remark-edit { border: 0; background: none; cursor: pointer; color: #6b7280; padding: 0 2px; margin-left: 4px; }
+
+/* Dashboard (mockup 345c037): work on the left, Needs attention and unpaid invoices on the right. */
+.mx-dash { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1000px) { .mx-dash { grid-template-columns: 1fr; } }
+.mx-dash .table-card { margin-bottom: 14px; }
+.mx-dash .table-header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mx-dash .table-header a { font-size: .85rem; font-weight: 500; }
+.mx-dash-empty { margin: 6px 12px 10px; }
+.mx-dash-todo a { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border, #e5e7eb); color: inherit; text-decoration: none; }
+.mx-dash-todo a:last-child { border-bottom: 0; }
+.mx-dash-todo a:hover { background: var(--primary-soft, #eef2ff); }
+.mx-dash-todo b { min-width: 2ch; text-align: right; }
+.mx-dash-todo b.is-zero { color: var(--muted, #6b7280); font-weight: 400; }
+.mx-dash-todo small { color: var(--muted, #6b7280); }

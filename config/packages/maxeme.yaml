@@ -157,6 +157,7 @@ parameters:
           label: Schedule
           icon: calendar
           children:
+              - { key: dashboard, label: Dashboard, route: maxeme_home, role: /appointment/view, match: [maxeme_home] }
               - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_],
                   add: { label: New repair order, route: maxeme_repair_order_new, role: /work-order/edit } }
               - { key: work_order_board, label: Repair Order Board, route: maxeme_board_index, role: /work-order/view, match: [maxeme_board_] }

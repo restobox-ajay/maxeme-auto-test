@@ -1,0 +1,130 @@
+{# The Dashboard (mockup 345c037), the admin landing page. Vars: today, appointments, inShop,
+   ready ({repairOrder, invoice}), unpaid, unpaidCount, owed, attention ({label, count, route, params,
+   note}), canSeeInvoices. #}
+{% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
+{% block title %}Dashboard | {{ site_name() }}{% endblock %}
+
+{% macro customer(client) -%}
+    {%- if client %}<a href="{{ path('maxeme_client_show', { id: client.id }) }}">{{ client.fullName }}</a>{% else %}<span class="mx-muted-cell">—</span>{% endif -%}
+{%- endmacro %}
+
+{% block admin_body %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: site_name(), title: 'Dashboard' } %}
+        {% block title_actions %}<span class="muted-line" id="dash-today">{{ today|date('l, F j, Y') }}</span>{% endblock %}
+    {% endembed %}
+
+    <div class="mx-dash">
+        <div>
+            <section class="table-card no-paginate" id="dash-appointments">
+                <div class="table-header"><h2>Today's appointments</h2><a href="{{ path('maxeme_appointment_calendar', { view: 'agendaDay' }) }}">Calendar</a></div>
+                {% if appointments is empty %}
+                    <p class="muted-line mx-dash-empty">No appointments today.</p>
+                {% else %}
+                    <div class="wide-table-wrap"><table>
+                        <thead><tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Job</th><th>Status</th><th>Repair order</th><th class="num">$</th></tr></thead>
+                        <tbody>
+                            {% for appointment in appointments %}
+                                {% set ro = appointment.repairOrder %}
+                                <tr>
+                                    <td data-label="Time" class="mx-nowrap">{{ appointment.startTime|date('g:i A') }}</td>
+                                    <td data-label="Customer">{{ _self.customer(appointment.client) }}</td>
+                                    <td data-label="Vehicle">{{ appointment.vehicle ? appointment.vehicle.fullName : '—' }}</td>
+                                    <td data-label="Job">{{ (ro ? ro.name : null) ?: (appointment.note|default('')|length > 60 ? appointment.note|slice(0, 60) ~ '…' : appointment.note) }}</td>
+                                    <td data-label="Status"><span class="badge mx-appt-badge appt-{{ appointment.status.value }}">{{ appointment.status.label }}</span></td>
+                                    <td data-label="Repair order" class="mx-nowrap">{% if ro %}<a href="{{ path('maxeme_repair_order_edit', { id: ro.id }) }}">{{ ro_number(ro) }}</a>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                                    <td data-label="$" class="num">{{ ro ? mx.money(ro.total) : '—' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                {% endif %}
+            </section>
+
+            <section class="table-card no-paginate" id="dash-in-shop">
+                <div class="table-header"><h2>In the shop</h2><a href="{{ path('maxeme_board_index') }}">Repair Order Board</a></div>
+                {% if inShop is empty %}
+                    <p class="muted-line mx-dash-empty">Nothing in the shop.</p>
+                {% else %}
+                    <div class="wide-table-wrap"><table>
+                        <thead><tr><th>Repair order</th><th>Customer</th><th>Vehicle</th><th>Status</th><th>Technician</th><th>Work done</th><th class="num">Total</th></tr></thead>
+                        <tbody>
+                            {% for ro in inShop %}
+                                <tr>
+                                    <td data-label="Repair order"><a class="mx-nowrap" href="{{ path('maxeme_repair_order_edit', { id: ro.id }) }}">{{ ro_number(ro) }}</a>{% if ro.name %}<div class="muted-line">{{ ro.name }}</div>{% endif %}</td>
+                                    <td data-label="Customer">{{ _self.customer(ro.client) }}</td>
+                                    <td data-label="Vehicle">{{ ro.vehicle ? ro.vehicle.fullName : '—' }}</td>
+                                    <td data-label="Status"><span class="badge {{ ro.status.badge }}">{{ ro.status.label }}</span></td>
+                                    <td data-label="Technician">{{ ro.masterTechnician ? ro.masterTechnician.name : '—' }}</td>
+                                    <td data-label="Work done" class="mx-nowrap">{{ ro.workProgress ? ro.workProgress|replace({ '/': ' of ' }) : '—' }}</td>
+                                    <td data-label="Total" class="num">{{ mx.money(ro.total) }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                {% endif %}
+            </section>
+
+            <section class="table-card no-paginate" id="dash-ready">
+                <div class="table-header"><h2>Ready for pick up</h2></div>
+                {% if ready is empty %}
+                    <p class="muted-line mx-dash-empty">Nothing waiting to be picked up.</p>
+                {% else %}
+                    <div class="wide-table-wrap"><table>
+                        <thead><tr><th>Repair order</th><th>Customer</th><th>Phone</th><th>Vehicle</th>{% if canSeeInvoices %}<th>Invoice</th>{% endif %}<th class="num">Total</th></tr></thead>
+                        <tbody>
+                            {% for row in ready %}
+                                {% set ro = row.repairOrder %}
+                                {% set invoice = row.invoice %}
+                                <tr>
+                                    <td data-label="Repair order" class="mx-nowrap"><a href="{{ path('maxeme_repair_order_edit', { id: ro.id }) }}">{{ ro_number(ro) }}</a></td>
+                                    <td data-label="Customer">{{ _self.customer(ro.client) }}</td>
+                                    <td data-label="Phone" class="mx-nowrap">{{ ro.client ? (ro.client.phone1 ?: ro.client.phone2 ?: ro.client.phone3 ?: '—') : '—' }}</td>
+                                    <td data-label="Vehicle">{{ ro.vehicle ? ro.vehicle.fullName : '—' }}</td>
+                                    {% if canSeeInvoices %}
+                                        <td data-label="Invoice">{% if invoice %}<a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">{{ invoice.paid ? 'Paid' : 'Unpaid' }}</a>{% else %}<a class="badge warn" href="{{ path('maxeme_repair_order_invoices', { id: ro.id }) }}">Not issued</a>{% endif %}</td>
+                                    {% endif %}
+                                    <td data-label="Total" class="num">{{ mx.money(invoice ? invoice.totalPrice : ro.total) }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table></div>
+                {% endif %}
+            </section>
+        </div>
+        <div>
+            <section class="table-card no-paginate" id="dash-attention">
+                <div class="table-header"><h2>Needs attention</h2></div>
+                <div class="mx-dash-todo">
+                    {% for item in attention %}
+                        <a href="{{ path(item.route, item.params) }}"><span>{{ item.label }}{% if item.note and item.count %} <small>{{ item.note }}</small>{% endif %}</span><b class="{{ item.count ? '' : 'is-zero' }}">{{ item.count }}</b></a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% if canSeeInvoices %}
+                <section class="table-card no-paginate" id="dash-unpaid">
+                    <div class="table-header"><h2>Unpaid invoices</h2><a href="{{ path('maxeme_invoice_index') }}">All invoices</a></div>
+                    {% if unpaid is empty %}
+                        <p class="muted-line mx-dash-empty">No unpaid invoices in the last 30 days.</p>
+                    {% else %}
+                        <div class="wide-table-wrap"><table>
+                            <thead><tr><th>Invoice</th><th>Customer</th><th>Date</th><th class="num">$</th></tr></thead>
+                            <tbody>
+                                {% for invoice in unpaid %}
+                                    <tr>
+                                        <td data-label="Invoice" class="mx-nowrap"><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">{{ doc_number(invoice) }}</a></td>
+                                        <td data-label="Customer">{{ _self.customer(invoice.client) }}</td>
+                                        <td data-label="Date" class="mx-nowrap">{{ (invoice.lastModified ?: invoice.createdOn)|date('m/d/Y') }}</td>
+                                        <td data-label="$" class="num">{{ mx.money(invoice.totalPrice) }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table></div>
+                        <p class="muted-line mx-dash-empty">{{ unpaidCount }} unpaid, ${{ owed|number_format(2) }} owed{% if unpaidCount > unpaid|length %} · showing the latest {{ unpaid|length }}{% endif %}.</p>
+                    {% endif %}
+                </section>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
