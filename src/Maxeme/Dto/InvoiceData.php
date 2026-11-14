@@ -41,6 +41,10 @@ final class InvoiceData
     #[Assert\All([new Assert\Length(max: 65535)])]
     public array $snapshot = [];
 
+    /** KM or miles ("km" / "miles"), beside the mileage. */
+    #[Assert\Choice(choices: ['km', 'miles'], message: 'Choose KM or miles.')]
+    public ?string $vehicleMileageUnit = null;
+
     #[Assert\DateTime(format: self::DATE_FORMAT, message: 'Enter the invoice date as mm/dd/yyyy hh:mm am.')]
     public ?string $invoiceDate = null;
 
@@ -75,6 +79,9 @@ final class InvoiceData
             $value = trim((string) $post->get($field, ''));
             $data->snapshot[$property] = $value !== '' ? $value : null;
         }
+
+        $unit = trim((string) $post->get('vehicle_mileage_unit', ''));
+        $data->vehicleMileageUnit = $unit !== '' ? $unit : null;
 
         $date = trim((string) $post->get('invoice_date', ''));
         $data->invoiceDate = $date !== '' ? strtolower($date) : null;

@@ -4,7 +4,7 @@
 {% block admin_body %}
     {% set canManage = is_granted('/reminder/edit') %}
     {% set canBook = is_granted('/people/view') and is_granted('/appointment/edit') %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: "Reminder Todo's", lead: 'Clients whose last service was 6 months ago and who have nothing booked yet.' } only %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: "Reminder Todo's" } only %}
 
     <section class="table-card no-paginate">
         <div class="table-scroll-region">
@@ -25,10 +25,10 @@
                         <tr id="reminder_{{ reminder.id }}">
                             <td class="reminder-{{ reminder.status.value }}"><span class="badge">{{ reminder.status.value }}</span></td>
                             {% if canBook %}
-                                <td><a class="button mx-btn-sm mx-success" href="{{ path('maxeme_client_show', { id: client.id }) }}" target="_blank" rel="noopener">Book an appointment</a></td>
+                                <td><a class="button mx-btn-sm mx-success" href="{{ path('maxeme_client_show', { id: client.id }) }}" target="_blank" rel="noopener">Book Appointment</a></td>
                             {% endif %}
                             <td><strong>{{ client.fullName }}</strong>{% if client.latestNote %}<div class="muted-line">{{ client.latestNote.text }}</div>{% endif %}</td>
-                            <td>{{ reminder.vehicle.fullName }}{% if reminder.vehicle.mileage %}<div class="muted-line">{{ reminder.vehicle.mileage }} km</div>{% endif %}</td>
+                            <td>{{ reminder.vehicle.fullName }}{% if reminder.vehicle.mileage %}<div class="muted-line">{{ reminder.vehicle.mileage }} {{ reminder.vehicle.mileageUnit.label|lower }}</div>{% endif %}</td>
                             <td>
                                 {% if invoice and invoice.appointment %}Date: {{ invoice.appointment.endTime|date('m/d/Y') }}{% endif %}
                                 {% if invoice and invoice.serviceLines|length %}<ul>{% for line in invoice.serviceLines %}<li>{{ line.name }}</li>{% endfor %}</ul>{% endif %}

@@ -12,18 +12,20 @@ enum CalendarView: string
     case Month = 'month';
     case Week = 'agendaWeek';
     case Day = 'agendaDay';
+    /** A table of appointments, paged and filtered (mockup deba1ef); not a FullCalendar view. */
+    case List = 'list';
 
     public function fullCalendarView(): string
     {
         return match ($this) {
             self::Month => 'dayGridMonth',
             self::Week => 'timeGridWeek',
-            self::Day => 'timeGridDay',
+            self::Day, self::List => 'timeGridDay',
         };
     }
 
     public static function fromRequest(Request $request): self
     {
-        return self::tryFrom((string) $request->query->get('view', '')) ?? self::Month;
+        return self::tryFrom((string) $request->query->get('view', '')) ?? self::Day;
     }
 }

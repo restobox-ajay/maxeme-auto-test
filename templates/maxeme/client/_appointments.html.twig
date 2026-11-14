@@ -1,35 +1,74 @@
 {# Client Profile › Appointments (legacy Profile/_appointments.html.twig). Vars: client, pending, past,
    invoiceKeys (appointment id => invoice key). Times render in the shop's timezone (Twig's, set by core).
+   Each row: the vehicle (linked to its page, mockup ee7a843), the repair order and its "$" (mockup e0fde70).
    Accounting gets Invoice (the builder, created on first save); other roles get the Work Order once an
-   invoice exists; Appointment edit gets edit / delete (check-in lives on the calendar). #}
+   invoice exists; a linked repair order gets its button (mockup 1e3b16c); Appointment edit gets
+   Check-in for a booked one (mockup 33caa46), edit and delete. #}
 {% set canInvoice = is_granted('/accounting/view') %}
 {% set canEditAppointments = is_granted('/appointment/edit') %}
+{% set canEditRepairOrders = is_granted('/work-order/edit') %}
 {% import 'maxeme/_macros.html.twig' as mx %}
+
+{% macro vehicle_cell(appointment) -%}
+    {%- if appointment.vehicle -%}
+        <a href="{{ path('maxeme_vehicle_show', { id: appointment.vehicle.id }) }}">{{ appointment.vehicle.fullName }}</a>
+    {%- else -%}
+        <span class="muted-line">— ({{ appointment.type.label }})</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro ro_cell(appointment, canEditRepairOrders) -%}
+    {%- if appointment.repairOrder -%}
+        {%- if canEditRepairOrders -%}<a class="mx-nowrap" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">{{ ro_number(appointment.repairOrder) }}</a>{%- else -%}{{ ro_number(appointment.repairOrder) }}{%- endif -%}
+    {%- else -%}
+        <span class="muted-line">{{ appointment.type.hasRepairOrder ? '—' : appointment.type.label }}</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro amount_cell(appointment) -%}
+    {%- import 'maxeme/_macros.html.twig' as mx -%}
+    {%- set amount = appointment_amount(appointment) -%}
+    {%- if amount -%}<a href="{{ amount.url }}" title="{{ amount.title }}">{{ mx.money(amount.amount) }}</a>{%- else -%}<span class="muted-line">—</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro row_buttons(appointment, invoiceKeys, canInvoice, canEditRepairOrders) -%}
+    {%- if canInvoice -%}
+        <a class="button mx-btn-sm primary invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
+    {%- elseif invoiceKeys[appointment.id] is defined -%}
+        <a class="button mx-btn-sm primary workorder-client-apointment" href="{{ path('maxeme_work_order_show', { invoiceKey: invoiceKeys[appointment.id] }) }}" target="_blank" rel="noopener">Work Order</a>
+    {%- endif -%}
+    {%- if appointment.repairOrder and canEditRepairOrders -%}
+        <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Repair Order</a>
+    {%- endif -%}
+{%- endmacro %}
+
 <div class="mx-tab-stack">
     <section class="table-card no-paginate" id="pending-card">
         <div class="table-header"><h2>Pending Appointments</h2></div>
         <div class="wide-table-wrap">
             <table id="pending-appointments">
                 <thead>
-                    <tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th><th>Note</th><th></th></tr>
+                    <tr><th>Date</th><th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th><th>Repair Order</th><th class="num">$</th><th>Note</th><th></th></tr>
                 </thead>
                 <tbody>
                     {% for appointment in pending %}
                         <tr id="row_{{ appointment.id }}" class="{{ appointment.status.value }}">
                             <td data-label="Date">{{ appointment.startTime|date('m/d/Y') }}</td>
                             <td data-label="Time">{{ appointment.startTime|date('h:i A') }}</td>
-                            <td data-label="Vehicle">{{ appointment.vehicle.fullName }}</td>
+                            <td data-label="Vehicle">{{ _self.vehicle_cell(appointment) }}</td>
                             <td data-label="Duration">{{ appointment.durationInHours|number_format(2) }} Hours</td>
                             <td data-label="Status">{{ appointment.status.label }}</td>
+                            <td data-label="Repair Order">{{ _self.ro_cell(appointment, canEditRepairOrders) }}</td>
+                            <td data-label="$" class="num">{{ _self.amount_cell(appointment) }}</td>
                             <td data-label="Note">{{ appointment.note }}</td>
                             <td data-label="Actions">
                                 <div class="mx-actions">
-                                    {% if canInvoice %}
-                                        <a class="button mx-btn-sm primary invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
-                                    {% elseif invoiceKeys[appointment.id] is defined %}
-                                        <a class="button mx-btn-sm primary workorder-client-apointment" href="{{ path('maxeme_work_order_show', { invoiceKey: invoiceKeys[appointment.id] }) }}" target="_blank" rel="noopener">Work Order</a>
-                                    {% endif %}
+                                    {{ _self.row_buttons(appointment, invoiceKeys, canInvoice, canEditRepairOrders) }}
                                     {% if canEditAppointments %}
+                                        {% if appointment.status.value == 'new' %}
+                                            <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
+                                                    data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}">Check-in</button>
+                                        {% endif %}
                                         <a class="button mx-btn-sm mx-success edit_client_appointment" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit Appointment</a>
                                         <button type="button" class="button mx-btn-sm danger delete_client_appointment js-post-action" data-remove-row="#row_{{ appointment.id }}"
                                                 data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}"
@@ -44,7 +83,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7" class="empty-table-cell">No pending appointments.</td></tr>
+                        <tr><td colspan="9" class="empty-table-cell">No pending appointments.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -59,27 +98,23 @@
         <div class="wide-table-wrap">
             <table id="past-appointments">
                 <thead>
-                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th>{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
+                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th><th>Repair Order</th><th class="num">$</th>{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
                 </thead>
                 <tbody>
                     {% for appointment in past.items %}
                         <tr id="row_{{ appointment.id }}">
                             <td data-label="Date">{{ appointment.startTime|date('Y-m-d') }}</td>
                             <td data-label="Time">{{ appointment.startTime|date('h:i A') }}</td>
-                            <td data-label="Vehicle">{{ appointment.vehicle.fullName }}</td>
+                            <td data-label="Vehicle">{{ _self.vehicle_cell(appointment) }}</td>
                             <td data-label="Duration">{{ appointment.durationInHours }}</td>
                             <td data-label="Status">{{ appointment.status.label }}</td>
+                            <td data-label="Repair Order">{{ _self.ro_cell(appointment, canEditRepairOrders) }}</td>
+                            <td data-label="$" class="num">{{ _self.amount_cell(appointment) }}</td>
                             <td data-label="Note">{{ appointment.note }}</td>
-                            <td data-label="Actions">
-                                {% if canInvoice %}
-                                    <a class="button mx-btn-sm primary invoice_client_appointment" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>
-                                {% elseif invoiceKeys[appointment.id] is defined %}
-                                    <a class="button mx-btn-sm primary" href="{{ path('maxeme_work_order_show', { invoiceKey: invoiceKeys[appointment.id] }) }}" target="_blank" rel="noopener">Work Order</a>
-                                {% endif %}
-                            </td>
+                            <td data-label="Actions"><div class="mx-actions">{{ _self.row_buttons(appointment, invoiceKeys, canInvoice, canEditRepairOrders) }}</div></td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="9" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

@@ -71,7 +71,7 @@
                         <label>Model:<input type="text" name="vehicle_model" value="{{ invoice.vehicleModel }}" placeholder="Vehicle model"></label>
                         <label>License:<input type="text" name="vehicle_license" value="{{ invoice.vehicleLicense }}" placeholder="Vehicle license"></label>
                         <label>Vin number:<input type="text" name="vehicle_vin" value="{{ invoice.vehicleVin }}" placeholder="Vehicle VIN"></label>
-                        <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage"><span>KM</span></span></label>
+                        <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage"><select name="vehicle_mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles" {{ invoice.vehicleMileageUnit.value == 'miles' ? 'selected' }}>MILES</option></select></span></label>
                         <label>Appointment Note:<textarea name="note" placeholder="Note">{{ invoice.note }}</textarea></label>
                     </div>
                 </section>

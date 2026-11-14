@@ -24,17 +24,11 @@
                         {% for class in taxClasses %}<option value="{{ class.id }}" {{ data.taxClassId == class.id ~ '' ? 'selected' }}>{{ class.label }}</option>{% endfor %}
                     </select>
                 </label>
-                <label><span>Category <small class="muted-line">(its colour is the service's on the calendar)</small></span>
+                <label><span>Category</span>
                     <select name="category_id">
                         <option value="">(none)</option>
                         {% for category in categories %}<option value="{{ category.id }}" {{ data.categoryId == category.id ~ '' ? 'selected' }}>{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
                     </select>
-                </label>
-                <label><span>Colour <small class="muted-line">(blank uses the category's)</small></span>
-                    <span class="mx-colour-field">
-                        <input type="color" value="{{ data.ownColour ?: '#428bca' }}" data-colour-for="#service-colour" aria-label="Pick a colour">
-                        <input id="service-colour" type="text" name="colour" value="{{ data.ownColour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank to use the category's.">
-                    </span>
                 </label>
             </div>
         </section>

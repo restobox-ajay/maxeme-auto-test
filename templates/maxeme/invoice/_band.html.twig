@@ -1,7 +1,17 @@
-{# The document's header band: company name, and the document's own label. Vars: label, detail (optional). #}
+{# The document's header, black on white with a rule under it (documents print black and white,
+   mockup e533d51). Side by side: the company name left, the document's label right. Stacked (the work
+   order): the label on top, then the company, its address and phone on one line underneath.
+   Vars: label, detail (optional: the stacked line). #}
+{% if detail|default(null) %}
+<div class="inv-band inv-band-stacked">
+    <div class="label">{{ label }}</div>
+    <div class="detail">{{ detail }}</div>
+</div>
+{% else %}
 <div class="inv-band">
     <table><tr>
         <td class="site">{{ maxeme_company.name }}</td>
-        <td class="label">{{ label }}{% if detail|default(null) %}<small>{{ detail }}</small>{% endif %}</td>
+        <td class="label">{{ label }}</td>
     </tr></table>
 </div>
+{% endif %}

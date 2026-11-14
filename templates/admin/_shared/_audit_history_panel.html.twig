@@ -21,7 +21,7 @@
             <tbody>
                 {% for log in logs %}
                     <tr>
-                        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('Y-m-d H:i A') }}</td>
+                        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('m/d/Y h:i A') }}</td>
                         <td data-label="Actor">{{ log.actorName }} <span class="badge">{{ log.actorType }}</span></td>
                         <td data-label="Action"><span class="badge">{{ log.action }}</span></td>
                         <td data-label="Summary">{{ log.summary }}</td>

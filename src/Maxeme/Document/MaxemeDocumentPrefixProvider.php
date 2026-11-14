@@ -34,7 +34,7 @@ final class MaxemeDocumentPrefixProvider implements DocumentPrefixProviderInterf
                 defaultPrefix: 'WO-',
                 documentPlural: 'work orders',
                 settingName: 'Work Order Number Prefix',
-                settingDescription: 'Prefix for work order numbers (e.g. WO-00001482): shown before the invoice id on the work order.',
+                settingDescription: 'Prefix for work order numbers (e.g. WO-001482): shown before the invoice id on the work order.',
             ),
         ];
     }

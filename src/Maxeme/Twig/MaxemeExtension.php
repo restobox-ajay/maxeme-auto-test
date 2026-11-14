@@ -67,7 +67,7 @@ final class MaxemeExtension
         return $this->taxMap->get();
     }
 
-    /** {{ doc_number(invoice) }} "INV-00001482"; {{ doc_number(invoice, kind) }} for the work order's "WO-00001482". */
+    /** {{ doc_number(invoice) }} "INV-001482"; {{ doc_number(invoice, kind) }} for the work order's "WO-001482". */
     #[AsTwigFunction('doc_number')]
     public function docNumber(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
     {
@@ -75,7 +75,7 @@ final class MaxemeExtension
     }
 
     /** {{ staff_role(user).label }} */
-    /** {{ ro_number(repairOrder) }}: "RO-00000042"; with a DocumentKind, its quote's or work order's number. */
+    /** {{ ro_number(repairOrder) }}: "RO-000042"; with a DocumentKind, its quote's or work order's number. */
     #[AsTwigFunction('ro_number')]
     public function repairOrderNumber(RepairOrder $repairOrder, ?DocumentKind $kind = null): string
     {

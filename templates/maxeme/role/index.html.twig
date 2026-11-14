@@ -1,7 +1,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}Roles & Access | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Roles & Access', lead: 'What each role can see and change. Read-only: a role changes in its file under config/rbac/role_permissions/.' } only %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Roles & Access' } only %}
 
     <section class="table-card no-paginate" id="role-matrix-card">
         <div class="table-header"><h2>Role matrix</h2></div>

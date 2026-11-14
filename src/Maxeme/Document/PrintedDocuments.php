@@ -8,6 +8,8 @@ use App\Maxeme\Accounting\Money;
 use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Enum\InvoiceStatus;
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\RepairOrder;
@@ -54,6 +56,7 @@ final class PrintedDocuments
             vehicleVin: $invoice->getVehicleVin(),
             vehicleLicense: $invoice->getVehicleLicense(),
             mileage: $invoice->getVehicleMileage(),
+            mileageUnit: $invoice->getVehicleMileageUnit()->label(),
             rows: $rows,
             charges: array_map(static fn (InvoiceCharge $charge): array => ['label' => $charge->getLabel(), 'amount' => Money::fromCents($charge->getSignedCents())], $invoice->getCharges()),
             discount: $invoice->getDiscountAmount(),
@@ -63,7 +66,7 @@ final class PrintedDocuments
             pstRate: $invoice->getPstRate(),
             pst: $invoice->getPstAmount(),
             total: $invoice->getTotalPrice(),
-            payment: ['type' => $invoice->getPaymentType()?->getName(), 'amount' => $invoice->getPaymentAmount(), 'change' => $invoice->getChangeAmount()],
+            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $invoice->getPaymentAmount(), 'change' => $invoice->getChangeAmount()],
             note: $invoice->getNote(),
             recommendations: $invoice->getRecommendations(),
             masterTechnician: $invoice->getRepairOrder()?->getMasterTechnician()?->getName(),
@@ -121,6 +124,7 @@ final class PrintedDocuments
             vehicleVin: $vehicle?->getVin(),
             vehicleLicense: $vehicle?->getLicensePlate(),
             mileage: $repairOrder->getMileage() ?? $vehicle?->getMileage(),
+            mileageUnit: ($repairOrder->getMileage() !== null ? $repairOrder->getMileageUnit() : ($vehicle?->getMileageUnit() ?? MileageUnit::Km))->label(),
             rows: $rows,
             charges: array_map(static fn (RepairOrderCharge $charge): array => ['label' => $charge->getLabel(), 'amount' => Money::fromCents($charge->getSignedCents())], $repairOrder->getCharges()),
             discount: '0.00',

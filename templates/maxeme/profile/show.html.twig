@@ -2,7 +2,7 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}My Profile | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'My Profile', lead: 'Your login account details.' } only %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'My Profile' } only %}
 
     {% set fullName = [user.firstName, user.lastName]|filter(v => v)|join(' ') %}
     <section class="panel profile-panel mx-profile-card">

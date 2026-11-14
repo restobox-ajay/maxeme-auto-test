@@ -3,7 +3,7 @@
 {% block title %}Service Categories | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/service/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Categories', lead: 'Catalogs of services, in a hierarchy. A category\'s colour is its services\' colour on the calendar; left blank, it takes its parent\'s.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Categories' } %}
         {% block title_actions %}
             {% if is_granted('/service/edit') %}
                 <a id="addCategoryButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_category_new') }}">+ Add category</a>

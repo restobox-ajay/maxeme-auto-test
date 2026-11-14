@@ -98,6 +98,9 @@ final class ServiceReminderQueue
     public function bookFor(Appointment $appointment): array
     {
         $booked = [];
+        if ($appointment->getVehicle() === null) {
+            return $booked; // Buying/selling cars or Other with no vehicle: books no vehicle's reminder.
+        }
         foreach ($this->queue->findQueuedFor($appointment->getClient(), $appointment->getVehicle()) as $entry) {
             // An appointment added to the very repair order that queued it is not a new booking.
             if ($appointment->getRepairOrder() !== null && $entry->getRepairOrder() === $appointment->getRepairOrder()) {

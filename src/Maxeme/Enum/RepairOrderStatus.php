@@ -30,7 +30,7 @@ enum RepairOrderStatus: string
     {
         return match ($this) {
             self::EstimateBeingBuilt => 'Estimate Being Built',
-            self::EstimateApproval => 'Estimate Approval',
+            self::EstimateApproval => 'Pending on Estimate',
             self::Authorized => 'Authorized',
             self::InProgress => 'In Progress',
             self::AwaitingParts => 'Awaiting Parts',

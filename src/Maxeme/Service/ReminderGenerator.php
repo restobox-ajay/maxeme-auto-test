@@ -42,6 +42,9 @@ final class ReminderGenerator
         $created = 0;
         foreach ($this->appointments->startingBetween($dayStart->setTimezone($utc), $dayStart->modify('+1 day')->setTimezone($utc)) as $appointment) {
             $vehicle = $appointment->getVehicle();
+            if ($vehicle === null) {
+                continue; // no vehicle to be reminded about
+            }
             if ($this->appointments->hasStartingSince($vehicle, $todayUtc) || $this->reminders->hasSince($vehicle, $todayUtc)) {
                 continue;
             }

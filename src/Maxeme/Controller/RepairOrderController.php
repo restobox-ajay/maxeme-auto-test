@@ -17,6 +17,7 @@ use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\ServiceLine;
 use App\Maxeme\Entity\Vehicle;
+use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\DocumentChargeKind;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
@@ -69,6 +70,7 @@ final class RepairOrderController extends AbstractMaxemeController
         return $this->render('maxeme/repair_order/index.html.twig', [
             'page' => $this->repairOrders->findPage(ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc')),
             'statuses' => RepairOrderStatus::cases(),
+            'appointmentStatuses' => AppointmentStatus::cases(),
         ]);
     }
 
@@ -267,6 +269,7 @@ final class RepairOrderController extends AbstractMaxemeController
                 $data = new RepairOrderAppointmentData();
                 $data->id = (string) $appointment->getId();
                 $data->start = $this->schedule->toLocal($appointment->getStartTime())->format('Y-m-d\TH:i');
+                $data->duration = (string) (round($appointment->getDurationInHours() * 2) / 2);
                 $data->promised = $appointment->getPromisedAt() !== null ? $this->schedule->toLocal($appointment->getPromisedAt())->format('Y-m-d\TH:i') : null;
             }
             $rows[] = ['appointment' => $appointment, 'data' => $data];

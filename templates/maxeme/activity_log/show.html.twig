@@ -1,7 +1,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}Activity #{{ entry.id }} | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Activity Log', title: entry.summary, lead: entry.occurredAt|date('Y-m-d H:i:s') ~ ' · ' ~ entry.actorName ~ (entry.actorRole ? ' (' ~ entry.actorRole ~ ')') } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Activity Log', title: entry.summary, lead: entry.occurredAt|date('m/d/Y h:i:s A') ~ ' · ' ~ entry.actorName ~ (entry.actorRole ? ' (' ~ entry.actorRole ~ ')') } %}
         {% block actions %}
             <a class="button back-button" href="{{ path('maxeme_activity_log_index', back) }}">Back</a>
         {% endblock %}

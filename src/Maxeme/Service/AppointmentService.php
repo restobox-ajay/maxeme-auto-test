@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Service;
 
+use App\Entity\AdminUser;
 use App\Maxeme\Dto\AppointmentData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
@@ -25,17 +26,41 @@ final class AppointmentService
         private readonly EntityManagerInterface $entityManager,
         private readonly ScheduleSettings $settings,
         private readonly InvoiceService $invoices,
+        private readonly RepairOrderWriter $repairOrders,
     ) {
     }
 
-    /** @param AppointmentData $data already validated */
-    public function book(Client $client, AppointmentData $data): Appointment
+    /**
+     * A new appointment. A repair-order appointment must pick one of the client's open repair orders
+     * or make a new one (mockup 25368c7): the new repair order is for the same client and vehicle,
+     * with the note as its internal comment.
+     *
+     * @param AppointmentData $data already validated
+     */
+    public function book(Client $client, AppointmentData $data, ?AdminUser $user = null): Appointment
     {
+        $type = $data->appointmentType();
         [$start, $end] = $this->times((string) $data->start, (string) $data->end);
-        $appointment = new Appointment($this->vehicle($client, (int) $data->vehicleId), $start, $end);
+        $appointment = new Appointment($client, $this->vehicle($client, $data->vehicleId), $start, $end);
+        $appointment->setType($type);
         $appointment->setNote($data->note);
-        $appointment->setColour($data->colour);
-        $this->useRepairOrder($appointment, $data);
+
+        if ($type->hasRepairOrder()) {
+            if ($data->repairOrderId === null) {
+                throw new \DomainException('Choose the repair order this appointment is for, or "+ Create new repair order".');
+            }
+            if ($data->repairOrderId === AppointmentData::NEW_REPAIR_ORDER) {
+                if ($appointment->getVehicle() === null) {
+                    throw new \DomainException('Choose the vehicle before making a repair order for it.');
+                }
+                $repairOrder = $this->repairOrders->start($user, $client, $appointment->getVehicle());
+                $repairOrder->setConcern($data->note);
+                $this->entityManager->persist($repairOrder);
+                $appointment->attachTo($repairOrder);
+            } else {
+                $this->useRepairOrder($appointment, $data);
+            }
+        }
 
         $this->entityManager->persist($appointment);
         $this->entityManager->flush();
@@ -46,13 +71,20 @@ final class AppointmentService
     /** @param AppointmentData $data already validated */
     public function update(Appointment $appointment, AppointmentData $data): void
     {
-        $appointment->changeVehicle($this->vehicle($appointment->getClient(), (int) $data->vehicleId));
+        $appointment->changeVehicle($this->vehicle($appointment->getClient(), $data->vehicleId, $appointment->getVehicle()));
         $appointment->reschedule(...$this->times((string) $data->start, (string) $data->end));
         $appointment->setNote($data->note);
-        $appointment->setColour($data->colour);
-        $this->useRepairOrder($appointment, $data);
+        $appointment->setType($data->appointmentType());
+        if ($data->appointmentType()->hasRepairOrder()) {
+            $this->useRepairOrder($appointment, $data);
+        }
         if ($data->status !== null) {
-            $appointment->setStatus(AppointmentStatus::from($data->status));
+            $status = AppointmentStatus::from($data->status);
+            // Extended means the vehicle has to stay longer: only once it has arrived (mockup 551ab32).
+            if ($status === AppointmentStatus::Extended && !in_array($appointment->getStatus(), [AppointmentStatus::InProgress, AppointmentStatus::Extended], true)) {
+                throw new \DomainException('Extended is only for a vehicle that has arrived: check it in (In Progress) first.');
+            }
+            $appointment->setStatus($status);
         }
         $this->entityManager->flush();
     }
@@ -64,10 +96,10 @@ final class AppointmentService
         $this->entityManager->flush();
     }
 
+    /** The car is here: the appointment is In Progress, and its repair order's work starts (as on the repair order page). */
     public function checkIn(Appointment $appointment): void
     {
-        $appointment->checkIn();
-        $this->entityManager->flush();
+        $this->repairOrders->checkIn($appointment);
     }
 
     /** Only while it is not completed; its invoice goes with it. */
@@ -84,7 +116,7 @@ final class AppointmentService
     /** The repair order picked on the form: one of the client's, for the appointment's vehicle, or none. */
     private function useRepairOrder(Appointment $appointment, AppointmentData $data): void
     {
-        if ($data->repairOrderId === null) {
+        if ($data->repairOrderId === null || $data->repairOrderId === AppointmentData::NEW_REPAIR_ORDER) {
             $appointment->detachRepairOrder();
 
             return;
@@ -109,10 +141,14 @@ final class AppointmentService
         }
     }
 
-    private function vehicle(Client $client, int $vehicleId): Vehicle
+    /** One of the client's active vehicles, or the one the appointment already has even if no longer active; null for none. */
+    private function vehicle(Client $client, ?string $vehicleId, ?Vehicle $current = null): ?Vehicle
     {
-        $vehicle = $this->entityManager->find(Vehicle::class, $vehicleId);
-        if (!$vehicle instanceof Vehicle || $vehicle->getClient() !== $client || !$vehicle->isActive()) {
+        if ($vehicleId === null) {
+            return null;
+        }
+        $vehicle = $this->entityManager->find(Vehicle::class, (int) $vehicleId);
+        if (!$vehicle instanceof Vehicle || $vehicle->getClient() !== $client || (!$vehicle->isActive() && $vehicle !== $current)) {
             throw new \DomainException('Choose one of this client\'s vehicles.');
         }
 

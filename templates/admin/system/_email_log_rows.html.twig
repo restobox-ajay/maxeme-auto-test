@@ -1,6 +1,6 @@
 {% for log in logs %}
     <tr>
-        <td data-label="Date" class="log-date">{{ log.sentAt|date('d-m-Y g:i A') }}</td>
+        <td data-label="Date" class="log-date">{{ log.sentAt|date('m/d/Y h:i A') }}</td>
         <td data-label="Module">{{ log.module }}</td>
         <td data-label="To Address"><span class="log-recipients">{{ log.toAddress }}</span></td>
         <td data-label="Subject">{{ log.subject }}</td>

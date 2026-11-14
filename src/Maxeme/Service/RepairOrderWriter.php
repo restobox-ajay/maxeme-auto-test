@@ -35,8 +35,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  */
 final class RepairOrderWriter
 {
-    /** A new appointment's length. */
-    private const APPOINTMENT_LENGTH = 'PT1H';
+    /** A new appointment's length when none is typed, in hours (mockup 2371126). */
+    private const APPOINTMENT_HOURS = 2.0;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
@@ -77,7 +77,7 @@ final class RepairOrderWriter
         }
         $technician = $data->masterTechnicianId !== null ? $this->entityManager->find(Technician::class, (int) $data->masterTechnicianId) : null;
         if ($data->masterTechnicianId !== null && $technician === null) {
-            $errors['masterTechnicianId'] = 'Choose a master technician from the list.';
+            $errors['masterTechnicianId'] = 'Choose an assigned technician from the list.';
         }
 
         [$jobs, $jobErrors] = $this->jobs($repairOrder, $form->jobs);
@@ -311,12 +311,16 @@ final class RepairOrderWriter
         foreach ($rows as $row) {
             $start = $this->schedule->toUtc((string) $row->start);
             $appointment = $row->id !== null ? $this->appointment($repairOrder, $row) : null;
+            $seconds = $row->duration !== null
+                ? (int) round((float) $row->duration * 3600)
+                : ($appointment !== null ? $appointment->getEndTime()->getTimestamp() - $appointment->getStartTime()->getTimestamp() : (int) (self::APPOINTMENT_HOURS * 3600));
+            $end = $start->add(new \DateInterval(sprintf('PT%dS', $seconds)));
             if ($appointment === null) {
-                $appointment = new Appointment($vehicle, $start, $start->add(new \DateInterval(self::APPOINTMENT_LENGTH)));
+                $appointment = new Appointment($vehicle->getClient(), $vehicle, $start, $end);
                 $appointment->attachTo($repairOrder);
                 $this->entityManager->persist($appointment);
             } else {
-                $appointment->reschedule($start, $start->add(new \DateInterval(sprintf('PT%dS', $appointment->getEndTime()->getTimestamp() - $appointment->getStartTime()->getTimestamp()))));
+                $appointment->reschedule($start, $end);
             }
             $appointment->setPromisedAt($row->promised !== null ? $this->schedule->toUtc($row->promised) : null);
         }

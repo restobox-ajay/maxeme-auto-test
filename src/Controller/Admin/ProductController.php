@@ -112,7 +112,6 @@ final class ProductController extends AbstractAdminController
         'status' => ['Status', 'core'],
         'sales_tax_code' => ['Tax Class', 'core'],
         'shipping_class' => ['Shipping Class', 'core'],
-        'sync_source' => ['Source', 'core'],
         'remarks' => ['Remarks', 'catalog'],
         'short' => ['Short description', 'catalog'],
         'long' => ['Long description', 'catalog'],
@@ -150,7 +149,6 @@ final class ProductController extends AbstractAdminController
             'deposit' => trim((string) ($rawFilters['deposit'] ?? '')),
             'shipping_class' => trim((string) ($rawFilters['shipping_class'] ?? '')),
             'sales_tax_code' => trim((string) ($rawFilters['sales_tax_code'] ?? '')),
-            'sync_source' => trim((string) ($rawFilters['sync_source'] ?? '')),
             'remarks' => trim((string) ($rawFilters['remarks'] ?? '')),
             'short' => trim((string) ($rawFilters['short'] ?? '')),
             'long' => trim((string) ($rawFilters['long'] ?? '')),
@@ -281,18 +279,6 @@ final class ProductController extends AbstractAdminController
             $qb->andWhere('p.salesTaxCode LIKE :fsales_tax_code')->setParameter('fsales_tax_code', '%' . $salesTaxCodeFilter . '%');
         }
 
-        $syncSourceFilter = $filters['sync_source'];
-        if ($syncSourceFilter !== '') {
-            // "-" is what the grid prints for a product with no recorded provenance, so typing it
-            // into the filter has to find exactly those rows rather than LIKE-matching a literal
-            // dash that no stored value ever contains.
-            if ($syncSourceFilter === self::SYNC_SOURCE_UNKNOWN_LABEL) {
-                $qb->andWhere('p.syncSource IS NULL');
-            } else {
-                $qb->andWhere('p.syncSource LIKE :fsync_source')->setParameter('fsync_source', '%' . $syncSourceFilter . '%');
-            }
-        }
-
         switch ($sort) {
             case 'id': $orderExpr = 'p.id'; break;
             case 'name': $orderExpr = 'p.name'; break;
@@ -305,7 +291,6 @@ final class ProductController extends AbstractAdminController
             case 'category': $needsCategoryJoin = true; $orderExpr = 'cat.name'; break;
             case 'shipping_class': $orderExpr = 'p.shippingClass'; break;
             case 'sales_tax_code': $orderExpr = 'p.salesTaxCode'; break;
-            case 'sync_source': $orderExpr = 'p.syncSource'; break;
             case 'cost': $orderExpr = 'p.costPrice'; break;
             case 'original': $orderExpr = 'p.originalPrice'; break;
             case 'price': $orderExpr = 'p.defaultPrice'; break;

@@ -6,6 +6,7 @@ namespace App\Maxeme\Entity;
 
 use App\Maxeme\Accounting\InvoiceTotals;
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\PaymentMethod;
 use App\Maxeme\Repository\InvoiceRepository;
@@ -17,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
  * An appointment's bill (legacy CNSAccountingBundle Invoice). The client and vehicle details are a
  * snapshot taken when it was created and edited on the invoice itself. Totals are always
  * calculated from the lines (App\Maxeme\Accounting\InvoiceCalculator). Ids are the legacy ids; the
- * shown number is the id padded to 8 digits.
+ * shown number is the id padded to 6 digits.
  */
 #[ORM\Entity(repositoryClass: InvoiceRepository::class)]
 #[ORM\Table(name: 'maxeme_invoice')]
@@ -48,7 +49,7 @@ class Invoice
     #[ORM\Column(options: ['default' => false])]
     private bool $issuedFromRepairOrder = false;
 
-    /** The invoice number typed in (Change Invoice #), shown and printed instead of "INV-00001482"; null = the automatic one. */
+    /** The invoice number typed in (Change Invoice #), shown and printed instead of "INV-001482"; null = the automatic one. */
     #[ORM\Column(length: 40, nullable: true)]
     private ?string $customNumber = null;
 
@@ -85,6 +86,10 @@ class Invoice
     private ?string $vehicleVin = null;
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $vehicleMileage = null;
+
+    /** KM or miles, copied in with the mileage. */
+    #[ORM\Column(length: 10, enumType: MileageUnit::class, options: ['default' => 'km'])]
+    private MileageUnit $vehicleMileageUnit = MileageUnit::Km;
 
     /** The appointment's note. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -173,7 +178,10 @@ class Invoice
             : new self($repairOrder->getGstRate(), $repairOrder->getPstRate());
         $invoice->repairOrder = $repairOrder;
         $invoice->issuedFromRepairOrder = true;
-        $invoice->vehicleMileage = $repairOrder->getMileage() ?? $invoice->vehicleMileage;
+        if ($repairOrder->getMileage() !== null) {
+            $invoice->vehicleMileage = $repairOrder->getMileage();
+            $invoice->vehicleMileageUnit = $repairOrder->getMileageUnit();
+        }
         $invoice->note = $repairOrder->getConcern();
 
         return $invoice;
@@ -229,6 +237,7 @@ class Invoice
         $this->vehicleLicense = $vehicle->getLicensePlate();
         $this->vehicleVin = $vehicle->getVin();
         $this->vehicleMileage = $vehicle->getMileage();
+        $this->vehicleMileageUnit = $vehicle->getMileageUnit();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -241,10 +250,10 @@ class Invoice
     public function getClient(): ?Client { return $this->client; }
     public function getVehicle(): ?Vehicle { return $this->vehicle; }
 
-    /** The number shown and printed: "00001482" (legacy getDisplayedId()). */
+    /** The number shown and printed: "001482" (legacy getDisplayedId()). */
     public function getDisplayedId(): string
     {
-        return $this->id !== null ? str_pad((string) $this->id, 8, '0', STR_PAD_LEFT) : '';
+        return $this->id !== null ? str_pad((string) $this->id, 6, '0', STR_PAD_LEFT) : '';
     }
 
     public function isSaved(): bool
@@ -286,6 +295,8 @@ class Invoice
     public function setVehicleVin(?string $value): void { $this->vehicleVin = $value; }
     public function getVehicleMileage(): ?string { return $this->vehicleMileage; }
     public function setVehicleMileage(?string $value): void { $this->vehicleMileage = $value; }
+    public function getVehicleMileageUnit(): MileageUnit { return $this->vehicleMileageUnit; }
+    public function setVehicleMileageUnit(MileageUnit $value): void { $this->vehicleMileageUnit = $value; }
 
     /** "Year Make Model". */
     public function getVehicleFullName(): string

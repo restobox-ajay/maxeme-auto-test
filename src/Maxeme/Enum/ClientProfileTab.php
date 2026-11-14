@@ -22,7 +22,7 @@ enum ClientProfileTab: string
             self::Addresses => 'Address Book',
             self::Vehicles => 'Vehicles',
             self::Appointments => 'Appointments',
-            self::WorkOrders => 'Work Orders',
+            self::WorkOrders => 'Repair Orders',
         };
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Entity;
 
 use App\Entity\AbstractPartyNote;
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Repository\VehicleRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -45,6 +46,10 @@ class Vehicle implements SoftDeletable, HasNotes
     /** Free text in the legacy app ("120,000 km", "unknown", ...). */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $mileage = null;
+
+    /** KM or miles: what the mileage is in. */
+    #[ORM\Column(length: 10, enumType: MileageUnit::class, options: ['default' => 'km'])]
+    private MileageUnit $mileageUnit = MileageUnit::Km;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $color = null;
@@ -109,6 +114,8 @@ class Vehicle implements SoftDeletable, HasNotes
 
     public function getMileage(): ?string { return $this->mileage; }
     public function setMileage(?string $mileage): self { $this->mileage = $mileage; return $this; }
+    public function getMileageUnit(): MileageUnit { return $this->mileageUnit; }
+    public function setMileageUnit(MileageUnit $mileageUnit): self { $this->mileageUnit = $mileageUnit; return $this; }
 
     public function getColor(): ?string { return $this->color; }
     public function setColor(?string $color): self { $this->color = $color; return $this; }

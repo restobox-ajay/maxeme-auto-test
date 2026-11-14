@@ -15,9 +15,12 @@
                         <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
                                 data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}">Check-in</button>
                     {% endif %}
-                    <button type="button" class="button mx-btn-sm danger js-post-action" data-redirect="{{ profileUrl }}"
-                            data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}"
-                            data-confirm-title="Delete Confirmation" data-confirm-before="Delete this appointment" data-item="" data-confirm-after="?">Delete</button>
+                    {# A completed appointment is never deleted (mockup ca9d795). #}
+                    {% if appointment.status.value != 'complete' %}
+                        <button type="button" class="button mx-btn-sm danger js-post-action" data-redirect="{{ profileUrl }}"
+                                data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}"
+                                data-confirm-title="Delete Confirmation" data-confirm-before="Delete this appointment" data-item="" data-confirm-after="?">Delete</button>
+                    {% endif %}
                 </div>
             {% endif %}
             <a class="button back-button" href="{{ profileUrl }}">Back</a>
@@ -48,10 +51,17 @@
                 <label>Phone number:
                     <input type="text" value="{{ client.phones|join(' · ') }}" readonly>
                 </label>
+                <label for="appointment_type">Appointment for:
+                    <select id="appointment_type" name="type">
+                        {% for type in types %}<option value="{{ type.value }}" data-needs-vehicle="{{ type.needsVehicle ? 1 : 0 }}" {{ data.type == type.value ? 'selected' }}>{{ type.label }}</option>{% endfor %}
+                    </select>
+                </label>
                 <label for="client_vehicle_name">Vehicle:
                     <select id="client_vehicle_name" name="vehicle_id">
-                        {% for vehicle in client.vehicles %}
-                            <option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ? 'selected' }}>{{ vehicle.fullName }}</option>
+                        <option value="" {{ data.vehicleId is null ? 'selected' }}>(no vehicle)</option>
+                        {% set vehicles = client.vehicles|merge(isEdit and appointment.vehicle and appointment.vehicle not in client.vehicles ? [appointment.vehicle] : []) %}
+                        {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ? 'selected' }}>{{ vehicle.fullName }}{{ vehicle.active ? '' : ' (inactive)' }}</option>
                         {% endfor %}
                     </select>
                 </label>
@@ -61,9 +71,14 @@
                 <label for="appointment_duration">Duration:
                     <span class="appt-duration"><input id="appointment_duration" value="{{ duration }}" type="number" min="0.5" max="24" step="0.5"> hours</span>
                 </label>
-                <label for="appointment_repair_order">Repair Order:
+                <label for="appointment_repair_order" id="appointment_repair_order_field">Repair Order:
                     <select id="appointment_repair_order" name="repair_order_id">
-                        <option value="">(none)</option>
+                        {% if isEdit %}
+                            <option value="">(none)</option>
+                        {% else %}
+                            <option value="">Choose a repair order…</option>
+                            <option value="new" {{ data.repairOrderId == 'new' ? 'selected' }}>+ Create new repair order</option>
+                        {% endif %}
                         {% for repairOrder in repairOrders %}
                             <option value="{{ repairOrder.id }}" {{ data.repairOrderId == repairOrder.id ~ '' ? 'selected' }}>{{ ro_number(repairOrder) }}{{ repairOrder.name ? ' · ' ~ (repairOrder.name|length > 40 ? repairOrder.name|slice(0, 40) ~ '…' : repairOrder.name) }}{{ repairOrder.vehicle ? ' · ' ~ repairOrder.vehicle.fullName }}</option>
                         {% endfor %}
@@ -73,16 +88,12 @@
                 {% if isEdit %}
                     <label for="appointment_status">Status:
                         <select id="appointment_status" name="status">
-                            {% for status in statuses %}<option value="{{ status.value }}" {{ data.status == status.value ? 'selected' }}>{{ status.label }} — {{ status.description }}</option>{% endfor %}
+                            {# Extended only once the vehicle has arrived (mockup 551ab32). #}
+                            {% set arrived = appointment.status.value in ['in_progress', 'extended'] %}
+                            {% for status in statuses %}<option value="{{ status.value }}" {{ data.status == status.value ? 'selected' }} {{ status.value == 'extended' and not arrived ? 'disabled' }}>{{ status.label }} — {{ status.description }}{{ status.value == 'extended' and not arrived ? ' (after check-in)' }}</option>{% endfor %}
                         </select>
                     </label>
                 {% endif %}
-                <label>Calendar colour: <small class="muted-line">(blank uses the service's)</small>
-                    <span class="mx-colour-field">
-                        <input type="color" value="{{ data.colour ?: '#428bca' }}" data-colour-for="#appointment_colour" aria-label="Pick a colour">
-                        <input id="appointment_colour" type="text" name="colour" value="{{ data.colour }}" placeholder="#1f77b4 or blank" maxlength="7" pattern="#[0-9a-fA-F]{6}" title="A colour like #1f77b4, or blank to use the service's.">
-                    </span>
-                </label>
                 <label>Note:
                     <textarea name="note" rows="3">{{ data.note }}</textarea>
                 </label>
@@ -108,5 +119,5 @@
 {% block javascripts %}
     {{ parent() }}
     {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-    <script src="/assets/js/maxeme-appointment-form.js?v=1"></script>
+    <script src="/assets/js/maxeme-appointment-form.js?v=2"></script>
 {% endblock %}

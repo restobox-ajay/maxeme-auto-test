@@ -20,6 +20,26 @@
     var duration = $('#appointment_duration');
     var vehicle = $('#client_vehicle_name');
     var saveButton = $('#appointment_submit');
+    var type = $('#appointment_type');
+    var repairOrderField = $('#appointment_repair_order_field');
+    var initialStart = startInput.value;
+
+    /* What it is for (mockup 689a4a1, 9ba2951): only a Repair order appointment has a repair order;
+       Buying/selling cars and Other may have no vehicle, and start with none. */
+    function applyType(changed) {
+        if (!type) { return; }
+        var option = type.options[type.selectedIndex];
+        var needsVehicle = option.getAttribute('data-needs-vehicle') === '1';
+        if (repairOrderField) { repairOrderField.hidden = type.value !== 'repair'; }
+        var none = vehicle.querySelector('option[value=""]');
+        if (none) { none.hidden = needsVehicle; none.disabled = needsVehicle; }
+        if (needsVehicle && vehicle.value === '' && vehicle.options.length > 1) { vehicle.selectedIndex = 1; }
+        if (!needsVehicle && changed) { vehicle.value = ''; }
+    }
+    if (type) {
+        type.addEventListener('change', function () { applyType(true); });
+        applyType(false);
+    }
     var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -151,7 +171,13 @@
             window.WC.showToast('Pick a start time from the calendar.', 'error');
             return;
         }
-        var summary = '\nVehicle: ' + vehicle.options[vehicle.selectedIndex].text + '\nStart: ' + longDate(start) + '\nEnd: ' + longDate(end);
+        var summary = (type ? '\nFor: ' + type.options[type.selectedIndex].text : '') + '\nVehicle: ' + vehicle.options[vehicle.selectedIndex].text + '\nStart: ' + longDate(start) + '\nEnd: ' + longDate(end);
+        // A booking on a day already gone needs an explicit yes (an edit that keeps its day doesn't).
+        var today = new Date(); var todayKey = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+        var day = startInput.value.slice(0, 10);
+        if (day < todayKey && day !== initialStart.slice(0, 10)) {
+            summary += '\n\nThis day is in the past. Book it anyway?';
+        }
         window.WC.confirm('Confirm appointment', 'Client: ', $('#client_full_name').value, summary, function () {
             form.dataset.confirmed = '1';
             form.submit();

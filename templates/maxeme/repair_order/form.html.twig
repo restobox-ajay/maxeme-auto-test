@@ -67,14 +67,15 @@
                         <input type="text" name="new_vehicle[vin]" value="{{ form.newVehicle.vin }}" placeholder="VIN" {{ input_rule('vin') }} aria-label="New vehicle VIN">
                     </div>
                     <label class="mx-ro-field"><span>Odometer in</span>
-                        <span class="mx-mileage"><input type="text" name="mileage" value="{{ data.mileage }}" maxlength="20" placeholder="Mileage"><span>KM</span></span>
+                        <span class="mx-mileage"><input type="text" name="mileage" value="{{ data.mileage }}" maxlength="20" placeholder="Mileage"><select name="mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles" {{ data.mileageUnit == 'miles' ? 'selected' }}>MILES</option></select></span>
                     </label>
+                    <label class="mx-ro-field"><span>Tag / Key</span><input type="text" name="tag_key" value="{{ data.tagKey }}" maxlength="60"></label>
                 </div>
 
                 <div class="mx-ro-col">
-                    <div class="section-label">Visit</div>
-                    <label class="mx-ro-field"><span>Status</span>
-                        <select name="status">
+                    <div class="section-label">Status</div>
+                    <label class="mx-ro-field">
+                        <select name="status" aria-label="Status">
                             {% for status in statuses %}<option value="{{ status.value }}" {{ (data.status ?: repairOrder.status.value) == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
                         </select>
                     </label>
@@ -84,8 +85,7 @@
                             {% for advisor in advisors %}<option value="{{ advisor.id }}" {{ data.advisorId == advisor.id ~ '' ? 'selected' }}>{{ (advisor.firstName ~ ' ' ~ advisor.lastName)|trim ?: advisor.email }}</option>{% endfor %}
                         </select>
                     </label>
-                    <label class="mx-ro-field"><span>Tag / Key</span><input type="text" name="tag_key" value="{{ data.tagKey }}" maxlength="60"></label>
-                    <label class="mx-ro-field"><span>Master Technician</span>
+                    <label class="mx-ro-field"><span>Assigned Technician</span>
                         <select name="master_technician_id">
                             <option value="">(none)</option>
                             {% for technician in technicians %}<option value="{{ technician.id }}" {{ data.masterTechnicianId == technician.id ~ '' ? 'selected' }}>{{ technician.name }}</option>{% endfor %}
@@ -95,14 +95,14 @@
             </div>
         </section>
 
-        {# ── Repair name and concern ────────────────────────────────────────────── #}
+        {# ── Repair name and internal comment ────────────────────────────────────────────── #}
         <section class="form-card">
             <div class="form-grid">
                 <label class="span-2"><span>Repair Name <small class="muted-line">(a short description: used internally, on the calendar and the repair order list)</small></span>
                     <input type="text" name="name" value="{{ data.name }}" maxlength="255" placeholder="e.g. Front brakes + diagnose clunk">
                 </label>
-                <label class="span-2"><span>Concern <small class="muted-line">(the customer's own words, for the technician)</small></span>
-                    <textarea name="concern" rows="3" placeholder="e.g. clunk over bumps, brakes squeal when cold">{{ data.concern }}</textarea>
+                <label class="span-2"><span>Internal Comment <small class="muted-line">(for staff only: never printed on the work order, quote or invoice)</small></span>
+                    <textarea name="concern" rows="3" placeholder="e.g. customer says clunk over bumps, brakes squeal when cold">{{ data.concern }}</textarea>
                 </label>
             </div>
         </section>
@@ -121,7 +121,7 @@
             </div>
             <div class="mx-line-actions">
                 <button type="button" id="ro-appointment-add" class="button mx-btn-sm mx-success">+ Add appointment</button>
-                <span class="muted-line">A new appointment lasts an hour; change its length on the calendar.</span>
+                <span class="muted-line">A new appointment lasts two hours. Set when it starts, how long it lasts and the time you promised the customer.</span>
             </div>
         </section>
 
@@ -221,5 +221,5 @@
 {% block javascripts %}
     {{ parent() }}
     <script src="/assets/js/maxeme-service-lines.js?v=1"></script>
-    <script src="/assets/js/maxeme-repair-order.js?v=1"></script>
+    <script src="/assets/js/maxeme-repair-order.js?v=2"></script>
 {% endblock %}

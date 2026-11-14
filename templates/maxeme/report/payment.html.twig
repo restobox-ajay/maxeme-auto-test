@@ -6,7 +6,7 @@
 {% block title %}Payment Report | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set query = period.toQuery|merge(method ? { method: method.id } : {}) %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Payment Report', lead: 'The payment of invoices, by the date they were paid. Labour is what each invoice billed beyond its parts, discounts and government fees.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Payment Report' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" id="payment-report-export" href="{{ path('maxeme_report_summary_export', query) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 

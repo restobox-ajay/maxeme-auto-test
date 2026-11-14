@@ -6,7 +6,7 @@
 {% block title %}Work Order Board | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set query = period.toQuery|merge(stage ? { stage: stage.value } : {}) %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Work Order Board', lead: 'Where each vehicle is, for the repair orders dated in the period. Click a count to see those repair orders.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Work Order Board' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" id="board-export" href="{{ path('maxeme_board_export', query) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 
@@ -38,7 +38,7 @@
             <div class="wide-table-wrap">
                 <table class="list-report-table" id="board-table">
                     <thead>
-                        <tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Repair Name</th><th>Status</th><th>Master Technician</th><th class="num">Total</th></tr>
+                        <tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Repair Name</th><th>Status</th><th>Assigned Technician</th><th class="num">Total</th></tr>
                     </thead>
                     <tbody>
                         {% for repairOrder in rows %}

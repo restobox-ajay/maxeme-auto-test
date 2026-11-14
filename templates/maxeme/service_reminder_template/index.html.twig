@@ -4,7 +4,7 @@
 {% block title %}Reminder Templates | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/service/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Reminder Templates', lead: 'The emails a Service Reminder can use: a friendly reminder to call in or book on the website.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Reminder Templates' } %}
         {% block title_actions %}
             {% if is_granted('/service/edit') %}
                 <a id="addTemplateButton" class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_reminder_template_new') }}">+ Add template</a>

@@ -1,7 +1,11 @@
+{# Schedule › Appointments: the calendar (month / week / day, opening on day), or the List view
+   (mockup deba1ef): every appointment of a day (today first) or of all days, paged, searchable and
+   filterable, with its repair order, amount and actions. Vars: view, settings, list (ListPage or null), day, statuses, types. #}
 {% extends 'admin/_main/layout.html.twig' %}
+{% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Appointments | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Appointments', lead: 'Click a day to open it, click an appointment for its actions, drag or resize to change its time.' } only %}
+    {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Appointments' } only %}
 
     {# One-shot alerts (legacy displayAction session flags), e.g. "Invoice not found." #}
     <div class="page-alerts">
@@ -10,23 +14,125 @@
         {% endfor %}
     </div>
 
-    <section class="table-card calendar-card">
-        <div id="calendar_container">
-            <div id="calendar" class="mx-calendar" data-calendar="{{ {
-                view: view.fullCalendarView,
-                feedUrl: path('maxeme_appointment_feed'),
-                slotMinTime: settings.dayStart,
-                slotMaxTime: settings.dayEnd,
-                slotMinutes: settings.slotMinutes,
-                canManage: is_granted('/appointment/edit'),
-                canOpenClient: is_granted('/people/view'),
-                views: { dayGridMonth: 'month', timeGridWeek: 'agendaWeek', timeGridDay: 'agendaDay' },
-            }|json_encode }}"></div>
-        </div>
-    </section>
+    {% set canManage = is_granted('/appointment/edit') %}
+    {% set canOpenClient = is_granted('/people/view') %}
+    {% set canEditRepairOrders = is_granted('/work-order/edit') %}
+    {% set canInvoice = is_granted('/accounting/view') %}
+
+    {% if list %}
+        {% set today = 'now'|date('Y-m-d') %}
+        {% set dayParams = app.request.query.all|merge({ view: 'list', page: 1 }) %}
+        <section class="table-card" id="appointment-list-card" {{ mx.list_card_attrs(list) }}>
+            <div class="table-header mx-list-views">
+                <div class="mx-actions">
+                    {% if day != 'all' %}
+                        <a class="button mx-btn-sm outline" href="{{ path('maxeme_appointment_calendar', dayParams|merge({ day: day|date_modify('-1 day')|date('Y-m-d') })) }}" aria-label="Previous day">&lsaquo;</a>
+                        <a class="button mx-btn-sm outline" href="{{ path('maxeme_appointment_calendar', dayParams|merge({ day: day|date_modify('+1 day')|date('Y-m-d') })) }}" aria-label="Next day">&rsaquo;</a>
+                    {% endif %}
+                    <a class="button mx-btn-sm outline {{ day == today ? 'is-active' }}" href="{{ path('maxeme_appointment_calendar', dayParams|merge({ day: today })) }}">Today</a>
+                    <a class="button mx-btn-sm outline {{ day == 'all' ? 'is-active' }}" href="{{ path('maxeme_appointment_calendar', dayParams|merge({ day: 'all' })) }}">All days</a>
+                    <form method="get" class="mx-inline-form">
+                        <input type="hidden" name="view" value="list">
+                        <input type="date" name="day" value="{{ day != 'all' ? day }}" aria-label="Day" onchange="this.form.submit()">
+                    </form>
+                </div>
+                <h2>{{ day == 'all' ? 'All appointments' : day|date('l, F j, Y') }}</h2>
+                <div class="mx-actions">
+                    {% for key, label in { month: 'month', agendaWeek: 'week', agendaDay: 'day', list: 'list' } %}
+                        <a class="button mx-btn-sm {{ key == 'list' ? 'primary' : 'outline' }}" href="{{ path('maxeme_appointment_calendar', { view: key }) }}">{{ label }}</a>
+                    {% endfor %}
+                </div>
+                {{ mx.list_search(list, 'appointments') }}
+            </div>
+            <div class="wide-table-wrap">
+                <table id="appointment-list">
+                    <thead>
+                        <tr>
+                            {{ mx.sort_th(list, 'start', 'Date') }}{{ mx.sort_th(list, 'status', 'Status') }}{{ mx.sort_th(list, 'type', 'For') }}{{ mx.sort_th(list, 'client', 'Client') }}<th>Phone</th>{{ mx.sort_th(list, 'vehicle', 'Vehicle') }}{{ mx.sort_th(list, 'repairOrder', 'Repair order') }}<th class="num">$</th><th>Description</th><th>Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th></th>
+                            <th><select data-filter-field="status" aria-label="Filter status"><option value="">All</option>{% for status in statuses %}<option value="{{ status.value }}" {{ (list.query.filters.status ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}</select></th>
+                            <th><select data-filter-field="type" aria-label="Filter type"><option value="">All</option>{% for type in types %}<option value="{{ type.value }}" {{ (list.query.filters.type ?? '') == type.value ? 'selected' }}>{{ type.label }}</option>{% endfor %}</select></th>
+                            {% for field, label in { client: 'client', phone: 'phone', vehicle: 'vehicle' } %}
+                                <th><input type="search" value="{{ list.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label }}"></th>
+                            {% endfor %}
+                            <th></th><th></th>
+                            <th><input type="search" value="{{ list.query.filters.description ?? '' }}" data-filter-field="description" placeholder="Search" aria-label="Search description"></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for appointment in list.items %}
+                            {% set amount = appointment_amount(appointment) %}
+                            <tr id="appt_{{ appointment.id }}">
+                                <td data-label="Date" class="mx-nowrap">{{ appointment.startTime|date('m/d/Y') }}<div class="muted-line">{{ appointment.startTime|date('g:i A') }} – {{ appointment.endTime|date('g:i A') }}</div></td>
+                                <td data-label="Status"><span class="badge mx-appt-badge appt-{{ appointment.status.value }}" {% if appointment.calendarColour %}style="background:{{ appointment.calendarColour }}"{% endif %}>{{ appointment.status.label }}</span></td>
+                                <td data-label="For">{{ appointment.type.label }}</td>
+                                <td data-label="Client">{% if canOpenClient %}<a href="{{ path('maxeme_client_show', { id: appointment.client.id, tab: 'appointments' }) }}">{{ appointment.client.displayName }}</a>{% else %}{{ appointment.client.fullName }}{% endif %}</td>
+                                <td data-label="Phone" class="mx-nowrap">{{ appointment.client.phone1 ?: '—' }}</td>
+                                <td data-label="Vehicle">{% if appointment.vehicle %}<a href="{{ path('maxeme_vehicle_show', { id: appointment.vehicle.id }) }}">{{ appointment.vehicle.fullName }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                                <td data-label="Repair order">{% if appointment.repairOrder %}{% if canEditRepairOrders %}<a href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">{{ ro_number(appointment.repairOrder) }}</a>{% else %}{{ ro_number(appointment.repairOrder) }}{% endif %}{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                                <td data-label="$" class="num">{% if amount %}<a href="{{ amount.url }}" title="{{ amount.title }}">{{ mx.money(amount.amount) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                                <td data-label="Description">{{ appointment.repairOrder and appointment.repairOrder.name ? appointment.repairOrder.name : appointment.note }}</td>
+                                <td data-label="Actions">
+                                    <div class="mx-actions">
+                                        {% if canEditRepairOrders and appointment.type.hasRepairOrder %}
+                                            {% if appointment.repairOrder %}
+                                                <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Repair order</a>
+                                            {% else %}
+                                                <a class="button mx-btn-sm outline" href="{{ path('maxeme_repair_order_new', { id: appointment.client.id }|merge(appointment.vehicle ? { vehicle: appointment.vehicle.id } : {})) }}">+ Repair order</a>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if canOpenClient %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_client_show', { id: appointment.client.id, tab: 'appointments' }) }}">Client</a>{% endif %}
+                                        {% if canInvoice %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_invoice_for_appointment', { id: appointment.id }) }}" target="_blank" rel="noopener">Invoice</a>{% endif %}
+                                        {% if canManage %}
+                                            {% if appointment.status.value == 'new' %}
+                                                <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
+                                                        data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}">Check-in</button>
+                                            {% endif %}
+                                            <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit</a>
+                                            {% if appointment.status.value != 'complete' %}
+                                                <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#appt_{{ appointment.id }}"
+                                                        data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}"
+                                                        data-confirm-title="Delete Confirmation" data-confirm-before="Delete the appointment on "
+                                                        data-item="{{ appointment.startTime|date('m/d/Y g:i A') }}" data-confirm-after="?">Delete</button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="10" class="empty-table-cell">No appointments {{ day != 'all' ? 'on this day' : 'match' }}.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {{ mx.list_footer(list) }}
+        </section>
+    {% else %}
+        <section class="table-card calendar-card">
+            <div id="calendar_container">
+                <div id="calendar" class="mx-calendar" data-calendar="{{ {
+                    view: view.fullCalendarView,
+                    feedUrl: path('maxeme_appointment_feed'),
+                    listUrl: path('maxeme_appointment_calendar', { view: 'list' }),
+                    slotMinTime: settings.dayStart,
+                    slotMaxTime: settings.dayEnd,
+                    slotMinutes: settings.slotMinutes,
+                    canManage: canManage,
+                    canOpenClient: canOpenClient,
+                    canEditRepairOrders: canEditRepairOrders,
+                    views: { dayGridMonth: 'month', timeGridWeek: 'agendaWeek', timeGridDay: 'agendaDay' },
+                }|json_encode }}"></div>
+            </div>
+        </section>
+    {% endif %}
 {% endblock %}
 {% block javascripts %}
     {{ parent() }}
-    {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-    <script src="/assets/js/maxeme-calendar.js?v=4"></script>
+    {% if not list %}
+        {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
+        <script src="/assets/js/maxeme-calendar.js?v=5"></script>
+    {% endif %}
 {% endblock %}

@@ -10,7 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Change Invoice # / Change Work Order # (spec item 19): a number typed in replaces the automatic
- * "INV-00001482" / "WO-00000042" wherever the document is shown, printed or emailed (DocumentNumbers);
+ * "INV-001482" / "WO-000042" wherever the document is shown, printed or emailed (DocumentNumbers);
  * blank goes back to the automatic one. A number must be unique among invoices (or work orders),
  * typed in or automatic. The change is in the record's Activity Log like any other field.
  */
@@ -83,7 +83,7 @@ final class DocumentNumberEditor
         return $other !== null ? sprintf('%s is already the number of another work order.', $number) : null;
     }
 
-    /** The id an automatic number ("INV-00001482", or just "1482") stands for, if it looks like one. */
+    /** The id an automatic number ("INV-001482", or just "1482") stands for, if it looks like one. */
     private static function automaticId(string $number, string $prefix): ?int
     {
         $rest = $prefix !== '' && stripos($number, $prefix) === 0 ? substr($number, strlen($prefix)) : $number;

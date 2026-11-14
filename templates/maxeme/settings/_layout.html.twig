@@ -13,7 +13,7 @@
 {% block title %}{{ tabs[tab].label }} · Settings | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set settingsActions = block('title_actions') is defined ? block('title_actions')|trim : '' %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Settings', lead: 'Taxes, document numbering, payment methods, technicians and reminder emails.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Config', title: 'Settings' } %}
         {% block title_actions %}{{ settingsActions|raw }}{% endblock %}
     {% endembed %}
 

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Maxeme\Entity;
 
 use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Enum\AppointmentType;
 use App\Maxeme\Repository\AppointmentRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * A booked visit of one client's vehicle (legacy CNSScheduleBundle Appointment). Times are stored
- * in UTC and shown in the shop's timezone. Ids are the legacy ids.
+ * A booked visit of one client, with one of their vehicles (legacy CNSScheduleBundle Appointment);
+ * Buying/selling cars and Other appointments may have no vehicle. Times are stored in UTC and shown
+ * in the shop's timezone. Ids are the legacy ids.
  */
 #[ORM\Entity(repositoryClass: AppointmentRepository::class)]
 #[ORM\Table(name: 'maxeme_appointment')]
@@ -27,8 +29,11 @@ class Appointment
     private Client $client;
 
     #[ORM\ManyToOne(targetEntity: Vehicle::class)]
-    #[ORM\JoinColumn(nullable: false)]
-    private Vehicle $vehicle;
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Vehicle $vehicle;
+
+    #[ORM\Column(name: 'appt_type', length: 20, enumType: AppointmentType::class, options: ['default' => 'repair'])]
+    private AppointmentType $type = AppointmentType::Repair;
 
     #[ORM\Column]
     private \DateTimeImmutable $startTime;
@@ -47,7 +52,7 @@ class Appointment
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?RepairOrder $repairOrder = null;
 
-    /** "#1f77b4": its own calendar colour, over its service's; null to use the service's. */
+    /** A legacy free calendar colour; no longer used (the type decides the colour, mockup 689a4a1). */
     #[ORM\Column(length: 7, nullable: true)]
     private ?string $colour = null;
 
@@ -58,9 +63,12 @@ class Appointment
     #[ORM\Column]
     private \DateTimeImmutable $lastUpdated;
 
-    public function __construct(Vehicle $vehicle, \DateTimeImmutable $start, \DateTimeImmutable $end)
+    public function __construct(Client $client, ?Vehicle $vehicle, \DateTimeImmutable $start, \DateTimeImmutable $end)
     {
-        $this->client = $vehicle->getClient();
+        if ($vehicle !== null && $vehicle->getClient() !== $client) {
+            throw new \DomainException('The vehicle belongs to another client.');
+        }
+        $this->client = $client;
         $this->vehicle = $vehicle;
         $this->lastUpdated = new \DateTimeImmutable();
         $this->reschedule($start, $end);
@@ -68,7 +76,8 @@ class Appointment
 
     public function getId(): ?int { return $this->id; }
     public function getClient(): Client { return $this->client; }
-    public function getVehicle(): Vehicle { return $this->vehicle; }
+    public function getVehicle(): ?Vehicle { return $this->vehicle; }
+    public function getType(): AppointmentType { return $this->type; }
     public function getStartTime(): \DateTimeImmutable { return $this->startTime; }
     public function getEndTime(): \DateTimeImmutable { return $this->endTime; }
     public function getStatus(): AppointmentStatus { return $this->status; }
@@ -78,33 +87,32 @@ class Appointment
     public function getPromisedAt(): ?\DateTimeImmutable { return $this->promisedAt; }
     public function getColour(): ?string { return $this->colour; }
 
-    public function setColour(?string $colour): void
+    /** A Bodywork, Buying/selling or Other appointment schedules no repair order. */
+    public function setType(AppointmentType $type): void
     {
-        $this->colour = $colour !== null ? strtolower($colour) : null;
+        $this->type = $type;
+        if (!$type->hasRepairOrder()) {
+            $this->repairOrder = null;
+        }
         $this->touch();
     }
 
     /**
-     * The calendar colour: its own, else its repair order's first service's (the service's own
-     * colour, else its category's); null leaves the status colour.
+     * The calendar colour: a Bodywork, Buying/selling or Other appointment's own, always; null for a
+     * repair appointment, which takes its status colour. What is on the repair order never changes
+     * it (mockup 689a4a1, thread 13225).
      */
     public function getCalendarColour(): ?string
     {
-        if ($this->colour !== null) {
-            return $this->colour;
-        }
-        foreach ($this->repairOrder?->getJobs() ?? [] as $job) {
-            if (($colour = $job->getService()?->getColour()) !== null) {
-                return $colour;
-            }
-        }
-
-        return null;
+        return $this->type->colour();
     }
 
     /** Booked from a repair order: it schedules that repair order's vehicle. */
     public function attachTo(RepairOrder $repairOrder): void
     {
+        if (!$this->type->hasRepairOrder()) {
+            throw new \DomainException(sprintf('A %s appointment has no repair order.', $this->type->label()));
+        }
         if ($repairOrder->getVehicle() !== $this->vehicle) {
             throw new \DomainException('The appointment is for another vehicle than the repair order.');
         }
@@ -124,10 +132,10 @@ class Appointment
         return $this->startTime < $now;
     }
 
-    /** Another of the same client's vehicles. */
-    public function changeVehicle(Vehicle $vehicle): void
+    /** Another of the same client's vehicles, or none (Buying/selling cars, Other). */
+    public function changeVehicle(?Vehicle $vehicle): void
     {
-        if ($vehicle->getClient() !== $this->client) {
+        if ($vehicle !== null && $vehicle->getClient() !== $this->client) {
             throw new \DomainException('The vehicle belongs to another client.');
         }
         $this->vehicle = $vehicle;

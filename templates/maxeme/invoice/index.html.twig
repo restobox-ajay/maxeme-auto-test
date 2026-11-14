@@ -2,7 +2,7 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Invoices | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Invoices', lead: 'Every invoice, newest first. Open one to see it printed, or in the builder while it can still be changed.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Accounting', title: 'Invoices' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_invoice_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 

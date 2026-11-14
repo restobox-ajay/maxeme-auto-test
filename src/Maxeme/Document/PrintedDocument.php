@@ -20,7 +20,7 @@ final class PrintedDocument
      * @param list<array{name: string, quantity: ?string, unitPrice: ?string, amount: string, chargeThrough: bool}> $rows
      * @param list<array{label: string, amount: string}>                                                           $charges  custom fees (positive) and discounts (negative)
      * @param list<array{name: string, lines: list<string>}>                                                         $repairItems the work order's items: each service and what to use ("x2 Rotor, front")
-     * @param array{type: ?string, amount: ?string, change: string}|null                                           $payment  an invoice's
+     * @param array{paid: bool, cancelled: bool, type: ?string, amount: ?string, change: string}|null            $payment  an invoice's
      */
     public function __construct(
         public readonly DocumentKind $kind,
@@ -37,6 +37,7 @@ final class PrintedDocument
         public readonly ?string $vehicleVin,
         public readonly ?string $vehicleLicense,
         public readonly ?string $mileage,
+        public readonly string $mileageUnit,
         public readonly array $rows,
         public readonly array $charges,
         public readonly string $discount,
@@ -54,13 +55,13 @@ final class PrintedDocument
     ) {
     }
 
-    /** "INV-00001482.pdf" */
+    /** "INV-001482.pdf" */
     public function filename(): string
     {
         return sprintf('%s.pdf', $this->number);
     }
 
-    /** "Invoice INV-00001482" / "Quote QO-00000042" / "Work Order WO-00000042" */
+    /** "Invoice INV-001482" / "Quote QO-000042" / "Work Order WO-000042" */
     public function emailSubject(): string
     {
         return sprintf('%s %s', $this->kind->emailTitle(), $this->number);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -19,6 +20,7 @@ final class VehicleData extends FormData
         'vin' => 'vin',
         'license_plate' => 'licensePlate',
         'mileage' => 'mileage',
+        'mileage_unit' => 'mileageUnit',
         'color' => 'color',
         'note' => 'note',
     ];
@@ -44,6 +46,9 @@ final class VehicleData extends FormData
     #[Formatted(InputRule::Mileage)]
     public ?string $mileage = null;
 
+    #[Assert\Choice(choices: ['km', 'miles'], message: 'Choose KM or miles.')]
+    public ?string $mileageUnit = null;
+
     #[Assert\Length(max: 255)]
     public ?string $color = null;
 
@@ -52,7 +57,11 @@ final class VehicleData extends FormData
 
     protected function toEntityValue(string $property, ?string $value): mixed
     {
-        return $property === 'year' && $value !== null ? (int) $value : $value;
+        return match (true) {
+            $property === 'year' && $value !== null => (int) $value,
+            $property === 'mileageUnit' => MileageUnit::fromValue($value),
+            default => $value,
+        };
     }
 
     /** The first cars to the year after this one (next year's models are on sale now). */

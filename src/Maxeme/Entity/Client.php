@@ -160,7 +160,17 @@ class Client implements SoftDeletable, HasNotes
     {
         $fullName = trim(sprintf('%s %s', $this->firstName, $this->lastName));
 
-        return $this->preferredName !== null && $this->preferredName !== '' ? sprintf('%s (%s)', $fullName, $this->preferredName) : $fullName;
+        if ($this->preferredName === null || $this->preferredName === '') {
+            return $fullName;
+        }
+
+        return $fullName !== '' ? sprintf('%s (%s)', $fullName, $this->preferredName) : $this->preferredName;
+    }
+
+    /** A label that is never blank, for links: the full name, else the first phone, the email, or "Client #id". */
+    public function getDisplayName(): string
+    {
+        return $this->getFullName() ?: (array_values($this->getPhones())[0] ?? null) ?: ($this->email ?: 'Client #' . $this->id);
     }
 
     /** @return Collection<int, Vehicle> the client's vehicles that are not deleted */

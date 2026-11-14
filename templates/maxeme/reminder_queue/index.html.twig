@@ -6,7 +6,7 @@
 {% block admin_body %}
     {% set canManage = is_granted('/reminder/edit') %}
     {% set canBook = is_granted('/work-order/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Service Reminder Queue', lead: 'When a repair order is completed, its services with a reminder are queued and emailed on their day. Reminders of the same visit within ' ~ constant('App\\Maxeme\\Reminder\\ServiceReminderQueue::QUEUE_AFTER_DAYS') ~ ' days of each other are skipped; a new appointment for the vehicle books them, and Resolved cancels the vehicle\'s queued ones.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Service Reminder Queue' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_reminder_queue_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 

@@ -61,7 +61,7 @@
                     {% for error in errors %}
                         <tr>
                             <td data-label="#">{{ error.id }}</td>
-                            <td data-label="Created At" class="log-date">{{ error.createdAt|date('Y-m-d H:i A') }}</td>
+                            <td data-label="Created At" class="log-date">{{ error.createdAt|date('m/d/Y h:i A') }}</td>
                             <td data-label="Method"><span class="error-method">{{ error.method }}</span></td>
                             <td data-label="Summary">{{ error.summary }}</td>
                             <td data-label="Error Description">

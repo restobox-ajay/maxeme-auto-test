@@ -55,7 +55,7 @@ enum WorkOrderStage: string
     {
         return match ($this) {
             self::AppointmentMade => 'Estimate Being Built, Authorized',
-            self::PendingOnQuote => 'Estimate Approval',
+            self::PendingOnQuote => 'Pending on Estimate',
             self::CheckIn => 'In Progress, no master technician',
             self::Repairing => 'In Progress with a master technician, Awaiting Parts',
             self::CompletePendingPickUp => 'Completed; Completed, Picked Up',

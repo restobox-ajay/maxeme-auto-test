@@ -111,8 +111,6 @@
                         <th class="is-sortable{% if currentSort == 'sales_tax_code' %} is-sorted-{{ currentDir }}{% endif %} col-sales_tax_code"  data-sort-field="sales_tax_code"><a href="{{ path('admin_product_detail_index', {sort: 'sales_tax_code', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Tax Class</a></th>
                         {% set nextDir = currentSort == 'shipping_class' and currentDir == 'asc' ? 'desc' : 'asc' %}
                         <th class="is-sortable{% if currentSort == 'shipping_class' %} is-sorted-{{ currentDir }}{% endif %} col-shipping_class"  data-sort-field="shipping_class"><a href="{{ path('admin_product_detail_index', {sort: 'shipping_class', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Shipping Class</a></th>
-                        {% set nextDir = currentSort == 'sync_source' and currentDir == 'asc' ? 'desc' : 'asc' %}
-                        <th class="is-sortable{% if currentSort == 'sync_source' %} is-sorted-{{ currentDir }}{% endif %} col-sync_source"  data-sort-field="sync_source"><a href="{{ path('admin_product_detail_index', {sort: 'sync_source', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Source</a></th>
                         {% set nextDir = currentSort == 'remarks' and currentDir == 'asc' ? 'desc' : 'asc' %}
                         <th class="is-sortable{% if currentSort == 'remarks' %} is-sorted-{{ currentDir }}{% endif %} col-remarks"  data-sort-field="remarks"><a href="{{ path('admin_product_detail_index', {sort: 'remarks', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Remarks</a></th>
                         {% set nextDir = currentSort == 'short' and currentDir == 'asc' ? 'desc' : 'asc' %}
@@ -170,19 +168,6 @@
                         </th>
                         <th class="col-sales_tax_code"><input type="text" name="filters[sales_tax_code]" value="{{ filters.sales_tax_code|default('') }}" aria-label="Filter by tax class"></th>
                         <th class="col-shipping_class"><input type="text" name="filters[shipping_class]" value="{{ filters.shipping_class|default('') }}" aria-label="Filter by shipping class"></th>
-                        <th class="col-sync_source">
-                            {# The datalist is the whole point of surfacing this: the stamped values are a
-                               closed set an admin has no way to guess, and "-" is how the grid prints a
-                               product whose provenance predates the stamping (see issue #477). #}
-                            <input type="text" name="filters[sync_source]" value="{{ filters.sync_source|default('') }}" list="product-sync-source-options" aria-label="Filter by source">
-                            <datalist id="product-sync-source-options">
-                                <option value="manual"></option>
-                                <option value="number1-product-csv-import"></option>
-                                <option value="number1-rim-api"></option>
-                                <option value="core-admin-product-import"></option>
-                                <option value="-"></option>
-                            </datalist>
-                        </th>
                         <th class="col-remarks"><input type="text" name="filters[remarks]" value="{{ filters.remarks|default('') }}" aria-label="Filter by remarks"></th>
                         <th class="col-short"><input type="text" name="filters[short]" value="{{ filters.short|default('') }}" aria-label="Filter by short description"></th>
                         <th class="col-long"><input type="text" name="filters[long]" value="{{ filters.long|default('') }}" aria-label="Filter by long description"></th>

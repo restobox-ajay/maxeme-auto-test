@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -19,6 +20,7 @@ final class RepairOrderData extends FormData
         'client_id' => 'clientId',
         'vehicle_id' => 'vehicleId',
         'mileage' => 'mileage',
+        'mileage_unit' => 'mileageUnit',
         'advisor_id' => 'advisorId',
         'tag_key' => 'tagKey',
         'master_technician_id' => 'masterTechnicianId',
@@ -41,13 +43,16 @@ final class RepairOrderData extends FormData
     #[Assert\Length(max: 20)]
     public ?string $mileage = null;
 
+    #[Assert\Choice(choices: ['km', 'miles'], message: 'Choose KM or miles.')]
+    public ?string $mileageUnit = null;
+
     #[Assert\Regex('/^\d+$/', message: 'Choose an advisor from the list.')]
     public ?string $advisorId = null;
 
     #[Assert\Length(max: 60)]
     public ?string $tagKey = null;
 
-    #[Assert\Regex('/^\d+$/', message: 'Choose a master technician from the list.')]
+    #[Assert\Regex('/^\d+$/', message: 'Choose an assigned technician from the list.')]
     public ?string $masterTechnicianId = null;
 
     #[Assert\Length(max: 255)]
@@ -60,6 +65,11 @@ final class RepairOrderData extends FormData
     public static function statuses(): array
     {
         return array_map(static fn (RepairOrderStatus $status): string => $status->value, RepairOrderStatus::cases());
+    }
+
+    protected function toEntityValue(string $property, ?string $value): mixed
+    {
+        return $property === 'mileageUnit' ? MileageUnit::fromValue($value) : $value;
     }
 
     protected function managedElsewhere(): array

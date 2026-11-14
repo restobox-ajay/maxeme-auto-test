@@ -27,7 +27,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * A repair order's financial documents: issuing an invoice (a frozen copy of the repair order's
  * services, their charge-through lines and its custom fees and discounts, so later changes to the
  * repair order do not alter it), deleting one, the quote being sent, and the repair order's status
- * following them (Invoiced once every invoice is paid; Estimate Approval once the quote is sent).
+ * following them (Invoiced once every invoice is paid; Pending on Estimate once the quote is sent).
  */
 final class RepairOrderInvoicing
 {

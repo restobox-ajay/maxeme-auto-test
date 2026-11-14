@@ -1,6 +1,6 @@
 {% for log in logs %}
     <tr>
-        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('Y-m-d H:i A') }}</td>
+        <td data-label="Occurred At" class="log-date">{{ log.occurredAt|date('m/d/Y h:i A') }}</td>
         <td data-label="Actor">{{ log.actorName }}</td>
         <td data-label="Type"><span class="badge">{{ log.actorType }}</span></td>
         <td data-label="Area">{{ log.area }}</td>

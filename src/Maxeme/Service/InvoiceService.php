@@ -24,7 +24,9 @@ use App\Maxeme\Enum\InvoiceSaveIntent;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Schedule\ScheduleSettings;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Maxeme\Enum\MileageUnit;
 use Symfony\Component\PropertyAccess\PropertyAccess;
+
 
 /**
  * Invoice creation and saving (legacy AppointmentToInvoiceFactory, InvoiceArrayToEntityFactory,
@@ -62,6 +64,9 @@ final class InvoiceService
         $accessor = PropertyAccess::createPropertyAccessor();
         foreach ($data->snapshot as $property => $value) {
             $accessor->setValue($invoice, $property, $value);
+        }
+        if ($data->vehicleMileageUnit !== null) {
+            $invoice->setVehicleMileageUnit(MileageUnit::fromValue($data->vehicleMileageUnit));
         }
         $this->updateVehicle($invoice);
 
@@ -190,6 +195,9 @@ final class InvoiceService
         }
         if ($invoice->getVehicleMileage() !== null && $invoice->getVehicleMileage() !== $vehicle->getMileage()) {
             $vehicle->setMileage($invoice->getVehicleMileage());
+        }
+        if ($invoice->getVehicleMileage() !== null) {
+            $vehicle->setMileageUnit($invoice->getVehicleMileageUnit());
         }
         if ($invoice->getVehicleLicense() !== null && $invoice->getVehicleLicense() !== $vehicle->getLicensePlate()) {
             $vehicle->setLicensePlate($invoice->getVehicleLicense());

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\AppointmentData;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Schedule\ScheduleSettings;
 use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Enum\AppointmentType;
+use App\Entity\AdminUser;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -31,6 +34,7 @@ final class AppointmentController extends AbstractMaxemeController
         private readonly RecordWriter $records,
         private readonly ScheduleSettings $settings,
         private readonly RepairOrderRepository $repairOrders,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -64,8 +68,15 @@ final class AppointmentController extends AbstractMaxemeController
 
             if ($errors === []) {
                 try {
-                    $appointment !== null ? $this->appointments->update($appointment, $data) : $this->appointments->book($client, $data);
-                    $this->addFlash('success', $appointment !== null ? 'Appointment updated.' : 'Appointment booked.');
+                    $user = $this->getUser();
+                    if ($appointment !== null) {
+                        $this->appointments->update($appointment, $data);
+                        $this->addFlash('success', 'Appointment updated.');
+                    } else {
+                        $booked = $this->appointments->book($client, $data, $user instanceof AdminUser ? $user : null);
+                        $made = $data->repairOrderId === AppointmentData::NEW_REPAIR_ORDER && $booked->getRepairOrder() !== null;
+                        $this->addFlash('success', $made ? sprintf('Appointment booked. Repair order %s created.', $this->numbers->repairOrderNumber($booked->getRepairOrder())) : 'Appointment booked.');
+                    }
 
                     return $this->redirectToRoute('maxeme_client_show', ['id' => $client->getId(), 'tab' => ClientProfileTab::Appointments->value]);
                 } catch (\DomainException $exception) {
@@ -74,9 +85,17 @@ final class AppointmentController extends AbstractMaxemeController
             }
         }
 
-        $repairOrders = $this->repairOrders->findRecentForClient($client);
+        // A new appointment offers the client's open repair orders (and "+ Create new"); editing, all of them.
+        $repairOrders = $appointment === null ? $this->repairOrders->findOpenForClient($client) : $this->repairOrders->findRecentForClient($client);
         if ($appointment?->getRepairOrder() !== null && !in_array($appointment->getRepairOrder(), $repairOrders, true)) {
             $repairOrders[] = $appointment->getRepairOrder();
+        }
+        if ($appointment === null && $data->type === null) {
+            $data->type = AppointmentType::Repair->value;
+        }
+        // No open repair order to pick: a new repair appointment makes one.
+        if ($appointment === null && !$request->isMethod('POST') && $repairOrders === []) {
+            $data->repairOrderId = AppointmentData::NEW_REPAIR_ORDER;
         }
 
         return $this->render('maxeme/schedule/form.html.twig', [
@@ -87,6 +106,7 @@ final class AppointmentController extends AbstractMaxemeController
             'settings' => $this->settings,
             'repairOrders' => $repairOrders,
             'statuses' => AppointmentStatus::cases(),
+            'types' => AppointmentType::cases(),
         ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 }

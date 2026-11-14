@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use App\Maxeme\Entity\Appointment;
+use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Enum\AppointmentType;
 use App\Maxeme\Enum\ClientProfileTab;
+use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Schedule\CalendarView;
 use App\Maxeme\Schedule\ScheduleCalendar;
 use App\Maxeme\Schedule\ScheduleSettings;
@@ -37,11 +41,30 @@ final class ScheduleController extends AbstractMaxemeController
 
     #[Route('', name: 'calendar', methods: ['GET'])]
     #[RequiresPermission(Permission::APPOINTMENT_VIEW)]
-    public function index(Request $request, ScheduleSettings $settings): Response
+    public function index(Request $request, ScheduleSettings $settings, AppointmentRepository $appointments): Response
     {
+        $view = CalendarView::fromRequest($request);
+        $list = null;
+        $day = null;
+        if ($view === CalendarView::List) {
+            // The list opens on today (mockup deba1ef); ?day=all lists every appointment.
+            $day = (string) $request->query->get('day', $settings->toLocal(new \DateTimeImmutable())->format('Y-m-d'));
+            $from = $day !== 'all' && \DateTimeImmutable::createFromFormat('!Y-m-d', $day) !== false ? $settings->dayStartsAt($day) : null;
+            $day = $from !== null ? $day : 'all';
+            $list = $appointments->findListPage(
+                ListQuery::fromRequest($request, array_keys(AppointmentRepository::LIST_SORTS), $from !== null ? 'asc' : 'desc'),
+                $from,
+                $from?->modify('+1 day'),
+            );
+        }
+
         return $this->render('maxeme/schedule/calendar.html.twig', [
-            'view' => CalendarView::fromRequest($request),
+            'view' => $view,
             'settings' => $settings,
+            'list' => $list,
+            'day' => $day,
+            'statuses' => AppointmentStatus::cases(),
+            'types' => AppointmentType::cases(),
         ]);
     }
 

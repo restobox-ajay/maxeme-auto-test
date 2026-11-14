@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Schedule;
 
+use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Repository\AppointmentRepository;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -20,6 +21,7 @@ final class ScheduleCalendar
         private readonly AppointmentRepository $appointments,
         private readonly ScheduleSettings $settings,
         private readonly UrlGeneratorInterface $urls,
+        private readonly DocumentNumbers $numbers,
     ) {
     }
 
@@ -47,14 +49,18 @@ final class ScheduleCalendar
     {
         $client = $appointment->getClient();
         $id = ['id' => $appointment->getId()];
-        $description = $appointment->getRepairOrder()?->getName() ?: $appointment->getNote();
+        $repairOrder = $appointment->getRepairOrder();
+        $type = $appointment->getType();
+        $description = $repairOrder?->getName() ?: $appointment->getNote();
         $lines = [
-            sprintf('[%s] %s', $appointment->getStatus()->label(), $appointment->getVehicle()->getFullName()),
+            // "[New] 2011 TOYOTA CAMRY"; a direct booking says what it is for: "[New · Bodywork] …".
+            sprintf('[%s%s] %s', $appointment->getStatus()->label(), $type->hasRepairOrder() ? '' : ' · ' . $type->label(), $appointment->getVehicle()?->getFullName() ?? '(no vehicle)'),
             $client->getFullName(),
             (string) $client->getPhone1(),
             sprintf('Description: %s', $description),
         ];
         $colour = $appointment->getCalendarColour();
+        $vehicle = $appointment->getVehicle();
 
         return [
             'id' => (string) $appointment->getId(),
@@ -65,12 +71,21 @@ final class ScheduleCalendar
             ...($colour !== null ? ['backgroundColor' => $colour, 'borderColor' => $colour] : []),
             'extendedProps' => [
                 'status' => $appointment->getStatus()->value,
+                'type' => $type->value,
                 'lines' => $lines,
+                'repairOrder' => $repairOrder !== null ? $this->numbers->repairOrderNumber($repairOrder) : null,
                 'urls' => [
                     'client' => $this->urls->generate('maxeme_appointment_client', $id),
                     'invoice' => $this->urls->generate('maxeme_invoice_for_appointment', $id),
                     'time' => $this->urls->generate('maxeme_appointment_time', $id),
                     'delete' => $this->urls->generate('maxeme_appointment_delete', $id),
+                    'checkIn' => $this->urls->generate('maxeme_appointment_check_in', $id),
+                    // Its repair order, or a new one for the client and vehicle (mockup 051cc07); none for a direct booking.
+                    'repairOrder' => match (true) {
+                        $repairOrder !== null => $this->urls->generate('maxeme_repair_order_edit', ['id' => $repairOrder->getId()]),
+                        $type->hasRepairOrder() => $this->urls->generate('maxeme_repair_order_new', ['id' => $client->getId(), ...($vehicle !== null ? ['vehicle' => $vehicle->getId()] : [])]),
+                        default => null,
+                    },
                 ],
             ],
         ];
@@ -142,7 +157,7 @@ final class ScheduleCalendar
 
         return array_map(fn (Appointment $appointment): array => [
             'name' => $appointment->getClient()->getFullName(),
-            'vehicle' => $appointment->getVehicle()->getFullName(),
+            'vehicle' => $appointment->getVehicle()?->getFullName() ?? '(no vehicle)',
             'start' => $this->settings->toLocal($appointment->getStartTime())->format('h:i A'),
             'end' => $this->settings->toLocal($appointment->getEndTime())->format('h:i A'),
         ], $this->appointments->startingBetween($from, $to));

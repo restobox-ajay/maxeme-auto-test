@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Repository;
 
+use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\RepairOrderJob;
 use App\Maxeme\Entity\Vehicle;
+use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -70,6 +73,24 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->andWhere('r.client = :client')->setParameter('client', $client)
             ->orderBy('r.id', 'DESC')
             ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The client's open repair orders, newest first: not Completed Picked Up, Invoiced or Cancelled
+     * (the ones a new repair-order appointment can be for, mockup 25368c7).
+     *
+     * @return list<RepairOrder>
+     */
+    public function findOpenForClient(Client $client): array
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('v')
+            ->leftJoin('r.vehicle', 'v')
+            ->andWhere('r.client = :client')->setParameter('client', $client)
+            ->andWhere('r.status NOT IN (:closed)')->setParameter('closed', [RepairOrderStatus::CompletedPickedUp, RepairOrderStatus::Invoiced, RepairOrderStatus::Cancelled])
+            ->orderBy('r.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
@@ -144,6 +165,17 @@ final class RepairOrderRepository extends ServiceEntityRepository
         $status = $list->filters['status'] ?? '';
         if ($status !== '') {
             $query->andWhere('r.status = :status')->setParameter('status', $status);
+        }
+        // Appointment Status (mockup 551ab32): the repair order has an appointment in that status and,
+        // for a finished one (completed, cancelled, no-show), none still pending.
+        $appointmentStatus = AppointmentStatus::tryFrom($list->filters['appointmentStatus'] ?? '');
+        if ($appointmentStatus !== null) {
+            $query->andWhere('EXISTS (SELECT 1 FROM ' . Appointment::class . ' fa WHERE fa.repairOrder = r AND fa.status = :appointmentStatus)')
+                ->setParameter('appointmentStatus', $appointmentStatus);
+            if (!$appointmentStatus->isPending()) {
+                $query->andWhere('NOT EXISTS (SELECT 1 FROM ' . Appointment::class . ' pa WHERE pa.repairOrder = r AND pa.status IN (:pendingStatuses))')
+                    ->setParameter('pendingStatuses', AppointmentStatus::pending());
+            }
         }
 
         return $query;

@@ -4,7 +4,7 @@
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% set isInvoice = document.kind.value == 'invoice' %}
 <div class="invoice-document">
-    {% include 'maxeme/invoice/_band.html.twig' with { label: document.kind.title|upper } only %}
+    {% include 'maxeme/invoice/_band.html.twig' with { label: isInvoice ? document.kind.title|upper : 'QUOTE / 報價單' } only %}
     <div class="invoice-body">
         <table class="inv-meta-table">
             <tr>
@@ -35,7 +35,7 @@
                 <td class="address-box">
                     <h3>Vehicle</h3>
                     <p><strong>{{ document.vehicleName }}</strong></p>
-                    {% if document.mileage %}<p>{{ document.mileage }} KM</p>{% endif %}
+                    {% if document.mileage %}<p>{{ document.mileage }}{{ document.mileage matches '/^[0-9,. ]+$/' ? ' ' ~ document.mileageUnit }}</p>{% endif %}
                     <p>{{ document.vehicleLicense }}</p>
                     <p>{{ document.vehicleVin }}</p>
                 </td>
@@ -75,9 +75,12 @@
                         <tr><td>GST: <strong>{{ document.gstRate }}%</strong></td><td class="r"><strong>{{ mx.money(document.gst) }}</strong></td></tr>
                         <tr><td>PST: <strong>{{ document.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(document.pst) }}</strong></td></tr>
                         <tr class="grand-total-row"><td>Grand Total:</td><td class="r">{{ mx.money(document.total) }}</td></tr>
-                        {% if document.payment %}
+                        {# Paid: the method, the amount and any change; issued: what is still due; cancelled: nothing. #}
+                        {% if document.payment and document.payment.paid %}
                             <tr><td>Payment method: {{ document.payment.type }}</td><td class="r"><strong>{{ mx.money(document.payment.amount) }}</strong></td></tr>
-                            <tr><td>Change:</td><td class="r"><strong>{{ mx.money(document.payment.change) }}</strong></td></tr>
+                            {% if document.payment.change > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(document.payment.change) }}</strong></td></tr>{% endif %}
+                        {% elseif document.payment and not document.payment.cancelled %}
+                            <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(document.total) }}</strong></td></tr>
                         {% endif %}
                     </table>
                 </td>

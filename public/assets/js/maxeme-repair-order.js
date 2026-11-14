@@ -174,6 +174,21 @@
     appointments.addEventListener('click', function (event) {
         if (event.target.closest('.appointment-remove')) { event.target.closest('tr').remove(); }
     });
+    /* "ends 5:00 PM" under the duration: the typed start plus the hours (mockup 2371126). */
+    function showEnd(row) {
+        var start = row.querySelector('.appt-start'), hours = row.querySelector('.appt-duration'), out = row.querySelector('.appt-ends');
+        if (!start || !hours || !out) { return; }
+        var h = parseFloat(hours.value);
+        if (!start.value || !(h > 0)) { out.textContent = ''; return; }
+        var from = new Date(start.value), to = new Date(from.getTime() + h * 3600000);
+        out.textContent = 'ends ' + (from.toDateString() === to.toDateString() ? '' : to.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) + ' ')
+            + to.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    appointments.addEventListener('input', function (event) {
+        var row = event.target.closest('tr');
+        if (row) { showEnd(row); }
+    });
+    Array.prototype.forEach.call(appointments.rows, showEnd);
 
     /* ── Services ──────────────────────────────────────────────────────────── */
     var jobs = $('#ro-jobs');

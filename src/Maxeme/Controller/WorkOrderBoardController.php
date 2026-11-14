@@ -72,7 +72,7 @@ final class WorkOrderBoardController extends AbstractMaxemeController
         $activity->exported('work-order', 'RepairOrder', $filename, count($rows), sprintf('%s to %s%s', $period->from->format('Y-m-d'), $period->to->format('Y-m-d'), $stage !== null ? ', ' . $stage->label() : ''));
         $zone = $this->appSettings->timezone();
 
-        return CsvExport::response($filename, ['Category', 'RO #', 'Date', 'Customer', 'Vehicle', 'Repair Name', 'Status', 'Master Technician', 'Total'], (static function () use ($rows, $numbers, $zone): \Generator {
+        return CsvExport::response($filename, ['Category', 'RO #', 'Date', 'Customer', 'Vehicle', 'Repair Name', 'Status', 'Assigned Technician', 'Total'], (static function () use ($rows, $numbers, $zone): \Generator {
             foreach ($rows as [$stage, $repairOrder]) {
                 yield [
                     $stage->label(),

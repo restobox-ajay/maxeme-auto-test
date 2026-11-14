@@ -82,10 +82,10 @@ final class ServiceItemController extends AbstractMaxemeController
         $filename = sprintf('services-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
         $activity->exported('service', 'ServiceItem', $filename, count($services), $list->describe());
 
-        return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Colour', 'Service Lines'], (static function () use ($services): \Generator {
+        return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Service Lines'], (static function () use ($services): \Generator {
             foreach ($services as $service) {
                 $lines = implode('; ', array_map(static fn (ServiceLine $line): string => $line->describe(), $service->getLines()));
-                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), $service->getTaxClass()?->getLabel(), $service->getColour(), $lines];
+                yield [$service->getName(), $service->getPreferredName(), $service->getPrice(), $service->getTaxClass()?->getLabel(), $lines];
             }
         })());
     }

@@ -139,6 +139,7 @@ final class ClientController extends AbstractMaxemeController
             'pending' => $pending,
             'past' => $past,
             'invoiceKeys' => $invoices->keysByAppointment([...$pending, ...($past?->items ?? [])]),
+            'recentAppointments' => $tab === ClientProfileTab::Info ? $appointments->recentForClient($client) : null,
             'repairOrders' => $tab === ClientProfileTab::WorkOrders ? $repairOrders->findPageForClient($client, ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc')) : null,
         ]);
     }

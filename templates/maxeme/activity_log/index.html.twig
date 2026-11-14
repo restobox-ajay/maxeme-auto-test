@@ -8,7 +8,7 @@
             {% block actions %}<a class="button outline" href="{{ path('maxeme_activity_log_export', app.request.query.all) }}">Export CSV</a> <a class="button outline" href="{{ path('maxeme_activity_log_index') }}">All activity</a>{% endblock %}
         {% endembed %}
     {% else %}
-        {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log', lead: 'Every action by every role: sign-ins, records added, changed and deleted (with the changes), documents downloaded and emailed, and refused pages.' } only %}
+        {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Logs', title: 'Activity Log' } only %}
             {% block title_actions %}<a class="button mx-btn-sm outline" href="{{ path('maxeme_activity_log_export', app.request.query.all) }}">Export CSV</a>{% endblock %}
         {% endembed %}
     {% endif %}
@@ -90,7 +90,7 @@
                     {% for entry in page.items %}
                         {% set changes = audit_changes(entry) %}
                         <tr id="log-{{ entry.id }}">
-                            <td data-label="When" class="mx-nowrap">{{ entry.occurredAt|date('Y-m-d H:i:s') }}</td>
+                            <td data-label="When" class="mx-nowrap">{{ entry.occurredAt|date('m/d/Y h:i:s A') }}</td>
                             <td data-label="User">{{ entry.actorName }}</td>
                             <td data-label="Role">{{ entry.actorRole ?? '—' }}</td>
                             <td data-label="Area">{{ entry.area }}</td>

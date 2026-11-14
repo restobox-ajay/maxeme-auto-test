@@ -22,14 +22,14 @@
         <section class="form-card">
             <div class="section-label">Vehicle</div>
             <dl class="mx-dl">
-                <dt>Customer</dt><dd>{% if is_granted('/people/view') %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id }) }}">{{ vehicle.client.fullName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</dd>
+                <dt>Customer</dt><dd>{% if is_granted('/people/view') %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id }) }}">{{ vehicle.client.displayName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</dd>
                 <dt>Year</dt><dd>{{ vehicle.year ?: '—' }}</dd>
                 <dt>Make</dt><dd>{{ vehicle.manufacturer ?: '—' }}</dd>
                 <dt>Model</dt><dd>{{ vehicle.model ?: '—' }}</dd>
                 <dt>Colour</dt><dd>{{ vehicle.color ?: '—' }}</dd>
                 <dt>Licence Plate</dt><dd>{{ vehicle.licensePlate ?: '—' }}</dd>
                 <dt>VIN</dt><dd>{{ vehicle.vin ?: '—' }}</dd>
-                <dt>Mileage</dt><dd>{{ vehicle.mileage ? vehicle.mileage ~ (vehicle.mileage matches '/^[0-9,]+$/' ? ' KM') : '—' }}</dd>
+                <dt>Mileage</dt><dd>{{ vehicle.mileage ? vehicle.mileage ~ (vehicle.mileage matches '/^[0-9,]+$/' ? ' ' ~ vehicle.mileageUnit.label) : '—' }}</dd>
                 {% if vehicle.note %}<dt>Note</dt><dd>{{ vehicle.note }}</dd>{% endif %}
             </dl>
         </section>
@@ -67,7 +67,7 @@
                             <td data-label="RO #" class="mx-nowrap">{{ ro_number(repairOrder) }}</td>
                             <td data-label="Repair Name">{{ repairOrder.name ?: '—' }}</td>
                             <td data-label="Services">{% for job in repairOrder.jobs %}<div>{{ job.name }}{% if job.service and job.service.category %} <span class="muted-line">· {{ job.service.category.name }}</span>{% endif %}</div>{% else %}—{% endfor %}</td>
-                            <td data-label="Mileage">{{ repairOrder.mileage }}</td>
+                            <td data-label="Mileage">{{ repairOrder.mileage }}{{ repairOrder.mileage and repairOrder.mileage matches '/^[0-9,]+$/' ? ' ' ~ repairOrder.mileageUnit.label }}</td>
                             <td data-label="Status"><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
                             <td data-label="Total" class="num">{{ mx.money(repairOrder.total) }}</td>
                             <td data-label="Actions">

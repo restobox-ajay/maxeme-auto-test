@@ -7,6 +7,7 @@ namespace App\Maxeme\Entity;
 use App\Entity\AbstractPartyNote;
 use App\Entity\AdminUser;
 use App\Maxeme\Enum\AppointmentStatus;
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Repository\RepairOrderRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -47,6 +48,10 @@ class RepairOrder implements HasNotes
     /** The odometer when the car came in, as typed. */
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $mileage = null;
+
+    /** KM or miles: what the odometer reading is in. */
+    #[ORM\Column(length: 10, enumType: MileageUnit::class, options: ['default' => 'km'])]
+    private MileageUnit $mileageUnit = MileageUnit::Km;
 
     /** The service advisor: any admin user (the one who started it, by default). */
     #[ORM\ManyToOne(targetEntity: AdminUser::class)]
@@ -100,7 +105,7 @@ class RepairOrder implements HasNotes
     #[ORM\Column(options: ['default' => false])]
     private bool $holdsStock = true;
 
-    /** The work order number typed in (Change Work Order #), shown and printed instead of "WO-00000042"; null = the automatic one. */
+    /** The work order number typed in (Change Work Order #), shown and printed instead of "WO-000042"; null = the automatic one. */
     #[ORM\Column(length: 40, nullable: true)]
     private ?string $workOrderNumber = null;
 
@@ -183,6 +188,8 @@ class RepairOrder implements HasNotes
 
     public function getMileage(): ?string { return $this->mileage; }
     public function setMileage(?string $mileage): self { $this->mileage = $mileage; return $this; }
+    public function getMileageUnit(): MileageUnit { return $this->mileageUnit; }
+    public function setMileageUnit(MileageUnit $mileageUnit): self { $this->mileageUnit = $mileageUnit; return $this; }
 
     public function getAdvisor(): ?AdminUser { return $this->advisor; }
     public function setAdvisor(?AdminUser $advisor): self { $this->advisor = $advisor; return $this; }
@@ -259,6 +266,20 @@ class RepairOrder implements HasNotes
 
     /** @return list<Appointment> by start time */
     public function getAppointments(): array { return array_values($this->appointments->toArray()); }
+
+    /** The appointment the Repair Orders list shows (mockup 551ab32): the next one still pending, else the latest. */
+    public function getCurrentAppointment(): ?Appointment
+    {
+        $appointments = $this->getAppointments();
+        usort($appointments, static fn (Appointment $a, Appointment $b): int => $a->getStartTime() <=> $b->getStartTime());
+        foreach ($appointments as $appointment) {
+            if ($appointment->getStatus()->isPending()) {
+                return $appointment;
+            }
+        }
+
+        return $appointments !== [] ? $appointments[count($appointments) - 1] : null;
+    }
 
     /**
      * @template T of RepairOrderJob|RepairOrderCharge

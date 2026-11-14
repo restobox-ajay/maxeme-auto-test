@@ -4,7 +4,7 @@
 {% block title %}Service Reminders | {{ site_name() }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/service/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Reminders', lead: 'How many days after a service\'s invoice is completed to remind the customer, with which template and message.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Parts & Services', title: 'Service Reminders' } %}
         {% block title_actions %}
             {% if is_granted('/service/edit') %}
                 <button id="addServiceReminderButton" class="button mx-btn-sm mx-success" type="button" data-modal-open="#reminderAddModal">+ Add Service Reminder</button>

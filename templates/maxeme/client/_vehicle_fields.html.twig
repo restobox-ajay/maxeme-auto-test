@@ -5,6 +5,6 @@
 <label>Year<input type="number" name="year" min="1900" max="{{ maxYear }}" step="1" inputmode="numeric" title="A year from 1900 to {{ maxYear }}, e.g. 2016."></label>
 <label>Vin<input type="text" name="vin" maxlength="17" autocapitalize="characters" spellcheck="false" {{ input_rule('vin') }}></label>
 <label>License plate<input type="text" name="license_plate" maxlength="10" autocapitalize="characters" spellcheck="false" {{ input_rule('license_plate') }}></label>
-<label>Mileage<input type="text" name="mileage" maxlength="11" {{ input_rule('mileage') }}></label>
+<label>Mileage<span class="mx-mileage"><input type="text" name="mileage" maxlength="11" {{ input_rule('mileage') }}><select name="mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles">MILES</option></select></span></label>
 <label>Color<input type="text" name="color" maxlength="255"></label>
 <label class="span-2">Note<textarea name="note" rows="4" maxlength="255" style="resize:none"></textarea></label>

@@ -5,7 +5,7 @@
 {% block admin_body %}
     {% set canOpenClient = is_granted('/people/view') %}
     {% set canEdit = is_granted('/car/edit') %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles', lead: 'Every vehicle of every customer. Open one for its repair history and notes.' } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People', title: 'Vehicles' } %}
         {% block title_actions %}
             {% if is_granted('/car/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_vehicle_new') }}">+ Add a vehicle</a>{% endif %}
             <a class="button mx-btn-sm outline" href="{{ path('maxeme_vehicle_export', app.request.query.all) }}">Export CSV</a>
@@ -38,7 +38,7 @@
                         {% set open = path('maxeme_vehicle_show', { id: vehicle.id }) %}
                         <tr id="row_{{ vehicle.id }}">
                             <td class="mx-row-icon-col"><a class="button mx-btn-sm primary mx-row-icon" href="{{ open }}" title="Open {{ vehicle.fullName }}" aria-label="Open {{ vehicle.fullName }}">{{ mx_icon('search') }}</a></td>
-                            <td data-label="Customer">{% if canOpenClient %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">{{ vehicle.client.fullName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</td>
+                            <td data-label="Customer">{% if canOpenClient %}<a href="{{ path('maxeme_client_show', { id: vehicle.client.id, tab: 'vehicles' }) }}">{{ vehicle.client.displayName }}</a>{% else %}{{ vehicle.client.fullName }}{% endif %}</td>
                             <td data-label="Year">{{ vehicle.year }}</td>
                             <td data-label="Model"><a class="mx-row-link" href="{{ open }}">{{ vehicle.manufacturer }} {{ vehicle.model }}</a></td>
                             <td data-label="Colour">{{ vehicle.color }}</td>

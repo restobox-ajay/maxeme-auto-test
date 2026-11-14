@@ -23,7 +23,7 @@
                 <label><span>Colour</span><input type="text" name="color" value="{{ data.color }}" maxlength="255"></label>
                 <label><span>Licence Plate</span><input type="text" name="license_plate" value="{{ data.licensePlate }}" {{ input_rule('license_plate') }}></label>
                 <label><span>VIN</span><input type="text" name="vin" value="{{ data.vin }}" {{ input_rule('vin') }}></label>
-                <label><span>Mileage</span><input type="text" name="mileage" value="{{ data.mileage }}" {{ input_rule('mileage') }}></label>
+                <label><span>Mileage</span><span class="mx-mileage"><input type="text" name="mileage" value="{{ data.mileage }}" {{ input_rule('mileage') }}><select name="mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles" {{ data.mileageUnit == 'miles' ? 'selected' }}>MILES</option></select></span></label>
                 <label class="span-2"><span>Note</span><input type="text" name="note" value="{{ data.note }}" maxlength="255"></label>
             </div>
         </section>
