@@ -19,7 +19,7 @@ final class PrintedDocument
      * @param list<string>                                                                                         $phones   Phone 1, 2, …
      * @param list<array{name: string, quantity: ?string, unitPrice: ?string, amount: string, chargeThrough: bool}> $rows
      * @param list<array{label: string, amount: string}>                                                           $charges  custom fees (positive) and discounts (negative)
-     * @param list<array{name: string, lines: list<string>}>                                                         $repairItems the work order's items: each service and what to use ("x2 Rotor, front")
+     * @param list<array{name: string, lines: list<string>, technician?: ?string, workStatus?: ?string}>             $repairItems the work order's items: each service, what to use, its technician and work status
      * @param array{paid: bool, cancelled: bool, type: ?string, amount: ?string, change: string}|null            $payment  an invoice's
      * @param \DateTimeImmutable|null                                                                             $firstPrinted a work order's "First Printed On"; null until it is printed
      * @param array{state: string, via: ?string, at: ?\DateTimeImmutable}|null                                 $quoteStatus a quote's answer line (state accepted / declined / awaiting), printed in its details box

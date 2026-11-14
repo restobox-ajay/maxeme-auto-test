@@ -25,7 +25,8 @@ use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Repository\ServiceItemRepository;
-use App\Maxeme\Repository\TechnicianRepository;
+use App\Maxeme\Staff\Technicians;
+use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Schedule\ScheduleSettings;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
@@ -57,7 +58,7 @@ final class RepairOrderController extends AbstractMaxemeController
         private readonly RepairOrderWriter $writer,
         private readonly EntityManagerInterface $entityManager,
         private readonly DocumentNumbers $numbers,
-        private readonly TechnicianRepository $technicians,
+        private readonly Technicians $technicians,
         private readonly ActivityLog $activityLog,
         private readonly ScheduleSettings $schedule,
     ) {
@@ -226,8 +227,9 @@ final class RepairOrderController extends AbstractMaxemeController
             'statuses' => RepairOrderStatus::cases(),
             'lineTypes' => ServiceLineType::cases(),
             'chargeKinds' => DocumentChargeKind::cases(),
-            'advisors' => $this->entityManager->getRepository(AdminUser::class)->findBy(['status' => 'Active'], ['firstName' => 'ASC', 'lastName' => 'ASC']),
-            'technicians' => $this->technicians->findActive(),
+            'technicians' => $this->technicians->choices($repairOrder->getMasterTechnician()),
+            'jobTechnicians' => $this->technicians->active(),
+            'workStatuses' => WorkStatus::cases(),
             'history' => $repairOrder->getId() !== null ? $this->activityLog->latestFor($repairOrder, self::HISTORY_ROWS) : [],
             'timezone' => $this->schedule->timezone(),
         ], new Response('', $errors !== [] ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));

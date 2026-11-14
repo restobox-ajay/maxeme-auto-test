@@ -20,7 +20,8 @@ use App\Maxeme\Entity\RepairOrderCharge;
 use App\Maxeme\Entity\RepairOrderJob;
 use App\Maxeme\Entity\RepairOrderJobLine;
 use App\Maxeme\Entity\ServiceItem;
-use App\Maxeme\Entity\Technician;
+use App\Maxeme\Enum\WorkStatus;
+use App\Maxeme\Staff\Technicians;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
@@ -45,6 +46,7 @@ final class RepairOrderWriter
         private readonly RepairOrderCalculator $calculator,
         private readonly InvoiceSettings $taxRates,
         private readonly ScheduleSettings $schedule,
+        private readonly Technicians $technicians,
     ) {
     }
 
@@ -71,12 +73,11 @@ final class RepairOrderWriter
         [$vehicle, $vehicleErrors] = $this->vehicle($form, $client);
         $errors += $clientErrors + $vehicleErrors;
 
-        $advisor = $data->advisorId !== null ? $this->entityManager->find(AdminUser::class, (int) $data->advisorId) : null;
-        if ($data->advisorId !== null && $advisor === null) {
-            $errors['advisorId'] = 'Choose an advisor from the list.';
-        }
-        $technician = $data->masterTechnicianId !== null ? $this->entityManager->find(Technician::class, (int) $data->masterTechnicianId) : null;
-        if ($data->masterTechnicianId !== null && $technician === null) {
+        // The advisor is no longer on the page (mockup 986d771): it stays the person who started it.
+        try {
+            $technician = $this->technicians->pick($data->masterTechnicianId, $repairOrder->getMasterTechnician());
+        } catch (\DomainException) {
+            $technician = null;
             $errors['masterTechnicianId'] = 'Choose an assigned technician from the list.';
         }
 
@@ -102,7 +103,6 @@ final class RepairOrderWriter
         $repairOrder
             ->setStatus(RepairOrderStatus::from($data->status ?? $repairOrder->getStatus()->value))
             ->setCustomer($client, $vehicle)
-            ->setAdvisor($advisor)
             ->setMasterTechnician($technician);
         $repairOrder->replaceJobs($jobs);
         $repairOrder->replaceCharges($charges);
@@ -211,6 +211,15 @@ final class RepairOrderWriter
             }
 
             $job = $existing[(string) $row->id] ?? new RepairOrderJob($repairOrder);
+            $jobTechnician = null;
+            if (!isset($rowErrors['technicianId'])) {
+                try {
+                    $jobTechnician = $this->technicians->pick($row->technicianId, $job->getTechnician());
+                } catch (\DomainException $exception) {
+                    $errors[sprintf('jobs.%d.technicianId', $n)] = sprintf('Service %d: %s', $n + 1, $exception->getMessage());
+                    continue;
+                }
+            }
             $built = $this->lineBuilder->build(
                 $job->getLines(),
                 $row->lines,
@@ -223,7 +232,9 @@ final class RepairOrderWriter
                 continue;
             }
 
-            $job->setService($service)->setName((string) $row->name)->setPrice((string) Money::rounded($row->price));
+            $job->setService($service)->setName((string) $row->name)->setPrice((string) Money::rounded($row->price))
+                ->setTechnician($jobTechnician)
+                ->setWorkStatus(WorkStatus::tryFrom((string) $row->workStatus) ?? WorkStatus::NotStarted);
             $job->replaceLines($built['lines']);
             $jobs[] = $job;
         }

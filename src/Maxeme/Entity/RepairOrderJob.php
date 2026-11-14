@@ -6,6 +6,8 @@ namespace App\Maxeme\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Entity\AdminUser;
+use App\Maxeme\Enum\WorkStatus;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -42,6 +44,14 @@ class RepairOrderJob
     #[ORM\Column(options: ['default' => 0])]
     private int $position = 0;
 
+    /** Who works on this service (mockup 169b599): a staff user with the Technician role, or none. */
+    #[ORM\ManyToOne(targetEntity: AdminUser::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?AdminUser $technician = null;
+
+    #[ORM\Column(length: 20, enumType: WorkStatus::class, options: ['default' => 'not_started'])]
+    private WorkStatus $workStatus = WorkStatus::NotStarted;
+
     /** @var Collection<int, RepairOrderJobLine> */
     #[ORM\OneToMany(targetEntity: RepairOrderJobLine::class, mappedBy: 'job', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['position' => 'ASC'])]
@@ -64,6 +74,11 @@ class RepairOrderJob
 
     public function getPrice(): string { return $this->price; }
     public function setPrice(string $price): self { $this->price = $price; return $this; }
+
+    public function getTechnician(): ?AdminUser { return $this->technician; }
+    public function setTechnician(?AdminUser $technician): self { $this->technician = $technician; return $this; }
+    public function getWorkStatus(): WorkStatus { return $this->workStatus; }
+    public function setWorkStatus(WorkStatus $workStatus): self { $this->workStatus = $workStatus; return $this; }
 
     public function getPosition(): int { return $this->position; }
     public function setPosition(int $position): self { $this->position = $position; return $this; }

@@ -42,6 +42,10 @@ final class AppointmentData
     #[Assert\Regex('/^(\d+|new)$/', message: 'Choose a repair order from the list.')]
     public ?string $repairOrderId = null;
 
+    /** The assigned technician's user id, or blank for none; kept the same as its repair order's (mockup 986d771). */
+    #[Assert\Regex('/^\d+$/', message: 'Choose a technician from the list.')]
+    public ?string $technicianId = null;
+
     /** An AppointmentStatus value; blank keeps it (a new appointment is New). */
     #[Assert\Choice(callback: [self::class, 'statuses'], message: 'Choose a status from the list.')]
     public ?string $status = null;
@@ -52,7 +56,7 @@ final class AppointmentData
     public static function fromRequest(Request $request): self
     {
         $data = new self();
-        foreach (['type' => 'type', 'vehicleId' => 'vehicle_id', 'start' => 'start', 'end' => 'end', 'note' => 'note', 'repairOrderId' => 'repair_order_id', 'status' => 'status'] as $property => $field) {
+        foreach (['type' => 'type', 'vehicleId' => 'vehicle_id', 'start' => 'start', 'end' => 'end', 'note' => 'note', 'repairOrderId' => 'repair_order_id', 'status' => 'status', 'technicianId' => 'technician_id'] as $property => $field) {
             $value = trim((string) $request->request->get($field, ''));
             $data->{$property} = $value !== '' ? $value : null;
         }
@@ -71,6 +75,8 @@ final class AppointmentData
         $data->note = $appointment->getNote();
         $data->repairOrderId = $appointment->getRepairOrder()?->getId() !== null ? (string) $appointment->getRepairOrder()->getId() : null;
         $data->status = $appointment->getStatus()->value;
+        $technician = $appointment->getTechnician() ?? $appointment->getRepairOrder()?->getMasterTechnician();
+        $data->technicianId = $technician?->getId() !== null ? (string) $technician->getId() : null;
 
         return $data;
     }

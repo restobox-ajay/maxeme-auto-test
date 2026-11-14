@@ -48,7 +48,7 @@
                 <table id="appointment-list">
                     <thead>
                         <tr>
-                            {{ mx.sort_th(list, 'start', 'Date') }}{{ mx.sort_th(list, 'status', 'Status') }}{{ mx.sort_th(list, 'type', 'For') }}{{ mx.sort_th(list, 'client', 'Client') }}<th>Phone</th>{{ mx.sort_th(list, 'vehicle', 'Vehicle') }}{{ mx.sort_th(list, 'repairOrder', 'Repair order') }}<th class="num">$</th><th>Description</th><th>Actions</th>
+                            {{ mx.sort_th(list, 'start', 'Date') }}{{ mx.sort_th(list, 'status', 'Status') }}{{ mx.sort_th(list, 'type', 'For') }}{{ mx.sort_th(list, 'client', 'Client') }}<th>Phone</th>{{ mx.sort_th(list, 'vehicle', 'Vehicle') }}{{ mx.sort_th(list, 'repairOrder', 'Repair order') }}<th>Technician</th><th class="num">$</th><th>Description</th><th>Actions</th>
                         </tr>
                         <tr class="filter-row">
                             <th></th>
@@ -57,7 +57,7 @@
                             {% for field, label in { client: 'client', phone: 'phone', vehicle: 'vehicle' } %}
                                 <th><input type="search" value="{{ list.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label }}"></th>
                             {% endfor %}
-                            <th></th><th></th>
+                            <th></th><th></th><th></th>
                             <th><input type="search" value="{{ list.query.filters.description ?? '' }}" data-filter-field="description" placeholder="Search" aria-label="Search description"></th>
                             <th></th>
                         </tr>
@@ -73,6 +73,7 @@
                                 <td data-label="Phone" class="mx-nowrap">{{ appointment.client.phone1 ?: '—' }}</td>
                                 <td data-label="Vehicle">{% if appointment.vehicle %}<a href="{{ path('maxeme_vehicle_show', { id: appointment.vehicle.id }) }}">{{ appointment.vehicle.fullName }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
                                 <td data-label="Repair order">{% if appointment.repairOrder %}{% if canEditRepairOrders %}<a href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">{{ ro_number(appointment.repairOrder) }}</a>{% else %}{{ ro_number(appointment.repairOrder) }}{% endif %}{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                                <td data-label="Technician">{{ appointment.shownTechnician ? appointment.shownTechnician.name : '—' }}</td>
                                 <td data-label="$" class="num">{% if amount %}<a href="{{ amount.url }}" title="{{ amount.title }}">{{ mx.money(amount.amount) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
                                 <td data-label="Description">{{ appointment.repairOrder and appointment.repairOrder.name ? appointment.repairOrder.name : appointment.note }}</td>
                                 <td data-label="Actions">
@@ -103,7 +104,7 @@
                                 </td>
                             </tr>
                         {% else %}
-                            <tr><td colspan="10" class="empty-table-cell">No appointments {{ day != 'all' ? 'on this day' : 'match' }}.</td></tr>
+                            <tr><td colspan="11" class="empty-table-cell">No appointments {{ day != 'all' ? 'on this day' : 'match' }}.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

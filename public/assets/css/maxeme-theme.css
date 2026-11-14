@@ -722,3 +722,8 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 
 /* KM / MILES beside a mileage box (mockup 986d771). */
 .mx-mileage .mx-unit-select { width: auto; flex: 0 0 auto; font-weight: 600; }
+
+/* A repair order service's technician and work status (mockup 169b599). */
+.mx-job-work { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: #f6f8fb; border-bottom: 1px solid var(--line); }
+.mx-job-work label { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted, #64748b); }
+.mx-job-work select { min-width: 160px; }

@@ -232,8 +232,6 @@ parameters:
               - { key: doc_prefixes, label: Doc Prefixes, route: maxeme_settings_prefixes, match: [maxeme_settings_prefixes] }
               - { key: payment_types, label: Payment Types, route: maxeme_settings_payment_type_index, match: [maxeme_settings_payment_type_],
                   add: { label: Add a payment type, route: maxeme_settings_payment_type_index, modal: manageAddModal } }
-              - { key: technicians, label: Technicians, route: maxeme_settings_technician_index, match: [maxeme_settings_technician_],
-                  add: { label: Add a technician, route: maxeme_settings_technician_index, modal: manageAddModal } }
               - { key: reminder_emails, label: Reminder Emails, route: maxeme_settings_reminder_emails, match: [maxeme_settings_reminder_emails] }
         - key: logs
           label: Logs

@@ -45,7 +45,7 @@
                             <div class="mx-kb-meta">{{ repairOrder.client ? repairOrder.client.fullName : '—' }}</div>
                             {% if repairOrder.vehicle %}<div class="mx-kb-meta">{{ repairOrder.vehicle.fullName }}{{ repairOrder.vehicle.licensePlate ? ' · ' ~ repairOrder.vehicle.licensePlate }}</div>{% endif %}
                             <div class="mx-kb-meta">{{ _self.appointment_line(card.appointment) }}</div>
-                            <div class="mx-kb-foot">{% if repairOrder.masterTechnician %}<span class="mx-kb-tech">{{ repairOrder.masterTechnician.name }}</span>{% else %}<span class="muted-line">No technician</span>{% endif %}</div>
+                            <div class="mx-kb-foot">{% if repairOrder.masterTechnician %}<span class="mx-kb-tech">{{ repairOrder.masterTechnician.name }}</span>{% else %}<span class="muted-line">No technician</span>{% endif %}{% if repairOrder.workProgress %}<span class="muted-line" title="Services done">{{ repairOrder.workProgress }} done</span>{% endif %}</div>
                         </div>
                     {% else %}
                         <div class="mx-kb-empty">Nothing here</div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Maxeme\Entity\RepairOrderJob;
+use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Validation\Formatted;
 use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -26,6 +27,17 @@ final class RepairOrderJobData
     #[Assert\NotBlank(message: 'Enter the service price.')]
     #[Formatted(InputRule::SignedMoney)]
     public ?string $price = null;
+
+    /** Who works on it: an active technician's user id, or the one already stored; blank for none (mockup 169b599). */
+    #[Assert\Regex('/^\d+$/', message: 'Choose a technician from the list.')]
+    public ?string $technicianId = null;
+
+    /** Its technician's name, for the "(no longer an active technician)" choice (not posted). */
+    public ?string $technicianName = null;
+
+    /** A WorkStatus value; blank is Not started. */
+    #[Assert\Choice(callback: [WorkStatus::class, 'values'], message: 'Choose a work status from the list.')]
+    public ?string $workStatus = null;
 
     /** The service's category path, shown beside it (not saved: it is the catalogue service's). */
     public ?string $category = null;
@@ -57,6 +69,8 @@ final class RepairOrderJobData
             $job->name = $value('name');
             $job->price = $value('price');
             $job->category = $value('category');
+            $job->technicianId = $value('technician_id');
+            $job->workStatus = $value('work_status');
             $job->lines = ServiceLineData::listFromRequest($row['lines'] ?? []);
             if ($job->name === null && $job->serviceId === null && $job->price === null && $job->lines === []) {
                 continue;
@@ -75,6 +89,9 @@ final class RepairOrderJobData
         $data->name = $job->getName();
         $data->price = $job->getPrice();
         $data->category = $job->getService()?->getCategory()?->getPath();
+        $data->technicianId = $job->getTechnician()?->getId() !== null ? (string) $job->getTechnician()->getId() : null;
+        $data->technicianName = $job->getTechnician()?->getName();
+        $data->workStatus = $job->getWorkStatus()->value;
         $data->lines = array_map(ServiceLineData::fromEntity(...), $job->getLines());
 
         return $data;

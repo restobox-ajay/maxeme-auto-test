@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * A Config › Settings list (Tax Classes, Payment Types, Technicians): every row on one page, with
+ * A Config › Settings list (Tax Classes, Payment Types): every row on one page, with
  * add and edit modals, a unique name or code, and a delete that asks first and is refused while
  * the record is in use. A subclass names the record, its form and its screen, and routes its
  * actions here. Every record has a getName().
@@ -36,7 +36,7 @@ abstract class AbstractSettingsListController extends AbstractMaxemeController
 
     abstract protected function formData(Request $request): FormData;
 
-    /** The route-name prefix, e.g. "maxeme_settings_technician_". */
+    /** The route-name prefix, e.g. "maxeme_settings_tax_class_". */
     abstract protected function routePrefix(): string;
 
     abstract protected function template(): string;

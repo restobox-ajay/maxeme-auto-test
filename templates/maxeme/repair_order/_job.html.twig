@@ -1,6 +1,8 @@
 {# One service on the repair order page: the service (search the catalogue, or type a name), its
    category, its price (loaded from the service's default price, editable; no quantity) and its lines.
-   Vars: index (number, or "__JOB__" in the JS template), job (RepairOrderJobData or null), lineTypes, errors. #}
+   Under the head, who works on it and how far the work is (mockup 169b599).
+   Vars: index (number, or "__JOB__" in the JS template), job (RepairOrderJobData or null), lineTypes, errors,
+   technicians (the active ones), workStatuses. #}
 {% set base = 'jobs[' ~ index ~ ']' %}
 {% set errorAt = 'jobs.' ~ index ~ '.' %}
 <div class="mx-job" data-job>
@@ -21,6 +23,24 @@
             <input class="job-price {{ errors[errorAt ~ 'price'] is defined ? 'is-invalid' }}" type="text" name="{{ base }}[price]" value="{{ job ? job.price }}" placeholder="0.00" {{ input_rule('signed_money') }} aria-label="Service price">
         </label>
         <button type="button" class="button mx-btn-sm danger job-remove">Delete</button>
+    </div>
+    <div class="mx-job-work">
+        <label><span>Technician</span>
+            <select class="job-technician {{ errors[errorAt ~ 'technicianId'] is defined ? 'is-invalid' }}" name="{{ base }}[technician_id]" aria-label="Service technician">
+                <option value="">(none)</option>
+                {% set listed = false %}
+                {% for technician in technicians %}
+                    {% set listed = listed or (job and job.technicianId == technician.id ~ '') %}
+                    <option value="{{ technician.id }}" {{ job and job.technicianId == technician.id ~ '' ? 'selected' }}>{{ technician.name }}</option>
+                {% endfor %}
+                {% if job and job.technicianId and not listed %}<option value="{{ job.technicianId }}" selected>{{ job.technicianName ?: 'User #' ~ job.technicianId }} (no longer an active technician)</option>{% endif %}
+            </select>
+        </label>
+        <label><span>Work</span>
+            <select class="job-work-status" name="{{ base }}[work_status]" aria-label="Work status">
+                {% for status in workStatuses %}<option value="{{ status.value }}" {{ (job and job.workStatus ? job.workStatus : 'not_started') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
+            </select>
+        </label>
     </div>
     {% include 'maxeme/service_line/_editor.html.twig' with { base: base ~ '[lines]', errorBase: errorAt ~ 'lines', lines: job ? job.lines : [], lineTypes: lineTypes, errors: errors } only %}
 </div>

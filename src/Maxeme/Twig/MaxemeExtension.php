@@ -29,10 +29,8 @@ use App\Maxeme\Entity\GovtFee;
 use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Entity\TaxClass;
-use App\Maxeme\Entity\Technician;
 use App\Maxeme\Dto\PaymentTypeData;
 use App\Maxeme\Dto\TaxClassData;
-use App\Maxeme\Dto\TechnicianData;
 use App\Maxeme\Security\StaffRole;
 use App\Maxeme\Validation\InputRule;
 use App\Menu\Admin\AdminMenuIconSet;
@@ -51,7 +49,6 @@ final class MaxemeExtension
         GovtFee::class => GovtFeeData::class,
         TaxClass::class => TaxClassData::class,
         PaymentType::class => PaymentTypeData::class,
-        Technician::class => TechnicianData::class,
     ];
 
     public function __construct(

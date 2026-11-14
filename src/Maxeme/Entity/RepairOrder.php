@@ -10,6 +10,7 @@ use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\QuoteApproval;
 use App\Maxeme\Enum\RepairOrderStatus;
+use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Repository\RepairOrderRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -63,10 +64,13 @@ class RepairOrder implements HasNotes
     #[ORM\Column(length: 60, nullable: true)]
     private ?string $tagKey = null;
 
-    /** Printed at the top of the work order (Settings › Technicians). */
-    #[ORM\ManyToOne(targetEntity: Technician::class)]
+    /**
+     * The assigned technician (mockup 858860a): a staff user with the Technician role, printed at the top
+     * of the work order; its appointments show the same one.
+     */
+    #[ORM\ManyToOne(targetEntity: AdminUser::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Technician $masterTechnician = null;
+    private ?AdminUser $masterTechnician = null;
 
     /** The admin's short description: used internally, on the calendar and the repair order list. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -221,8 +225,29 @@ class RepairOrder implements HasNotes
     public function getTagKey(): ?string { return $this->tagKey; }
     public function setTagKey(?string $tagKey): self { $this->tagKey = $tagKey; return $this; }
 
-    public function getMasterTechnician(): ?Technician { return $this->masterTechnician; }
-    public function setMasterTechnician(?Technician $technician): self { $this->masterTechnician = $technician; return $this; }
+    public function getMasterTechnician(): ?AdminUser { return $this->masterTechnician; }
+
+    /** Its appointments take the same technician (mockup 986d771). */
+    public function setMasterTechnician(?AdminUser $technician): self
+    {
+        $this->masterTechnician = $technician;
+        foreach ($this->appointments as $appointment) {
+            $appointment->setTechnician($technician);
+        }
+
+        return $this;
+    }
+
+    /** "2/3": how many of its services are done, of how many (the board card); null with no services. */
+    public function getWorkProgress(): ?string
+    {
+        $jobs = $this->getJobs();
+        if ($jobs === []) {
+            return null;
+        }
+
+        return sprintf('%d/%d', count(array_filter($jobs, static fn (RepairOrderJob $job): bool => $job->getWorkStatus() === WorkStatus::Done)), count($jobs));
+    }
 
     public function getName(): ?string { return $this->name; }
     public function setName(?string $name): self { $this->name = $name; return $this; }

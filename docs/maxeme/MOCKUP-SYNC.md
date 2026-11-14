@@ -29,8 +29,8 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | todo | P6 |
 | deba1ef | Appointments: 4th "List" view (paginated, filterable table) | done 2b53d29 | P3 |
 | 3d5095e | Staff can hold several roles (checkboxes; permissions = union) | todo | P7 |
-| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | todo | P5 |
-| 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | todo | P5 |
+| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | partial — per-service technician + work status done (5a); charge-through default (5b) and recommendations (5d) left | P5 |
+| 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | done (5a) | P5 |
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
 | d0b772c | RO form section "Visit" → "Status" | done 2b53d29 | P1 |
@@ -69,7 +69,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 258fdc2 | "+ Create new client" from the client picker, continue to the appointment/RO/reminder | todo | P7 |
 | 649ae8e + 4e14fb6 | Invoice "Remark" (internal, never printed) on builder + issued edit; Products filter row (Type/U-M dropdowns) | todo | P9 |
 | df38f34 + d16ca79 | Payment report Remark column (wide) with pencil → edit popup | todo | P9 |
-| 986d771 | Work order: no concern/authorisation/signature, "Assigned Technician"; RO: Advisor hidden; appointment technician synced with RO; mileage unit KM/Miles | partial — P2 done: work order layout, "Assigned Technician" label, KM/Miles on vehicle, RO, invoice and prints; left: hide Advisor, appointment ↔ RO technician sync | P5 |
+| 986d771 | Work order: no concern/authorisation/signature, "Assigned Technician"; RO: Advisor hidden; appointment technician synced with RO; mileage unit KM/Miles | done — P2 parts in 2b53d29; Advisor hidden + appointment ↔ RO technician sync (5a) | P5 |
 | 0ce22aa | Products: Source column removed | done 2b53d29 | P1 |
 | d2fbfc8 | Invoice page shows the Remark card above the document (staff only) | todo | P9 |
 | 8b7138d | "Save and add vehicle" after creating a client | todo | P7 |
@@ -96,7 +96,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Client duplicate check (email, phone last 10 digits, name); VIN unique; mileage "88,000" → 88000 | todo | P7 |
 | Phones shown as 604-285-8200 and stored as digits when edited; postal code "V6X 2P9" | todo | P7 |
 | Appointment duration 0.5–24 h; past-day booking needs a yes; inactive vehicle already on the appointment/RO stays | done 2b53d29 (appointment; RO side with P5) | P3 |
-| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | todo | P5 |
+| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | partial — inactive technician kept (5a); the rest 5d | P5 |
 | Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | partial | P6 |
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | todo | P7 |
@@ -111,9 +111,9 @@ Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` +
 
 - `repair_order` / `invoice`: `wo_first_printed_at` (done, Version20261114090000).
 - `repair_order`: `quote_approved_at`, `quote_approved_via`, `quote_declined_at` (done, Version20261114100000).
-- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT, `status_before_invoiced`, `mileage_unit`; `master_technician_id` re-pointed to `admin_user` (data migration from `technician`).
-- `repair_order_job`: `technician_id` (→ admin_user), `work_status` (not_started / in_progress / done).
-- `maxeme_appointment`: `appt_type` (repair / bodywork / buy_sell / other, default repair), `vehicle_id` nullable, optional `technician_id`; `colour` no longer used.
+- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT, `status_before_invoiced`, `mileage_unit`; `master_technician_id` re-pointed to `admin_user` (done, Version20261114110000).
+- `repair_order_job`: `technician_id` (→ admin_user), `work_status` (not_started / in_progress / done) (done, Version20261114110000).
+- `maxeme_appointment`: `appt_type` (repair / bodywork / buy_sell / other, default repair), `vehicle_id` nullable, optional `technician_id` (done); `colour` no longer used.
 - `maxeme_service_item.own_colour`: no longer used.
 - `invoice`: `admin_note` (Remark), `vehicle_mileage_unit`; new table `invoice_payment` (backfilled from `payment_amount`); `invoice_service_line.continued`.
 - `vehicle.mileage_unit`; `reminder.phone_status` and `service_reminder_queue_entry.phone_status`.

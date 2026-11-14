@@ -6,6 +6,7 @@ namespace App\Maxeme\Controller;
 
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\AppointmentData;
+use App\Maxeme\Staff\Technicians;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Enum\ClientProfileTab;
@@ -35,6 +36,7 @@ final class AppointmentController extends AbstractMaxemeController
         private readonly ScheduleSettings $settings,
         private readonly RepairOrderRepository $repairOrders,
         private readonly DocumentNumbers $numbers,
+        private readonly Technicians $technicians,
     ) {
     }
 
@@ -107,6 +109,7 @@ final class AppointmentController extends AbstractMaxemeController
             'repairOrders' => $repairOrders,
             'statuses' => AppointmentStatus::cases(),
             'types' => AppointmentType::cases(),
+            'technicians' => $this->technicians->choices($appointment?->getTechnician() ?? $appointment?->getRepairOrder()?->getMasterTechnician()),
         ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Entity\AdminUser;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\AppointmentType;
 use App\Maxeme\Repository\AppointmentRepository;
@@ -52,6 +53,11 @@ class Appointment
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?RepairOrder $repairOrder = null;
 
+    /** The assigned technician (mockup 986d771): the same as its repair order's, or its own for a direct booking. */
+    #[ORM\ManyToOne(targetEntity: AdminUser::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?AdminUser $technician = null;
+
     /** A legacy free calendar colour; no longer used (the type decides the colour, mockup 689a4a1). */
     #[ORM\Column(length: 7, nullable: true)]
     private ?string $colour = null;
@@ -86,6 +92,21 @@ class Appointment
     public function getRepairOrder(): ?RepairOrder { return $this->repairOrder; }
     public function getPromisedAt(): ?\DateTimeImmutable { return $this->promisedAt; }
     public function getColour(): ?string { return $this->colour; }
+    public function getTechnician(): ?AdminUser { return $this->technician; }
+
+    /** Its own technician, else its repair order's: the one shown on the calendar and the lists. */
+    public function getShownTechnician(): ?AdminUser
+    {
+        return $this->technician ?? $this->repairOrder?->getMasterTechnician();
+    }
+
+    public function setTechnician(?AdminUser $technician): void
+    {
+        if ($technician !== $this->technician) {
+            $this->technician = $technician;
+            $this->touch();
+        }
+    }
 
     /** A Bodywork, Buying/selling or Other appointment schedules no repair order. */
     public function setType(AppointmentType $type): void

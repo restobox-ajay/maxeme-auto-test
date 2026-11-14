@@ -1,5 +1,6 @@
 {# The repair order page (new / edit). Vars: title, repairOrder, form (RepairOrderForm), errors, client (the
-   customer shown), clientVehicles, appointmentRows, statuses, lineTypes, chargeKinds, advisors, technicians,
+   customer shown), clientVehicles, appointmentRows, statuses, lineTypes, chargeKinds, technicians (choices),
+   jobTechnicians (active technicians), workStatuses,
    history (latest AuditLog rows), timezone. Everything is optional; one Save stores it all. #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
@@ -91,16 +92,10 @@
                             {% for status in statuses %}<option value="{{ status.value }}" {{ (data.status ?: repairOrder.status.value) == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
                         </select>
                     </label>
-                    <label class="mx-ro-field"><span>Advisor</span>
-                        <select name="advisor_id">
-                            <option value="">(none)</option>
-                            {% for advisor in advisors %}<option value="{{ advisor.id }}" {{ data.advisorId == advisor.id ~ '' ? 'selected' }}>{{ (advisor.firstName ~ ' ' ~ advisor.lastName)|trim ?: advisor.email }}</option>{% endfor %}
-                        </select>
-                    </label>
                     <label class="mx-ro-field"><span>Assigned Technician</span>
                         <select name="master_technician_id">
                             <option value="">(none)</option>
-                            {% for technician in technicians %}<option value="{{ technician.id }}" {{ data.masterTechnicianId == technician.id ~ '' ? 'selected' }}>{{ technician.name }}</option>{% endfor %}
+                            {% for choice in technicians %}<option value="{{ choice.user.id }}" {{ data.masterTechnicianId == choice.user.id ~ '' ? 'selected' }}>{{ choice.user.name }}{{ choice.stale ? ' (no longer an active technician)' }}</option>{% endfor %}
                         </select>
                     </label>
                 </div>
@@ -147,7 +142,7 @@
             </div>
             <div id="ro-jobs" data-next="{{ form.jobs|length }}">
                 {% for job in form.jobs %}
-                    {% include 'maxeme/repair_order/_job.html.twig' with { index: loop.index0, job: job, lineTypes: lineTypes, errors: errors } only %}
+                    {% include 'maxeme/repair_order/_job.html.twig' with { index: loop.index0, job: job, lineTypes: lineTypes, errors: errors, technicians: jobTechnicians, workStatuses: workStatuses } only %}
                 {% endfor %}
             </div>
             <p id="ro-jobs-empty" class="empty-table-cell" {{ form.jobs is not empty ? 'hidden' }}>No services yet: the customer may not know what is wrong.</p>
@@ -226,7 +221,7 @@
     {% endif %}
 
     {% include 'maxeme/service_line/_template.html.twig' with { lineTypes: lineTypes } only %}
-    <template id="ro-job-template">{% include 'maxeme/repair_order/_job.html.twig' with { index: '__JOB__', job: null, lineTypes: lineTypes, errors: {} } only %}</template>
+    <template id="ro-job-template">{% include 'maxeme/repair_order/_job.html.twig' with { index: '__JOB__', job: null, lineTypes: lineTypes, errors: {}, technicians: jobTechnicians, workStatuses: workStatuses } only %}</template>
     <template id="ro-charge-template">{% include 'maxeme/repair_order/_charge_row.html.twig' with { index: '__CHARGE__', charge: null, chargeKinds: chargeKinds, errors: {} } only %}</template>
     <template id="ro-appointment-template">{% include 'maxeme/repair_order/_appointment_row.html.twig' with { index: '__APPT__', number: '__NUMBER__', appointment: null, data: null, repairOrder: repairOrder, errors: {} } only %}</template>
 {% endblock %}

@@ -11,6 +11,7 @@ use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
+use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\RepairOrder;
@@ -141,6 +142,8 @@ final class PrintedDocuments
             masterTechnician: $repairOrder->getMasterTechnician()?->getName(),
             repairItems: array_map(static fn (RepairOrderJob $job): array => [
                 'name' => self::billedName($job),
+                'technician' => $job->getTechnician()?->getName(),
+                'workStatus' => $job->getWorkStatus() !== WorkStatus::NotStarted ? $job->getWorkStatus()->label() : null,
                 'lines' => array_map(static fn (RepairOrderJobLine $line): string => sprintf('x%s %s', (string) (float) $line->getQuantity(), $line->getType()->hasItem() ? $line->getItemLabel() : $line->getType()->label()), $job->getLines()),
             ], $repairOrder->getJobs()),
             firstPrinted: $kind === DocumentKind::WorkOrder ? $repairOrder->getWorkOrderFirstPrintedAt() : null,

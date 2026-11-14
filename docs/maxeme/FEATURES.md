@@ -144,7 +144,7 @@ Each item in `SPEC.md` checked against `main` at `7b4ed70` (2026-10-03), by read
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Tax Classes, Tax Rates, Doc Prefixes, Technicians, Payment Types | Done | `maxeme_settings_*` · bbb57ac, e51204e |
+| Tax Classes, Tax Rates, Doc Prefixes, Payment Types | Done | `maxeme_settings_*` · bbb57ac, e51204e (Technicians tab removed: technicians are staff users with the Technician role, mockup 858860a) |
 | GHL: find or create the contact, add `send-review-request` | Done | `Ghl/ReviewRequestHandler`, `GhlClient` · b4f9a58 (async; skipped when no token or no client email) |
 
 ## §14–18 Reports, board, accounting, access, logs

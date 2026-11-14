@@ -59,6 +59,10 @@ final class ScheduleCalendar
             (string) $client->getPhone1(),
             sprintf('Description: %s', $description),
         ];
+        // Its own technician, else its repair order's (mockup 986d771).
+        if (($technician = $appointment->getTechnician() ?? $repairOrder?->getMasterTechnician()) !== null) {
+            $lines[] = 'Assigned Technician: ' . $technician->getName();
+        }
         $colour = $appointment->getCalendarColour();
         $vehicle = $appointment->getVehicle();
 

@@ -171,6 +171,14 @@ class AdminUser implements UserInterface, LegacyPasswordAuthenticatedUserInterfa
     }
 
     public function getFirstName(): ?string { return $this->firstName; }
+
+    /** "Kent Chang": first and last name, else the username, else the email (how a staff member is named on Maxeme screens and printed documents). */
+    public function getName(): string
+    {
+        $name = trim(($this->firstName ?? '') . ' ' . ($this->lastName ?? ''));
+
+        return $name !== '' ? $name : ($this->username ?? $this->email);
+    }
     public function setFirstName(?string $firstName): self { $this->firstName = $firstName; return $this; }
     public function getLastName(): ?string { return $this->lastName; }
     public function setLastName(?string $lastName): self { $this->lastName = $lastName; return $this; }

@@ -6,6 +6,7 @@ namespace App\Maxeme\Service;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Dto\AppointmentData;
+use App\Maxeme\Staff\Technicians;
 use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Client;
 use App\Maxeme\Entity\RepairOrder;
@@ -27,6 +28,7 @@ final class AppointmentService
         private readonly ScheduleSettings $settings,
         private readonly InvoiceService $invoices,
         private readonly RepairOrderWriter $repairOrders,
+        private readonly Technicians $technicians,
     ) {
     }
 
@@ -62,6 +64,7 @@ final class AppointmentService
             }
         }
 
+        $this->assignTechnician($appointment, $data);
         $this->entityManager->persist($appointment);
         $this->entityManager->flush();
 
@@ -78,6 +81,7 @@ final class AppointmentService
         if ($data->appointmentType()->hasRepairOrder()) {
             $this->useRepairOrder($appointment, $data);
         }
+        $this->assignTechnician($appointment, $data);
         if ($data->status !== null) {
             $status = AppointmentStatus::from($data->status);
             // Extended means the vehicle has to stay longer: only once it has arrived (mockup 551ab32).
@@ -111,6 +115,26 @@ final class AppointmentService
         $this->invoices->deleteFor($appointment);
         $this->entityManager->remove($appointment);
         $this->entityManager->flush();
+    }
+
+    /**
+     * The technician picked on the form (mockup 986d771): an active technician, or the one it already
+     * had. On a repair order's appointment it becomes the repair order's technician too, and so its
+     * other appointments' (RepairOrder::setMasterTechnician); a repair order's technician is never
+     * blanked by an appointment that leaves the field empty when it had none.
+     */
+    private function assignTechnician(Appointment $appointment, AppointmentData $data): void
+    {
+        $own = $appointment->getTechnician();
+        $repairOrder = $appointment->getRepairOrder();
+        $technician = $this->technicians->pick($data->technicianId, $own ?? $repairOrder?->getMasterTechnician());
+        if ($repairOrder !== null && ($technician !== null || $own !== null)) {
+            if ($repairOrder->getMasterTechnician() !== $technician) {
+                $repairOrder->setMasterTechnician($technician);
+                $repairOrder->touch();
+            }
+        }
+        $appointment->setTechnician($technician);
     }
 
     /** The repair order picked on the form: one of the client's, for the appointment's vehicle, or none. */

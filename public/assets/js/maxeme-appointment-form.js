@@ -183,4 +183,13 @@
             form.submit();
         });
     });
+
+    /* Picking a repair order fills in its technician when none is chosen yet (mockup 986d771). */
+    var roSelect = document.getElementById('appointment_repair_order'), techSelect = document.getElementById('appointment_technician');
+    if (roSelect && techSelect) {
+        roSelect.addEventListener('change', function () {
+            var option = roSelect.options[roSelect.selectedIndex], tech = option ? option.getAttribute('data-technician') : '';
+            if (tech && !techSelect.value && techSelect.querySelector('option[value="' + tech + '"]')) { techSelect.value = tech; }
+        });
+    }
 }());
