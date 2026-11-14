@@ -645,6 +645,29 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-board-count { font-size: 1.9rem; font-weight: 700; line-height: 1.1; color: var(--mx-primary, #3071a9); }
 .mx-board-total { font-size: 0.85rem; color: var(--muted, #64748b); }
 .mx-board-note { padding: 0 20px 14px; }
+/* Repair Order Board kanban (mockup aa322bb): one column per repair order status. */
+.mx-kb { display: grid; grid-template-columns: repeat(9, minmax(215px, 1fr)); gap: 10px; padding: 12px 20px 8px; overflow-x: auto; align-items: start; }
+.mx-kb-col { background: #f3f7fb; border: 1px solid var(--line); border-radius: 10px; padding: 8px; min-height: 140px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.mx-kb-col.is-over { outline: 2px dashed var(--mx-primary, #3071a9); outline-offset: -3px; }
+.mx-kb-col.is-current { border-color: var(--mx-primary, #3071a9); }
+.mx-kb-head { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; padding: 2px 2px 4px; }
+.mx-kb-head .mx-board-step { position: static; }
+.mx-kb-head:hover .mx-kb-label { text-decoration: underline; }
+.mx-kb-label { font-weight: 700; font-size: 0.82rem; line-height: 1.25; flex: 1; }
+.mx-kb-sum { text-align: right; font-size: 0.75rem; color: var(--muted, #64748b); line-height: 1.25; }
+.mx-kb-sum b { display: block; font-size: 1.05rem; color: inherit; }
+.mx-kb-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-size: 0.82rem; display: flex; flex-direction: column; gap: 3px; }
+.mx-kb-card[draggable="true"] { cursor: grab; }
+.mx-kb-card.dragging { opacity: 0.4; }
+.mx-kb-card:hover { border-color: var(--mx-primary, #3071a9); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07); }
+.mx-kb-top { display: flex; justify-content: space-between; gap: 6px; font-weight: 700; }
+.mx-kb-top a { text-decoration: none; }
+.mx-kb-name { font-weight: 600; }
+.mx-kb-meta { color: var(--muted, #64748b); font-size: 0.78rem; }
+.mx-kb-foot { display: flex; justify-content: space-between; gap: 6px; font-size: 0.75rem; margin-top: 3px; }
+.mx-kb-tech { background: #e8f0f8; color: var(--mx-primary, #3071a9); border-radius: 20px; padding: 1px 8px; }
+.mx-kb-empty { color: var(--muted, #64748b); font-size: 0.78rem; text-align: center; padding: 14px 4px; }
+.mx-kb-more { font-size: 0.78rem; text-align: center; }
 
 /* The invoice builder's charge-through lines under a service (read-only), and on the printed invoice. */
 .mx-charge-through { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; font-size: 0.8rem; }

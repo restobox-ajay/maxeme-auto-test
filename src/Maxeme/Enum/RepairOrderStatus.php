@@ -58,6 +58,30 @@ enum RepairOrderStatus: string
         return in_array($this, [self::Completed, self::CompletedPickedUp, self::Invoiced], true);
     }
 
+    /**
+     * The Repair Order Board's help text for its column (mockup 8c0ad56): one column per status.
+     */
+    public function boardHelp(): string
+    {
+        return match ($this) {
+            self::EstimateBeingBuilt => 'Estimate being built, nothing authorized',
+            self::EstimateApproval => 'Estimate sent, waiting on the customer (set when the quote is sent)',
+            self::Authorized => 'Customer approved, work can start',
+            self::InProgress => 'Technician working',
+            self::AwaitingParts => "Can't finish the job: waiting for parts",
+            self::Completed => 'Work done, ready for pick up',
+            self::CompletedPickedUp => "Car's gone",
+            self::Invoiced => 'Billed, paid, closed',
+            self::Cancelled => 'Customer walked, no work done',
+        };
+    }
+
+    /** Finished for good: Picked Up, Invoiced or Cancelled. */
+    public function isTerminal(): bool
+    {
+        return in_array($this, [self::CompletedPickedUp, self::Invoiced, self::Cancelled], true);
+    }
+
     /** Before work starts: a check-in moves it to In Progress. */
     public function isBeforeWork(): bool
     {

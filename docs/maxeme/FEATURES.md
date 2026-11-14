@@ -155,7 +155,7 @@ Each item in `SPEC.md` checked against `main` at `7b4ed70` (2026-10-03), by read
 | CSV on every report and view | Partial | G7 |
 | Payment Report | Done | `PaymentReport` · 7f765fe · ADR-015 |
 | Service Report | Done | `ServiceReport` · 7f765fe |
-| Work Order Board | Changed | stages derived · bd9ddb4 · ADR-011 |
+| Repair Order Board | Changed | one column per RO status, drag to change status, appointment-date filter (mockup aa322bb, 8c0ad56, 7bd9227) · ADR-011 superseded |
 | Change Invoice # / Work Order # | Done | `DocumentNumberEditor` · f76564f |
 | Role matrix | Done | `role_permissions/*`, `RolePermissionMatrixTest` · 6323129, e873e2a · ADR-004 |
 | Audit log on every entity | Done | core audit log + `AuditLogEnricher`, Logs buttons · 0927cd2 |

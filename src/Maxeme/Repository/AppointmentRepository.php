@@ -153,4 +153,18 @@ final class AppointmentRepository extends ServiceEntityRepository
 
         return ListPage::paginate($query, $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
     }
+
+    /** The start of the latest repair-order appointment up to $nowUtc, or null (the board's "show that day" hint). */
+    public function latestRepairOrderStartUpTo(\DateTimeImmutable $nowUtc): ?\DateTimeImmutable
+    {
+        $latest = $this->createQueryBuilder('a')
+            ->andWhere('a.repairOrder IS NOT NULL')
+            ->andWhere('a.startTime <= :now')->setParameter('now', $nowUtc)
+            ->orderBy('a.startTime', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $latest?->getStartTime();
+    }
 }

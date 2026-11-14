@@ -1,33 +1,69 @@
-{# Schedule › Work Order Board: a period's repair orders in the vehicle's categories, each with its count
-   and total; a count lists that category's repair orders underneath.
-   Vars: period (ReportPeriod), board (stage key => {stage, count, total, repairOrders}), stage (WorkOrderStage or null), rows. #}
+{# Schedule › Repair Order Board (mockups aa322bb, 8c0ad56, 7bd9227): one column per repair order
+   status, each with its count, total and cards; drag a card to another column to change the status.
+   A column's head lists its repair orders underneath. Vars: period (ReportPeriod), openAll, board
+   (status value => {status, count, total, repairOrders, cards}), stage (RepairOrderStatus or null),
+   rows (list of {repairOrder, appointment}), hidden (open repair orders left out), latestDay
+   ('Y-m-d' or null), recentDays, cap. #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
-{% block title %}Work Order Board | {{ site_name() }}{% endblock %}
+{% block title %}Repair Order Board | {{ site_name() }}{% endblock %}
+
+{% macro appointment_line(appointment) -%}
+    {%- if appointment -%}
+        Appt {{ appointment.startTime|date('m/d/Y g:i A') }} <span class="badge mx-appt-badge appt-{{ appointment.status.value }}">{{ appointment.status.label }}</span>
+    {%- else -%}
+        No appointment
+    {%- endif -%}
+{%- endmacro %}
+
 {% block admin_body %}
-    {% set query = period.toQuery|merge(stage ? { stage: stage.value } : {}) %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Work Order Board' } %}
+    {% set base = period.toQuery|merge(openAll ? { open: 1 } : {}) %}
+    {% set query = base|merge(stage ? { stage: stage.value } : {}) %}
+    {% set canMove = is_granted('/work-order/edit') %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'Repair Order Board' } %}
         {% block title_actions %}<a class="button mx-btn-sm outline" id="board-export" href="{{ path('maxeme_board_export', query) }}">Export CSV</a>{% endblock %}
     {% endembed %}
 
     <section class="table-card no-search no-paginate">
         <form class="mx-report-query" method="get" action="{{ path('maxeme_board_index') }}" id="board-form">
-            {% include 'maxeme/report/_period.html.twig' with { period: period, hidden: { stage: stage ? stage.value } } only %}
+            {% include 'maxeme/report/_period.html.twig' with { period: period, hidden: { stage: stage ? stage.value, open: openAll ? 1 } } only %}
         </form>
 
-        <div class="mx-board" id="work-order-board">
+        <div class="mx-kb" id="repair-order-board" {% if canMove %}data-move-url="{{ path('maxeme_board_move', { id: 0 }) }}" data-token="{{ csrf_token_value() }}"{% endif %}>
             {% for key, column in board %}
-                <a class="mx-board-stage {{ stage and stage.value == key ? 'is-current' }}" data-stage="{{ key }}"
-                   href="{{ path('maxeme_board_index', period.toQuery|merge(stage and stage.value == key ? {} : { stage: key })) }}#board-list"
-                   title="{{ column.stage.covers }}">
-                    <span class="mx-board-step">{{ loop.index }}</span>
-                    <span class="mx-board-label">{{ column.stage.label }}</span>
-                    <span class="mx-board-count">{{ column.count }}</span>
-                    <span class="mx-board-total">${{ mx.money(column.total) }}</span>
-                </a>
+                <div class="mx-kb-col {{ stage and stage.value == key ? 'is-current' }}" data-stage="{{ key }}" data-label="{{ column.status.label }}">
+                    <a class="mx-kb-head" title="{{ column.status.boardHelp }}" href="{{ path('maxeme_board_index', base|merge(stage and stage.value == key ? {} : { stage: key })) }}#board-list">
+                        <span class="mx-board-step">{{ loop.index }}</span>
+                        <span class="mx-kb-label">{{ column.status.label }}</span>
+                        <span class="mx-kb-sum"><b>{{ column.count }}</b>${{ mx.money(column.total) }}</span>
+                    </a>
+                    {% for card in column.cards %}
+                        {% set repairOrder = card.repairOrder %}
+                        <div class="mx-kb-card" {{ canMove ? 'draggable="true"' }} data-id="{{ repairOrder.id }}">
+                            <div class="mx-kb-top"><a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a><span class="mx-kb-total">${{ mx.money(repairOrder.total) }}</span></div>
+                            <div class="mx-kb-name">{{ repairOrder.name ?: (repairOrder.concern ?: 'No repair name') }}</div>
+                            <div class="mx-kb-meta">{{ repairOrder.client ? repairOrder.client.fullName : '—' }}</div>
+                            {% if repairOrder.vehicle %}<div class="mx-kb-meta">{{ repairOrder.vehicle.fullName }}{{ repairOrder.vehicle.licensePlate ? ' · ' ~ repairOrder.vehicle.licensePlate }}</div>{% endif %}
+                            <div class="mx-kb-meta">{{ _self.appointment_line(card.appointment) }}</div>
+                            <div class="mx-kb-foot">{% if repairOrder.masterTechnician %}<span class="mx-kb-tech">{{ repairOrder.masterTechnician.name }}</span>{% else %}<span class="muted-line">No technician</span>{% endif %}</div>
+                        </div>
+                    {% else %}
+                        <div class="mx-kb-empty">Nothing here</div>
+                    {% endfor %}
+                    {% if column.count > cap %}<div class="mx-kb-more"><a href="{{ path('maxeme_board_index', base|merge({ stage: key })) }}#board-list">+{{ column.count - cap }} more</a></div>{% endif %}
+                </div>
             {% endfor %}
         </div>
-        <p class="muted-line mx-board-note">Hover a category for the repair order statuses it counts. Cancelled repair orders are left out.</p>
+        <p class="muted-line mx-board-note" id="board-hint">
+            {% if openAll %}
+                Showing every open repair order, whatever the date of its appointments. <a href="{{ path('maxeme_board_index', period.toQuery|merge(stage ? { stage: stage.value } : {})) }}">Back to this period only</a>.
+            {% elseif hidden %}
+                {{ hidden }} open repair order{{ hidden == 1 ? ' has' : 's have' }} appointments only on other days: <a href="{{ path('maxeme_board_index', query|merge({ open: 1 })) }}">show all open repair orders</a>.
+            {% endif %}
+            Repair orders with no appointment show only while still being worked on, or when Completed or later only for a period within the last {{ recentDays }} days.
+            {% if latestDay %}No repair orders match this period. The latest appointment is on {{ latestDay|date('m/d/Y', false) }}: <a href="{{ path('maxeme_board_index', { from: latestDay, to: latestDay }) }}">show that day</a>.{% endif %}
+            {% if canMove %}Drag a card to another column to change its status.{% endif %}
+        </p>
     </section>
 
     {% if stage %}
@@ -38,13 +74,15 @@
             <div class="wide-table-wrap">
                 <table class="list-report-table" id="board-table">
                     <thead>
-                        <tr><th>RO #</th><th>Date</th><th>Customer</th><th>Vehicle</th><th>Repair Name</th><th>Status</th><th>Assigned Technician</th><th class="num">Total</th></tr>
+                        <tr><th>RO #</th><th>Appointment</th><th>Appointment Status</th><th>Customer</th><th>Vehicle</th><th>Repair Name</th><th>Status</th><th>Assigned Technician</th><th class="num">Total</th></tr>
                     </thead>
                     <tbody>
-                        {% for repairOrder in rows %}
+                        {% for row in rows %}
+                            {% set repairOrder = row.repairOrder %}
                             <tr id="board_row_{{ repairOrder.id }}">
                                 <td class="mx-nowrap"><a href="{{ path('maxeme_repair_order_edit', { id: repairOrder.id }) }}">{{ ro_number(repairOrder) }}</a></td>
-                                <td class="mx-nowrap">{{ repairOrder.createdOn|date('m/d/Y') }}</td>
+                                <td class="mx-nowrap">{% if row.appointment %}{{ row.appointment.startTime|date('m/d/Y g:i A') }}{% else %}<span class="muted-line">No appointment</span>{% endif %}</td>
+                                <td>{% if row.appointment %}<span class="badge mx-appt-badge appt-{{ row.appointment.status.value }}">{{ row.appointment.status.label }}</span>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
                                 <td>{% if repairOrder.client %}<a href="{{ path('maxeme_client_show', { id: repairOrder.client.id }) }}">{{ repairOrder.client.fullName }}</a>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
                                 <td>{{ repairOrder.vehicle ? repairOrder.vehicle.fullName : '—' }}{% if repairOrder.vehicle and repairOrder.vehicle.licensePlate %}<div class="muted-line">{{ repairOrder.vehicle.licensePlate }}</div>{% endif %}</td>
                                 <td>{{ repairOrder.name ?: '—' }}</td>
@@ -53,14 +91,15 @@
                                 <td class="num">{{ mx.money(repairOrder.total) }}</td>
                             </tr>
                         {% else %}
-                            <tr><td colspan="8" class="muted-line">No repair orders in this category for the period.</td></tr>
+                            <tr><td colspan="9" class="muted-line">No repair orders in this category for the period.</td></tr>
                         {% endfor %}
                     </tbody>
                     {% if rows|length %}
-                        <tfoot><tr><td colspan="7">Total:</td><td class="num">{{ mx.money(board[stage.value].total) }}</td></tr></tfoot>
+                        <tfoot><tr><td colspan="8">Total:</td><td class="num">{{ mx.money(board[stage.value].total) }}</td></tr></tfoot>
                     {% endif %}
                 </table>
             </div>
         </section>
     {% endif %}
+    {% if canMove %}<script src="/assets/js/maxeme-board.js?v=1"></script>{% endif %}
 {% endblock %}

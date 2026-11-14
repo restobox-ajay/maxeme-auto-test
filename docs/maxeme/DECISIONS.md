@@ -52,7 +52,7 @@ Legacy-converted ROs (`holdsStock` off) are excluded so imports don't trigger em
 ## ADR-010 RO status → stock bucket
 Accepted. `authorized` → sales_hold; `in_progress` and `awaiting_parts` → approved; completed and later → shipped; estimate and cancelled → released. Every Parts line holds stock whether or not it's charged through. Any line change reconciles the whole RO into its current bucket. · b563b5f
 
-## ADR-011 Work Order Board stages derived from RO status
+## ADR-011 Work Order Board stages derived from RO status (superseded 2026-11-14: the Repair Order Board has one column per RO status, mockup 8c0ad56)
 Accepted. Stage isn't stored:
 - **Check-in vs Repairing** depends on whether a master technician is set ("work order issued").
 - **Completed (Paid)** = `invoiced`, which is set when all of the RO's invoices are paid.

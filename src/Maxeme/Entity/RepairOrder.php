@@ -165,6 +165,14 @@ class RepairOrder implements HasNotes
                 }
             }
         }
+        // Cancelled (or its quote declined): its appointments still pending are cancelled; finished or no-show ones stay.
+        if ($status === RepairOrderStatus::Cancelled) {
+            foreach ($this->appointments as $appointment) {
+                if ($appointment->getStatus()->isPending()) {
+                    $appointment->setStatus(AppointmentStatus::Cancelled);
+                }
+            }
+        }
 
         return $this;
     }

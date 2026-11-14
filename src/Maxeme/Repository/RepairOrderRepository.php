@@ -139,7 +139,61 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @return list<RepairOrder> repair orders dated (created) within the period, newest first, with customer, vehicle and technician (the Work Order Board) */
+    /**
+     * The Repair Order Board's repair orders for a period (mockup 7bd9227), with customer, vehicle,
+     * technician and appointments:
+     * - one with appointments: when one of them starts in the period ($openAll: also every one not
+     *   yet Picked Up, Invoiced or Cancelled, whatever the dates of its appointments);
+     * - one with none: while still being worked on (before Completed); Completed or later only
+     *   when it was created in the period and on or after $recentFromUtc, so old ones with no
+     *   appointment never fill the finished columns.
+     *
+     * @return list<RepairOrder>
+     */
+    public function findForBoard(\DateTimeImmutable $startUtc, \DateTimeImmutable $endUtc, bool $openAll, \DateTimeImmutable $recentFromUtc): array
+    {
+        $appointment = Appointment::class;
+        $query = $this->createQueryBuilder('r')
+            ->addSelect('c', 'v', 't', 'a')
+            ->leftJoin('r.client', 'c')
+            ->leftJoin('r.vehicle', 'v')
+            ->leftJoin('r.masterTechnician', 't')
+            ->leftJoin('r.appointments', 'a')
+            ->setParameter('start', $startUtc)
+            ->setParameter('end', $endUtc)
+            ->setParameter('recent', $recentFromUtc)
+            ->setParameter('finished', [RepairOrderStatus::Completed, RepairOrderStatus::CompletedPickedUp, RepairOrderStatus::Invoiced, RepairOrderStatus::Cancelled]);
+        $withAppointments = "EXISTS (SELECT 1 FROM $appointment ia WHERE ia.repairOrder = r AND ia.startTime BETWEEN :start AND :end)";
+        if ($openAll) {
+            $withAppointments = "($withAppointments OR (EXISTS (SELECT 1 FROM $appointment oa WHERE oa.repairOrder = r) AND r.status NOT IN (:terminal)))";
+            $query->setParameter('terminal', [RepairOrderStatus::CompletedPickedUp, RepairOrderStatus::Invoiced, RepairOrderStatus::Cancelled]);
+        }
+        $none = "NOT EXISTS (SELECT 1 FROM $appointment na WHERE na.repairOrder = r) AND (r.status NOT IN (:finished) OR (r.createdOn BETWEEN :start AND :end AND r.createdOn >= :recent))";
+
+        return $query->andWhere("$withAppointments OR ($none)")
+            ->orderBy('r.lastUpdated', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** How many open repair orders (not Picked Up, Invoiced or Cancelled) have appointments, none of them in the period: the board's hint. */
+    public function countOpenWithAppointmentsOutside(\DateTimeImmutable $startUtc, \DateTimeImmutable $endUtc): int
+    {
+        $appointment = Appointment::class;
+
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->andWhere('r.status NOT IN (:terminal)')->setParameter('terminal', [RepairOrderStatus::CompletedPickedUp, RepairOrderStatus::Invoiced, RepairOrderStatus::Cancelled])
+            ->andWhere("EXISTS (SELECT 1 FROM $appointment oa WHERE oa.repairOrder = r)")
+            ->andWhere("NOT EXISTS (SELECT 1 FROM $appointment ia WHERE ia.repairOrder = r AND ia.startTime BETWEEN :start AND :end)")
+            ->setParameter('start', $startUtc)
+            ->setParameter('end', $endUtc)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /** @return list<RepairOrder> repair orders dated (created) within the period, newest first, with customer, vehicle and technician */
     public function findCreatedBetween(\DateTimeImmutable $startUtc, \DateTimeImmutable $endUtc): array
     {
         return $this->createQueryBuilder('r')

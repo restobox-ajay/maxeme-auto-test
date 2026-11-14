@@ -34,17 +34,17 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
 | d0b772c | RO form section "Visit" → "Status" | done 2b53d29 | P1 |
-| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | todo | P4/P6 |
+| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | partial — board done (4a); quote Approve/Decline next (4b); reminders part P6 | P4/P6 |
 | e516c4a | Unnamed clients still get a link label (preferred name → phone → email → Client #id) | done 2b53d29 | P1 |
 | 8ef5e05 | Unit of measure L (Litre) | done 2b53d29 | P1 |
 | 1cb62e9 | Movement History date filters stacked | done 2b53d29 | P1 |
 | 41ebdc0 | Stock Adjustment as one form (product, qty, ref, note, when, location, reason) | todo | P8 |
 | 38af4be | Document action bar: own actions first, then PDF, then other documents | todo | P4 |
 | 9f94e48 | Slim scrollbars without arrows (Firefox fallback) | done 2b53d29 | P1 |
-| 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | todo | P4 |
+| 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | done (4a) | P4 |
 | 551ab32 | Extended only after arrival; RO list Appointment Status column + filter; client tab "Work Orders" → "Repair Orders" | done 2b53d29 | P3 |
 | e437ffc | RO status estimate_approval label → "Pending on Estimate" | done 2b53d29 | P1 |
-| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | todo | P4/P8 |
+| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | partial — board done (4a); Purchase reason P8 | P8 |
 | e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | partial — client profile part done 2b53d29; Movement History part left | P8 |
 | d3375af | RO form: Tag/Key under Odometer, no extra Status label | done 2b53d29 | P1 |
 | 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | todo | P9/P10/P4 |
@@ -88,7 +88,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | todo | P5 |
 | Part lines taxed by the product's tax class (`sales_tax_code`) | todo | P5 |
 | Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | todo | P5 |
-| Cancelling a RO cancels its pending appointments | todo | P5 |
+| Cancelling a RO cancels its pending appointments | done (4a) | P5 |
 | Finished RO keeps its saved totals (no re-pricing on untouched save) | partial | P5 |
 | Issued-invoice edit: amount paid ≥ total; edits copy back to a finished RO | todo | P10 |
 | Invoice totals box: method/amount/change only when paid, else Balance due | done 2b53d29 | P2 |
