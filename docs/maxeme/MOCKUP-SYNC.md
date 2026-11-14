@@ -9,7 +9,7 @@ This file tracks which mockup commits have been ported into the Symfony app on `
 |---|---|---|
 | Fork point (main == mockup) | `7b4ed70` | 2026-10-03 |
 | **Mockup reviewed up to** | `84d136d` | 2026-11-12 |
-| **Mockup ported up to** | P1–P7 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
+| **Mockup ported up to** | P1–P8 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
 
 **When new mockup commits arrive:** `git fetch maxemeauto && git log --oneline 84d136d..maxemeauto/mockup`
 (replace `84d136d` with the "reviewed up to" hash above), add the new rows below, then move the marker.
@@ -38,14 +38,14 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | e516c4a | Unnamed clients still get a link label (preferred name → phone → email → Client #id) | done 2b53d29 | P1 |
 | 8ef5e05 | Unit of measure L (Litre) | done 2b53d29 | P1 |
 | 1cb62e9 | Movement History date filters stacked | done 2b53d29 | P1 |
-| 41ebdc0 | Stock Adjustment as one form (product, qty, ref, note, when, location, reason) | todo | P8 |
+| 41ebdc0 | Stock Adjustment as one form (product, qty, ref, note, when, location, reason) | done ecebd48 | P8 |
 | 38af4be | Document action bar: own actions first, then PDF, then other documents | done 139c22b (the other documents moved to the switcher per 345c037) | P4 |
 | 9f94e48 | Slim scrollbars without arrows (Firefox fallback) | done 2b53d29 | P1 |
 | 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | done cf7874a | P4 |
 | 551ab32 | Extended only after arrival; RO list Appointment Status column + filter; client tab "Work Orders" → "Repair Orders" | done 2b53d29 | P3 |
 | e437ffc | RO status estimate_approval label → "Pending on Estimate" | done 2b53d29 | P1 |
-| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | partial — board cf7874a; Purchase reason P8 | P8 |
-| e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | partial — client profile part done 2b53d29; Movement History part left | P8 |
+| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | done — board cf7874a; Purchase reason first ecebd48 | P8 |
+| e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | done — client profile 2b53d29; Movement History type-ahead, From/To/Lot/Serial columns removed ecebd48 | P8 |
 | d3375af | RO form: Tag/Key under Odometer, no extra Status label | done 2b53d29 | P1 |
 | 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line ae378a1; one-row header + switcher + More menu 139c22b; WO five-line rows already in 2b53d29; role matrix badges 5ddbada; left: dashboard, payments (P10) | P10 |
 | 2371126 | RO appointment rows: Duration (h), default 2 h, labelled fields | done 2b53d29 | P3 |
@@ -64,7 +64,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 9ba2951 | Buying/selling + Other appointments need no vehicle (vehicle_id nullable) | done 2b53d29 | P3 |
 | e533d51 | Print: black-and-white header, company line on one line, vehicle on one line, max 2 phones, "KM / MILES" | done 2b53d29 | P2 |
 | 18acc2d | Calendar opens on Day (Today already works everywhere) | done 2b53d29 | P1 |
-| cc1f585 | Stock adjustment product type-ahead (SKU, name, category, vendor) | todo | P8 |
+| cc1f585 | Stock adjustment product type-ahead (SKU, name, category, vendor) | done ecebd48 | P8 |
 | d6f741f | Drag preview: red line + landing time | done 2b53d29 | P3 |
 | 258fdc2 | "+ Create new client" from the client picker, continue to the appointment/RO/reminder | done b9001e9 | P7 |
 | 649ae8e + 4e14fb6 | Invoice "Remark" (internal, never printed) on builder + issued edit; Products filter row (Type/U-M dropdowns) | todo | P9 |
@@ -101,7 +101,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | done 6b631b0 | P7 |
 | No duplicate names: services, service categories (same parent), reminder templates | done 6b631b0 | P7 |
-| Product category can't move under its own descendant | partial | P8 |
+| Product category can't move under its own descendant | done ecebd48 | P8 |
 | Inactive client profile shows a banner + Reactivate | done b9001e9 | P7 |
 | Logs use one date style `m/d/Y h:i A` | done 2b53d29 | P1 |
 
@@ -117,7 +117,7 @@ Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` +
 - `maxeme_service_item.own_colour`: no longer used.
 - `invoice`: `admin_note` (Remark), `vehicle_mileage_unit`; new table `invoice_payment` (backfilled from `payment_amount`); `invoice_service_line.continued`.
 - `vehicle.mileage_unit`; `reminder.phone_status` (+ `delay_note`, `delayed_at`) and `service_reminder_queue.phone_status` (done, Version20261114140000).
-- Reference data: unit of measure L; inventory adjustment reason `purchase` (sort before the others).
+- Reference data: unit of measure L (done); inventory adjustment reason `purchase` (sort before the others; done, Version20261114150000).
 - No schema change: several roles per user (roles is already a JSON array), 6-digit numbers, the GST/PST per RO (whole-number rates; decimals would need a migration).
 
 ## Batches (suggested order)
