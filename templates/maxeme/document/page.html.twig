@@ -64,5 +64,6 @@
             </div>
         </div>
     {% endif %}
+    {% if document.kind.value == 'work_order' and repairOrder %}<script src="/assets/js/maxeme-first-printed.js?v=1" data-url="{{ path('maxeme_repair_order_work_order_printed', { id: repairOrder.id }) }}" data-token="{{ csrf_token_value() }}"></script>{% endif %}
     {% if app.request.query.get('print') %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
 {% endblock %}

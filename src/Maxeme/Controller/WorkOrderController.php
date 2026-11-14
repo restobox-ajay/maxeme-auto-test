@@ -36,9 +36,29 @@ final class WorkOrderController extends AbstractMaxemeController
 
     #[Route('/admin/invoices/{invoiceKey}/work-order.pdf', name: 'maxeme_work_order_pdf', methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
-    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity, DocumentNumbers $numbers): Response
+    public function pdf(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, PdfRenderer $pdf, ActivityRecorder $activity, DocumentNumbers $numbers, EntityManagerInterface $entityManager): Response
     {
+        self::markPrinted($invoice, $activity, $entityManager);
+
         return $this->downloadDocument($invoice, DocumentKind::WorkOrder, $pdf, $activity, $numbers);
+    }
+
+    /** The work order page is being printed (the browser's beforeprint): the first time sets "First Printed On". */
+    #[Route('/admin/invoices/{invoiceKey}/work-order/printed', name: 'maxeme_work_order_printed', methods: ['POST'])]
+    #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
+    public function printed(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, ActivityRecorder $activity, EntityManagerInterface $entityManager): JsonResponse
+    {
+        self::markPrinted($invoice, $activity, $entityManager);
+
+        return $this->json(['firstPrinted' => $invoice->getWorkOrderFirstPrintedAt()?->format(\DateTimeInterface::ATOM)]);
+    }
+
+    private static function markPrinted(Invoice $invoice, ActivityRecorder $activity, EntityManagerInterface $entityManager): void
+    {
+        if ($invoice->isSaved() && $invoice->markWorkOrderPrinted()) {
+            $entityManager->flush();
+            $activity->invoiceWorkOrderFirstPrinted($invoice);
+        }
     }
 
     #[Route('/admin/invoices/{invoiceKey}/work-order/email', name: 'maxeme_work_order_email', methods: ['POST'])]

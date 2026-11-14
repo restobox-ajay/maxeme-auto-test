@@ -142,6 +142,7 @@ final class PrintedDocuments
                 'name' => self::billedName($job),
                 'lines' => array_map(static fn (RepairOrderJobLine $line): string => sprintf('x%s %s', (string) (float) $line->getQuantity(), $line->getType()->hasItem() ? $line->getItemLabel() : $line->getType()->label()), $job->getLines()),
             ], $repairOrder->getJobs()),
+            firstPrinted: $kind === DocumentKind::WorkOrder ? $repairOrder->getWorkOrderFirstPrintedAt() : null,
         );
     }
 

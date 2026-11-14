@@ -91,6 +91,10 @@ class Invoice
     #[ORM\Column(length: 10, enumType: MileageUnit::class, options: ['default' => 'km'])]
     private MileageUnit $vehicleMileageUnit = MileageUnit::Km;
 
+    /** When its own work order (an invoice with no repair order) was first printed or saved as a PDF (mockup f556ee8). */
+    #[ORM\Column(name: 'wo_first_printed_at', nullable: true)]
+    private ?\DateTimeImmutable $workOrderFirstPrintedAt = null;
+
     /** The appointment's note. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $note = null;
@@ -297,6 +301,26 @@ class Invoice
     public function setVehicleMileage(?string $value): void { $this->vehicleMileage = $value; }
     public function getVehicleMileageUnit(): MileageUnit { return $this->vehicleMileageUnit; }
     public function setVehicleMileageUnit(MileageUnit $value): void { $this->vehicleMileageUnit = $value; }
+
+    /** "First Printed On" of its work order: its repair order's when it has one, else its own; null until printed. */
+    public function getWorkOrderFirstPrintedAt(): ?\DateTimeImmutable
+    {
+        return $this->repairOrder !== null ? $this->repairOrder->getWorkOrderFirstPrintedAt() : $this->workOrderFirstPrintedAt;
+    }
+
+    /** Its work order is printed: the first time sets "First Printed On" (on the repair order when it has one); false when already set. */
+    public function markWorkOrderPrinted(\DateTimeImmutable $at = new \DateTimeImmutable()): bool
+    {
+        if ($this->repairOrder !== null) {
+            return $this->repairOrder->markWorkOrderPrinted($at);
+        }
+        if ($this->workOrderFirstPrintedAt !== null) {
+            return false;
+        }
+        $this->workOrderFirstPrintedAt = $at;
+
+        return true;
+    }
 
     /** "Year Make Model". */
     public function getVehicleFullName(): string

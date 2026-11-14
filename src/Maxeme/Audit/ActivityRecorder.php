@@ -26,6 +26,7 @@ final class ActivityRecorder
     public const ACCESS_DENIED = 'access_denied';
     public const DOWNLOADED = 'downloaded';
     public const EMAILED = 'emailed';
+    public const PRINTED = 'printed';
     public const EXPORTED = 'exported';
     public const SETTINGS_CHANGED = 'settings_changed';
     public const CONVERTED = 'converted';
@@ -74,6 +75,18 @@ final class ActivityRecorder
     public function downloadedDocument(PrintedDocument $document, string $entityType, ?int $entityId): void
     {
         $this->auditLogger->log(self::area($document->kind), $entityType, $entityId, self::DOWNLOADED, sprintf('Downloaded %s.', $document->filename()));
+    }
+
+    /** A work order printed (or saved as a PDF) for the first time: its "First Printed On" is set. */
+    public function firstPrinted(PrintedDocument $document, string $entityType, ?int $entityId): void
+    {
+        $this->auditLogger->log(self::area($document->kind), $entityType, $entityId, self::PRINTED, sprintf('First printed %s.', $document->number));
+    }
+
+    /** An invoice's work order printed (or saved as a PDF) for the first time. */
+    public function invoiceWorkOrderFirstPrinted(Invoice $invoice): void
+    {
+        $this->auditLogger->log(self::area(DocumentKind::WorkOrder), 'Invoice', $invoice->getId(), self::PRINTED, sprintf('First printed %s.', $this->numbers->number($invoice, DocumentKind::WorkOrder)));
     }
 
     /** An invoice, quote or work order emailed from its email page. */

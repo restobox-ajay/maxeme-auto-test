@@ -18,6 +18,8 @@ use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RepairOrderInvoicing;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -113,11 +115,23 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
 
     #[Route('/work-order.pdf', name: 'work_order_pdf', methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
-    public function workOrderPdf(int $id, PdfRenderer $pdf, ActivityRecorder $activity): Response
+    public function workOrderPdf(int $id, PdfRenderer $pdf, ActivityRecorder $activity, EntityManagerInterface $entityManager): Response
     {
         $repairOrder = $this->repairOrder($id);
+        $this->markPrinted($repairOrder, $activity, $entityManager);
 
         return $this->downloadPrinted($this->documents->workOrder($repairOrder), $pdf, $activity, 'RepairOrder', $repairOrder->getId());
+    }
+
+    /** The work order page is being printed (the browser's beforeprint): the first time sets "First Printed On". */
+    #[Route('/work-order/printed', name: 'work_order_printed', methods: ['POST'])]
+    #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
+    public function workOrderPrinted(int $id, ActivityRecorder $activity, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $repairOrder = $this->repairOrder($id);
+        $this->markPrinted($repairOrder, $activity, $entityManager);
+
+        return $this->json(['firstPrinted' => $repairOrder->getWorkOrderFirstPrintedAt()?->format(\DateTimeInterface::ATOM)]);
     }
 
     #[Route('/work-order/email', name: 'work_order_email', methods: ['GET', 'POST'])]
@@ -149,6 +163,14 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
                 'automatic' => $this->numbers->automaticRepairOrderNumber($repairOrder, DocumentKind::WorkOrder),
             ] : null,
         ]);
+    }
+
+    private function markPrinted(RepairOrder $repairOrder, ActivityRecorder $activity, EntityManagerInterface $entityManager): void
+    {
+        if ($repairOrder->markWorkOrderPrinted()) {
+            $entityManager->flush();
+            $activity->firstPrinted($this->documents->workOrder($repairOrder), 'RepairOrder', $repairOrder->getId());
+        }
     }
 
     private function repairOrder(int $id): RepairOrder

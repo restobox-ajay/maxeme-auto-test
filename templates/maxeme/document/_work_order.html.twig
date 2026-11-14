@@ -3,14 +3,15 @@
    Technician only when one is set, the customer's first two phones and address, the vehicle as one
    "Name: year make model" line with VIN, License and Mileage (KM / MILES), then each service with
    room for the technician's result. The internal comment, the authorisation text and the
-   signature lines are not printed. Vars: document. #}
+   signature lines are not printed. "First Printed On" (mockup f556ee8) is set the first time it is
+   printed or saved as a PDF and never changes; page.html.twig fills it in on the first print. Vars: document. #}
 <div class="invoice-document">
     {% include 'maxeme/invoice/_band.html.twig' with { label: 'REPAIR ORDER', detail: maxeme_company.name ~ ' · ' ~ maxeme_company.address ~ ' · Company Phone: ' ~ maxeme_company.phone } only %}
     <div class="invoice-body">
         <table class="wo-table">
             <tr>
                 <td style="width:50%"><strong>Work Order Number:</strong> {{ document.number }}</td>
-                <td style="width:50%"><strong>Last Modified On:</strong> {{ document.date|date('m/d/Y h:i a') }}</td>
+                <td style="width:50%"><strong>First Printed On:</strong> <span id="wo-first-printed" {{ document.firstPrinted ? '' : 'data-unset' }}>{% if document.firstPrinted %}{{ document.firstPrinted|date('m/d/Y h:i a') }}{% else %}<span class="muted-line no-print">set when first printed</span>{% endif %}</span></td>
             </tr>
             {% if document.masterTechnician %}
                 <tr><td colspan="2" class="wo-master"><strong>Assigned Technician:</strong> {{ document.masterTechnician }}</td></tr>

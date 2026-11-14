@@ -18,6 +18,7 @@
 {% endblock %}
 {% block modals %}
     {% if invoice.saved %}
+        <script src="/assets/js/maxeme-first-printed.js?v=1" data-url="{{ path('maxeme_work_order_printed', { invoiceKey: invoice.invoiceKey }) }}" data-token="{{ csrf_token_value() }}"></script>
         {% if is_granted('/work-order/edit') %}
             {% include 'maxeme/invoice/_email_modal.html.twig' with { id: 'email-work-order-modal', title: 'Email WorkOrder PDF', action: path('maxeme_work_order_email', { invoiceKey: invoice.invoiceKey }), invoice: invoice } only %}
         {% endif %}

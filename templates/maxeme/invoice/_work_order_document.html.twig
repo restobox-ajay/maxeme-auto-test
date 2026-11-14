@@ -2,7 +2,8 @@
    like the repair order's work order (mockup e533d51, 986d771): the Assigned Technician only when its
    repair order has one, Phone 1, 2 and Address, the vehicle as one "Name:" line with VIN, License and
    Mileage (KM / MILES), then each service and standalone part with room for the technician's
-   result. No appointment note, authorisation text or signature lines. Vars: invoice, kind,
+   result. No appointment note, authorisation text or signature lines. "First Printed On" (mockup
+   f556ee8): set on the first print or PDF, never changed; blank on an unsaved (blank) work order. Vars: invoice, kind,
    vehicles, addresses + address (optional: the blank work order's vehicle switch and its
    pickup-address pick, the client's addresses in the client's order). #}
 {% if vehicles|default([])|length > 1 or addresses|default([])|length > 1 %}<form id="wo-switch" method="get" hidden></form>{% endif %}
@@ -12,7 +13,7 @@
         <table class="wo-table">
             <tr>
                 <td style="width:50%"><strong>Work Order Number:</strong> {{ doc_number(invoice, kind) }}</td>
-                <td style="width:50%"><strong>Last Modified On:</strong> {{ (invoice.saved ? invoice.documentDate : 'now')|date('m/d/Y h:i a') }}</td>
+                <td style="width:50%"><strong>First Printed On:</strong> <span id="wo-first-printed" {{ invoice.workOrderFirstPrintedAt ? '' : 'data-unset' }}>{% if invoice.workOrderFirstPrintedAt %}{{ invoice.workOrderFirstPrintedAt|date('m/d/Y h:i a') }}{% else %}<span class="muted-line no-print">set when first printed</span>{% endif %}</span></td>
             </tr>
             {% set technician = invoice.repairOrder and invoice.repairOrder.masterTechnician ? invoice.repairOrder.masterTechnician.name %}
             {% if technician %}

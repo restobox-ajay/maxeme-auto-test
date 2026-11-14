@@ -109,6 +109,10 @@ class RepairOrder implements HasNotes
     #[ORM\Column(length: 40, nullable: true)]
     private ?string $workOrderNumber = null;
 
+    /** When its work order was first printed or saved as a PDF ("First Printed On", mockup f556ee8); never changed after. */
+    #[ORM\Column(name: 'wo_first_printed_at', nullable: true)]
+    private ?\DateTimeImmutable $workOrderFirstPrintedAt = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdOn;
 
@@ -229,6 +233,18 @@ class RepairOrder implements HasNotes
 
     public function getWorkOrderNumber(): ?string { return $this->workOrderNumber; }
     public function setWorkOrderNumber(?string $number): void { $this->workOrderNumber = $number; }
+    public function getWorkOrderFirstPrintedAt(): ?\DateTimeImmutable { return $this->workOrderFirstPrintedAt; }
+
+    /** The work order is printed: the first time sets "First Printed On"; false when it was already set. */
+    public function markWorkOrderPrinted(\DateTimeImmutable $at = new \DateTimeImmutable()): bool
+    {
+        if ($this->workOrderFirstPrintedAt !== null) {
+            return false;
+        }
+        $this->workOrderFirstPrintedAt = $at;
+
+        return true;
+    }
 
     public function getCreatedOn(): \DateTimeImmutable { return $this->createdOn; }
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
