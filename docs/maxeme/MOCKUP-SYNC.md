@@ -9,7 +9,7 @@ This file tracks which mockup commits have been ported into the Symfony app on `
 |---|---|---|
 | Fork point (main == mockup) | `7b4ed70` | 2026-10-03 |
 | **Mockup reviewed up to** | `84d136d` | 2026-11-12 |
-| **Mockup ported up to** | P1–P9 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
+| **Mockup ported up to** | P1–P9, P10a–c + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
 
 **When new mockup commits arrive:** `git fetch maxemeauto && git log --oneline 84d136d..maxemeauto/mockup`
 (replace `84d136d` with the "reviewed up to" hash above), add the new rows below, then move the marker.
@@ -47,10 +47,10 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | done — board cf7874a; Purchase reason first ecebd48 | P8 |
 | e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | done — client profile 2b53d29; Movement History type-ahead, From/To/Lot/Serial columns removed ecebd48 | P8 |
 | d3375af | RO form: Tag/Key under Odometer, no extra Status label | done 2b53d29 | P1 |
-| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line ae378a1; one-row header + switcher + More menu 139c22b; WO five-line rows already in 2b53d29; role matrix badges 5ddbada; left: dashboard, payments (P10) | P10 |
+| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line ae378a1; one-row header + switcher + More menu 139c22b; WO five-line rows already in 2b53d29; role matrix badges 5ddbada; payments per invoice c0eb8cb; left: dashboard (P10d) | P10 |
 | 2371126 | RO appointment rows: Duration (h), default 2 h, labelled fields | done 2b53d29 | P3 |
-| 0a4baef | "Out of date" badge + Sync Repair Order on an unpaid invoice | todo | P10 |
-| 6611dd0 | Restricted issued-invoice edit (qty down only, paid = locked); partial invoicing (Ordered/Charged/Remaining) | todo | P10 |
+| 0a4baef | "Out of date" badge + Sync Repair Order on an unpaid invoice | done 776fb3f | P10 |
+| 6611dd0 | Restricted issued-invoice edit (qty down only, paid = locked); partial invoicing (Ordered/Charged/Remaining) | done — restricted edit d01ddff; partial invoicing 776fb3f | P10 |
 | 8b30420 | Audit fixes (documents, RO, scheduling, parts, people) — see section below | todo | see below |
 | 34181b0 | Round-2 fixes (invoice/RO status rule, tax bases, add paths, delete guards) — see section below | todo | see below |
 | 3dddb7b + 6bfe69e | 6-digit numbers on RO, QO, WO, INV (RO-020046) | done 2b53d29 | P1 |
@@ -85,12 +85,12 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Change | Status | Batch |
 |---|---|---|
 | RO is Invoiced only when a **Paid** invoice exists (from Completed / Picked Up); no paid invoice left → back to the earlier status; manual Invoiced refused | done 8877be9 | P5 |
-| Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | partial — repair order done 564f67a (refused on save, JS warns); issued edit and builder with P10 | P5/P10 |
+| Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | partial — repair order done 564f67a (refused on save, JS warns); issued edit and builder d01ddff | P5/P10 |
 | Part lines taxed by the product's tax class (`sales_tax_code`) | done 564f67a (PartTaxes; repair order, invoices, prints, live totals) | P5 |
 | Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | done 8877be9 (board cf7874a) | P5 |
 | Cancelling a RO cancels its pending appointments | done cf7874a | P5 |
 | Finished RO keeps its saved totals (no re-pricing on untouched save) | done 8877be9 | P5 |
-| Issued-invoice edit: amount paid ≥ total; edits copy back to a finished RO | todo | P10 |
+| Issued-invoice edit: amount paid ≥ total; edits copy back to a finished RO | superseded — 6611dd0 replaced it: payments set Paid (c0eb8cb), issued lines only go down (d01ddff), no copy back | P10 |
 | Invoice totals box: method/amount/change only when paid, else Balance due | done 2b53d29 | P2 |
 | Delete guards: tax class (services, products), labour/govt fee (RO lines), clients/vehicles in use, service reminder with queued entries | done 6b631b0 (clients and vehicles are only deactivated in main, history kept: no guard needed) | P7 |
 | Client duplicate check (email, phone last 10 digits, name); VIN unique; mileage "88,000" → 88000 | done 6b631b0 | P7 |
