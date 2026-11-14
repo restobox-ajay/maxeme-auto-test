@@ -132,6 +132,7 @@
             <section class="form-card">
                 <div class="form-grid">
                     <label class="span-2">Recommendations:<textarea name="recommendations" rows="3" placeholder="Recommendations">{{ invoice.recommendations }}</textarea></label>
+                    <label class="span-2"><span>Remark <small class="muted-line">(internal: never printed, shown in the Payment report)</small></span><textarea name="admin_note" rows="2" maxlength="1000">{{ invoice.adminNote }}</textarea></label>
                 </div>
             </section>
         </div>

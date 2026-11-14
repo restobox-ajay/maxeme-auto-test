@@ -32,6 +32,21 @@
             {{ mx.logs_link(invoice, 'button outline') }}
         </div>
     </nav>
+    {% if kind.value == 'invoice' and invoice.saved and is_granted('/accounting/view') %}
+        {# The Remark (mockup d2fbfc8): internal, shown to staff above the invoice, never printed. #}
+        <section class="panel compact-panel no-print mx-remark-card" id="invoice-remark">
+            <strong>Remark</strong> <span class="muted-line">(internal: never printed)</span>
+            {% if is_granted('/accounting/edit') %}
+                <form method="post" action="{{ path('maxeme_invoice_remark', { invoiceKey: invoice.invoiceKey }) }}" class="mx-remark-form">
+                    {{ csrf_field() }}
+                    <textarea name="admin_note" rows="2" maxlength="1000" placeholder="No remark.">{{ invoice.adminNote }}</textarea>
+                    <button class="button mx-btn-sm outline" type="submit">{{ invoice.adminNote ? 'Save remark' : 'Add remark' }}</button>
+                </form>
+            {% else %}
+                <div style="white-space:pre-wrap;margin-top:4px">{{ invoice.adminNote ?: 'No remark.' }}</div>
+            {% endif %}
+        </section>
+    {% endif %}
     <div class="invoice-page-container">
         {% include kind.template with { invoice: invoice, kind: kind, vehicles: vehicles|default([]), addresses: addresses|default([]), address: address|default(null) } only %}
     </div>

@@ -102,6 +102,10 @@ class Invoice
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $recommendations = null;
 
+    /** The Remark (mockup 649ae8e): internal, never printed; shown to staff above the invoice and in the Payment report. */
+    #[ORM\Column(name: 'admin_note', type: 'text', nullable: true)]
+    private ?string $adminNote = null;
+
     #[ORM\Column(length: 10, enumType: InvoiceStatus::class)]
     private InvoiceStatus $status = InvoiceStatus::Unpaid;
 
@@ -332,6 +336,8 @@ class Invoice
 
     public function getNote(): ?string { return $this->note; }
     public function setNote(?string $value): void { $this->note = $value; }
+    public function getAdminNote(): ?string { return $this->adminNote; }
+    public function setAdminNote(?string $value): void { $value = $value !== null ? trim($value) : null; $this->adminNote = $value !== '' ? $value : null; }
     public function getRecommendations(): ?string { return $this->recommendations; }
     public function setRecommendations(?string $value): void { $this->recommendations = $value; }
 

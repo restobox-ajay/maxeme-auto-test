@@ -143,6 +143,7 @@ final class RepairOrderInvoicing
         $invoice->setPaymentType($paymentType);
         $invoice->setPaymentAmount(Money::rounded($form->paymentAmount));
         $invoice->setRecommendations($form->recommendations);
+        $invoice->setAdminNote($form->adminNote);
         $invoice->setLastModified($form->date !== null ? $this->schedule->toUtc($form->date) : $invoice->getLastModified());
         $this->recalculate($invoice);
         $this->entityManager->flush();

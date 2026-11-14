@@ -36,6 +36,10 @@ final class IssuedInvoiceForm
     #[Assert\Length(max: 5000)]
     public ?string $recommendations = null;
 
+    /** The Remark: internal, never printed (mockup 649ae8e). */
+    #[Assert\Length(max: 1000)]
+    public ?string $adminNote = null;
+
     /** @var list<array{id: string, name: ?string, quantity: ?string, price: ?string}> the lines kept, in order */
     public array $lines = [];
 
@@ -46,7 +50,7 @@ final class IssuedInvoiceForm
     {
         $posted = $request->request->all();
         $form = new self();
-        foreach (['status' => 'status', 'date' => 'date', 'payment_type_id' => 'paymentTypeId', 'payment_amount' => 'paymentAmount', 'recommendations' => 'recommendations'] as $field => $property) {
+        foreach (['status' => 'status', 'date' => 'date', 'payment_type_id' => 'paymentTypeId', 'payment_amount' => 'paymentAmount', 'recommendations' => 'recommendations', 'admin_note' => 'adminNote'] as $field => $property) {
             $value = is_scalar($posted[$field] ?? null) ? trim((string) $posted[$field]) : '';
             $form->{$property} = $value !== '' ? $value : null;
         }
@@ -70,6 +74,7 @@ final class IssuedInvoiceForm
         $form->paymentTypeId = $invoice->getPaymentType()?->getId() !== null ? (string) $invoice->getPaymentType()->getId() : null;
         $form->paymentAmount = $invoice->getPaymentAmount();
         $form->recommendations = $invoice->getRecommendations();
+        $form->adminNote = $invoice->getAdminNote();
         $form->lines = array_map(static fn (InvoiceServiceLine $line): array => [
             'id' => (string) $line->getId(),
             'name' => $line->getName(),

@@ -28,6 +28,7 @@
                 </label>
                 <label><span>Amount paid</span><input type="text" name="payment_amount" value="{{ form.paymentAmount }}" placeholder="0.00" {{ input_rule('money') }}></label>
                 <label class="span-2"><span>Recommendations</span><textarea name="recommendations" rows="3">{{ form.recommendations }}</textarea></label>
+                <label class="span-2"><span>Remark <small class="muted-line">(internal: never printed, shown in the Payment report)</small></span><textarea name="admin_note" rows="2" maxlength="1000">{{ form.adminNote }}</textarea></label>
             </div>
         </section>
 

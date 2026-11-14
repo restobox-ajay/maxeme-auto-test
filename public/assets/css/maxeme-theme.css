@@ -744,3 +744,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-check-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .mx-check-row .mx-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
 .mx-level-badges { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+/* An invoice's internal Remark above the document (mockup d2fbfc8). */
+.mx-remark-card { margin-bottom: 12px; }
+.mx-remark-form { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; }
+.mx-remark-form textarea { flex: 1; min-height: 44px; }

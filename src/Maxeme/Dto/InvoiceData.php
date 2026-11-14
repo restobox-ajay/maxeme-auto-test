@@ -35,6 +35,7 @@ final class InvoiceData
         'vehicle_mileage' => 'vehicleMileage',
         'note' => 'note',
         'recommendations' => 'recommendations',
+        'admin_note' => 'adminNote',
     ];
 
     /** @var array<string, ?string> Invoice property => value */

@@ -179,14 +179,15 @@ final class ProductController extends AbstractAdminController
             $qb->andWhere('p.sku LIKE :fsku')->setParameter('fsku', '%' . $skuFilter . '%');
         }
 
+        // Type and U/M are dropdowns of the values in use (Maxeme mockup 4e14fb6): an exact match.
         $typeFilter = $filters['type'];
         if ($typeFilter !== '') {
-            $qb->andWhere('p.type LIKE :ftype')->setParameter('ftype', '%' . $typeFilter . '%');
+            $qb->andWhere('p.type = :ftype')->setParameter('ftype', $typeFilter);
         }
 
         $unitFilter = $filters['unit'];
         if ($unitFilter !== '') {
-            $qb->andWhere('p.unit LIKE :funit')->setParameter('funit', '%' . $unitFilter . '%');
+            $qb->andWhere('p.unit = :funit')->setParameter('funit', $unitFilter);
         }
 
         $weightFilter = $filters['weight'];
@@ -355,6 +356,8 @@ final class ProductController extends AbstractAdminController
             'currentSort' => $sort,
             'currentDir' => strtolower($dir),
             'categories' => $this->categoryRowsFromDatabase($entityManager),
+            'typeOptions' => $this->distinctProductValues($entityManager, 'type'),
+            'unitOptions' => $this->distinctProductValues($entityManager, 'unit'),
             'columnRegistry' => self::PRODUCT_DETAIL_COLUMNS,
             'visibleColumns' => $visibleColumns,
             'columnGroupCounts' => $this->columnGroupCounts($visibleColumns),
@@ -2753,5 +2756,23 @@ final class ProductController extends AbstractAdminController
         if (is_file($path)) {
             @unlink($path);
         }
+    }
+
+    /**
+     * The values of a product column in use, sorted (the list's Type and U/M filters).
+     *
+     * @return list<string>
+     */
+    private function distinctProductValues(EntityManagerInterface $entityManager, string $field): array
+    {
+        $values = $entityManager->createQueryBuilder()
+            ->select(sprintf('DISTINCT p.%s AS value', $field))
+            ->from(ProductCore::class, 'p')
+            ->andWhere(sprintf("p.%s IS NOT NULL AND p.%s <> ''", $field, $field))
+            ->getQuery()->getSingleColumnResult();
+        $values = array_values(array_map('strval', $values));
+        sort($values, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $values;
     }
 }

@@ -34,6 +34,7 @@ use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Document\PrintedDocuments;
 use App\Maxeme\Service\InvoiceService;
 use App\Maxeme\Service\RecordWriter;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -276,6 +277,23 @@ final class InvoiceController extends AbstractMaxemeController
         return $invoice !== null
             ? $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()])
             : $this->redirectToRoute('maxeme_invoice_index', [SearchTerm::PARAM => $find->text]);
+    }
+
+    /** The Remark (mockups 649ae8e, d2fbfc8, df38f34): saved on its own, on a paid invoice too; JSON for the Payment report's pencil. */
+    #[Route('/admin/invoices/{invoiceKey}/remark', name: 'maxeme_invoice_remark', methods: ['POST'])]
+    #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
+    public function remark(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $note = mb_substr(trim((string) $request->request->get('admin_note', '')), 0, 1000);
+        $invoice->setAdminNote($note);
+        $entityManager->flush();
+        $message = sprintf('Remark %s for %s.', $note !== '' ? 'saved' : 'removed', $this->numbers->number($invoice));
+        if (str_contains((string) $request->headers->get('Accept'), 'application/json')) {
+            return $this->json(['message' => $message, 'remark' => $invoice->getAdminNote()]);
+        }
+        $this->addFlash('success', $message);
+
+        return $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
     }
 
     /** The invoice detail page of an invoice billing a repair order: the invoice and the repair order's document bar. */

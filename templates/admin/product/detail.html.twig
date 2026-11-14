@@ -145,8 +145,18 @@
                                 {% endfor %}
                             </select>
                         </th>
-                        <th class="col-type"><input type="text" name="filters[type]" value="{{ filters.type|default('') }}" aria-label="Filter by type"></th>
-                        <th class="col-unit"><input type="text" name="filters[unit]" value="{{ filters.unit|default('') }}" aria-label="Filter by unit"></th>
+                        <th class="col-type">
+                            <select name="filters[type]" onchange="this.form.submit()" aria-label="Filter by type">
+                                <option value="">All types</option>
+                                {% for option in typeOptions|default([]) %}<option value="{{ option }}" {{ filters.type|default('') == option ? 'selected' }}>{{ option }}</option>{% endfor %}
+                            </select>
+                        </th>
+                        <th class="col-unit">
+                            <select name="filters[unit]" onchange="this.form.submit()" aria-label="Filter by unit">
+                                <option value="">All</option>
+                                {% for option in unitOptions|default([]) %}<option value="{{ option }}" {{ filters.unit|default('') == option ? 'selected' }}>{{ option }}</option>{% endfor %}
+                            </select>
+                        </th>
                         <th class="col-weight"><input type="text" name="filters[weight]" value="{{ filters.weight|default('') }}" aria-label="Filter by weight"></th>
                         <th class="col-visible">
                             <input type="text" name="filters[visible]" value="{{ filters.visible|default('') }}" list="product-visible-options" aria-label="Filter by visible">
