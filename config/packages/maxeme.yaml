@@ -162,9 +162,8 @@ parameters:
               - { key: work_order_board, label: Repair Order Board, route: maxeme_board_index, role: /work-order/view, match: [maxeme_board_] }
               - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_],
                   add: { label: New appointment, route: maxeme_client_pick, params: { purpose: appointment }, role: /appointment/edit } }
-              - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_],
+              - { key: reminders, label: Reminders, route: maxeme_reminder_index, role: /reminder/view, match: [maxeme_reminder_, maxeme_reminder_queue_],
                   add: { label: New reminder, route: maxeme_client_pick, params: { purpose: reminder }, role: /reminder/edit } }
-              - { key: reminder_queue, label: Service Reminder Queue, route: maxeme_reminder_queue_index, role: /reminder/view, match: [maxeme_reminder_queue_] }
         - key: parts
           label: Parts & Service
           icon: wrench

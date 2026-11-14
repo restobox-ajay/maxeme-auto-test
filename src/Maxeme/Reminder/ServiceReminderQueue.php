@@ -65,13 +65,18 @@ final class ServiceReminderQueue
 
         $entries = [];
         $lastQueuedDays = null;
+        $lastQueuedName = '';
         foreach ($byService as [$rule, $name]) {
             $days = $rule->getReminderDays();
             $queued = $lastQueuedDays === null || $days - $lastQueuedDays > self::QUEUE_AFTER_DAYS;
+            $entry = new ServiceReminderQueueEntry($repairOrder, $client, $vehicle, $rule, $name, ServiceReminderQueueStatus::Queued, $completedAt);
             if ($queued) {
                 $lastQueuedDays = $days;
+                $lastQueuedName = mb_strtolower($name);
+            } else {
+                // The reason shows in its Email Status (audit fix 34181b0).
+                $entry->skip(sprintf('Skipped: within %d days of the %s reminder for this vehicle.', self::QUEUE_AFTER_DAYS, $lastQueuedName));
             }
-            $entry = new ServiceReminderQueueEntry($repairOrder, $client, $vehicle, $rule, $name, $queued ? ServiceReminderQueueStatus::Queued : ServiceReminderQueueStatus::Skipped, $completedAt);
             $this->entityManager->persist($entry);
             $entries[] = $entry;
         }

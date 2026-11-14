@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Maxeme\Enum\PhoneStatus;
 use App\Maxeme\Enum\ServiceReminderQueueStatus;
 use App\Maxeme\Repository\ServiceReminderQueueRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -76,6 +77,25 @@ class ServiceReminderQueueEntry
     #[ORM\Column]
     private \DateTimeImmutable $lastUpdated;
 
+    /** How the call went (mockup aa322bb). */
+    #[ORM\Column(length: 20, enumType: PhoneStatus::class, options: ['default' => 'not_called'])]
+    private PhoneStatus $phoneStatus = PhoneStatus::NotCalled;
+
+    /** Its own template and message, copied from the service reminder when queued (it may be deleted later). */
+    #[ORM\ManyToOne(targetEntity: ServiceReminderTemplate::class)]
+    #[ORM\JoinColumn(name: 'template_id', nullable: true, onDelete: 'SET NULL')]
+    private ?ServiceReminderTemplate $template = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $message = null;
+
+    /** The email that went out (the last one sent), shown by View email. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $sentSubject = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $sentBody = null;
+
     public function __construct(RepairOrder $repairOrder, Client $client, Vehicle $vehicle, ServiceReminder $rule, string $serviceName, ServiceReminderQueueStatus $status, \DateTimeImmutable $queuedAt)
     {
         $this->repairOrder = $repairOrder;
@@ -89,7 +109,40 @@ class ServiceReminderQueueEntry
         $this->queuedAt = $queuedAt;
         $this->dueAt = $rule->dueAfter($queuedAt);
         $this->email = $client->getEmail() ?: null;
+        $this->template = $rule->getTemplate();
+        $this->message = $rule->getMessage();
         $this->lastUpdated = new \DateTimeImmutable();
+    }
+
+    public function getPhoneStatus(): PhoneStatus { return $this->phoneStatus; }
+    public function getTemplate(): ?ServiceReminderTemplate { return $this->template; }
+    public function getMessage(): ?string { return $this->message; }
+    public function getSentSubject(): ?string { return $this->sentSubject; }
+    public function getSentBody(): ?string { return $this->sentBody; }
+
+    public function setPhoneStatus(PhoneStatus $status): void
+    {
+        $this->phoneStatus = $status;
+        $this->lastUpdated = new \DateTimeImmutable();
+    }
+
+    /** Skipped when queued, with the reason shown in its Email Status (audit fix 34181b0). */
+    public function skip(string $reason): void
+    {
+        $this->error = $reason;
+        $this->changeStatus(ServiceReminderQueueStatus::Skipped);
+    }
+
+    /** Booked or Resolved: dealt with; sending it again keeps that status. */
+    public function isClosed(): bool
+    {
+        return in_array($this->status, [ServiceReminderQueueStatus::Booked, ServiceReminderQueueStatus::Resolved], true);
+    }
+
+    /** Send now / Resend / Resolved are offered (audit fix 34181b0): queued, sent or in error. */
+    public function isLive(): bool
+    {
+        return in_array($this->status, [ServiceReminderQueueStatus::Queued, ServiceReminderQueueStatus::Sent, ServiceReminderQueueStatus::Error], true);
     }
 
     public function getId(): ?int { return $this->id; }
@@ -109,16 +162,26 @@ class ServiceReminderQueueEntry
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
 
     /** Sent to $email (the client's address at the time, which may have changed since it was queued). */
-    public function markSent(string $email): void
+    public function markSent(string $email, string $subject, string $body): void
     {
         $this->email = $email;
         $this->sentAt = new \DateTimeImmutable();
-        $this->error = null;
-        $this->changeStatus(ServiceReminderQueueStatus::Sent);
+        $this->sentSubject = mb_substr($subject, 0, 255);
+        $this->sentBody = $body;
+        // A Booked or Resolved reminder sent again stays Booked / Resolved.
+        if (!$this->isClosed()) {
+            $this->error = null;
+            $this->changeStatus(ServiceReminderQueueStatus::Sent);
+        } else {
+            $this->lastUpdated = new \DateTimeImmutable();
+        }
     }
 
     public function markError(string $error): void
     {
+        if ($this->isClosed()) {
+            return;
+        }
         $this->error = $error;
         $this->changeStatus(ServiceReminderQueueStatus::Error);
     }

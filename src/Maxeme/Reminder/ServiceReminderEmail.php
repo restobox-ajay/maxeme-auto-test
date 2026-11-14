@@ -43,9 +43,11 @@ final class ServiceReminderEmail
     /** @return array{subject: string, html: string} */
     public function render(ServiceReminderQueueEntry $entry): array
     {
+        // Its service reminder's message and template, else the ones it kept when it was queued.
         $rule = $entry->getRule();
-        $message = nl2br(self::escape((string) $rule?->getMessage()));
-        $template = $rule?->getTemplate();
+        $rawMessage = (string) ($rule?->getMessage() ?? $entry->getMessage());
+        $message = nl2br(self::escape($rawMessage));
+        $template = $rule?->getTemplate() ?? $entry->getTemplate();
         if (!$template instanceof ServiceReminderTemplate) {
             return [
                 'subject' => sprintf('Time for your %s', $entry->getServiceName()),
@@ -61,9 +63,16 @@ final class ServiceReminderEmail
             '{{booking link}}' => $this->settings->bookingUrl(),
         ];
 
+        $html = strtr($template->getBody(), array_map(self::escape(...), $values) + ['{{message}}' => $message]);
+        // No booking link set: the whole "Or book online:" line goes, not just its empty link (audit fix 34181b0).
+        if ($this->settings->bookingUrl() === '') {
+            $html = (string) preg_replace('~(?:<br\s*/?>\s*)?(?:or\s+)?book\s+online:?\s*<a[^>]*href="\s*"[^>]*>.*?</a>~is', '', $html);
+            $html = (string) preg_replace('~<a[^>]*href="\s*"[^>]*>.*?</a>~is', '', $html);
+        }
+
         return [
-            'subject' => strtr($template->getSubject(), $values + ['{{message}}' => (string) $rule?->getMessage()]),
-            'html' => strtr($template->getBody(), array_map(self::escape(...), $values) + ['{{message}}' => $message]),
+            'subject' => strtr($template->getSubject(), $values + ['{{message}}' => $rawMessage]),
+            'html' => $html,
         ];
     }
 
@@ -92,8 +101,8 @@ final class ServiceReminderEmail
             return false;
         }
 
-        $resend = $entry->getStatus() === ServiceReminderQueueStatus::Sent;
-        $entry->markSent($address);
+        $resend = $entry->getSentAt() !== null;
+        $entry->markSent($address, $content['subject'], $content['html']);
         $entry->getRule()?->recordEmailSent();
         $this->entityManager->flush();
         $this->activity->reminderEmailed($entry->getId(), sprintf('%s service reminder "%s" to %s.', $resend ? 'Re-sent' : 'Sent', $entry->getServiceName(), $address));

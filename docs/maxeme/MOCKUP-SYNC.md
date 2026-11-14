@@ -9,7 +9,7 @@ This file tracks which mockup commits have been ported into the Symfony app on `
 |---|---|---|
 | Fork point (main == mockup) | `7b4ed70` | 2026-10-03 |
 | **Mockup reviewed up to** | `84d136d` | 2026-11-12 |
-| **Mockup ported up to** | P1–P5 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
+| **Mockup ported up to** | P1–P6 + f556ee8, 84d136d (see rows marked done); not yet a contiguous commit | 2026-11-14 |
 
 **When new mockup commits arrive:** `git fetch maxemeauto && git log --oneline 84d136d..maxemeauto/mockup`
 (replace `84d136d` with the "reviewed up to" hash above), add the new rows below, then move the marker.
@@ -24,9 +24,9 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 
 | Mockup commit | Change | Status | Batch |
 |---|---|---|---|
-| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | done — quote title 2b53d29; pickup address + Export CSV on the remaining lists ccf56b6 (Reminder Todo's CSV goes with the merged Reminders page, P6) | P5 |
+| a38e7a2 | RO pickup-address picker (client's address book, default none per aa322bb); quote title "QUOTE / 報價單"; CSV export on remaining lists (FEATURES G1, G6, G7) | done — quote title 2b53d29; pickup address + Export CSV on the remaining lists ccf56b6; Reminders CSV (P6) | P5 |
 | 898d57e | Remove the description line under page titles (≈21 list/config pages) | done 2b53d29 | P1 |
-| 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | todo | P6 |
+| 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | done (P6) | P6 |
 | deba1ef | Appointments: 4th "List" view (paginated, filterable table) | done 2b53d29 | P3 |
 | 3d5095e | Staff can hold several roles (checkboxes; permissions = union) | todo | P7 |
 | 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | done — per-service technician + work status e2dc368; charge-through default 564f67a; recommendations on the work order and invoice ccf56b6 | P5 |
@@ -34,7 +34,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
 | d0b772c | RO form section "Visit" → "Status" | done 2b53d29 | P1 |
-| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | partial — board cf7874a; quote Approve/Decline ae378a1; reminders part P6 | P6 |
+| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | done — board cf7874a; quote Approve/Decline ae378a1; Reminders period filter + Phone / Email status (P6) | P6 |
 | e516c4a | Unnamed clients still get a link label (preferred name → phone → email → Client #id) | done 2b53d29 | P1 |
 | 8ef5e05 | Unit of measure L (Litre) | done 2b53d29 | P1 |
 | 1cb62e9 | Movement History date filters stacked | done 2b53d29 | P1 |
@@ -97,7 +97,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Phones shown as 604-285-8200 and stored as digits when edited; postal code "V6X 2P9" | todo | P7 |
 | Appointment duration 0.5–24 h; past-day booking needs a yes; inactive vehicle already on the appointment/RO stays | done 2b53d29 (appointment; RO side with P5) | P3 |
 | Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | done — inactive technician kept e2dc368; ?appointment= and customer + vehicle required ccf56b6 | P5 |
-| Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | partial | P6 |
+| Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | done (P6; the sent copy is kept on the queue entry, not via email_log) | P6 |
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | todo | P7 |
 | No duplicate names: services, service categories (same parent), reminder templates | todo | P7 |
@@ -105,7 +105,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Inactive client profile shows a banner + Reactivate | todo | P7 |
 | Logs use one date style `m/d/Y h:i A` | done 2b53d29 | P1 |
 
-Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` + `message`; `maxeme_invoice_service_line.kind` + `incl_parts`; `email_log.queue_entry_id`.
+Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` + `message` + `sent_subject` / `sent_body` (done, Version20261114140000); `maxeme_invoice_service_line.kind` + `incl_parts`.
 
 ## Data-model changes needed
 
@@ -116,7 +116,7 @@ Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` +
 - `maxeme_appointment`: `appt_type` (repair / bodywork / buy_sell / other, default repair), `vehicle_id` nullable, optional `technician_id` (done); `colour` no longer used.
 - `maxeme_service_item.own_colour`: no longer used.
 - `invoice`: `admin_note` (Remark), `vehicle_mileage_unit`; new table `invoice_payment` (backfilled from `payment_amount`); `invoice_service_line.continued`.
-- `vehicle.mileage_unit`; `reminder.phone_status` and `service_reminder_queue_entry.phone_status`.
+- `vehicle.mileage_unit`; `reminder.phone_status` (+ `delay_note`, `delayed_at`) and `service_reminder_queue.phone_status` (done, Version20261114140000).
 - Reference data: unit of measure L; inventory adjustment reason `purchase` (sort before the others).
 - No schema change: several roles per user (roles is already a JSON array), 6-digit numbers, the GST/PST per RO (whole-number rates; decimals would need a migration).
 

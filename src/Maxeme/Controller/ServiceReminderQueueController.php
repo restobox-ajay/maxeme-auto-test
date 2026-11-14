@@ -38,14 +38,12 @@ final class ServiceReminderQueueController extends AbstractMaxemeController
     ) {
     }
 
+    /** The queue is listed on Schedule › Reminders now (mockup 1b7f972). */
     #[Route('', name: 'index', methods: ['GET'])]
     #[RequiresPermission(Permission::REMINDER_VIEW)]
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        return $this->render('maxeme/reminder_queue/index.html.twig', [
-            'page' => $this->queue->findPage(ListQuery::fromRequest($request, array_keys(ServiceReminderQueueRepository::SORTS), 'desc')),
-            'statuses' => ServiceReminderQueueStatus::cases(),
-        ]);
+        return $this->redirectToRoute('maxeme_reminder_index');
     }
 
     /** Export CSV: every entry of the current view (search boxes, status, sort), not just the page. */
@@ -86,14 +84,20 @@ final class ServiceReminderQueueController extends AbstractMaxemeController
     #[RequiresPermission(Permission::REMINDER_VIEW)]
     public function email(#[MapEntity] ServiceReminderQueueEntry $entry, ServiceReminderEmail $email): Response
     {
-        return $this->render('maxeme/reminder_queue/email.html.twig', ['entry' => $entry, 'email' => $email->render($entry)]);
+        // The copy that went out when it was sent (audit fix 34181b0), else what it will say.
+        $content = $entry->getSentBody() !== null ? ['subject' => (string) $entry->getSentSubject(), 'html' => $entry->getSentBody()] : $email->render($entry);
+
+        return $this->render('maxeme/reminder_queue/email.html.twig', ['entry' => $entry, 'email' => $content, 'isSentCopy' => $entry->getSentBody() !== null]);
     }
 
-    /** [resend]: sends it now, whatever its status. */
+    /** Send now / Resend: only while it is queued, sent or in error (audit fix 34181b0). */
     #[Route('/{id}/resend', name: 'resend', requirements: ['id' => '\d+'], methods: ['POST'])]
     #[RequiresPermission(Permission::REMINDER_EDIT)]
     public function resend(#[MapEntity] ServiceReminderQueueEntry $entry, Request $request, ServiceReminderEmail $email): Response
     {
+        if (!$entry->isLive()) {
+            return $this->done($request, sprintf('This service reminder is %s: it is not sent again.', strtolower($entry->getStatus()->label())), false);
+        }
         $sent = $email->send($entry);
         $this->entityManager->flush();
 
@@ -107,6 +111,9 @@ final class ServiceReminderQueueController extends AbstractMaxemeController
     #[RequiresPermission(Permission::REMINDER_EDIT)]
     public function resolve(#[MapEntity] ServiceReminderQueueEntry $entry, Request $request, ServiceReminderQueue $queue): Response
     {
+        if (!$entry->isLive()) {
+            return $this->done($request, sprintf('This service reminder is %s already.', strtolower($entry->getStatus()->label())), false);
+        }
         $cancelled = count($queue->resolve($entry)) - 1;
         $this->entityManager->flush();
 

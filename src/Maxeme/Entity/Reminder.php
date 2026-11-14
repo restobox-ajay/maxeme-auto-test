@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Maxeme\Enum\PhoneStatus;
 use App\Maxeme\Enum\ReminderStatus;
 use App\Maxeme\Repository\ReminderRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -37,6 +38,17 @@ class Reminder
     #[ORM\Column]
     private \DateTimeImmutable $reminderDate;
 
+    /** How the call went (mockup aa322bb). */
+    #[ORM\Column(length: 20, enumType: PhoneStatus::class, options: ['default' => 'not_called'])]
+    private PhoneStatus $phoneStatus = PhoneStatus::NotCalled;
+
+    /** Delayed: the reason given, and when; the reminder's own note stays as it is (mockup 1b7f972). */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $delayNote = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $delayedAt = null;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Client::class)]
         #[ORM\JoinColumn(nullable: false)]
@@ -65,13 +77,36 @@ class Reminder
     public function getNote(): ?string { return $this->note; }
     public function getReminderDate(): \DateTimeImmutable { return $this->reminderDate; }
 
-    /** Resolved / Delayed / Declined; a note, when given, replaces the reminder note (legacy updateReminderAction). */
-    public function changeStatus(ReminderStatus $status, ?string $note = null): void
+    public function getPhoneStatus(): PhoneStatus { return $this->phoneStatus; }
+    public function getDelayNote(): ?string { return $this->delayNote; }
+    public function getDelayedAt(): ?\DateTimeImmutable { return $this->delayedAt; }
+    public function getCreatedOn(): \DateTimeImmutable { return $this->createdOn; }
+
+    public function setPhoneStatus(PhoneStatus $status): void
     {
-        $this->status = $status;
-        if ($note !== null && $note !== '') {
-            $this->note = $note;
+        $this->phoneStatus = $status;
+        $this->lastModified = new \DateTimeImmutable();
+    }
+
+    /**
+     * Resolved / Delayed / Declined, only while it is open. Delayed needs a reason, kept apart from the
+     * reminder's note (mockup 1b7f972).
+     *
+     * @throws \DomainException
+     */
+    public function changeStatus(ReminderStatus $status, ?string $delayReason = null): void
+    {
+        if (!$this->status->isOpen()) {
+            throw new \DomainException(sprintf('This reminder is %s already.', strtolower($this->status->label())));
         }
+        if ($status === ReminderStatus::Delayed) {
+            if ($delayReason === null || trim($delayReason) === '') {
+                throw new \DomainException('Enter the reason for the delay.');
+            }
+            $this->delayNote = trim($delayReason);
+            $this->delayedAt = new \DateTimeImmutable();
+        }
+        $this->status = $status;
         $this->lastModified = new \DateTimeImmutable();
     }
 }

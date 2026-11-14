@@ -1,13 +1,13 @@
-{# Service Reminder Queue › View email: the reminder as it was sent, or as it will be. Vars: entry, email ({subject, html}). #}
+{# Reminders › View email: the copy that went out (isSentCopy), or the reminder as it will be. Vars: entry, email ({subject, html}), isSentCopy. #}
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Service Reminder Email | {{ site_name() }}{% endblock %}
 {% block admin_body %}
-    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Service Reminder Queue', title: 'Service Reminder Email', lead: entry.client.fullName ~ ' · ' ~ entry.vehicle.fullName ~ ' · ' ~ entry.serviceName } %}
+    {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Reminders', title: 'Service Reminder Email', lead: entry.client.fullName ~ ' · ' ~ entry.vehicle.fullName ~ ' · ' ~ entry.serviceName } %}
         {% block title_actions %}
             {% import 'maxeme/_macros.html.twig' as mx %}
-            <a class="button mx-btn-sm outline" href="{{ path('maxeme_reminder_queue_index') }}">Back to the queue</a>
-            {% if is_granted('/reminder/edit') %}
+            <a class="button mx-btn-sm outline" href="{{ path('maxeme_reminder_index') }}">Back to Reminders</a>
+            {% if is_granted('/reminder/edit') and entry.live %}
                 <form method="post" action="{{ path('maxeme_reminder_queue_resend', { id: entry.id }) }}">{{ csrf_field() }}{{ mx.return_field() }}<button type="submit" class="button mx-btn-sm primary">{{ entry.status.value == 'sent' ? 'Resend' : 'Send now' }}</button></form>
             {% endif %}
         {% endblock %}
@@ -18,7 +18,7 @@
             <dt>Status</dt><dd><span class="badge {{ entry.status.badge }}">{{ entry.status.label }}</span>{% if entry.error %} {{ entry.error }}{% endif %}</dd>
             <dt>To</dt><dd>{{ entry.email ?: entry.client.email ?: '—' }}</dd>
             <dt>{{ entry.sentAt ? 'Sent' : 'Due' }}</dt><dd>{{ entry.sentAt ? entry.sentAt|date('m/d/Y h:i A') : entry.dueAt|date('m/d/Y') }}</dd>
-            <dt>Subject</dt><dd><strong>{{ email.subject }}</strong></dd>
+            <dt>Subject</dt><dd><strong>{{ email.subject }}</strong>{% if not isSentCopy|default(false) %} <span class="muted-line">(not sent yet: as it will be sent)</span>{% endif %}</dd>
         </dl>
         <iframe class="mx-reminder-email-body" sandbox="" srcdoc="{{ email.html }}" title="Email body"></iframe>
     </section>

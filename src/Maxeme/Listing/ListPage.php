@@ -24,6 +24,21 @@ final class ListPage
     }
 
     /**
+     * One page of a list already searched, filtered and sorted in PHP (a list built from two sources,
+     * e.g. the merged Reminders page).
+     *
+     * @template U
+     *
+     * @param list<U> $all
+     *
+     * @return self<U>
+     */
+    public static function fromArray(array $all, ListQuery $query): self
+    {
+        return new self(array_slice($all, $query->offset(), $query->limit), count($all), $query);
+    }
+
+    /**
      * Applies the list's search box, column search boxes, sort and page to $queryBuilder (see filter()).
      *
      * @param array<string, string> $sorts sort key => DQL column (the keys ListQuery was built with)
