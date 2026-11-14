@@ -12,6 +12,15 @@
                     <p><strong>{{ document.kind.title }} Number:</strong> {{ document.number }}</p>
                     <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
                     <p><strong>{{ isInvoice ? 'Invoice Date' : 'Quote Date' }}:</strong> {{ document.date|date('m/d/Y h:i a') }}</p>
+                    {% if document.quoteStatus %}
+                        {# The customer's answer (mockup 345c037), printed too. #}
+                        {% set answer = document.quoteStatus %}
+                        <p class="quote-status quote-status-{{ answer.state }}"><strong>Status:</strong>
+                            {% if answer.state == 'declined' %}<span style="color:#b42318;font-weight:700">&#10006; Declined · {{ answer.at|date('m/d/Y') }}</span>
+                            {% elseif answer.state == 'awaiting' %}<span style="color:#6b7686">Awaiting approval</span>
+                            {% else %}<span style="color:#1a7f37;font-weight:700">&#10004; Accepted{{ answer.via ? ' · ' ~ answer.via }}{{ answer.at ? ' · ' ~ answer.at|date('m/d/Y') }}</span>{% endif %}
+                        </p>
+                    {% endif %}
                 </td>
                 <td class="inv-meta-col">
                     <p><strong>{{ maxeme_company.name }}</strong></p>

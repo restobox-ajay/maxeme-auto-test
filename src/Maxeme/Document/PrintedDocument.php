@@ -22,6 +22,7 @@ final class PrintedDocument
      * @param list<array{name: string, lines: list<string>}>                                                         $repairItems the work order's items: each service and what to use ("x2 Rotor, front")
      * @param array{paid: bool, cancelled: bool, type: ?string, amount: ?string, change: string}|null            $payment  an invoice's
      * @param \DateTimeImmutable|null                                                                             $firstPrinted a work order's "First Printed On"; null until it is printed
+     * @param array{state: string, via: ?string, at: ?\DateTimeImmutable}|null                                 $quoteStatus a quote's answer line (state accepted / declined / awaiting), printed in its details box
      */
     public function __construct(
         public readonly DocumentKind $kind,
@@ -54,6 +55,7 @@ final class PrintedDocument
         public readonly ?string $masterTechnician,
         public readonly array $repairItems,
         public readonly ?\DateTimeImmutable $firstPrinted = null,
+        public readonly ?array $quoteStatus = null,
     ) {
     }
 

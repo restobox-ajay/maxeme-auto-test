@@ -17,6 +17,8 @@ use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
+use App\Maxeme\Enum\QuoteApproval;
+use App\Maxeme\Service\NoteBook;
 use App\Maxeme\Service\RepairOrderInvoicing;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -106,6 +108,42 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
         );
     }
 
+    /**
+     * The customer's answer to the quote (mockup aa322bb), while it is open: Approve (how: phone, email,
+     * in person, signed quote; an optional note) makes the repair order Authorized; Decline (a reason)
+     * makes it Cancelled, and its pending appointments with it. Either leaves a note on the repair order.
+     */
+    #[Route('/quote/decision', name: 'quote_decision', methods: ['POST'])]
+    #[RequiresPermission(Permission::WORK_ORDER_EDIT)]
+    public function quoteDecision(int $id, Request $request, NoteBook $notes): RedirectResponse
+    {
+        $repairOrder = $this->repairOrder($id);
+        $note = trim((string) $request->request->get('note', ''));
+        $approve = $request->request->get('decision') === 'approve';
+        $via = QuoteApproval::tryFrom((string) $request->request->get('via', ''));
+        try {
+            if ($approve && $via === null) {
+                throw new \DomainException('Choose how the quote was approved.');
+            }
+            if (!$approve && $note === '') {
+                throw new \DomainException('Enter the reason for declining.');
+            }
+            $text = $approve ? sprintf('Quote approved %s.%s', $via->phrase(), $note !== '' ? ' ' . $note : '') : 'Quote declined: ' . $note;
+            if (($problem = NoteBook::problemWith($text)) !== null) {
+                throw new \DomainException($problem);
+            }
+            $approve ? $repairOrder->approveQuote($via) : $repairOrder->declineQuote();
+        } catch (\DomainException $exception) {
+            $this->addFlash('error', $exception->getMessage());
+
+            return $this->redirectToRoute('maxeme_repair_order_quote', ['id' => $id]);
+        }
+        $notes->add($repairOrder, $text);
+        $this->addFlash('success', $approve ? 'Quote approved. The repair order is Authorized.' : 'Quote declined. The repair order is Cancelled.');
+
+        return $this->redirectToRoute('maxeme_repair_order_quote', ['id' => $id]);
+    }
+
     #[Route('/work-order', name: 'work_order', methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
     public function workOrder(int $id): Response
@@ -156,6 +194,12 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
             'invoice' => null,
             'actions' => $this->actions->for($kind, $repairOrder),
             'backUrl' => $this->generateUrl('maxeme_repair_order_edit', ['id' => $repairOrder->getId()]),
+            'quoteDecision' => $kind === DocumentKind::Quote ? [
+                'open' => $repairOrder->isQuoteOpen(),
+                'canDecide' => $this->isGranted(Permission::WORK_ORDER_EDIT),
+                'url' => $this->generateUrl('maxeme_repair_order_quote_decision', ['id' => $repairOrder->getId()]),
+                'ways' => QuoteApproval::cases(),
+            ] : null,
             'numberChange' => $kind === DocumentKind::WorkOrder && $this->isGranted(Permission::WORK_ORDER_EDIT) ? [
                 'label' => 'Change Work Order #',
                 'url' => $this->generateUrl('maxeme_document_number_work_order', ['id' => $repairOrder->getId()]),

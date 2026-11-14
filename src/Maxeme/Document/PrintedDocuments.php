@@ -10,6 +10,7 @@ use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\MileageUnit;
+use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Entity\InvoiceCharge;
 use App\Maxeme\Entity\InvoiceServiceLine;
 use App\Maxeme\Entity\RepairOrder;
@@ -143,7 +144,28 @@ final class PrintedDocuments
                 'lines' => array_map(static fn (RepairOrderJobLine $line): string => sprintf('x%s %s', (string) (float) $line->getQuantity(), $line->getType()->hasItem() ? $line->getItemLabel() : $line->getType()->label()), $job->getLines()),
             ], $repairOrder->getJobs()),
             firstPrinted: $kind === DocumentKind::WorkOrder ? $repairOrder->getWorkOrderFirstPrintedAt() : null,
+            quoteStatus: $kind === DocumentKind::Quote ? self::quoteStatus($repairOrder) : null,
         );
+    }
+
+    /**
+     * The quote's answer (mockup 345c037): Declined when it was turned down; Awaiting approval while the
+     * repair order is still at the estimate (or cancelled some other way); else Accepted, with how and
+     * when when that was recorded.
+     *
+     * @return array{state: string, via: ?string, at: ?\DateTimeImmutable}
+     */
+    private static function quoteStatus(RepairOrder $repairOrder): array
+    {
+        $declined = $repairOrder->getQuoteDeclinedAt();
+        if ($repairOrder->getStatus() === RepairOrderStatus::Cancelled && $declined !== null) {
+            return ['state' => 'declined', 'via' => null, 'at' => $declined];
+        }
+        if ($repairOrder->isQuoteOpen() || $repairOrder->getStatus() === RepairOrderStatus::Cancelled) {
+            return ['state' => 'awaiting', 'via' => null, 'at' => null];
+        }
+
+        return ['state' => 'accepted', 'via' => $repairOrder->getQuoteApprovedVia()?->phrase(), 'at' => $repairOrder->getQuoteApprovedAt()];
     }
 
     /** @return array{name: string, quantity: ?string, unitPrice: ?string, amount: string, chargeThrough: bool, taxNote: ?string} */

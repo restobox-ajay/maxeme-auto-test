@@ -8,6 +8,7 @@ use App\Entity\AbstractPartyNote;
 use App\Entity\AdminUser;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Enum\MileageUnit;
+use App\Maxeme\Enum\QuoteApproval;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Repository\RepairOrderRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -112,6 +113,17 @@ class RepairOrder implements HasNotes
     /** When its work order was first printed or saved as a PDF ("First Printed On", mockup f556ee8); never changed after. */
     #[ORM\Column(name: 'wo_first_printed_at', nullable: true)]
     private ?\DateTimeImmutable $workOrderFirstPrintedAt = null;
+
+    /** When and how the customer approved the quote (Approve on the quote, mockup aa322bb); null when not recorded. */
+    #[ORM\Column(name: 'quote_approved_at', nullable: true)]
+    private ?\DateTimeImmutable $quoteApprovedAt = null;
+
+    #[ORM\Column(name: 'quote_approved_via', length: 20, nullable: true, enumType: QuoteApproval::class)]
+    private ?QuoteApproval $quoteApprovedVia = null;
+
+    /** When the customer declined the quote (Decline on the quote: the repair order is Cancelled). */
+    #[ORM\Column(name: 'quote_declined_at', nullable: true)]
+    private ?\DateTimeImmutable $quoteDeclinedAt = null;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdOn;
@@ -242,6 +254,39 @@ class RepairOrder implements HasNotes
     public function getWorkOrderNumber(): ?string { return $this->workOrderNumber; }
     public function setWorkOrderNumber(?string $number): void { $this->workOrderNumber = $number; }
     public function getWorkOrderFirstPrintedAt(): ?\DateTimeImmutable { return $this->workOrderFirstPrintedAt; }
+    public function getQuoteApprovedAt(): ?\DateTimeImmutable { return $this->quoteApprovedAt; }
+    public function getQuoteApprovedVia(): ?QuoteApproval { return $this->quoteApprovedVia; }
+    public function getQuoteDeclinedAt(): ?\DateTimeImmutable { return $this->quoteDeclinedAt; }
+
+    /** The quote still waits on the customer's answer: Estimate Being Built or Pending on Estimate. */
+    public function isQuoteOpen(): bool
+    {
+        return in_array($this->status, [RepairOrderStatus::EstimateBeingBuilt, RepairOrderStatus::EstimateApproval], true);
+    }
+
+    /** The customer approved the quote: the repair order is Authorized. */
+    public function approveQuote(QuoteApproval $via, \DateTimeImmutable $at = new \DateTimeImmutable()): void
+    {
+        if (!$this->isQuoteOpen()) {
+            throw new \DomainException(sprintf('The quote is no longer waiting on the customer: the repair order is %s.', $this->status->label()));
+        }
+        $this->quoteApprovedAt = $at;
+        $this->quoteApprovedVia = $via;
+        $this->quoteDeclinedAt = null;
+        $this->setStatus(RepairOrderStatus::Authorized);
+        $this->touch();
+    }
+
+    /** The customer declined the quote: the repair order is Cancelled, and so are its pending appointments. */
+    public function declineQuote(\DateTimeImmutable $at = new \DateTimeImmutable()): void
+    {
+        if (!$this->isQuoteOpen()) {
+            throw new \DomainException(sprintf('The quote is no longer waiting on the customer: the repair order is %s.', $this->status->label()));
+        }
+        $this->quoteDeclinedAt = $at;
+        $this->setStatus(RepairOrderStatus::Cancelled);
+        $this->touch();
+    }
 
     /** The work order is printed: the first time sets "First Printed On"; false when it was already set. */
     public function markWorkOrderPrinted(\DateTimeImmutable $at = new \DateTimeImmutable()): bool

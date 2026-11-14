@@ -30,6 +30,18 @@
     </section>
     <nav class="mx-toolbar no-print" aria-label="{{ document.kind.emailTitle }} actions">
         <div class="mx-doc-actions">
+            {% set decision = quoteDecision|default(null) %}
+            {% if decision and repairOrder %}
+                {# The customer's answer to the quote (mockup aa322bb), its own buttons first. #}
+                {% if decision.open and decision.canDecide %}
+                    <button class="button mx-success" type="button" id="quote-approve" data-modal-open="#quote-approve-modal">Approve</button>
+                    <button class="button danger" type="button" id="quote-decline" data-modal-open="#quote-decline-modal">Decline</button>
+                {% elseif repairOrder.status.value == 'cancelled' and repairOrder.quoteDeclinedAt %}
+                    <span class="badge danger" title="Declined {{ repairOrder.quoteDeclinedAt|date('m/d/Y') }}">Quote declined</span>
+                {% elseif repairOrder.quoteApprovedAt %}
+                    <span class="badge success">Approved {{ repairOrder.quoteApprovedVia ? repairOrder.quoteApprovedVia.phrase }} · {{ repairOrder.quoteApprovedAt|date('m/d/Y') }}</span>
+                {% endif %}
+            {% endif %}
             {% for action in actions %}
                 {% if action.menu is defined %}
                     {{ menus.pdf_menu(action.menu.label, action.menu.printUrl, action.menu.pdfUrl, action.menu.emailUrl) }}
@@ -65,5 +77,35 @@
         </div>
     {% endif %}
     {% if document.kind.value == 'work_order' and repairOrder %}<script src="/assets/js/maxeme-first-printed.js?v=1" data-url="{{ path('maxeme_repair_order_work_order_printed', { id: repairOrder.id }) }}" data-token="{{ csrf_token_value() }}"></script>{% endif %}
+    {% if decision and decision.open and decision.canDecide %}
+        {% for mode in ['approve', 'decline'] %}
+            {% set approve = mode == 'approve' %}
+            <div class="admin-modal-overlay" id="quote-{{ mode }}-modal" role="dialog" aria-modal="true" aria-labelledby="quote-{{ mode }}-title">
+                <div class="admin-modal">
+                    <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+                    <div class="admin-modal-header"><h2 id="quote-{{ mode }}-title">{{ approve ? 'Approve this quote' : 'Decline this quote' }}</h2></div>
+                    <form method="post" action="{{ decision.url }}">
+                        {{ csrf_field() }}
+                        <input type="hidden" name="decision" value="{{ mode }}">
+                        <div class="admin-modal-body">
+                            {% if approve %}
+                                <label class="form-label" for="quote-via">How was it approved?</label>
+                                <select id="quote-via" name="via" required>{% for way in decision.ways %}<option value="{{ way.value }}">{{ way.label }}</option>{% endfor %}</select>
+                                <p class="muted-line">The repair order becomes Authorized.</p>
+                            {% else %}
+                                <p class="muted-line">The repair order becomes Cancelled, and its pending appointments with it.</p>
+                            {% endif %}
+                            <label class="form-label" for="quote-{{ mode }}-note">{{ approve ? 'Note (optional)' : 'Reason for declining' }}</label>
+                            <textarea id="quote-{{ mode }}-note" name="note" rows="3" maxlength="450" {{ approve ? '' : 'required' }}></textarea>
+                        </div>
+                        <div class="admin-modal-footer-split">
+                            <button type="button" class="button outline js-modal-close">Close</button>
+                            <button type="submit" class="button {{ approve ? 'mx-success' : 'danger' }}">{{ approve ? 'Approve' : 'Decline' }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
     {% if app.request.query.get('print') %}<script>window.addEventListener('load', function () { window.print(); });</script>{% endif %}
 {% endblock %}

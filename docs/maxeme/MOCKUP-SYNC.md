@@ -34,20 +34,20 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
 | d0b772c | RO form section "Visit" → "Status" | done 2b53d29 | P1 |
-| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | partial — board done (4a); quote Approve/Decline next (4b); reminders part P6 | P4/P6 |
+| aa322bb | Repair Order Board kanban (drag to change status); Reminders period filter + Phone/Email status; quote Approve/Decline; calendar default (→ Day) | partial — board cf7874a; quote Approve/Decline done (4b); reminders part P6 | P6 |
 | e516c4a | Unnamed clients still get a link label (preferred name → phone → email → Client #id) | done 2b53d29 | P1 |
 | 8ef5e05 | Unit of measure L (Litre) | done 2b53d29 | P1 |
 | 1cb62e9 | Movement History date filters stacked | done 2b53d29 | P1 |
 | 41ebdc0 | Stock Adjustment as one form (product, qty, ref, note, when, location, reason) | todo | P8 |
 | 38af4be | Document action bar: own actions first, then PDF, then other documents | todo | P4 |
 | 9f94e48 | Slim scrollbars without arrows (Firefox fallback) | done 2b53d29 | P1 |
-| 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | done (4a) | P4 |
+| 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | done cf7874a | P4 |
 | 551ab32 | Extended only after arrival; RO list Appointment Status column + filter; client tab "Work Orders" → "Repair Orders" | done 2b53d29 | P3 |
 | e437ffc | RO status estimate_approval label → "Pending on Estimate" | done 2b53d29 | P1 |
-| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | partial — board done (4a); Purchase reason P8 | P8 |
+| 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | partial — board cf7874a; Purchase reason P8 | P8 |
 | e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | partial — client profile part done 2b53d29; Movement History part left | P8 |
 | d3375af | RO form: Tag/Key under Odometer, no extra Status label | done 2b53d29 | P1 |
-| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | todo | P9/P10/P4 |
+| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line done (4b); header + WO rows next (4c); dashboard, payments, role badges later | P4/P9/P10 |
 | 2371126 | RO appointment rows: Duration (h), default 2 h, labelled fields | done 2b53d29 | P3 |
 | 0a4baef | "Out of date" badge + Sync Repair Order on an unpaid invoice | todo | P10 |
 | 6611dd0 | Restricted issued-invoice edit (qty down only, paid = locked); partial invoicing (Ordered/Charged/Remaining) | todo | P10 |
@@ -88,7 +88,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | todo | P5 |
 | Part lines taxed by the product's tax class (`sales_tax_code`) | todo | P5 |
 | Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | todo | P5 |
-| Cancelling a RO cancels its pending appointments | done (4a) | P5 |
+| Cancelling a RO cancels its pending appointments | done cf7874a | P5 |
 | Finished RO keeps its saved totals (no re-pricing on untouched save) | partial | P5 |
 | Issued-invoice edit: amount paid ≥ total; edits copy back to a finished RO | todo | P10 |
 | Invoice totals box: method/amount/change only when paid, else Balance due | done 2b53d29 | P2 |
@@ -110,7 +110,8 @@ Extra data-model needs from these: `maxeme_service_reminder_queue.template_id` +
 ## Data-model changes needed
 
 - `repair_order` / `invoice`: `wo_first_printed_at` (done, Version20261114090000).
-- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT, `approved_at`, `approved_via` (enum), `declined_at`, `status_before_invoiced`, `mileage_unit`; `master_technician_id` re-pointed to `admin_user` (data migration from `technician`).
+- `repair_order`: `quote_approved_at`, `quote_approved_via`, `quote_declined_at` (done, Version20261114100000).
+- `repair_order`: `pickup_address_id` (→ client_address, SET NULL), `recommendations` TEXT, `status_before_invoiced`, `mileage_unit`; `master_technician_id` re-pointed to `admin_user` (data migration from `technician`).
 - `repair_order_job`: `technician_id` (→ admin_user), `work_status` (not_started / in_progress / done).
 - `maxeme_appointment`: `appt_type` (repair / bodywork / buy_sell / other, default repair), `vehicle_id` nullable, optional `technician_id`; `colour` no longer used.
 - `maxeme_service_item.own_colour`: no longer used.
