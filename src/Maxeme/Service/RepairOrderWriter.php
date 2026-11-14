@@ -106,7 +106,9 @@ final class RepairOrderWriter
             ->setMasterTechnician($technician);
         $repairOrder->replaceJobs($jobs);
         $repairOrder->replaceCharges($charges);
-        $this->calculator->apply($repairOrder);
+        if (!$this->calculator->apply($repairOrder)) {
+            return ['charges' => "A discount can't be more than the subtotal plus fees: it would take the total below zero."];
+        }
 
         $this->entityManager->persist($repairOrder);
         $this->applyAppointments($repairOrder, $form->appointments, $vehicle);

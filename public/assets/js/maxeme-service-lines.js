@@ -19,13 +19,17 @@
         $('.mx-lines-empty', editor).hidden = $('.mx-lines-body tr', editor) !== null;
     }
 
-    /* A type change empties the item (it was of the old type); a discount has none and qty 1. */
+    /* A type change empties the item (it was of the old type); a discount has none and qty 1. Picking
+       Govt Fees or Discount sets Charge through to Yes, any other type to No (mockup 169b599); it can
+       still be changed per line. */
     function applyType(row, clear) {
-        var isDiscount = $('.line-type', row).value === 'discount';
+        var type = $('.line-type', row).value;
+        var isDiscount = type === 'discount';
         var search = $('.line-item-search', row);
         if (clear) {
             search.value = '';
             $('.line-item-id', row).value = '';
+            $('.line-charge-through', row).value = type === 'govt_fee' || isDiscount ? '1' : '0';
         }
         search.disabled = isDiscount;
         search.placeholder = isDiscount ? 'No item for a discount' : 'Type to search';

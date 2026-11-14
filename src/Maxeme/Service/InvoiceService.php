@@ -8,6 +8,7 @@ use App\Maxeme\Accounting\LineTax;
 use App\Entity\ProductCore;
 use App\Maxeme\Accounting\InvoiceCalculator;
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Accounting\InvoiceSettings;
 use App\Maxeme\Dto\InvoiceData;
 use App\Maxeme\Dto\InvoiceItemData;
@@ -42,6 +43,7 @@ final class InvoiceService
         private readonly InvoiceCalculator $calculator,
         private readonly InvoiceSettings $settings,
         private readonly ScheduleSettings $schedule,
+        private readonly PartTaxes $partTaxes,
     ) {
     }
 
@@ -134,7 +136,7 @@ final class InvoiceService
                 $chargeThrough = match (true) {
                     $service === null => [],
                     !$isNew => $kept[$service->getId()][1],
-                    default => self::catalogueChargeThrough($service, (string) $item->quantity, $line->getTax()),
+                    default => $this->catalogueChargeThrough($service, (string) $item->quantity, $line->getTax()),
                 };
                 foreach ($chargeThrough as [$name, $quantity, $price, $tax]) {
                     $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($name, 0, 255), $quantity, $price, null, $line))->setTax($tax));
@@ -168,12 +170,12 @@ final class InvoiceService
      *
      * @return list<array{0: string, 1: string, 2: string, 3: LineTax}> name, quantity, price of one, taxes
      */
-    private static function catalogueChargeThrough(ServiceItem $service, string $quantity, LineTax $serviceTax): array
+    private function catalogueChargeThrough(ServiceItem $service, string $quantity, LineTax $serviceTax): array
     {
         $lines = [];
         foreach ($service->getLines() as $line) {
             if ($line->isChargeThrough()) {
-                $lines[] = [$line->getItemLabel(), number_format((float) $line->getQuantity() * max(1.0, (float) $quantity), 2, '.', ''), $line->getUnitPrice(), LineTax::ofLine($line, $serviceTax)];
+                $lines[] = [$line->getItemLabel(), number_format((float) $line->getQuantity() * max(1.0, (float) $quantity), 2, '.', ''), $line->getUnitPrice(), LineTax::ofLine($line, $serviceTax, $this->partTaxes)];
             }
         }
 

@@ -161,13 +161,15 @@
                     </tbody>
                     <tbody id="ro-charge-body" data-next="{{ form.charges|length }}">
                         {% for charge in form.charges %}
-                            {% include 'maxeme/repair_order/_charge_row.html.twig' with { index: loop.index0, charge: charge, chargeKinds: chargeKinds, errors: errors } only %}
+                            {% include 'maxeme/repair_order/_charge_row.html.twig' with { index: loop.index0, charge: charge, chargeKinds: chargeKinds, errors: errors, discountOnly: true } only %}
                         {% endfor %}
                     </tbody>
                     <tbody>
-                        <tr><td colspan="4" class="mx-ro-label"><button type="button" id="ro-charge-add" class="button mx-btn-sm outline">+ Add fee / discount</button></td></tr>
-                        <tr><td colspan="2" class="mx-ro-label">GST ({{ repairOrder.gstRate }}%)</td><td class="num" id="ro-gst">{{ mx.money(repairOrder.gst) }}</td><td></td></tr>
-                        <tr><td colspan="2" class="mx-ro-label">PST ({{ repairOrder.pstRate }}%)</td><td class="num" id="ro-pst">{{ mx.money(repairOrder.pst) }}</td><td></td></tr>
+                        <tr><td colspan="4" class="mx-ro-label"><button type="button" id="ro-charge-add" class="button mx-btn-sm outline">+ Add discount</button></td></tr>
+                        <tr><td colspan="4" class="mx-ro-label"><p class="mx-field-error" id="ro-charge-warn" role="alert" {{ errors.charges is defined ? '' : 'hidden' }}>{{ errors.charges ?? '' }}</p></td></tr>
+                        {# This repair order's own rates (mockup 55f432c): 0 for none. #}
+                        <tr><td colspan="2" class="mx-ro-label">GST <input class="mx-rate-input {{ errors.gstRate is defined ? 'is-invalid' }}" type="number" name="gst_rate" id="ro-gst-rate" value="{{ data.gstRate ?? repairOrder.gstRate }}" min="0" max="100" step="1" aria-label="GST %" title="This repair order's GST rate (0 for none)"> %</td><td class="num" id="ro-gst">{{ mx.money(repairOrder.gst) }}</td><td></td></tr>
+                        <tr><td colspan="2" class="mx-ro-label">PST <input class="mx-rate-input {{ errors.pstRate is defined ? 'is-invalid' }}" type="number" name="pst_rate" id="ro-pst-rate" value="{{ data.pstRate ?? repairOrder.pstRate }}" min="0" max="100" step="1" aria-label="PST %" title="This repair order's PST rate (0 for none)"> %</td><td class="num" id="ro-pst">{{ mx.money(repairOrder.pst) }}</td><td></td></tr>
                         <tr class="mx-ro-total"><td colspan="2" class="mx-ro-label">Total</td><td class="num" id="ro-total">{{ mx.money(repairOrder.total) }}</td><td></td></tr>
                     </tbody>
                 </table>
@@ -222,11 +224,11 @@
 
     {% include 'maxeme/service_line/_template.html.twig' with { lineTypes: lineTypes } only %}
     <template id="ro-job-template">{% include 'maxeme/repair_order/_job.html.twig' with { index: '__JOB__', job: null, lineTypes: lineTypes, errors: {}, technicians: jobTechnicians, workStatuses: workStatuses } only %}</template>
-    <template id="ro-charge-template">{% include 'maxeme/repair_order/_charge_row.html.twig' with { index: '__CHARGE__', charge: null, chargeKinds: chargeKinds, errors: {} } only %}</template>
+    <template id="ro-charge-template">{% include 'maxeme/repair_order/_charge_row.html.twig' with { index: '__CHARGE__', charge: null, chargeKinds: chargeKinds, errors: {}, discountOnly: true } only %}</template>
     <template id="ro-appointment-template">{% include 'maxeme/repair_order/_appointment_row.html.twig' with { index: '__APPT__', number: '__NUMBER__', appointment: null, data: null, repairOrder: repairOrder, errors: {} } only %}</template>
 {% endblock %}
 {% block javascripts %}
     {{ parent() }}
-    <script src="/assets/js/maxeme-service-lines.js?v=1"></script>
-    <script src="/assets/js/maxeme-repair-order.js?v=2"></script>
+    <script src="/assets/js/maxeme-service-lines.js?v=2"></script>
+    <script src="/assets/js/maxeme-repair-order.js?v=3"></script>
 {% endblock %}

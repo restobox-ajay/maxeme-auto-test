@@ -43,8 +43,13 @@
     }
 
     /* ── Totals ───────────────────────────────────────────────────────────── */
-    var gstRate = parseInt(form.getAttribute('data-gst-rate'), 10) || 0;
-    var pstRate = parseInt(form.getAttribute('data-pst-rate'), 10) || 0;
+    /* This repair order's own rates, typed in the Totals box (mockup 55f432c). */
+    function rate(id, fallback) {
+        var input = document.getElementById(id), value = input ? parseInt(input.value, 10) : NaN;
+        return value >= 0 && value <= 100 ? value : fallback;
+    }
+    var defaultGst = parseInt(form.getAttribute('data-gst-rate'), 10) || 0;
+    var defaultPst = parseInt(form.getAttribute('data-pst-rate'), 10) || 0;
 
     /* Per-line taxes (App\Maxeme\Accounting\LineTax): a service by its service's Tax Class, a labour or
        govt fee line by its item's, a part both, a sublet or discount line by its service's. The
@@ -67,19 +72,29 @@
                 if ($('.line-charge-through', row).value === '1') {
                     var type = $('.line-type', row).value;
                     var itemId = $('.line-item-id', row).value;
-                    var tax = type === 'labour' || type === 'govt_fee' ? taxOf(type, itemId) : (type === 'part' ? BOTH : serviceTax);
+                    var tax = type === 'labour' || type === 'govt_fee' ? taxOf(type, itemId) : (type === 'part' ? taxOf('part', itemId) : serviceTax);
                     add(Math.round((parseFloat($('.line-quantity', row).value) || 0) * cents($('.line-price', row).value)), tax);
                 }
             });
         });
-        var charges = 0;
+        /* App\Maxeme\Accounting\RepairOrderCalculator: discounts never more than subtotal + fees, tax bases never below zero. */
+        var fees = 0, discounts = 0;
         $$('#ro-charge-body tr').forEach(function (row) {
             var amount = Math.abs(cents($('.charge-amount', row).value));
-            charges += $('.charge-kind', row).value === 'discount' ? -amount : amount;
+            if ($('.charge-kind', row).value === 'discount') { discounts += amount; } else { fees += amount; }
         });
+        var discount = Math.min(discounts, Math.max(0, subtotal + fees));
+        var charges = fees - discount;
         var taxable = subtotal + charges;
-        var gst = Math.round((gstBase + charges) * gstRate / 100);
-        var pst = Math.round((pstBase + charges) * pstRate / 100);
+        var gstRate = rate('ro-gst-rate', defaultGst), pstRate = rate('ro-pst-rate', defaultPst);
+        var gst = Math.round(Math.max(0, gstBase + charges) * gstRate / 100);
+        var pst = Math.round(Math.max(0, pstBase + charges) * pstRate / 100);
+        var warn = $('#ro-charge-warn');
+        if (warn) {
+            var over = discount < discounts || subtotal < 0;
+            warn.hidden = !over;
+            warn.textContent = over ? 'The discounts are more than the subtotal plus fees ($' + money(Math.max(0, subtotal + fees)) + "): a discount can't take the total below zero." : '';
+        }
 
         $('#ro-subtotal').textContent = money(subtotal);
         $('#ro-gst').textContent = money(gst);

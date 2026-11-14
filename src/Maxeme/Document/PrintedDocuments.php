@@ -7,6 +7,7 @@ namespace App\Maxeme\Document;
 use App\Maxeme\Accounting\Money;
 use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Accounting\LineTax;
+use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\MileageUnit;
@@ -27,6 +28,7 @@ final class PrintedDocuments
 {
     public function __construct(
         private readonly DocumentNumbers $numbers,
+        private readonly PartTaxes $partTaxes,
     ) {
     }
 
@@ -105,7 +107,7 @@ final class PrintedDocuments
             $serviceTax = RepairOrderCalculator::serviceTax($job);
             $rows[] = self::row(self::billedName($job), null, null, Money::toCents($job->getPrice()), false, $serviceTax);
             foreach ($job->getChargeThroughLines() as $line) {
-                $rows[] = self::row($line->getItemLabel(), $line->getQuantity(), $line->getUnitPrice(), $line->getExtendedCents(), true, LineTax::ofLine($line, $serviceTax));
+                $rows[] = self::row($line->getItemLabel(), $line->getQuantity(), $line->getUnitPrice(), $line->getExtendedCents(), true, LineTax::ofLine($line, $serviceTax, $this->partTaxes));
             }
         }
         $client = $repairOrder->getClient();

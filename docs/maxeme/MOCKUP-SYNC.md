@@ -29,8 +29,8 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 1b7f972 | Reminder Todo's + Service Reminder Queue merged into one paginated "Reminders" page | todo | P6 |
 | deba1ef | Appointments: 4th "List" view (paginated, filterable table) | done 2b53d29 | P3 |
 | 3d5095e | Staff can hold several roles (checkboxes; permissions = union) | todo | P7 |
-| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | partial — per-service technician + work status done (5a); charge-through default (5b) and recommendations (5d) left | P5 |
-| 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | done (5a) | P5 |
+| 169b599 | Govt-fee/Discount lines default to charge-through; per-service Technician + Work status; RO Recommendations copied to invoice | partial — per-service technician + work status e2dc368; Govt Fees / Discount charge through Yes by default (5b); recommendations (5d) left | P5 |
+| 858860a | Master Technician = active users with the Technician role; Settings › Technicians tab removed | done e2dc368 | P5 |
 | 7edd4f7 | No gap between document band and first table | done 2b53d29 | P2 |
 | 051cc07 | Appointment ↔ repair order links (calendar popup wrench, list column) | done 2b53d29 | P3 |
 | d0b772c | RO form section "Visit" → "Status" | done 2b53d29 | P1 |
@@ -54,8 +54,8 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 8b30420 | Audit fixes (documents, RO, scheduling, parts, people) — see section below | todo | see below |
 | 34181b0 | Round-2 fixes (invoice/RO status rule, tax bases, add paths, delete guards) — see section below | todo | see below |
 | 3dddb7b + 6bfe69e | 6-digit numbers on RO, QO, WO, INV (RO-020046) | done 2b53d29 | P1 |
-| 55f432c | GST % / PST % editable per RO in the Totals box | todo | P5 |
-| 9d04430 | RO Totals: "+ Add discount" only; existing fees kept | todo | P5 |
+| 55f432c | GST % / PST % editable per RO in the Totals box | done (5b; whole percent, as the rates are stored) | P5 |
+| 9d04430 | RO Totals: "+ Add discount" only; existing fees kept | done (5b) | P5 |
 | ee7a843 | Paid (Invoiced) RO + its appointments locked except notes; refund unlocks; vehicle links on client appointments | todo | P5 |
 | ca9d795 | Appointment form hides Delete for Completed | done 2b53d29 | P3 |
 | 88ddf43 | Completed → "Issue the invoice now?"; Completed, Picked Up needs a live invoice | todo | P5 |
@@ -69,7 +69,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 258fdc2 | "+ Create new client" from the client picker, continue to the appointment/RO/reminder | todo | P7 |
 | 649ae8e + 4e14fb6 | Invoice "Remark" (internal, never printed) on builder + issued edit; Products filter row (Type/U-M dropdowns) | todo | P9 |
 | df38f34 + d16ca79 | Payment report Remark column (wide) with pencil → edit popup | todo | P9 |
-| 986d771 | Work order: no concern/authorisation/signature, "Assigned Technician"; RO: Advisor hidden; appointment technician synced with RO; mileage unit KM/Miles | done — P2 parts in 2b53d29; Advisor hidden + appointment ↔ RO technician sync (5a) | P5 |
+| 986d771 | Work order: no concern/authorisation/signature, "Assigned Technician"; RO: Advisor hidden; appointment technician synced with RO; mileage unit KM/Miles | done — P2 parts in 2b53d29; Advisor hidden + appointment ↔ RO technician sync e2dc368 | P5 |
 | 0ce22aa | Products: Source column removed | done 2b53d29 | P1 |
 | d2fbfc8 | Invoice page shows the Remark card above the document (staff only) | todo | P9 |
 | 8b7138d | "Save and add vehicle" after creating a client | todo | P7 |
@@ -85,8 +85,8 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Change | Status | Batch |
 |---|---|---|
 | RO is Invoiced only when a **Paid** invoice exists (from Completed / Picked Up); no paid invoice left → back to the earlier status; manual Invoiced refused | partial | P5 |
-| Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | todo | P5 |
-| Part lines taxed by the product's tax class (`sales_tax_code`) | todo | P5 |
+| Discount capped at subtotal + fees; tax bases never negative (RO, issued edit, builder; JS warns) | partial — repair order done (5b: refused on save, JS warns); issued edit and builder with P10 | P5/P10 |
+| Part lines taxed by the product's tax class (`sales_tax_code`) | done (5b: PartTaxes; repair order, invoices, prints, live totals) | P5 |
 | Confirm before a second invoice; confirm before moving a RO with live invoices out of Completed/Picked Up/Invoiced | todo | P5 |
 | Cancelling a RO cancels its pending appointments | done cf7874a | P5 |
 | Finished RO keeps its saved totals (no re-pricing on untouched save) | partial | P5 |
@@ -96,7 +96,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | Client duplicate check (email, phone last 10 digits, name); VIN unique; mileage "88,000" → 88000 | todo | P7 |
 | Phones shown as 604-285-8200 and stored as digits when edited; postal code "V6X 2P9" | todo | P7 |
 | Appointment duration 0.5–24 h; past-day booking needs a yes; inactive vehicle already on the appointment/RO stays | done 2b53d29 (appointment; RO side with P5) | P3 |
-| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | partial — inactive technician kept (5a); the rest 5d | P5 |
+| Start a RO from an appointment (`?appointment=`); RO save needs customer + vehicle; inactive technician kept as "(no longer active)" | partial — inactive technician kept e2dc368; the rest 5d | P5 |
 | Reminder queue: 90-day skip with reason; entry keeps its template + message; resend keeps Booked/Resolved; buttons by status; no booking link → drop the whole line; View email shows the sent copy | partial | P6 |
 | Payment report = paid invoices only, unpaid listed separately; revenue split with Fees column; Service report = finished work only; report default period falls back to newest month | todo | P9 |
 | Vehicle page stats count finished ROs only | todo | P7 |

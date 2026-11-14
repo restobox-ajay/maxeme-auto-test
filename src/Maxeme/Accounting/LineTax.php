@@ -15,7 +15,7 @@ use App\Maxeme\Enum\ServiceLineType;
  *
  *   service                  its service's class
  *   labour / govt fee line   its labour's / fee's class
- *   part line                both (products have no class)
+ *   part line                its product's class (PartTaxes: the product's sales tax code)
  *   sublet / discount line   its service's class
  *   custom fee or discount, the invoice builder's discount, a standalone part: both
  *
@@ -42,13 +42,13 @@ final class LineTax
         return $class === null ? self::standard() : new self($class->charges(self::GST), $class->charges(self::PST));
     }
 
-    /** A service line's taxes; $service is the taxes of the service it is under. */
-    public static function ofLine(AbstractServiceLine $line, self $service): self
+    /** A service line's taxes; $service is the taxes of the service it is under, $parts resolves a part's product. */
+    public static function ofLine(AbstractServiceLine $line, self $service, ?PartTaxes $parts = null): self
     {
         return match ($line->getType()) {
             ServiceLineType::Labour => self::of($line->getLabour()?->getTaxClass()),
             ServiceLineType::GovtFee => self::of($line->getGovtFee()?->getTaxClass()),
-            ServiceLineType::Part => self::standard(),
+            ServiceLineType::Part => $parts?->of($line->getProduct()) ?? self::standard(),
             ServiceLineType::Sublet, ServiceLineType::Discount => $service,
         };
     }

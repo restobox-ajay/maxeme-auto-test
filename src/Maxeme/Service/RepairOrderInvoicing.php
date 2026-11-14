@@ -8,6 +8,7 @@ use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\InvoiceCalculator;
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Dto\IssuedInvoiceForm;
 use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Schedule\ScheduleSettings;
@@ -37,6 +38,7 @@ final class RepairOrderInvoicing
         private readonly InvoiceRepository $invoices,
         private readonly ValidatorInterface $validator,
         private readonly ScheduleSettings $schedule,
+        private readonly PartTaxes $partTaxes,
     ) {
     }
 
@@ -53,7 +55,7 @@ final class RepairOrderInvoicing
             $service = (new InvoiceServiceLine($invoice, PrintedDocuments::billedName($job), '1', $job->getPrice(), $job->getService()))->setTax($serviceTax);
             $invoice->addServiceLine($service);
             foreach ($job->getChargeThroughLines() as $line) {
-                $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($line->getItemLabel(), 0, 255), $line->getQuantity(), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax)));
+                $invoice->addServiceLine((new InvoiceServiceLine($invoice, mb_substr($line->getItemLabel(), 0, 255), $line->getQuantity(), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax, $this->partTaxes)));
             }
         }
         foreach ($repairOrder->getCharges() as $charge) {

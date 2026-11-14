@@ -28,6 +28,7 @@ use App\Maxeme\Schedule\CalendarView;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\InvoiceVoter;
 use App\Maxeme\Security\Permission;
+use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Document\DocumentActions;
 use App\Maxeme\Document\PrintedDocuments;
 use App\Maxeme\Service\InvoiceService;
@@ -176,7 +177,7 @@ final class InvoiceController extends AbstractMaxemeController
     /** The item name autocomplete: sellable products (parts) and services matching `q` (legacy invoiceItemSearching). */
     #[Route('/admin/invoices/items', name: 'maxeme_invoice_items', methods: ['GET'], priority: 10)]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
-    public function items(Request $request, ProductPicker $products, ServiceItemRepository $services): JsonResponse
+    public function items(Request $request, ProductPicker $products, ServiceItemRepository $services, PartTaxes $partTaxes): JsonResponse
     {
         $term = trim((string) $request->query->get('q', ''));
         $type = (string) $request->query->get('type', '');
@@ -197,7 +198,7 @@ final class InvoiceController extends AbstractMaxemeController
                 $chargeThrough = ['all' => 0, 'gst' => 0, 'pst' => 0];
                 foreach ($service->getLines() as $line) {
                     if ($line->isChargeThrough()) {
-                        $tax = LineTax::ofLine($line, $serviceTax);
+                        $tax = LineTax::ofLine($line, $serviceTax, $partTaxes);
                         $chargeThrough['all'] += $line->getExtendedCents();
                         $chargeThrough['gst'] += $tax->gst ? $line->getExtendedCents() : 0;
                         $chargeThrough['pst'] += $tax->pst ? $line->getExtendedCents() : 0;

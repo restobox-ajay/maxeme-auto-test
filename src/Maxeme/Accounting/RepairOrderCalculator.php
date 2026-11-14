@@ -12,9 +12,11 @@ use App\Maxeme\Entity\RepairOrderJob;
  * A repair order's arithmetic, in whole cents:
  *
  *   subtotal     = Σ service prices + Σ their charge-through lines (qty × price per unit)
- *   charge total = Σ custom fees − Σ custom discounts (under the subtotal, above tax)
- *   GST, PST     = their rate (copied onto the repair order) of what carries that tax: each service
- *                  and charge-through line by its Tax Class (LineTax), plus the charge total
+ *   charge total = Σ custom fees − Σ custom discounts (under the subtotal, above tax); the discounts
+ *                  never more than subtotal + fees (mockup 8b30420: the total is never below zero)
+ *   GST, PST     = their rate (the repair order's own, editable in its Totals box) of what carries
+ *                  that tax: each service and charge-through line by its Tax Class (LineTax), plus the
+ *                  fees, less the discounts, never below zero (a GST-only order never gets negative PST)
  *   total        = subtotal + charge total + GST + PST
  *
  * Lines that are not charged through are advice only and add nothing.
@@ -22,7 +24,13 @@ use App\Maxeme\Entity\RepairOrderJob;
  */
 final class RepairOrderCalculator
 {
-    public function apply(RepairOrder $repairOrder): void
+    public function __construct(
+        private readonly PartTaxes $partTaxes,
+    ) {
+    }
+
+    /** @return bool false when its discounts are more than subtotal + fees, or its subtotal is below zero (the save is refused) */
+    public function apply(RepairOrder $repairOrder): bool
     {
         $subtotal = 0;
         $gstBase = 0;
@@ -36,12 +44,19 @@ final class RepairOrderCalculator
             $serviceTax = self::serviceTax($job);
             $add(Money::toCents($job->getPrice()), $serviceTax);
             foreach ($job->getChargeThroughLines() as $line) {
-                $add($line->getExtendedCents(), LineTax::ofLine($line, $serviceTax));
+                $add($line->getExtendedCents(), LineTax::ofLine($line, $serviceTax, $this->partTaxes));
             }
         }
-        $charges = array_sum(array_map(static fn (RepairOrderCharge $charge): int => $charge->getSignedCents(), $repairOrder->getCharges()));
-        $gst = Money::percentOf($gstBase + $charges, $repairOrder->getGstRate());
-        $pst = Money::percentOf($pstBase + $charges, $repairOrder->getPstRate());
+        $fees = 0;
+        $discounts = 0;
+        foreach ($repairOrder->getCharges() as $charge) {
+            $cents = $charge->getSignedCents();
+            $cents >= 0 ? $fees += $cents : $discounts -= $cents;
+        }
+        $discount = min($discounts, max(0, $subtotal + $fees));
+        $charges = $fees - $discount;
+        $gst = Money::percentOf(max(0, $gstBase + $charges), $repairOrder->getGstRate());
+        $pst = Money::percentOf(max(0, $pstBase + $charges), $repairOrder->getPstRate());
         $repairOrder->setTotals(
             Money::fromCents($subtotal),
             Money::fromCents($charges),
@@ -49,6 +64,8 @@ final class RepairOrderCalculator
             Money::fromCents($pst),
             Money::fromCents($subtotal + $charges + $gst + $pst),
         );
+
+        return $discount === $discounts && $subtotal >= 0;
     }
 
     public static function serviceTax(RepairOrderJob $job): LineTax

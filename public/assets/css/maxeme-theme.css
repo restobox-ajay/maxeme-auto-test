@@ -727,3 +727,6 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-job-work { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; background: #f6f8fb; border-bottom: 1px solid var(--line); }
 .mx-job-work label { display: inline-flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--muted, #64748b); }
 .mx-job-work select { min-width: 160px; }
+/* A repair order's own GST % / PST % in its Totals box (mockup 55f432c). */
+.mx-rate-input { width: 64px; height: 26px; padding: 2px 6px; text-align: right; }
+.mx-field-error { margin: 2px 0; color: var(--mx-danger, #b42318); font-size: 0.82rem; text-align: right; }

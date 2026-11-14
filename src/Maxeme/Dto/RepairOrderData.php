@@ -26,6 +26,8 @@ final class RepairOrderData extends FormData
         'master_technician_id' => 'masterTechnicianId',
         'name' => 'name',
         'concern' => 'concern',
+        'gst_rate' => 'gstRate',
+        'pst_rate' => 'pstRate',
     ];
 
     /** The value of the customer / vehicle select that means "the one typed in below". */
@@ -61,6 +63,17 @@ final class RepairOrderData extends FormData
     #[Assert\Length(max: 5000)]
     public ?string $concern = null;
 
+    /** This repair order's GST and PST, whole percent 0 to 100, editable in its Totals box (mockup 55f432c; 0 for none). */
+    #[Assert\NotBlank(message: 'Enter the GST rate (0 for none).')]
+    #[Assert\Regex('/^\d{1,3}$/', message: 'The GST rate is a whole percent, 0 to 100.')]
+    #[Assert\Range(min: 0, max: 100, notInRangeMessage: 'The GST rate is a whole percent, 0 to 100.')]
+    public ?string $gstRate = null;
+
+    #[Assert\NotBlank(message: 'Enter the PST rate (0 for none).')]
+    #[Assert\Regex('/^\d{1,3}$/', message: 'The PST rate is a whole percent, 0 to 100.')]
+    #[Assert\Range(min: 0, max: 100, notInRangeMessage: 'The PST rate is a whole percent, 0 to 100.')]
+    public ?string $pstRate = null;
+
     /** @return list<string> */
     public static function statuses(): array
     {
@@ -69,7 +82,11 @@ final class RepairOrderData extends FormData
 
     protected function toEntityValue(string $property, ?string $value): mixed
     {
-        return $property === 'mileageUnit' ? MileageUnit::fromValue($value) : $value;
+        return match ($property) {
+            'mileageUnit' => MileageUnit::fromValue($value),
+            'gstRate', 'pstRate' => (int) $value,
+            default => $value,
+        };
     }
 
     protected function managedElsewhere(): array

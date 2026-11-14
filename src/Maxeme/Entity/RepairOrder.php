@@ -258,6 +258,10 @@ class RepairOrder implements HasNotes
     public function getGstRate(): int { return $this->gstRate; }
     public function getPstRate(): int { return $this->pstRate; }
 
+    /** Its own GST / PST (mockup 55f432c): set from the Totals box; a new one starts at the shop's rates. */
+    public function setGstRate(int $rate): self { $this->gstRate = max(0, min(100, $rate)); return $this; }
+    public function setPstRate(int $rate): self { $this->pstRate = max(0, min(100, $rate)); return $this; }
+
     public function getSubtotal(): string { return $this->subtotal; }
     public function getChargeTotal(): string { return $this->chargeTotal; }
     public function getGst(): string { return $this->gst; }
