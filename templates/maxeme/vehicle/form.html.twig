@@ -8,7 +8,7 @@
         {% block actions %}<a class="button back-button" href="{{ back }}">Back</a>{% endblock %}
     {% endembed %}
 
-    <form method="post" id="vehicle-form" data-clients-url="{{ path('maxeme_vehicle_clients') }}">
+    <form method="post" id="vehicle-form" {% if app.request.query.get('next') %}action="{{ path(app.request.attributes.get('_route'), app.request.attributes.get('_route_params')|merge(app.request.query.all)) }}"{% endif %} data-clients-url="{{ path('maxeme_vehicle_clients') }}">
         {{ csrf_field() }}
         <section class="form-card">
             <div class="form-grid inline-form-grid mx-form-two">

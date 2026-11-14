@@ -148,6 +148,13 @@ class Client implements SoftDeletable, HasNotes
         $this->touch();
     }
 
+    /** Back in every list and search (Reactivate on the inactive client's profile). */
+    public function reactivate(): void
+    {
+        $this->active = true;
+        $this->touch();
+    }
+
     public function getLastUpdated(): \DateTimeImmutable { return $this->lastUpdated; }
 
     public function touch(?\DateTimeImmutable $at = null): void

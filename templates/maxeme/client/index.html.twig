@@ -97,16 +97,31 @@
                 <form id="manageAddForm" method="post" action="{{ path('maxeme_client_create') }}">
                     {{ csrf_field() }}
                     {{ mx.return_field() }}
+                    {% if app.request.query.get('next') %}<input type="hidden" name="next" value="{{ app.request.query.get('next') }}">{% endif %}
                     <div class="mx-modal-body form-grid inline-form-grid">
                         {% include 'maxeme/client/_fields.html.twig' with { data: null } only %}
                     </div>
                     <div class="mx-modal-foot">
                         <button id="manageAddModalCancel" class="button outline js-modal-close" type="button">Cancel</button>
+                        {% if is_granted('/car/edit') %}<button id="manageAddSaveVehicle" class="button outline" type="submit" name="then" value="vehicle">Save and add vehicle</button>{% endif %}
                         <button id="manageAddSubmit" class="button primary" type="submit">Save</button>
                     </div>
                 </form>
             </div>
         </div>
+        {% if app.request.query.get('add') %}
+            <script>
+                /* From Choose a client's "+ Create new client" (mockup 258fdc2): open the form, filled from the typed words. */
+                window.addEventListener('load', function () {
+                    var q = {{ (app.request.query.get('q') ?? '')|json_encode|raw }}.trim(), form = document.getElementById('manageAddForm');
+                    if (q !== '') {
+                        if (/^[\d\s().+-]{7,}$/.test(q)) { form.elements.phone_1.value = q; }
+                        else { var words = q.split(/\s+/); form.elements.first_name.value = words[0]; form.elements.last_name.value = words.slice(1).join(' '); }
+                    }
+                    document.getElementById('manageAddButton').click();
+                });
+            </script>
+        {% endif %}
 
         <div class="admin-modal-overlay" id="manageEditModal" role="dialog" aria-modal="true" aria-labelledby="manageEditModalLabel">
             <div class="admin-modal mx-modal-wide mx-modal-sectioned">

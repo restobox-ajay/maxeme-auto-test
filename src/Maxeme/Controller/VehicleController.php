@@ -9,6 +9,7 @@ use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Dto\VehicleData;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Enum\ClientPickPurpose;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
@@ -214,8 +215,14 @@ final class VehicleController extends AbstractMaxemeController
                 } elseif ($vehicle->getClient() !== $client) {
                     $vehicle->assignTo($client);
                 }
+                $isNew = $vehicle->getId() === null;
                 $this->records->save($vehicle, $data);
                 $this->addFlash('success', sprintf('%s saved.', $vehicle->getFullName() ?: 'Vehicle'));
+                // The create-client flow (mockup 8b7138d): carry on to what was being made, with this client and vehicle.
+                $next = $isNew ? ClientPickPurpose::tryFrom((string) $request->query->get('next', '')) : null;
+                if ($next !== null && $this->isGranted($next->permission())) {
+                    return $this->redirectToRoute($next->route(), ['id' => $client->getId()] + ($next === ClientPickPurpose::Reminder ? [] : ['vehicle' => $vehicle->getId()]));
+                }
 
                 return $this->redirectToRoute('maxeme_vehicle_show', ['id' => $vehicle->getId()]);
             }

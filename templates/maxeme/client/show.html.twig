@@ -5,6 +5,13 @@
     {% set canManage = is_granted('/people/edit') %}
     {% set canManageVehicles = is_granted('/car/edit') %}
 
+    {% if not client.active %}
+        {# Inactive (audit fix 34181b0): hidden from the Client List and searches; can be brought back. #}
+        <div class="mx-alert mx-alert-warn" id="client-inactive" role="status">
+            <div><span class="badge warn">Inactive</span> <strong>This client is inactive:</strong> they do not appear in the Client List or the searches. Their history is kept.</div>
+            {% if canManage %}<form method="post" action="{{ path('maxeme_client_reactivate', { id: client.id }) }}">{{ csrf_field() }}<button class="button mx-success" type="submit">Reactivate</button></form>{% endif %}
+        </div>
+    {% endif %}
     <section class="panel compact-panel">
         <div class="panel-title-row">
             <div>

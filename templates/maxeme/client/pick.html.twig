@@ -5,7 +5,10 @@
 {% block admin_body %}
     {% set param = constant('App\\Maxeme\\Listing\\SearchTerm::PARAM') %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: for.eyebrow, title: for.title, lead: 'Choose the client first: search by name, preferred name, phone, address or invoice #.' } %}
-        {% block actions %}<a class="button back-button" href="{{ path('maxeme_home') }}">Back</a>{% endblock %}
+        {% block actions %}
+            {% if is_granted('/people/edit') %}<a class="button mx-success" id="pick-new-client" href="{{ path('maxeme_client_index', { add: 1, next: for.value }) }}">+ Create new client</a>{% endif %}
+            <a class="button back-button" href="{{ path('maxeme_home') }}">Back</a>
+        {% endblock %}
     {% endembed %}
 
     <section class="panel compact-panel">
@@ -41,7 +44,10 @@
                             <td data-label="Actions"><a class="button primary mx-btn-sm" href="{{ path(for.route, { id: client.id }) }}">Choose</a></td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="6" class="empty-table-cell">No clients match.</td></tr>
+                        <tr><td colspan="6" class="empty-table-cell">
+                            <strong>No clients match{{ find.text ? ' "' ~ find.text ~ '"' }}.</strong>
+                            {% if is_granted('/people/edit') %}<div style="margin-top:8px"><a class="button mx-success" href="{{ path('maxeme_client_index', { add: 1, next: for.value, q: find.text }) }}">+ Create new client{{ find.text ? ' "' ~ find.text ~ '"' }}</a></div>{% endif %}
+                        </td></tr>
                     {% endfor %}
                 </tbody>
             </table>

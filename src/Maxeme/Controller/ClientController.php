@@ -8,6 +8,7 @@ use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Dto\ClientData;
 use App\Maxeme\Entity\Client;
+use App\Maxeme\Enum\ClientPickPurpose;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ListQuery;
@@ -20,6 +21,7 @@ use App\Maxeme\Repository\VehicleRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -117,6 +119,33 @@ final class ClientController extends AbstractMaxemeController
 
         $this->records->save($client = new Client(), $data);
 
+        // Created from Choose a client (mockup 258fdc2): carry on to what was being made, for this client;
+        // "Save and add vehicle" (mockup 8b7138d) adds a vehicle first, then carries on.
+        $next = ClientPickPurpose::tryFrom((string) $request->request->get('next', ''));
+        $next = $next !== null && $this->isGranted($next->permission()) ? $next : null;
+        if ($request->request->get('then') === 'vehicle' && $this->isGranted(Permission::CAR_EDIT)) {
+            $this->addFlash('success', sprintf('%s added. Now add their vehicle.', $client->getFullName()));
+
+            return $this->redirectToRoute('maxeme_vehicle_new', ['client' => $client->getId()] + ($next !== null ? ['next' => $next->value] : []));
+        }
+        if ($next !== null) {
+            $this->addFlash('success', sprintf('%s added.', $client->getFullName()));
+
+            return $this->redirectToRoute($next->route(), ['id' => $client->getId()]);
+        }
+
+        return $this->redirectToRoute('maxeme_client_show', ['id' => $client->getId()]);
+    }
+
+    /** An inactive client's profile › Reactivate: back in the Client List and every search. */
+    #[Route('/{id}/reactivate', name: 'reactivate', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::PEOPLE_EDIT)]
+    public function reactivate(#[MapEntity] Client $client, EntityManagerInterface $entityManager): Response
+    {
+        $client->reactivate();
+        $entityManager->flush();
+        $this->addFlash('success', sprintf('%s is active again.', $client->getFullName()));
+
         return $this->redirectToRoute('maxeme_client_show', ['id' => $client->getId()]);
     }
 
@@ -175,7 +204,7 @@ final class ClientController extends AbstractMaxemeController
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
     public function show(#[MapEntity] Client $client, Request $request, VehicleRepository $vehicles, AppointmentRepository $appointments, InvoiceRepository $invoices, RepairOrderRepository $repairOrders): Response
     {
-        $this->denyUnlessActive($client);
+        // An inactive client's profile still opens, with a banner and Reactivate (audit fix 34181b0).
         $tab = ClientProfileTab::fromRequest($request);
 
         // Only the open tab's list: the tabs share the URL's sort / page parameters.
