@@ -39,7 +39,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 8ef5e05 | Unit of measure L (Litre) | done 2b53d29 | P1 |
 | 1cb62e9 | Movement History date filters stacked | done 2b53d29 | P1 |
 | 41ebdc0 | Stock Adjustment as one form (product, qty, ref, note, when, location, reason) | todo | P8 |
-| 38af4be | Document action bar: own actions first, then PDF, then other documents | done (4c; the other documents moved to the switcher per 345c037) | P4 |
+| 38af4be | Document action bar: own actions first, then PDF, then other documents | done 139c22b (the other documents moved to the switcher per 345c037) | P4 |
 | 9f94e48 | Slim scrollbars without arrows (Firefox fallback) | done 2b53d29 | P1 |
 | 8c0ad56 | Board columns = exactly the 9 RO statuses (Cancelled included), help text per column | done cf7874a | P4 |
 | 551ab32 | Extended only after arrival; RO list Appointment Status column + filter; client tab "Work Orders" → "Repair Orders" | done 2b53d29 | P3 |
@@ -47,7 +47,7 @@ Status: **todo** · **partial** (some of it already in main) · **done** (ported
 | 7bd9227 | Board filtered by appointment date (default today); stock reason "Purchase" first | partial — board cf7874a; Purchase reason P8 | P8 |
 | e0fde70 | Client profile: 4-col form, Address Book tab, Appointments card, RO + $ columns; Movement History product type-ahead, lot/serial columns removed; "Book Appointment" | partial — client profile part done 2b53d29; Movement History part left | P8 |
 | d3375af | RO form: Tag/Key under Odometer, no extra Status label | done 2b53d29 | P1 |
-| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line ae378a1; one-row header + switcher + More menu (4c); WO five-line rows already in 2b53d29; left: dashboard, payments (P10), role badges (P7) | P7/P10 |
+| 345c037 | Dashboard landing page; multiple payments per invoice (auto Paid); one-row document header switcher; quote status line; WO row height; role matrix View/Create/Edit badges | partial — quote status line ae378a1; one-row header + switcher + More menu 139c22b; WO five-line rows already in 2b53d29; left: dashboard, payments (P10), role badges (P7) | P7/P10 |
 | 2371126 | RO appointment rows: Duration (h), default 2 h, labelled fields | done 2b53d29 | P3 |
 | 0a4baef | "Out of date" badge + Sync Repair Order on an unpaid invoice | todo | P10 |
 | 6611dd0 | Restricted issued-invoice edit (qty down only, paid = locked); partial invoicing (Ordered/Charged/Remaining) | todo | P10 |
