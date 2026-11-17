@@ -94,10 +94,7 @@
                                             {% endif %}
                                             <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit</a>
                                             {% if appointment.status.value != 'complete' %}
-                                                <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#appt_{{ appointment.id }}"
-                                                        data-url="{{ path('maxeme_appointment_delete', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}"
-                                                        data-confirm-title="Delete Confirmation" data-confirm-before="Delete the appointment on "
-                                                        data-item="{{ appointment.startTime|date('m/d/Y g:i A') }}" data-confirm-after="?">Delete</button>
+                                                {{ mx.delete_button(path('maxeme_appointment_delete', { id: appointment.id }), '#appt_' ~ appointment.id, appointment.startTime|date('m/d/Y g:i A'), '', 'Delete the appointment on ') }}
                                             {% endif %}
                                         {% endif %}
                                     </div>

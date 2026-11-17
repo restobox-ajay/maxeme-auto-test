@@ -39,13 +39,7 @@
                                     <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#addressEditModal"
                                             data-form-action="{{ path('maxeme_client_address_update', { id: client.id, addressId: address.id }) }}"
                                             data-form-values="{{ form_values(address)|json_encode }}">Edit</button>
-                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#address_{{ address.id }}"
-                                            data-url="{{ path('maxeme_client_address_delete', { id: client.id, addressId: address.id }) }}"
-                                            data-token="{{ csrf_token_value() }}"
-                                            data-confirm-title="Delete Confirmation"
-                                            data-confirm-before="Are you sure you want to delete "
-                                            data-item="{{ address.oneLine }}"
-                                            data-confirm-after="?">Delete</button>
+                                    {{ mx.delete_button(path('maxeme_client_address_delete', { id: client.id, addressId: address.id }), '#address_' ~ address.id, address.oneLine) }}
                                     {% if not loop.first %}
                                         <button type="button" class="js-post-action" data-reload
                                                 data-url="{{ path('maxeme_client_address_reorder', { id: client.id }) }}"

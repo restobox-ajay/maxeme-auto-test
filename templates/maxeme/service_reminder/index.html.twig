@@ -35,13 +35,7 @@
                                         <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#reminderEditModal"
                                                 data-form-action="{{ path('maxeme_service_reminder_update', { id: reminder.id }) }}"
                                                 data-form-values="{{ form_values(reminder)|json_encode }}">Edit</button>
-                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#service_reminder_{{ reminder.id }}"
-                                                data-url="{{ path('maxeme_service_reminder_delete', { id: reminder.id }) }}"
-                                                data-token="{{ csrf_token_value() }}"
-                                                data-confirm-title="Delete Confirmation"
-                                                data-confirm-before="Are you sure you want to delete the service reminder for "
-                                                data-item="{{ reminder.service.name }}"
-                                                data-confirm-after="?">Delete</button>
+                                        {{ mx.delete_button(path('maxeme_service_reminder_delete', { id: reminder.id }), '#service_reminder_' ~ reminder.id, reminder.service.name, '', 'Are you sure you want to delete the service reminder for ') }}
                                     {% endif %}
                                     {{ mx.logs_link(reminder) }}
                                 </div>

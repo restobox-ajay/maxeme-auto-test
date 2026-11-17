@@ -28,13 +28,7 @@
                                 <div class="mx-actions">
                                     {% if canManage %}
                                         <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_reminder_template_edit', { id: template.id }) }}">Edit</a>
-                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#template_{{ template.id }}"
-                                                data-url="{{ path('maxeme_service_reminder_template_delete', { id: template.id }) }}"
-                                                data-token="{{ csrf_token_value() }}"
-                                                data-confirm-title="Delete Confirmation"
-                                                data-confirm-before="Are you sure you want to delete "
-                                                data-item="{{ template.name }}"
-                                                data-confirm-after="?">Delete</button>
+                                        {{ mx.delete_button(path('maxeme_service_reminder_template_delete', { id: template.id }), '#template_' ~ template.id, template.name) }}
                                     {% endif %}
                                     {{ mx.logs_link(template) }}
                                 </div>

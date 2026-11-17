@@ -22,13 +22,7 @@
                             <td data-label="Actions">
                                 <div class="mx-actions">
                                     <button type="button" class="button mx-btn-sm mx-success js-note-edit">Edit</button>
-                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#note_{{ note.id }}"
-                                            data-url="{{ path(deleteRoute, routeParams|merge({ noteId: note.id })) }}"
-                                            data-token="{{ csrf_token_value() }}"
-                                            data-confirm-title="Delete Confirmation"
-                                            data-confirm-before="Are you sure you want to delete "
-                                            data-item="this note"
-                                            data-confirm-after="?">Delete</button>
+                                    {{ mx.delete_button(path(deleteRoute, routeParams|merge({ noteId: note.id })), '#note_' ~ note.id, 'this note') }}
                                     {{ mx.logs_link(note) }}
                                 </div>
                             </td>

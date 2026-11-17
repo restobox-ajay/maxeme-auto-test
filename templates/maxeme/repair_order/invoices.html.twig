@@ -59,13 +59,7 @@
                                     {% if is_granted('/accounting/edit') %}
                                         <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_invoice_edit', { invoiceKey: invoice.invoiceKey }) }}">Edit</a>
                                         {% if invoice.issuedFromRepairOrder and not invoice.paid %}
-                                            <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#invoice_{{ invoice.id }}"
-                                                    data-url="{{ path('maxeme_invoice_issued_delete', { invoiceKey: invoice.invoiceKey }) }}"
-                                                    data-token="{{ csrf_token_value() }}"
-                                                    data-confirm-title="Delete Confirmation"
-                                                    data-confirm-before="Delete invoice "
-                                                    data-item="{{ doc_number(invoice) }}"
-                                                    data-confirm-after="?">Delete</button>
+                                            {{ mx.delete_button(path('maxeme_invoice_issued_delete', { invoiceKey: invoice.invoiceKey }), '#invoice_' ~ invoice.id, doc_number(invoice), '', 'Delete invoice ') }}
                                         {% endif %}
                                     {% endif %}
                                     {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}

@@ -136,13 +136,7 @@
                                         <div class="mx-actions">
                                                 <a class="button mx-btn-sm primary" href="{{ path('maxeme_vehicle_show', { id: vehicle.id }) }}">View</a>
                                                 <a class="button mx-btn-sm mx-success edit_client_vehicle" href="{{ path('maxeme_vehicle_edit', { id: vehicle.id }) }}">Edit</a>
-                                                <button type="button" class="button mx-btn-sm danger delete_client_vehicle js-post-action" data-remove-row="#row_{{ vehicle.id }}"
-                                                        data-url="{{ path('maxeme_vehicle_delete', { id: vehicle.id }) }}"
-                                                        data-token="{{ csrf_token_value() }}"
-                                                        data-confirm-title="Delete Confirmation"
-                                                        data-confirm-before="Are you sure you want to delete "
-                                                        data-item="{{ vehicle.fullName }}"
-                                                        data-confirm-after="?">Delete</button>
+                                                {{ mx.delete_button(path('maxeme_vehicle_delete', { id: vehicle.id }), '#row_' ~ vehicle.id, vehicle.fullName, 'delete_client_vehicle') }}
                                             {{ mx.logs_link(vehicle) }}
                                         </div>
                                     </td>

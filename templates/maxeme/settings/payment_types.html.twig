@@ -20,13 +20,7 @@
                                     <button type="button" class="button mx-btn-sm mx-success" data-modal-open="#manageEditModal"
                                             data-form-action="{{ path('maxeme_settings_payment_type_update', { id: type.id }) }}"
                                             data-form-values="{{ form_values(type)|json_encode }}">Edit</button>
-                                    <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ type.id }}"
-                                            data-url="{{ path('maxeme_settings_payment_type_delete', { id: type.id }) }}"
-                                            data-token="{{ csrf_token_value() }}"
-                                            data-confirm-title="Delete Confirmation"
-                                            data-confirm-before="Are you sure you want to delete "
-                                            data-item="{{ type.name }}"
-                                            data-confirm-after="?">Delete</button>
+                                    {{ mx.delete_button(path('maxeme_settings_payment_type_delete', { id: type.id }), '#row_' ~ type.id, type.name) }}
                                     {{ mx.logs_link(type) }}
                                 </div>
                             </td>

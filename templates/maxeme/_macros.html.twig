@@ -42,6 +42,18 @@
     </div>
 {%- endmacro %}
 
+{# A row's Delete button: asks "Are you sure you want to delete <item>?", posts to url with the CSRF
+   token (maxeme.js .js-post-action) and removes the row (removeRow, a CSS selector) when it worked. #}
+{% macro delete_button(url, removeRow, item, extraClass = '', before = 'Are you sure you want to delete ') -%}
+    <button type="button" class="button mx-btn-sm danger {{ extraClass ? extraClass ~ ' ' }}js-post-action" data-remove-row="{{ removeRow }}"
+            data-url="{{ url }}"
+            data-token="{{ csrf_token_value() }}"
+            data-confirm-title="Delete Confirmation"
+            data-confirm-before="{{ before }}"
+            data-item="{{ item }}"
+            data-confirm-after="?">Delete</button>
+{%- endmacro %}
+
 {# A dollar amount (decimal string or null) shown with two decimals; blank when there is none.
    Core's |amount filter (DisplayNumber) is the one money format; this name stays for the call sites. #}
 {% macro money(value) -%}

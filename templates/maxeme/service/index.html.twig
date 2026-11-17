@@ -50,13 +50,7 @@
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
                                         <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_edit', { id: service.id, _return: app.request.requestUri }) }}">Edit</a>
-                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#row_{{ service.id }}"
-                                                data-url="{{ path('maxeme_service_delete', { id: service.id }) }}"
-                                                data-token="{{ csrf_token_value() }}"
-                                                data-confirm-title="Delete Confirmation"
-                                                data-confirm-before="Are you sure you want to delete "
-                                                data-item="{{ service.name }}"
-                                                data-confirm-after="?">Delete</button>
+                                        {{ mx.delete_button(path('maxeme_service_delete', { id: service.id }), '#row_' ~ service.id, service.name) }}
                                     {{ mx.logs_link(service) }}
                                 </div>
                             </td>

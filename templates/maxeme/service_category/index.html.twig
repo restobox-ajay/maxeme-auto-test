@@ -51,13 +51,7 @@
                                 <div class="mx-actions">
                                     {% if canManage %}
                                         <a class="button mx-btn-sm mx-success" href="{{ path('maxeme_service_category_edit', { id: category.id }) }}">Edit</a>
-                                        <button type="button" class="button mx-btn-sm danger js-post-action" data-remove-row="#category_{{ category.id }}"
-                                                data-url="{{ path('maxeme_service_category_delete', { id: category.id }) }}"
-                                                data-token="{{ csrf_token_value() }}"
-                                                data-confirm-title="Delete Confirmation"
-                                                data-confirm-before="Are you sure you want to delete "
-                                                data-item="{{ category.path }}"
-                                                data-confirm-after="?">Delete</button>
+                                        {{ mx.delete_button(path('maxeme_service_category_delete', { id: category.id }), '#category_' ~ category.id, category.path) }}
                                     {% endif %}
                                     {{ mx.logs_link(category) }}
                                 </div>
