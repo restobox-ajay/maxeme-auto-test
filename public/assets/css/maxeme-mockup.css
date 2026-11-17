@@ -8,3 +8,31 @@
 /* T1 Top bar: "Group › Page" breadcrumb on the left, user menu on the right. */
 .admin-content-header { justify-content: space-between; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; }
 .admin-content-header .mx-crumb { font-size: 0.75rem; color: #6b7280; }
+
+/* T2 Sidebar: blue highlight on the current page, mockup item sizes, brand block, searches, and the
+   "‹ Collapse" label. Desktop only; the phone menu keeps its own look. */
+@media (min-width: 981px) {
+    .site-admin .brand { padding: 12px 14px; }
+    .site-admin .brand-copy { color: #fff; font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
+    .site-admin .brand-copy small { color: #fff; opacity: .85; font-size: .68rem; font-weight: 400; letter-spacing: .08em; margin-top: 2px; }
+    .site-admin .nav .nav-group-title { font-size: .8125rem; font-weight: 500; color: #181c2e; border: 0; border-radius: 0; padding: 7px 12px; }
+    .site-admin .nav a.nav-sub { font-size: .78rem; font-weight: 400; color: #333; border: 0; border-radius: 0; min-height: 0; padding: 4px 12px 4px 38px; }
+    .site-admin .nav a.nav-sub:hover { background: #e2e2e2; }
+    .site-admin .nav a.nav-sub.is-current,
+    .site-admin .nav-sub.is-current { background: #428bca !important; color: #fff !important; font-weight: 600; }
+    .site-admin .nav a.nav-sub.is-current:hover { background: #3071a9 !important; }
+    .mx-side-search { padding: 10px 12px 14px; }
+    .mx-side-search h5 { font-size: .68rem; margin-bottom: 3px; }
+    .mx-side-search form + form { margin-top: 9px; }
+    .mx-side-field { border-color: #ccc; }
+    .mx-side-field input { padding: 5px 8px; font-size: .78rem; }
+    .mx-side-search .mx-side-go { flex-basis: 34px; width: 34px; border-radius: 0; }
+    .site-admin .sidebar-collapse-toggle { justify-content: flex-start; gap: 4px; padding: 6px 12px; font-size: .75rem; color: #555; }
+    .site-admin .sidebar-collapse-toggle[aria-expanded="true"]::after { content: "Collapse"; }
+    /* Rows run edge to edge like the mockup; the add icon floats over the right end of its row. */
+    .site-admin .nav { padding-left: 0; padding-right: 0; }
+    .site-admin .nav-sub-row { position: relative; margin: 0; }
+    .site-admin .nav-sub-row > a.nav-affordance { position: absolute; right: 8px; margin: 0; }
+    .site-admin .nav-sub-row > a.nav-sub.is-current + a.nav-affordance { color: #fff; }
+    .mx-side-search { margin-left: 0; margin-right: 0; }
+}
