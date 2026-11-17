@@ -227,3 +227,11 @@
 .product-image-field .field-label { text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; font-weight: 700; color: #6b7280; }
 .product-image-field .image-dropzone-inner { min-height: 0; padding: 14px; }
 .product-image-field .image-dropzone-inner svg, .product-image-field .image-dropzone-inner .dropzone-icon { display: none; }
+
+/* P19 Invoice remark: the text, then a small blue "Add remark" / "Edit remark" link that opens the box
+   (mockup), in a white card above the invoice. */
+.site-admin .content-frame .mx-remark-card { background: #fff !important; border: 1.5px solid #e5e7eb !important; border-radius: 12px !important; padding: 10px 14px !important; margin-bottom: 12px; }
+.mx-remark-text-block { white-space: pre-wrap; margin-top: 4px; }
+.mx-remark-edit-toggle > summary { display: inline-block; cursor: pointer; font-size: .8rem; color: #428bca; list-style: none; }
+.mx-remark-edit-toggle > summary::-webkit-details-marker { display: none; }
+.mx-remark-edit-toggle[open] > summary { margin-bottom: 6px; }
