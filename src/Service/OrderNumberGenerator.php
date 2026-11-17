@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 /**
  * Single source of truth for the next "<prefix><n>" order number, shared by
  * the admin and customer order-creation flows. Was previously duplicated
@@ -28,25 +26,12 @@ use Doctrine\ORM\EntityManagerInterface;
  * pre-configurable `sprintf('HD%d', ...)` implementation that never got
  * revisited to a Sales-Order-shaped default on a fresh instance.
  */
-final class OrderNumberGenerator
+final class OrderNumberGenerator extends AbstractDocumentNumberGenerator
 {
     public const DEFAULT_PREFIX = 'SO-';
 
-    public function __construct(
-        private readonly AppSettings $appSettings,
-        private readonly DocumentNumberAllocator $allocator,
-    ) {
-    }
-
-    public function next(EntityManagerInterface $entityManager): string
-    {
-        $prefix = trim((string) $this->appSettings->get('order_number_prefix', self::DEFAULT_PREFIX));
-        if ($prefix === '') {
-            $prefix = self::DEFAULT_PREFIX;
-        }
-
-        $next = $this->allocator->next($entityManager, 'order', $prefix, 'sales_order', 'order_number');
-
-        return sprintf('%s%d', $prefix, $next);
-    }
+    protected const PREFIX_SETTING = 'order_number_prefix';
+    protected const KIND = 'order';
+    protected const TABLE = 'sales_order';
+    protected const COLUMN = 'order_number';
 }

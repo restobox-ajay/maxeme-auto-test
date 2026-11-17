@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 /**
  * Same shape as OrderNumberGenerator and EstimateNumberGenerator, scoped to the invoice table and
  * the invoice_number_prefix setting (#539).
@@ -22,25 +20,11 @@ use Doctrine\ORM\EntityManagerInterface;
  * A cancelled invoice keeps its number and is never deleted, and the allocator only ever
  * increments, so the sequence has no holes an auditor would have to ask about.
  */
-final class InvoiceNumberGenerator
+final class InvoiceNumberGenerator extends AbstractDocumentNumberGenerator
 {
     public const DEFAULT_PREFIX = 'INV-';
 
-    public function __construct(
-        private readonly AppSettings $appSettings,
-        private readonly DocumentNumberAllocator $allocator,
-    ) {
-    }
-
-    public function next(EntityManagerInterface $entityManager): string
-    {
-        $prefix = trim((string) $this->appSettings->get('invoice_number_prefix', self::DEFAULT_PREFIX));
-        if ($prefix === '') {
-            $prefix = self::DEFAULT_PREFIX;
-        }
-
-        $next = $this->allocator->next($entityManager, 'invoice', $prefix, 'invoice', 'document_number');
-
-        return sprintf('%s%d', $prefix, $next);
-    }
+    protected const PREFIX_SETTING = 'invoice_number_prefix';
+    protected const KIND = 'invoice';
+    protected const TABLE = 'invoice';
 }

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 /**
  * Same shape as OrderNumberGenerator, EstimateNumberGenerator and InvoiceNumberGenerator, scoped to
  * the credit_memo table and the credit_memo_number_prefix setting (#586).
@@ -32,7 +30,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * is declared by CoreDocumentPrefixProvider and DEFAULT_PREFIX below is the single copy of its
  * default.
  */
-final class CreditMemoNumberGenerator
+final class CreditMemoNumberGenerator extends AbstractDocumentNumberGenerator
 {
     /**
      * 'CN-' for Credit Note, matching the language Zoho Books uses and the language #586 uses
@@ -40,21 +38,7 @@ final class CreditMemoNumberGenerator
      */
     public const DEFAULT_PREFIX = 'CN-';
 
-    public function __construct(
-        private readonly AppSettings $appSettings,
-        private readonly DocumentNumberAllocator $allocator,
-    ) {
-    }
-
-    public function next(EntityManagerInterface $entityManager): string
-    {
-        $prefix = trim((string) $this->appSettings->get('credit_memo_number_prefix', self::DEFAULT_PREFIX));
-        if ($prefix === '') {
-            $prefix = self::DEFAULT_PREFIX;
-        }
-
-        $next = $this->allocator->next($entityManager, 'credit_memo', $prefix, 'credit_memo', 'document_number');
-
-        return sprintf('%s%d', $prefix, $next);
-    }
+    protected const PREFIX_SETTING = 'credit_memo_number_prefix';
+    protected const KIND = 'credit_memo';
+    protected const TABLE = 'credit_memo';
 }

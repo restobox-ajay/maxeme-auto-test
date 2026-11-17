@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 /**
  * Same shape as OrderNumberGenerator, EstimateNumberGenerator, InvoiceNumberGenerator and
  * CreditMemoNumberGenerator, scoped to the `sales_return` table and the `sales_return_number_prefix`
@@ -31,7 +29,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * exposed together, as this docblock anticipated. The prefix is declared by
  * CoreDocumentPrefixProvider and DEFAULT_PREFIX below is the single copy of its default.
  */
-final class SalesReturnNumberGenerator
+final class SalesReturnNumberGenerator extends AbstractDocumentNumberGenerator
 {
     /**
      * 'RMA-', which is what the trade calls this document and what a customer will expect to see on
@@ -39,21 +37,7 @@ final class SalesReturnNumberGenerator
      */
     public const DEFAULT_PREFIX = 'RMA-';
 
-    public function __construct(
-        private readonly AppSettings $appSettings,
-        private readonly DocumentNumberAllocator $allocator,
-    ) {
-    }
-
-    public function next(EntityManagerInterface $entityManager): string
-    {
-        $prefix = trim((string) $this->appSettings->get('sales_return_number_prefix', self::DEFAULT_PREFIX));
-        if ($prefix === '') {
-            $prefix = self::DEFAULT_PREFIX;
-        }
-
-        $next = $this->allocator->next($entityManager, 'sales_return', $prefix, 'sales_return', 'document_number');
-
-        return sprintf('%s%d', $prefix, $next);
-    }
+    protected const PREFIX_SETTING = 'sales_return_number_prefix';
+    protected const KIND = 'sales_return';
+    protected const TABLE = 'sales_return';
 }
