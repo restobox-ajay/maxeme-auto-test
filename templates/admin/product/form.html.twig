@@ -84,13 +84,13 @@
                 <h1>{{ mode }} Product</h1>
             </div>
             <div class="panel-actions">
+                <a class="button back-button" href="{{ app.request.query.get('redirect') ? path(app.request.query.get('redirect')) : path('admin_product_detail_index') }}">Back</a>
                 {# P18 (mockup): Logs and Delete beside Back on a saved product. #}
                 {% if mode == 'Update' and product.id %}
                     {% if is_granted('/log/view') %}<a class="button outline" href="{{ path('maxeme_activity_log_index', { record: 'ProductCore', id: product.id }) }}">Logs</a>{% endif %}
                     <button type="button" class="button danger js-post-action" data-url="{{ path('admin_product_delete', { id: product.id }) }}" data-token="{{ csrf_token_value() }}"
                             data-redirect="{{ path('admin_product_detail_index') }}" data-confirm-title="Delete Confirmation" data-confirm-before="Delete the product " data-item="{{ product.name|default('') }}" data-confirm-after="?">Delete</button>
                 {% endif %}
-                <a class="button back-button" href="{{ app.request.query.get('redirect') ? path(app.request.query.get('redirect')) : path('admin_product_detail_index') }}">Back</a>
             </div>
         </div>
     </section>
