@@ -105,3 +105,8 @@
 
 /* T8 Form buttons: Cancel / Save sit at the bottom right, as in the mockup's .form-actions. */
 .site-admin .content-frame .form-actions:not(.inline-form-grid > .form-actions) { justify-content: flex-end; gap: 6px; }
+
+/* T9 Form labels above their fields (the mockup's .field), with the hint in small grey beside the
+   label text, instead of a 170px label column on the left. */
+.site-admin .form-grid:not(.address-form-grid):not(.product-form-grid):not(.inline-form-grid) > label:not(.check-row):not(.radio-choice):not(.file-upload-label):not(.note-modal-field):not(.rich-text-field) { grid-template-columns: minmax(0, 1fr); row-gap: 4px; align-items: start; font-size: .78rem; font-weight: 600; color: #374151; }
+.site-admin .form-grid:not(.inline-form-grid) > label > span > small.muted-line, .site-admin .form-grid label > span small, .site-admin .form-grid label > span .muted-line { display: inline; margin: 0 0 0 3px; font-weight: 400; color: #6b7280; font-size: .72rem; }
