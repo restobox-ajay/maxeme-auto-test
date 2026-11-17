@@ -268,3 +268,8 @@
 .site-admin .content-frame .form-card input[type="number"],
 .site-admin .content-frame .form-card input[type="date"],
 .site-admin .content-frame .form-card select { min-height: 36px; }
+
+/* P21 Filter bars in a card: the report / board / reminders date bar and the Activity Log filters sit
+   in a white rounded card, as in the mockup. */
+.site-admin .content-frame .mx-report-query { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px 18px; margin: 14px 18px 10px; }
+.site-admin .content-frame .panel.compact-panel:has(> .mx-log-filters) { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; }
