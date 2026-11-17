@@ -690,7 +690,7 @@ final class ConfigController extends AbstractAdminController
                     $filename = bin2hex(random_bytes(10)) . '.' . ($logoFile->guessExtension() ?? 'png');
                     $logoFile->move($uploadDir, $filename);
 
-                    $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $logoUrl;
+                    $oldPath = $this->brandingUploadPath($logoUrl);
                     if ($logoUrl !== '' && is_file($oldPath)) {
                         @unlink($oldPath);
                     }
@@ -698,7 +698,7 @@ final class ConfigController extends AbstractAdminController
                     $logoUrl = '/uploads/branding/' . $filename;
                 }
             } elseif ($request->request->getBoolean('remove_logo') && $logoUrl !== '') {
-                $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $logoUrl;
+                $oldPath = $this->brandingUploadPath($logoUrl);
                 if (is_file($oldPath)) {
                     @unlink($oldPath);
                 }
@@ -726,7 +726,7 @@ final class ConfigController extends AbstractAdminController
                     $filename = bin2hex(random_bytes(10)) . '.' . ($faviconFile->guessExtension() ?? 'ico');
                     $faviconFile->move($uploadDir, $filename);
 
-                    $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $faviconUrl;
+                    $oldPath = $this->brandingUploadPath($faviconUrl);
                     if ($faviconUrl !== '' && is_file($oldPath)) {
                         @unlink($oldPath);
                     }
@@ -734,7 +734,7 @@ final class ConfigController extends AbstractAdminController
                     $faviconUrl = '/uploads/branding/' . $filename;
                 }
             } elseif ($request->request->getBoolean('remove_favicon') && $faviconUrl !== '') {
-                $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $faviconUrl;
+                $oldPath = $this->brandingUploadPath($faviconUrl);
                 if (is_file($oldPath)) {
                     @unlink($oldPath);
                 }
@@ -760,7 +760,7 @@ final class ConfigController extends AbstractAdminController
                     $filename = bin2hex(random_bytes(10)) . '.' . ($placeholderFile->guessExtension() ?? 'png');
                     $placeholderFile->move($uploadDir, $filename);
 
-                    $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $productImagePlaceholderUrl;
+                    $oldPath = $this->brandingUploadPath($productImagePlaceholderUrl);
                     if ($productImagePlaceholderUrl !== '' && is_file($oldPath)) {
                         @unlink($oldPath);
                     }
@@ -768,7 +768,7 @@ final class ConfigController extends AbstractAdminController
                     $productImagePlaceholderUrl = '/uploads/branding/' . $filename;
                 }
             } elseif ($request->request->getBoolean('remove_product_image_placeholder') && $productImagePlaceholderUrl !== '') {
-                $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $productImagePlaceholderUrl;
+                $oldPath = $this->brandingUploadPath($productImagePlaceholderUrl);
                 if (is_file($oldPath)) {
                     @unlink($oldPath);
                 }
@@ -3189,5 +3189,22 @@ final class ConfigController extends AbstractAdminController
         sort($names);
 
         return $names;
+    }
+
+    /**
+     * The file behind a stored logo/favicon/placeholder URL, or '' when the URL is not one this page
+     * uploaded. The URL is a setting that can also be edited as free text on the settings list, so
+     * it must never steer unlink() outside public/uploads/branding/ (e.g. "/../.env.local.php").
+     */
+    private function brandingUploadPath(string $url): string
+    {
+        if (preg_match('#^/uploads/branding/[a-f0-9]{20}\.[a-z0-9]{2,5}$#', $url) !== 1) {
+            return '';
+        }
+
+        $directory = realpath($this->getParameter('kernel.project_dir') . '/public/uploads/branding');
+        $path = realpath($this->getParameter('kernel.project_dir') . '/public' . $url);
+
+        return $directory !== false && $path !== false && str_starts_with($path, $directory . DIRECTORY_SEPARATOR) ? $path : '';
     }
 }
