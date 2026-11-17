@@ -39,6 +39,12 @@ final class CsvExport
     {
         $text = (string) $value;
 
-        return $text !== '' && str_contains('=+-@', $text[0]) ? "'" . $text : $text;
+        // A plain number (e.g. a negative amount "-12.50") is not a formula: leave it a number.
+        if (is_int($value) || is_float($value) || preg_match('/^-?\d+(\.\d+)?$/', $text) === 1) {
+            return $text;
+        }
+
+        // Anything else starting like a formula is neutralised (CSV/spreadsheet formula injection).
+        return $text !== '' && str_contains("=+-@\t\r", $text[0]) ? "'" . $text : $text;
     }
 }
