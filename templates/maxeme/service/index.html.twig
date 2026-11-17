@@ -21,13 +21,20 @@
                     <tr>
                         {% for key, label in { name: 'Name', preferredName: 'Label', price: 'Default Price' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
                         {# No Colour: services no longer colour the calendar (mockup 689a4a1, thread 13484). #}
-                        <th>Tax Class</th><th>Service Lines</th>
+                        <th>Tax Class</th><th>Active</th><th>Service Lines</th>
                         <th style="text-align:center;">Actions</th>
                     </tr>
                     <tr class="filter-row">
-                        {% for field, label in { name: 'Name', preferredName: 'Label', price: null, taxClass: null, lines: null } %}
+                        {% for field, label in { name: 'Name', preferredName: 'Label', price: null, taxClass: null } %}
                             <th>{% if label %}<input type="search" value="{{ page.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label|lower }}">{% endif %}</th>
                         {% endfor %}
+                        {% set activeFilter = page.query.filters.active ?? '1' %}
+                        <th><select data-filter-field="active" aria-label="Filter by active">
+                            <option value="1" {{ activeFilter == '1' ? 'selected' }}>Active</option>
+                            <option value="0" {{ activeFilter == '0' ? 'selected' }}>Inactive</option>
+                            <option value="all" {{ activeFilter == 'all' ? 'selected' }}>All</option>
+                        </select></th>
+                        <th></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -38,6 +45,12 @@
                             <td data-label="Label" {% if canEdit %}data-inline-field="preferred_name" title="Click to edit"{% endif %}>{{ service.preferredName }}</td>
                             <td data-label="Default Price" class="num" {% if canEdit %}data-inline-field="price" data-inline-value="{{ service.price }}" title="Click to edit"{% endif %}>{{ mx.money(service.price) }}</td>
                             <td data-label="Tax Class" {% if canEdit %}data-inline-field="tax_class_id" data-inline-value="{{ service.taxClass ? service.taxClass.id }}" data-inline-options="{{ taxOptions|json_encode }}" title="Click to edit"{% endif %}>{{ service.taxClass ? service.taxClass.label : '—' }}</td>
+                            <td data-label="Active">
+                                {% if canEdit %}
+                                    <button type="button" class="mx-switch js-post-action {{ service.active ? 'is-on' }}" role="switch" aria-checked="{{ service.active ? 'true' : 'false' }}" aria-label="{{ service.name }} active"
+                                            data-url="{{ path('maxeme_service_active', { id: service.id }) }}" data-token="{{ csrf_token_value() }}" data-reload><span></span></button>
+                                {% else %}{{ service.active ? 'Yes' : 'No' }}{% endif %}
+                            </td>
                             <td data-label="Service Lines">
                                 {% if service.lines is empty %}<span class="mx-muted-cell">—</span>{% else %}
                                     <ul class="mx-service-lines">
@@ -56,7 +69,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7" class="empty-table-cell">No data available in table</td></tr>
+                        <tr><td colspan="8" class="empty-table-cell">No data available in table</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

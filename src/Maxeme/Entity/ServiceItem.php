@@ -101,6 +101,17 @@ class ServiceItem implements SoftDeletable
 
     public function isActive(): bool { return $this->active; }
 
+    /** The Active switch on the services list (mockup): an inactive service is not offered on new repair orders; the ones already written keep it. */
+    public function setActive(bool $active): self
+    {
+        if ($active !== $this->active) {
+            $this->active = $active;
+            $this->touch();
+        }
+
+        return $this;
+    }
+
     /** Deleting a service drops its lines, so the labour, parts and fees on them can be deleted too. */
     public function deactivate(): void
     {

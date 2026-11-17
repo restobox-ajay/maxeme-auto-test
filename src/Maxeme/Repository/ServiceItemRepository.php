@@ -40,7 +40,7 @@ final class ServiceItemRepository extends ServiceEntityRepository
     /** @return ListPage<ServiceItem> the page's services, their lines (and the lines' items) loaded in one more query */
     public function findPage(ListQuery $list): ListPage
     {
-        $page = ListPage::paginate($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
+        $page = ListPage::paginate($this->inView($list), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS);
         $this->loadLines($page->items);
 
         return $page;
@@ -67,7 +67,7 @@ final class ServiceItemRepository extends ServiceEntityRepository
     /** @return list<ServiceItem> every active service of the current view (search boxes and sort; no page), lines loaded */
     public function findAllInView(ListQuery $list): array
     {
-        $services = ListPage::filter($this->active(), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
+        $services = ListPage::filter($this->inView($list), $list, self::SORTS, self::SEARCH_COLUMNS, self::FILTERS)->getQuery()->getResult();
         foreach (array_chunk($services, 500) as $chunk) {
             $this->loadLines($chunk);
         }
@@ -78,6 +78,16 @@ final class ServiceItemRepository extends ServiceEntityRepository
     private function active(): QueryBuilder
     {
         return $this->createQueryBuilder('s')->andWhere('s.active = true');
+    }
+
+    /** The list's Active filter (mockup): Active (the default), Inactive, or all. */
+    private function inView(ListQuery $list): QueryBuilder
+    {
+        return match ($list->filters['active'] ?? '1') {
+            '0' => $this->createQueryBuilder('s')->andWhere('s.active = false'),
+            'all' => $this->createQueryBuilder('s'),
+            default => $this->active(),
+        };
     }
 
     /** @return list<ServiceItem> as search(), each with its lines (and their items) loaded */

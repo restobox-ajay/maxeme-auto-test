@@ -30,6 +30,12 @@
                         {% for category in categories %}<option value="{{ category.id }}" {{ data.categoryId == category.id ~ '' ? 'selected' }}>{% if category.depth %}{% for i in 1..category.depth %}— {% endfor %}{% endif %}{{ category.name }}</option>{% endfor %}
                     </select>
                 </label>
+                {# Status (mockup P9): the same switch as the list's Active column. #}
+                <div class="mx-service-status">
+                    <span class="mx-field-title">Status</span>
+                    <label class="check-row"><input type="checkbox" name="active" value="1" {{ (app.request.method == 'POST' ? app.request.request.has('active') : service.active) ? 'checked' }}> Active</label>
+                    <small class="muted-line">An inactive service is not offered on new repair orders; the ones already written keep it.</small>
+                </div>
             </div>
         </section>
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use App\Entity\ProductCore;
 use App\Maxeme\Accounting\Money;
 use App\Maxeme\Audit\ActivityRecorder;
@@ -189,6 +190,17 @@ final class ServiceItemController extends AbstractMaxemeController
         return $this->json(['message' => sprintf('%s deleted.', $service->getName())]);
     }
 
+    /** The Active switch on the list (mockup): turns the service on or off; its lines are kept either way. */
+    #[Route('/{id}/active', name: 'active', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[RequiresPermission(Permission::SERVICE_EDIT)]
+    public function active(#[MapEntity] ServiceItem $service, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $service->setActive(!$service->isActive());
+        $entityManager->flush();
+
+        return $this->json(['message' => sprintf('%s is now %s.', $service->getName(), $service->isActive() ? 'active' : 'inactive')]);
+    }
+
     /** The service page: its own fields and its lines, saved together. */
     private function form(ServiceItem $service, Request $request, string $title, string $saved): Response
     {
@@ -215,7 +227,7 @@ final class ServiceItemController extends AbstractMaxemeController
             $errors += $built['errors'];
 
             if ($errors === []) {
-                $service->setCategory($category)->setTaxClass($taxClass);
+                $service->setCategory($category)->setTaxClass($taxClass)->setActive($request->request->has('active'));
                 $service->replaceLines($built['lines']);
                 $this->records->save($service, $data);
                 $this->addFlash('success', sprintf($saved, $service->getName()));
