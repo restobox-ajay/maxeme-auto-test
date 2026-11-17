@@ -29,7 +29,7 @@
             {% endif %}
         {% endblock %}
     {% endembed %}
-    {% if repairOrder.id %}{% include 'maxeme/repair_order/_nav.html.twig' with { repairOrder: repairOrder, active: 'repair_order' } only %}{% endif %}
+    {# P3: no Repair Order | Invoices sub-tabs (mockup); the invoices list is under Invoice ▾. #}
     {% set locked = repairOrder.id and repairOrder.locked %}
     {% if locked %}
         {# Paid, so locked (mockup ee7a843): read-only except notes. #}
@@ -85,6 +85,13 @@
                         <input type="email" name="new_client[email]" value="{{ form.newClient.email }}" placeholder="Email" aria-label="New customer email">
                     </div>
                     <button id="ro-client-toggle" type="button" class="button mx-btn-sm outline" data-new-label="+ New customer" data-search-label="Search customers">{{ data.clientId == 'new' ? 'Search customers' : '+ New customer' }}</button>
+                    {# Pickup address (mockup a38e7a2): the customer's address book, none by default. #}
+                    <label class="mx-ro-field" id="ro-pickup-field"><span>Pickup address</span>
+                        <select id="ro-pickup" name="pickup_address_id" aria-label="Pickup address" class="{{ errors.pickupAddressId is defined ? 'is-invalid' }}">
+                            <option value="">— none —</option>
+                            {% for address in clientAddresses %}<option value="{{ address.id }}" {{ data.pickupAddressId == address.id ~ '' ? 'selected' }}>{{ address.label }}</option>{% endfor %}
+                        </select>
+                    </label>
                 </div>
 
                 <div class="mx-ro-col">
@@ -94,13 +101,6 @@
                         {% for vehicle in clientVehicles %}<option value="{{ vehicle.id }}" {{ data.vehicleId == vehicle.id ~ '' ? 'selected' }}>{{ vehicle.label }}</option>{% endfor %}
                         <option value="new" {{ data.vehicleId == 'new' ? 'selected' }}>+ New vehicle</option>
                     </select>
-                    {# Pickup address (mockup a38e7a2): the customer's address book, none by default. #}
-                    <label class="mx-ro-field" id="ro-pickup-field"><span>Pickup address</span>
-                        <select id="ro-pickup" name="pickup_address_id" aria-label="Pickup address" class="{{ errors.pickupAddressId is defined ? 'is-invalid' }}">
-                            <option value="">— none —</option>
-                            {% for address in clientAddresses %}<option value="{{ address.id }}" {{ data.pickupAddressId == address.id ~ '' ? 'selected' }}>{{ address.label }}</option>{% endfor %}
-                        </select>
-                    </label>
                     <div id="ro-new-vehicle" class="mx-ro-new" {{ data.vehicleId != 'new' ? 'hidden' }}>
                         <input type="text" name="new_vehicle[year]" value="{{ form.newVehicle.year }}" placeholder="Year" maxlength="4" inputmode="numeric" aria-label="New vehicle year">
                         <input type="text" name="new_vehicle[manufacturer]" value="{{ form.newVehicle.manufacturer }}" placeholder="Make" aria-label="New vehicle make">
@@ -127,6 +127,7 @@
                             {% for choice in technicians %}<option value="{{ choice.user.id }}" {{ data.masterTechnicianId == choice.user.id ~ '' ? 'selected' }}>{{ choice.user.name }}{{ choice.stale ? ' (no longer an active technician)' }}</option>{% endfor %}
                         </select>
                     </label>
+                    <p class="muted-line mx-ro-note">A repair order can't be deleted; set it to Cancelled when no work was done.</p>
                 </div>
             </div>
         </section>

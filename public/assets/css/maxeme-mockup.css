@@ -148,3 +148,16 @@
 #timeslot-detail-list { height: auto; max-height: 240px; }
 .appointment-calendar-wrap .fc-timegrid-slot-label { color: #6b7280; background: #f9fafb; }
 .appointment-calendar-wrap .fc-event .fc-title { text-align: left; padding-left: 6px; }
+
+/* P3 Repair order: small uppercase column headings in the top card, the customer as a blue link, the
+   rule note under Status, a compact Totals box on the right with 70px rate boxes, and the Notes /
+   History header buttons centred as in the mockup. */
+.mx-ro-head .section-label { text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; font-weight: 700; color: #6b7280; margin-bottom: 6px; }
+.mx-ro-info a { color: #428bca; }
+.mx-ro-note { font-size: .74rem; margin: 6px 0 0; }
+.mx-ro-totals { width: auto; min-width: 460px; margin-left: auto; }
+.site-admin .content-frame .mx-ro-totals td { border-bottom: 0; padding-top: 5px; padding-bottom: 5px; }
+.site-admin .content-frame input.mx-rate-input { display: inline-block; width: 70px; min-height: 26px; height: 26px; padding: 0 6px; margin: 0 4px; }
+.mx-ro-totals .mx-ro-total td { border-top: 2px solid #1f2937 !important; padding-top: 8px; }
+#notes-card .table-header h2, #ro-history .table-header h2 { flex: 1; }
+#notes-card .table-header::after, #ro-history .table-header::after { content: ""; flex: 1; }
