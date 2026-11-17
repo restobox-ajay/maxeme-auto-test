@@ -56,8 +56,10 @@
         var discountInput = $('#total-discount-amount');
         var discount = -Math.abs(cents(discountInput.value));
         var subtotal = lines + discount;
-        var gst = Math.round((gstBase + discount) * (parseInt($('#tax-gst-amount').value, 10) || 0) / 100);
-        var pst = Math.round((pstBase + discount) * (parseInt($('#tax-pst-amount').value, 10) || 0) / 100);
+        // Same as InvoiceCalculator: a discount only reduces a base that exists, so a GST-only
+        // invoice never shows negative PST (mockup 8b30420).
+        var gst = Math.round(Math.max(0, gstBase + discount) * (parseInt($('#tax-gst-amount').value, 10) || 0) / 100);
+        var pst = Math.round(Math.max(0, pstBase + discount) * (parseInt($('#tax-pst-amount').value, 10) || 0) / 100);
         var total = subtotal + gst + pst;
 
         $('#total-discount-display').textContent = money(discount);
