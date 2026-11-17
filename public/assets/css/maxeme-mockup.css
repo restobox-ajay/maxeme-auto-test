@@ -194,3 +194,8 @@
 .mx-service-status { display: grid; gap: 4px; align-content: start; }
 .mx-service-status .mx-field-title { font-size: .78rem; font-weight: 600; color: #374151; }
 .mx-service-status .check-row { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+
+/* P13 Payment report: the Overall row is bold on a light band, and Clear is a plain link (mockup). */
+.site-admin .content-frame table tfoot td { background: #fafbfc; font-weight: 600; }
+.mx-clear-link { margin-left: 6px; font-size: .78rem; color: #428bca; }
+.site-admin .content-frame th .mx-method-filter, .site-admin .content-frame th summary { text-transform: none; letter-spacing: 0; }

@@ -49,8 +49,8 @@
                         </th>
                         {% for heading in amounts %}<th></th>{% endfor %}
                         <th class="mx-nowrap">
-                            <button type="button" class="button mx-btn-sm" id="payment-methods-filter">Filter</button>
-                            <a class="button mx-btn-sm outline" href="{{ path('maxeme_report_summary', period.toQuery) }}">Clear</a>
+                            <button type="button" class="button mx-btn-sm primary" id="payment-methods-filter">Filter</button>
+                            <a class="mx-clear-link" href="{{ path('maxeme_report_summary', period.toQuery) }}">Clear</a>
                         </th>
                     </tr>
                 </thead>
@@ -82,6 +82,9 @@
                 </tfoot>
             </table>
         </div>
+        {# P13: the entries count under the table (mockup). #}
+        {% set paidCount = result.rows|length %}
+        <div class="table-footer"><span class="table-count">Showing {{ paidCount ? 1 : 0 }} to {{ paidCount }} of {{ paidCount }} entries</span></div>
     </section>
 
     {% if result.unpaid is not empty %}
