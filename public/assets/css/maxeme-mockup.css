@@ -59,3 +59,16 @@
 .site-admin .content-frame td a:not(.button):not(.mx-btn):hover { text-decoration: underline; }
 /* The Actions heading carries an inline centre in several templates; the mockup puts it on the left. */
 .site-admin .content-frame table th[style*="text-align:center"]:last-child { text-align: left !important; }
+
+/* T4 Buttons and inputs: buttons in table rows, table headers and the page header are the mockup's
+   small size; the row "more" button is an outline "⋯"; inputs use the mockup's border and radius. */
+.site-admin .content-frame td .button,
+.site-admin .content-frame .table-header .button,
+.site-admin .content-frame .panel-title-row .button,
+.site-admin .content-frame .mx-btn-sm { height: 28px; min-height: 28px; padding: 0 9px; border-radius: 5px; font-size: .76rem; font-weight: 500; }
+.site-admin .content-frame td .row-action-menu .row-action-toggle:not(.btn-pdf), .site-admin .content-frame .row-action-toggle:not(.btn-pdf) { width: auto !important; min-width: 28px !important; height: 28px !important; min-height: 28px !important; padding: 0 9px !important; border-radius: 5px !important; border: 1px solid #ccc !important; background: #fff !important; color: #333 !important; font-size: .76rem; transform: none; }
+.site-admin .content-frame .row-action-toggle:not(.btn-pdf):hover { background: #e6e6e6 !important; transform: none; }
+.site-admin .content-frame .row-action-toggle:not(.btn-pdf)::after { content: "⋯"; width: auto; height: auto; border: 0; transform: none; line-height: 1; }
+.site-admin .content-frame input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.filter-row input),
+.site-admin .content-frame select:not(.filter-row select),
+.site-admin .content-frame textarea { border-color: #d1d5db; border-radius: 6px; font-size: .84rem; }
