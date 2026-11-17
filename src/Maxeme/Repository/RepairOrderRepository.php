@@ -37,6 +37,8 @@ final class RepairOrderRepository extends ServiceEntityRepository
         'customer' => "CONCAT(COALESCE(c.firstName, ''), ' ', COALESCE(c.lastName, ''), ' ', COALESCE(c.preferredName, ''))",
         'vehicle' => "CONCAT(COALESCE(v.year, ''), ' ', COALESCE(v.manufacturer, ''), ' ', COALESCE(v.model, ''), ' ', COALESCE(v.licensePlate, ''))",
         'name' => 'r.name',
+        // Master Technician column (mockup, thread 13687).
+        'technician' => "CONCAT(COALESCE(t.firstName, ''), ' ', COALESCE(t.lastName, ''))",
     ];
 
     private const SEARCH_COLUMNS = ['r.name', 'r.concern', 'r.tagKey', 'c.firstName', 'c.lastName', 'c.preferredName', 'v.licensePlate', 'v.vin'];
@@ -219,9 +221,10 @@ final class RepairOrderRepository extends ServiceEntityRepository
     private function inView(ListQuery $list): QueryBuilder
     {
         $query = $this->createQueryBuilder('r')
-            ->addSelect('c', 'v')
+            ->addSelect('c', 'v', 't')
             ->leftJoin('r.client', 'c')
-            ->leftJoin('r.vehicle', 'v');
+            ->leftJoin('r.vehicle', 'v')
+            ->leftJoin('r.masterTechnician', 't');
 
         $status = $list->filters['status'] ?? '';
         if ($status !== '') {

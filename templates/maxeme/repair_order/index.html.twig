@@ -22,6 +22,7 @@
                         <th>Vehicle</th>
                         {% for key, label in { name: 'Repair Name', status: 'Status' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
                         <th>Appointment Status</th>
+                        <th>Master Technician</th>
                         {{ mx.sort_th(page, 'total', 'Total') }}
                         <th style="text-align:center;">Actions</th>
                     </tr>
@@ -42,6 +43,7 @@
                                 {% for status in appointmentStatuses %}<option value="{{ status.value }}" {{ (page.query.filters.appointmentStatus ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}
                             </select>
                         </th>
+                        <th><input type="search" value="{{ page.query.filters.technician ?? '' }}" data-filter-field="technician" placeholder="Search" aria-label="Search master technician"></th>
                         <th></th><th></th>
                     </tr>
                 </thead>
@@ -56,6 +58,7 @@
                             <td data-label="Status"><span class="badge {{ repairOrder.status.badge }}">{{ repairOrder.status.label }}</span></td>
                             {% set current = repairOrder.currentAppointment %}
                             <td data-label="Appointment Status">{% if current %}<span class="badge mx-appt-badge appt-{{ current.status.value }}" title="{{ current.startTime|date('m/d/Y g:i A') }}">{{ current.status.label }}</span>{% else %}<span class="mx-muted-cell">—</span>{% endif %}</td>
+                            <td data-label="Master Technician">{{ repairOrder.masterTechnician ? repairOrder.masterTechnician.name : '—' }}</td>
                             <td data-label="Total" class="num">{{ mx.money(repairOrder.total) }}</td>
                             <td data-label="Actions" style="text-align:center;">
                                 <div class="mx-actions">
@@ -65,7 +68,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="9" class="empty-table-cell">No repair orders match.</td></tr>
+                        <tr><td colspan="10" class="empty-table-cell">No repair orders match.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
