@@ -35,6 +35,8 @@
     $(function () {
         $('.mx-actions').each(function () {
             var $group = $(this);
+            // The buttons beside a page title stay in a row, however many there are (mockup P11).
+            if ($group.parent().hasClass('mx-title-actions')) { $group.addClass('is-grouped'); return; }
             var $extra = $group.children().slice(2);
             if ($extra.length) {
                 var inRow = $group.closest('td').length > 0;
