@@ -4,6 +4,14 @@
 {% block home_path %}/admin{% endblock %}
 {% block content_header %}
     <div class="admin-content-header">
+        {# Mockup theme T1: "Group › Page" on the left of the top bar, from the same menu tree as the
+           sidebar (the first group whose child matches the current route). #}
+        {% set crumbRoute = app.request.attributes.get('_route') %}{% set crumb = null %}
+        {% for entry in admin_menu_tree() %}{% if crumb is null %}
+            {% for child in entry.children %}{% if crumb is null and not child.custom and child.matchesRoute(crumbRoute) %}{% set crumb = [entry.node.label, child.label] %}{% endif %}{% endfor %}
+            {% if crumb is null and entry.node.route is not null and not entry.node.custom and entry.node.matchesRoute(crumbRoute) %}{% set crumb = [entry.node.label] %}{% endif %}
+        {% endif %}{% endfor %}
+        <div class="mx-crumb">{{ crumb ? crumb|join(' › ') : '' }}</div>
         {# The legacy navbar shows the user's first name, falling back to the login. #}
         {% set userMenuName = app.user ? (app.user.firstName ?: app.user.userIdentifier) : 'Admin' %}
         <div class="user-menu" id="user-menu">

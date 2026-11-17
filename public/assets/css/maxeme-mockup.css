@@ -1,0 +1,10 @@
+/*
+ * Mockup theme alignment (docs/maxeme/VISUAL-CHECK-2026-11-17.md).
+ * Loaded after app.css and maxeme-theme.css. Each section is one numbered item (T1, T2, …) and was
+ * committed on its own, so a single item can be reverted with `git revert <commit>`; dropping the
+ * <link> in templates/base.html.twig removes all of it.
+ */
+
+/* T1 Top bar: "Group › Page" breadcrumb on the left, user menu on the right. */
+.admin-content-header { justify-content: space-between; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; }
+.admin-content-header .mx-crumb { font-size: 0.75rem; color: #6b7280; }
