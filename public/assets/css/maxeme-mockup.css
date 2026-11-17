@@ -36,3 +36,26 @@
     .site-admin .nav-sub-row > a.nav-sub.is-current + a.nav-affordance { color: #fff; }
     .mx-side-search { margin-left: 0; margin-right: 0; }
 }
+
+/* T3 Tables: mockup density and type sizes, flat filter boxes, head controls keep their case, the
+   last column's resize grip no longer sticks out (that 6px drew an empty scrollbar under tables), and
+   links inside cells are blue. Document tables (.invoice-document) are left alone. */
+.site-admin .content-frame table:not(.invoice-document table) th { padding: 9px 12px; font-size: .7rem; letter-spacing: .04em; }
+.site-admin .content-frame table:not(.invoice-document table) td { padding: 9px 12px; font-size: .82rem; }
+.site-admin .wide-table-wrap th:first-child,
+.site-admin .wide-table-wrap td:first-child { padding-left: 12px; }
+.site-admin .content-frame th .button,
+.site-admin .content-frame th button,
+.site-admin .content-frame th select,
+.site-admin .content-frame th input,
+.site-admin .content-frame th a { text-transform: none; letter-spacing: 0; }
+.site-admin .content-frame table:not(.invoice-document table) th { text-align: left; }
+.site-admin .content-frame table:not(.invoice-document table) th.num { text-align: right; }
+.table-card .filter-row th { padding: 0; background: #fbfcfe; }
+.table-card .filter-row input,
+.table-card .filter-row select { height: 30px; min-height: 30px; border: 0; border-right: 1px solid #d6d9de; border-radius: 0; padding: 0 7px; font-size: .78rem; background: #fff; }
+.site-admin th:last-child > .col-resize-handle { right: 0; width: 6px; }
+.site-admin .content-frame td a:not(.button):not(.mx-btn) { color: #428bca; }
+.site-admin .content-frame td a:not(.button):not(.mx-btn):hover { text-decoration: underline; }
+/* The Actions heading carries an inline centre in several templates; the mockup puts it on the left. */
+.site-admin .content-frame table th[style*="text-align:center"]:last-child { text-align: left !important; }
