@@ -14,6 +14,6 @@
 
     <section class="panel">
         <p class="lead">Posted on {{ post.publishedAt|date('F j, Y') }}</p>
-        <div class="news-post-content">{{ post.content|raw }}</div>
+        <div class="news-post-content">{{ post.content|rich_text }}</div>
     </section>
 {% endblock %}
