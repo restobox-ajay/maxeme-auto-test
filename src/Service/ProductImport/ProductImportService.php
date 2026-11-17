@@ -1626,20 +1626,9 @@ final class ProductImportService implements ImportRowExecutorInterface, ImportRu
         return \App\Service\TextInput::nullableString($value);
     }
 
-    // Same legacy-input mapping as Admin\ProductController::normalizeSalesTaxCode() —
-    // import files may still carry pre-short-code values.
     private function normalizeSalesTaxCode(?string $code): ?string
     {
-        if ($code === null) {
-            return null;
-        }
-
-        return match (strtoupper($code)) {
-            '0', 'EXEMPT', 'E' => 'E',
-            '5', 'GST', 'G' => 'G',
-            'L', 'PST', 'S' => 'S',
-            default => $code,
-        };
+        return $code === null ? null : \App\Service\SalesTaxCode::normalize($code);
     }
 
     /**

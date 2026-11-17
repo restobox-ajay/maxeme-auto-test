@@ -2234,18 +2234,7 @@ final class ProductController extends AbstractAdminController
 
     private function normalizeSalesTaxCode(string $code): string
     {
-        $code = trim($code);
-        if ($code === '') {
-            return '';
-        }
-
-        // Legacy values (older app / pre-short-code data) → canonical short codes E/G/S
-        return match (strtoupper($code)) {
-            '0', 'EXEMPT', 'E' => 'E',
-            '5', 'GST', 'G' => 'G',
-            'L', 'PST', 'S' => 'S',
-            default => $code,
-        };
+        return \App\Service\SalesTaxCode::normalize($code);
     }
 
     /** @return list<array{id: string, name: string}> */
