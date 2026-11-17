@@ -161,3 +161,6 @@
 .mx-ro-totals .mx-ro-total td { border-top: 2px solid #1f2937 !important; padding-top: 8px; }
 #notes-card .table-header h2, #ro-history .table-header h2 { flex: 1; }
 #notes-card .table-header::after, #ro-history .table-header::after { content: ""; flex: 1; }
+
+/* P6 Client profile: the Pending / Past group rows on a light blue band (mockup). */
+.mx-group-row td { background: #eaf2fa !important; }

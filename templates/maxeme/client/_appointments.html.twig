@@ -28,7 +28,7 @@
 {% macro amount_cell(appointment) -%}
     {%- import 'maxeme/_macros.html.twig' as mx -%}
     {%- set amount = appointment_amount(appointment) -%}
-    {%- if amount -%}<a href="{{ amount.url }}" title="{{ amount.title }}">{{ mx.money(amount.amount) }}</a>{%- else -%}<span class="muted-line">—</span>{%- endif -%}
+    {%- if amount -%}<a href="{{ amount.url }}" title="{{ amount.title }}" class="mx-nowrap">${{ mx.money(amount.amount) }}</a>{%- else -%}<span class="muted-line">—</span>{%- endif -%}
 {%- endmacro %}
 
 {% macro row_buttons(appointment, invoiceKeys, canInvoice, canEditRepairOrders) -%}

@@ -79,7 +79,7 @@
                                                 <td>{% if appointment.vehicle %}<a href="{{ path('maxeme_vehicle_show', { id: appointment.vehicle.id }) }}">{{ appointment.vehicle.fullName }}</a>{% else %}<span class="muted-line">— ({{ appointment.type.label }})</span>{% endif %}</td>
                                                 <td><span class="badge mx-appt-badge appt-{{ appointment.status.value }}">{{ appointment.status.label }}</span></td>
                                                 <td>{% if appointment.repairOrder %}<a class="mx-nowrap" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">{{ ro_number(appointment.repairOrder) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
-                                                <td class="num">{% if amount %}<a href="{{ amount.url }}" title="{{ amount.title }}">{{ mx.money(amount.amount) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                                                <td class="num">{% if amount %}<a href="{{ amount.url }}" title="{{ amount.title }}" class="mx-nowrap">${{ mx.money(amount.amount) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
                                                 <td>{{ appointment.note }}</td>
                                             </tr>
                                         {% endfor %}
