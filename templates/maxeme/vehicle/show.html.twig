@@ -34,7 +34,7 @@
             </dl>
         </section>
         <section class="mx-stats">
-            <div class="mx-stat"><span class="mx-stat-value">{{ stats.visits }}</span><span class="mx-stat-label">Finished repair orders</span></div>
+            <div class="mx-stat"><span class="mx-stat-value">{{ stats.repairOrders }}</span><span class="mx-stat-label">Repair orders</span></div>
             <div class="mx-stat"><span class="mx-stat-value">{{ stats.services }}</span><span class="mx-stat-label">Services done</span></div>
             <div class="mx-stat"><span class="mx-stat-value">${{ mx.money(stats.spent) }}</span><span class="mx-stat-label">Total billed</span></div>
             <div class="mx-stat"><span class="mx-stat-value">{{ stats.last ? stats.last|date('m/d/Y') : '—' }}</span><span class="mx-stat-label">Last visit</span></div>

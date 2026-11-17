@@ -255,10 +255,12 @@ final class VehicleController extends AbstractMaxemeController
     /**
      * @param list<RepairOrder> $repairOrders newest first (only the finished ones count)
      *
-     * @return array{visits: int, spent: string, first: ?\DateTimeImmutable, last: ?\DateTimeImmutable, services: int}
+     * @return array{repairOrders: int, visits: int, spent: string, first: ?\DateTimeImmutable, last: ?\DateTimeImmutable, services: int}
      */
     private static function stats(array $repairOrders): array
     {
+        // The first tile counts every repair order on the vehicle (mockup: "Repair orders"); the rest are finished work only.
+        $all = count($repairOrders);
         // Finished work only (audit fix 34181b0): Completed, Picked Up or Invoiced; estimates, open and cancelled ones are not visits yet.
         $repairOrders = array_values(array_filter($repairOrders, static fn (RepairOrder $repairOrder): bool => $repairOrder->getStatus()->isWorkDone()));
         $spent = 0;
@@ -269,6 +271,7 @@ final class VehicleController extends AbstractMaxemeController
         }
 
         return [
+            'repairOrders' => $all,
             'visits' => count($repairOrders),
             'spent' => Money::fromCents($spent),
             'first' => $repairOrders !== [] ? $repairOrders[array_key_last($repairOrders)]->getCreatedOn() : null,

@@ -164,3 +164,13 @@
 
 /* P6 Client profile: the Pending / Past group rows on a light blue band (mockup). */
 .mx-group-row td { background: #eaf2fa !important; }
+
+/* P7 Vehicle page: the details card headed "VEHICLE", separate rounded stat tiles, and the Repair
+   History filters straight after the heading (mockup). */
+.mx-vehicle-top { margin: 6px 0 16px; }
+.mx-vehicle-top .section-label { text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; font-weight: 700; color: #6b7280; }
+.mx-dl dd a { color: #428bca; }
+.mx-stats { align-self: start; }
+.mx-stat { border-radius: 12px; border-color: #e5e7eb; padding: 14px 16px; }
+#vehicle-history .table-header { justify-content: flex-start; }
+#vehicle-history .mx-history-filter { margin-right: auto; display: flex; gap: 8px; }
