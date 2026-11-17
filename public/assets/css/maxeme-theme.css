@@ -310,6 +310,9 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-calendar .mx-event-lines { overflow: hidden; font-size: 0.78rem; line-height: 1.3; padding: 1px 2px; }
 .mx-calendar .mx-event-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mx-calendar .fc-timegrid-event .mx-event-line { white-space: normal; }
+/* Day and Week headers read "Tue 11/17 (4)" as in the mockup, not upper case. */
+.mx-calendar .fc-col-header-cell-cushion { text-transform: none; }
+.mx-calendar .mx-day-count { color: var(--muted); font-weight: normal; }
 /* Week / day views: an event the mouse is over comes to the top, whole, over the ones it overlaps. */
 .mx-calendar .fc-timegrid-event-harness:hover { z-index: 40 !important; }
 .mx-calendar .fc-timegrid-event-harness:hover .fc-timegrid-event { box-shadow: 0 6px 18px rgba(0,0,0,.25); min-height: max-content; }

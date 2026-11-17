@@ -78,6 +78,8 @@ final class ScheduleCalendar
                 'status' => $appointment->getStatus()->value,
                 'type' => $type->value,
                 'lines' => $lines,
+                // The narrow block (overlapping appointments) shows the vehicle on its own line.
+                'vehicle' => $vehicle?->getFullName(),
                 'repairOrder' => $repairOrder !== null ? $this->numbers->repairOrderNumber($repairOrder) : null,
                 'urls' => [
                     'client' => $this->urls->generate('maxeme_appointment_client', $id),

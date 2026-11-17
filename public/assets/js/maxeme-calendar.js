@@ -153,7 +153,27 @@
         if (guide) { guide.line.remove(); guide.chip.remove(); guide = null; }
     }
 
-    var calendar = new FullCalendar.Calendar(element, {
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var calendar = null;
+    function dayOf(date) { return date.toISOString().slice(0, 10); }
+    function dayCount(date) {
+        return calendar ? calendar.getEvents().filter(function (e) { return e.start && dayOf(e.start) === date; }).length : 0;
+    }
+    /* After any load, drop, resize or delete: the header counts, and which blocks share their time
+       with another (those get the narrow layout). setExtendedProp re-renders only the blocks whose
+       answer changed, so the second pass this triggers changes nothing and stops. */
+    function refreshDays(events) {
+        element.querySelectorAll('.mx-day-count').forEach(function (span) { span.textContent = '(' + dayCount(span.getAttribute('data-date')) + ')'; });
+        events.forEach(function (event) {
+            var end = event.end || event.start;
+            var narrow = events.some(function (other) {
+                return other !== event && other.start < end && (other.end || other.start) > event.start;
+            });
+            if (!!event.extendedProps.narrow !== narrow) { event.setExtendedProp('narrow', narrow); }
+        });
+    }
+
+    calendar = new FullCalendar.Calendar(element, {
         timeZone: 'UTC',
         initialView: config.view,
         allDaySlot: false,
@@ -173,17 +193,35 @@
         dateClick: function (info) { calendar.changeView('timeGridDay', info.date); },
         eventClick: function (info) { info.jsEvent.preventDefault(); showStrip(info.event, info.el); },
         // Time [status] vehicle, then the customer, the phone and the description, each on its own line.
+        // Overlapping appointments share the day's width (mockup), so theirs is shorter: the start time,
+        // the customer, the vehicle, the work and the technician.
         eventContent: function (arg) {
             if (arg.isMirror && arg.timeText) {
                 return { html: '<div class="mx-event-lines"><div class="mx-event-line"><b>' + escapeHtml(arg.timeText) + '</b></div></div>' };
             }
             var lines = arg.event.extendedProps.lines || [arg.event.title];
             var html = '<div class="mx-event-lines">';
+            if (arg.event.extendedProps.narrow && arg.view.type.indexOf('timeGrid') === 0) {
+                [arg.event.extendedProps.vehicle, (lines[3] || '').replace(/^Description: /, ''), lines[4]].reduce(function (out, line) {
+                    return line ? out.concat([line]) : out;
+                }, [lines[1]]).forEach(function (line, i) {
+                    html += '<div class="mx-event-line">' + (i === 0 && arg.timeText ? '<b>' + escapeHtml(arg.timeText.split(' - ')[0]) + '</b> ' : '') + escapeHtml(line || '') + '</div>';
+                });
+                return { html: html + '</div>' };
+            }
             lines.forEach(function (line, i) {
                 html += '<div class="mx-event-line">' + (i === 0 && arg.timeText ? '<b>' + escapeHtml(arg.timeText) + '</b> ' : '') + escapeHtml(line) + '</div>';
             });
             return { html: html + '</div>' };
         },
+        // Day and Week: "Tue 11/17 (4)", the day's appointment count beside the date (mockup).
+        dayHeaderContent: function (arg) {
+            if (arg.view.type.indexOf('timeGrid') !== 0) { return arg.text; }
+            var date = arg.date.toISOString().slice(0, 10);
+            return { html: escapeHtml(DOW[arg.date.getUTCDay()] + ' ' + (arg.date.getUTCMonth() + 1) + '/' + arg.date.getUTCDate())
+                + ' <span class="mx-day-count" data-date="' + date + '">(' + dayCount(date) + ')</span>' };
+        },
+        eventsSet: refreshDays,
         eventDragStart: function () { removeStrip(); startDragGuide(); },
         eventDragStop: stopDragGuide,
         eventDidMount: function (arg) {
@@ -194,6 +232,7 @@
         moreLinkClick: function () { removeStrip(); return 'popover'; },
         datesSet: function (info) {
             removeStrip();
+            refreshDays(calendar.getEvents());
             var params = new URLSearchParams(window.location.search);
             params.set('view', config.views[info.view.type]);
             window.history.replaceState(null, '', window.location.pathname + '?' + params.toString());
