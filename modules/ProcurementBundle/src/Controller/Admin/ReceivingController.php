@@ -1058,17 +1058,6 @@ final class ReceivingController extends AbstractProcurementController
             $lotCode = $this->nullable((string) ($row['lot_code'] ?? ''));
             $expiry = $this->expiry((string) ($row['expiry'] ?? ''));
             $unitCost = $this->nullable((string) ($row['unit_cost'] ?? ''));
-            // Typed by hand when stock arrives without a purchase order, so it is checked here:
-            // a non-negative amount with up to 6 decimals, the column's own scale. A leading "$"
-            // and thousands commas are accepted, the way people write a price.
-            if ($unitCost !== null) {
-                $unitCost = str_replace([',', '$', ' '], '', $unitCost);
-                if (!preg_match('/^\d{1,12}(?:\.\d{1,6})?$/', $unitCost)) {
-                    $this->addFlash('error', sprintf('The unit cost for %s must be an amount such as 12.50.', $product->getSku() ?: $product->getName()));
-
-                    return $this->renderForm($order, [], $draft, max(self::BLANK_LINE_ROWS, $spareRows), $header);
-                }
-            }
             // The receiver saying these units carry no code — #573's warehouse-mid-transition case,
             // as a positive act. It excuses a blank identity the tracking POLICY captures; it
             // excuses nothing a receiving RULE demands.
