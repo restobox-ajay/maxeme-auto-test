@@ -19,7 +19,6 @@ use App\Repository\BundleStatusRepository;
 use App\Repository\TrackingPolicyRepository;
 use App\Service\Inventory\InventoryModeResolver;
 use App\Service\Inventory\ProductActivityFeedResolver;
-use App\Service\Inventory\ProductPurchaseHistoryResolver;
 use App\Service\Inventory\ProductVendorResolver;
 use App\Service\Product\ProductBarcodeSearchResolver;
 use App\Service\Product\ProductPicker;
@@ -57,9 +56,6 @@ final class StockController extends AbstractInventoryDepthController
      */
     private const ACTIVITY_TYPES = ['order', 'purchase', 'shipment', 'creditmemo', 'movement'];
 
-    /** The newest purchases shown in the Purchase History section. */
-    private const PURCHASE_HISTORY_LIMIT = 50;
-
     public function __construct(
         EntityManagerInterface $em,
         BundleStatusRepository $bundleStatusRepo,
@@ -70,7 +66,6 @@ final class StockController extends AbstractInventoryDepthController
         private readonly ProductPicker $productPicker,
         private readonly ProductBarcodeSearchResolver $barcodeSearch,
         private readonly TrackingPolicyRepository $trackingPolicies,
-        private readonly ProductPurchaseHistoryResolver $purchaseHistory,
     ) {
         parent::__construct($em, $bundleStatusRepo, $inventoryModes);
     }
@@ -287,9 +282,6 @@ final class StockController extends AbstractInventoryDepthController
             'activityTypes' => self::ACTIVITY_TYPES,
             'activity' => $activity,
             'activityRows' => $this->recentActivity($product, $activity, 20),
-            // Every purchase of this part (thread 13631): vendor, date received, quantity, cost.
-            'purchaseRows' => $this->purchaseHistory->purchaseHistory($product, self::PURCHASE_HISTORY_LIMIT),
-            'purchaseHistoryLimit' => self::PURCHASE_HISTORY_LIMIT,
             'notes' => $this->productNotesForDisplay($product),
             'now' => $now,
         ]);

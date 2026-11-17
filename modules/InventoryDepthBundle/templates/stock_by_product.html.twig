@@ -155,37 +155,6 @@
                 </table></div>
             </section>
 
-            {# Every purchase of this part, newest first (client feedback thread 13631): what came in,
-               from whom, when, and at what cost. Rows come from whichever modules record purchases
-               (goods receipts, the old system's restocks) through ProductPurchaseHistoryResolver. #}
-            <section class="table-card company-detail-card no-search" id="purchase-history">
-                <div class="table-header"><h2>Purchase History</h2></div>
-                <div class="wide-table-wrap"><table class="admin-grid-table">
-                    <thead><tr>
-                        <th>Received</th><th>Part #</th><th>Vendor</th><th>Reference</th>
-                        <th class="numeric">Quantity</th><th class="numeric">Unit Cost</th><th class="numeric">Total Cost</th>
-                    </tr></thead>
-                    <tbody>
-                    {% for row in purchaseRows %}
-                        <tr class="data-item-row">
-                            <td data-label="Received">{{ row.date|date('M j, Y') }}</td>
-                            <td data-label="Part #">{{ row.sku ?: '—' }}</td>
-                            <td data-label="Vendor">{{ row.vendor ?: '—' }}</td>
-                            <td data-label="Reference">{% if row.url %}<a href="{{ row.url }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}</td>
-                            <td data-label="Quantity" class="numeric">{{ row.quantity|qty }}</td>
-                            <td data-label="Unit Cost" class="numeric">{{ row.unitCost is not null ? '$' ~ row.unitCost|price : '—' }}</td>
-                            <td data-label="Total Cost" class="numeric">{{ row.totalCost is not null ? '$' ~ row.totalCost|amount : '—' }}</td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="7" class="empty-table-cell">No purchases recorded for this part yet.</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% if purchaseRows|length >= purchaseHistoryLimit %}
-                    <p class="muted">Showing the newest {{ purchaseHistoryLimit }} purchases.</p>
-                {% endif %}
-            </section>
-
             {# The reconciliation is shown, not assumed — but demoted to the bottom now that the page
                leads with the numbers the invariant explains, not the invariant itself. #}
             <section class="table-card company-detail-card no-search">

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace ProcurementBundle\Hook;
 
 use App\Contract\Inventory\ProductActivityProviderInterface;
-use App\Contract\Inventory\ProductPurchaseHistoryProviderInterface;
 use App\Contract\Inventory\ProductVendorProviderInterface;
 use App\Entity\ProductCore;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,7 +26,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * offers the "Purchase" button, it just never has rows under it, the same as any other provider seam
  * in this app answering "nothing" for an absent module.
  */
-final class ProductPurchaseActivityProvider implements ProductActivityProviderInterface, ProductVendorProviderInterface, ProductPurchaseHistoryProviderInterface
+final class ProductPurchaseActivityProvider implements ProductActivityProviderInterface, ProductVendorProviderInterface
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -106,50 +105,5 @@ final class ProductPurchaseActivityProvider implements ProductActivityProviderIn
             ->getSingleColumnResult();
 
         return array_slice(array_values(array_unique($rows)), 0, $limit);
-    }
-
-    /**
-     * The stock page's Purchase History (thread 13631): one row per goods-receipt line for this
-     * product, voided receipts left out. Shows the vendor, the date it came in, the quantity and
-     * what was paid per unit and in total. The unit cost is what the receipt recorded; the total
-     * is quantity x unit cost, rounded to the cent.
-     */
-    public function purchaseHistory(ProductCore $product, int $limit): array
-    {
-        /** @var list<GoodsReceiptLine> $lines */
-        $lines = $this->em->createQueryBuilder()
-            ->select('l', 'r', 'po')
-            ->from(GoodsReceiptLine::class, 'l')
-            ->innerJoin('l.receipt', 'r')
-            ->leftJoin('r.purchaseOrder', 'po')
-            ->andWhere('l.product = :product')->setParameter('product', $product)
-            ->andWhere('r.voidedAt IS NULL')
-            ->orderBy('r.receivedAt', 'DESC')
-            ->addOrderBy('r.id', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-
-        $rows = [];
-        foreach ($lines as $line) {
-            $receipt = $line->getReceipt();
-            $order = $receipt->getPurchaseOrder();
-            $unitCost = $line->getUnitCost();
-
-            $rows[] = [
-                'date' => $receipt->getReceivedAt(),
-                'sku' => $line->getSku() ?? $product->getSku(),
-                'vendor' => $receipt->getVendorName() !== '' ? $receipt->getVendorName() : null,
-                'reference' => 'Receipt ' . $receipt->getReceiptNumber() . ($order !== null ? ' · PO ' . $order->getPoNumber() : ''),
-                'url' => $this->router->generate('admin_bundle_procurement_receipt', ['id' => $receipt->getId()]),
-                'quantity' => $line->getQuantity(),
-                'unitCost' => $unitCost,
-                'totalCost' => $unitCost !== null
-                    ? bcround(bcmul($line->getQuantity(), $unitCost, 6), 2, \RoundingMode::HalfAwayFromZero)
-                    : null,
-            ];
-        }
-
-        return $rows;
     }
 }
