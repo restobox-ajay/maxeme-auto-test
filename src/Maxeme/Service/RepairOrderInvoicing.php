@@ -385,7 +385,7 @@ final class RepairOrderInvoicing
     /** It has a paid invoice but is still open (before Completed): ask whether to complete and lock it (mockup 84d136d). */
     public function paidWhileOpen(RepairOrder $repairOrder): bool
     {
-        return !$repairOrder->getStatus()->isWorkDone() && $repairOrder->getStatus() !== RepairOrderStatus::Cancelled && $this->hasPaidInvoice($repairOrder);
+        return $repairOrder->getStatus()->isOpen() && $this->hasPaidInvoice($repairOrder);
     }
 
     /** "Complete and lock": the work is done and paid, so it is Completed, then Invoiced (its appointments completed). */

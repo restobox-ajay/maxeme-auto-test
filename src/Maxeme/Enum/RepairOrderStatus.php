@@ -76,6 +76,22 @@ enum RepairOrderStatus: string
         };
     }
 
+    /** Still open: the work is not done and it is not cancelled (estimate stages through Awaiting Parts). */
+    public function isOpen(): bool
+    {
+        return !$this->isWorkDone() && $this !== self::Cancelled;
+    }
+
+    /**
+     * The open statuses, for a query's IN (...).
+     *
+     * @return list<self>
+     */
+    public static function openCases(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $status): bool => $status->isOpen()));
+    }
+
     /** Finished for good: Picked Up, Invoiced or Cancelled. */
     public function isTerminal(): bool
     {

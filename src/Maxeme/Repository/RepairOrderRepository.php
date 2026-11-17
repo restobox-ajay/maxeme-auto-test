@@ -96,7 +96,7 @@ final class RepairOrderRepository extends ServiceEntityRepository
             ->addSelect('v')
             ->leftJoin('r.vehicle', 'v')
             ->andWhere('r.client = :client')->setParameter('client', $client)
-            ->andWhere('r.status IN (:open)')->setParameter('open', [RepairOrderStatus::EstimateBeingBuilt, RepairOrderStatus::EstimateApproval, RepairOrderStatus::Authorized, RepairOrderStatus::InProgress, RepairOrderStatus::AwaitingParts])
+            ->andWhere('r.status IN (:open)')->setParameter('open', RepairOrderStatus::openCases())
             ->orderBy('r.id', 'DESC')
             ->getQuery()
             ->getResult();
