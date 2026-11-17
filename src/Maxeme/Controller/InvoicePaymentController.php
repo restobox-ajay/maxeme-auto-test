@@ -15,6 +15,7 @@ use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\InvoicePayments;
 use App\Maxeme\Service\RepairOrderInvoicing;
+use App\Maxeme\Validation\InputRule;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -115,7 +116,8 @@ final class InvoicePaymentController extends AbstractMaxemeController
             ];
             $type = $values['payment_type_id'] !== '' ? $this->paymentTypes->find((int) $values['payment_type_id']) : null;
             try {
-                if (preg_match('/^-?\d+(\.\d{1,2})?$/', $values['amount']) !== 1) {
+                // The shared signed-money rule (a refund is negative; at most 8 digits before the point).
+                if (preg_match(InputRule::SignedMoney->regex(), $values['amount']) !== 1) {
                     throw new \DomainException('Enter the amount as dollars and cents, e.g. 120.00.');
                 }
                 $paidAt = $values['paid_at'] !== '' ? $this->schedule->toUtc(str_replace('T', ' ', $values['paid_at']) . ':00') : new \DateTimeImmutable();

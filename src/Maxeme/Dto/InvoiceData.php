@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Maxeme\Enum\PaymentMethod;
-use App\Maxeme\Validation\Money;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -65,7 +66,7 @@ final class InvoiceData
     #[Assert\NotNull(message: 'Choose a payment method.')]
     public ?int $paymentTypeId = null;
 
-    #[Money]
+    #[Formatted(InputRule::Money)]
     public ?string $paymentAmount = null;
 
     /** The Paid checkbox (it only decides the status when saving for the work order). */

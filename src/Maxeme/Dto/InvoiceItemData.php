@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Validation\Money;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -27,7 +28,7 @@ final class InvoiceItemData
     #[Assert\Range(min: 1, max: 99, notInRangeMessage: 'Quantities go from {{ min }} to {{ max }}.')]
     public int $quantity = 1;
 
-    #[Money]
+    #[Formatted(InputRule::Money)]
     public ?string $price = null;
 
     /** @var list<array{id: ?int, name: ?string, quantity: int}> */

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Validation\Money;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** The service form (legacy cns_services_info_form). */
@@ -26,7 +27,7 @@ final class ServiceItemData extends FormData
     #[Assert\Length(max: 255)]
     public ?string $preferredName = null;
 
-    #[Money]
+    #[Formatted(InputRule::Money)]
     public ?string $price = null;
 
     /** A ServiceCategory id; the controller turns it into the category. */

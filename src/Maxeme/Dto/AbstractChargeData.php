@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Dto;
 
-use App\Maxeme\Validation\Money;
+use App\Maxeme\Validation\Formatted;
+use App\Maxeme\Validation\InputRule;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** The fields Labour and Government Fees share. A subclass's FIELDS starts with BASE_FIELDS. */
@@ -28,7 +29,7 @@ abstract class AbstractChargeData extends FormData
     public ?string $name = null;
 
     #[Assert\NotBlank(message: 'Enter the price.')]
-    #[Money]
+    #[Formatted(InputRule::Money)]
     public ?string $price = null;
 
     /** A Config › Settings › Tax Classes id; the controller looks it up (see managedElsewhere()). */
