@@ -42,9 +42,10 @@
     </div>
 {%- endmacro %}
 
-{# A dollar amount (decimal string or null) shown with two decimals; blank when there is none. #}
+{# A dollar amount (decimal string or null) shown with two decimals; blank when there is none.
+   Core's |amount filter (DisplayNumber) is the one money format; this name stays for the call sites. #}
 {% macro money(value) -%}
-    {{ value is null or value is same as('') ? '' : value|number_format(2, '.', ',') }}
+    {{ value|amount }}
 {%- endmacro %}
 
 {# The Logs button every record has: its history in the Activity Log (who changed what, and when),
