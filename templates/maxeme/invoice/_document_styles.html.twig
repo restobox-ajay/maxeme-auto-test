@@ -41,3 +41,18 @@
 .wo-tech { border-bottom: 1px solid {{ c.muted }}; width: 70%; margin-top: 8px; }
 .inv-charge-through { padding-left: 14px; color: {{ c.muted }}; }
 .tax-note { font-size: 0.85em; color: {{ c.muted }}; }
+/* P5 Mockup look (docs/maxeme/VISUAL-CHECK-2026-11-17.md): quotes and invoices print black and white
+   like the work order (threads 13347/13425) — uppercase black section titles, bordered header and
+   customer blocks, a gridded items table with a normal-case header, and a black Grand Total. */
+.invoice-section-title { color: {{ c.bandInk }}; border-bottom: 0; text-transform: uppercase; letter-spacing: .04em; font-size: 11.5px; margin: 14px 0 6px; }
+.inv-meta-table, .inv-addr-table { border: 1px solid {{ c.line }}; }
+.inv-meta-col { padding: 6px 10px; border-right: 1px solid {{ c.line }}; }
+.inv-meta-col.last { border-right: 0; text-align: left; }
+.address-box { padding: 6px 10px; }
+.address-box + .address-box { border-left: 1px solid {{ c.line }}; }
+.address-box h3 { color: {{ c.bandInk }}; }
+.invoice-table { border: 1px solid {{ c.line }}; }
+.invoice-table th { text-transform: none; letter-spacing: 0; color: {{ c.bandInk }}; border-bottom: 1px solid {{ c.line }}; }
+.invoice-table th, .invoice-table td { border-left: 1px solid {{ c.line }}; }
+.wo-table th { text-transform: none; letter-spacing: 0; background: {{ c.soft }}; }
+.grand-total-row td { color: {{ c.bandInk }}; }

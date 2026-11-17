@@ -38,7 +38,7 @@
             <thead><tr><th style="width:50%">Repair Items</th><th>Results</th></tr></thead>
             <tbody>
                 {% for item in document.repairItems %}
-                    <tr><td>{{ item.name }}</td><td><div class="wo-tech"><strong>Technician:</strong> {% if item.technician|default(null) %}{{ item.technician }}{% else %}<span class="wo-blank"></span>{% endif %}{% if item.workStatus|default(null) %} · <strong>{{ item.workStatus }}</strong>{% endif %}</div></td></tr>
+                    <tr><td>{{ item.name }}</td><td><div class="wo-tech"><strong>Technician:</strong> {% if item.technician|default(null) %}{{ item.technician }}{% else %}<span class="wo-blank"></span>{% endif %}{% if item.workStatus|default(null) %} · {{ item.workStatus }}{% endif %}</div></td></tr>
                 {% else %}
                     {% for i in 1..5 %}<tr><td></td><td><div class="wo-tech">Technician:</div></td></tr>{% endfor %}
                 {% endfor %}
