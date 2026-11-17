@@ -122,20 +122,7 @@ class ServiceItem implements SoftDeletable
      */
     public function replaceLines(array $lines): void
     {
-        foreach ($this->lines as $line) {
-            if (!in_array($line, $lines, true)) {
-                $this->lines->removeElement($line);
-            }
-        }
-        foreach ($lines as $position => $line) {
-            if ($line->getService() !== $this) {
-                throw new \InvalidArgumentException('A line of another service cannot be added.');
-            }
-            $line->setPosition($position);
-            if (!$this->lines->contains($line)) {
-                $this->lines->add($line);
-            }
-        }
+        OrderedCollection::replace($this->lines, $lines, fn (ServiceLine $line): bool => $line->getService() === $this, 'A line of another service cannot be added.');
     }
 
     public function touch(): void

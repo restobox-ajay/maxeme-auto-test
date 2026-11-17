@@ -89,20 +89,7 @@ class RepairOrderJob
     /** @param list<RepairOrderJobLine> $lines this service's, in order; one left out is deleted */
     public function replaceLines(array $lines): void
     {
-        foreach ($this->lines as $line) {
-            if (!in_array($line, $lines, true)) {
-                $this->lines->removeElement($line);
-            }
-        }
-        foreach ($lines as $position => $line) {
-            if ($line->getJob() !== $this) {
-                throw new \InvalidArgumentException('A line of another service cannot be added.');
-            }
-            $line->setPosition($position);
-            if (!$this->lines->contains($line)) {
-                $this->lines->add($line);
-            }
-        }
+        OrderedCollection::replace($this->lines, $lines, fn (RepairOrderJobLine $line): bool => $line->getJob() === $this, 'A line of another service cannot be added.');
     }
 
     /** @return list<RepairOrderJobLine> the lines the customer pays for on top of the price */

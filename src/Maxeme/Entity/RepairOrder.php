@@ -450,19 +450,6 @@ class RepairOrder implements HasNotes
      */
     private static function replace(Collection $collection, array $items, self $owner): void
     {
-        foreach ($collection as $item) {
-            if (!in_array($item, $items, true)) {
-                $collection->removeElement($item);
-            }
-        }
-        foreach ($items as $position => $item) {
-            if ($item->getRepairOrder() !== $owner) {
-                throw new \InvalidArgumentException('A line of another repair order cannot be added.');
-            }
-            $item->setPosition($position);
-            if (!$collection->contains($item)) {
-                $collection->add($item);
-            }
-        }
+        OrderedCollection::replace($collection, $items, static fn (RepairOrderJob|RepairOrderCharge $item): bool => $item->getRepairOrder() === $owner, 'A line of another repair order cannot be added.');
     }
 }
