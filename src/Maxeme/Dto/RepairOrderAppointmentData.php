@@ -38,15 +38,8 @@ final class RepairOrderAppointmentData
     public static function listFromRequest(mixed $rows): array
     {
         $appointments = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $value = static function (string $key) use ($row): ?string {
-                $text = is_scalar($row[$key] ?? null) ? trim((string) $row[$key]) : '';
-
-                return $text !== '' ? $text : null;
-            };
+        foreach (PostedRows::of($rows) as $row) {
+            $value = PostedRows::reader($row);
 
             $appointment = new self();
             $appointment->id = $value('id');

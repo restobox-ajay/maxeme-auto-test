@@ -51,14 +51,13 @@ final class IssuedInvoiceForm
         $posted = $request->request->all();
         $form = new self();
         foreach (['status' => 'status', 'date' => 'date', 'payment_type_id' => 'paymentTypeId', 'payment_amount' => 'paymentAmount', 'recommendations' => 'recommendations', 'admin_note' => 'adminNote'] as $field => $property) {
-            $value = is_scalar($posted[$field] ?? null) ? trim((string) $posted[$field]) : '';
-            $form->{$property} = $value !== '' ? $value : null;
+            $form->{$property} = PostedRows::reader($posted)($field);
         }
-        foreach (is_array($posted['lines'] ?? null) ? $posted['lines'] : [] as $row) {
-            if (!is_array($row) || !is_scalar($row['id'] ?? null)) {
+        foreach (PostedRows::of($posted['lines'] ?? null) as $row) {
+            if (!is_scalar($row['id'] ?? null)) {
                 continue;
             }
-            $value = static fn (string $key): ?string => is_scalar($row[$key] ?? null) && trim((string) $row[$key]) !== '' ? trim((string) $row[$key]) : null;
+            $value = PostedRows::reader($row);
             $form->lines[] = ['id' => (string) $row['id'], 'name' => $value('name'), 'quantity' => $value('quantity'), 'price' => $value('price')];
         }
         $form->charges = DocumentChargeData::listFromRequest($posted['charges'] ?? []);

@@ -53,15 +53,8 @@ final class RepairOrderJobData
     public static function listFromRequest(mixed $rows): array
     {
         $jobs = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $value = static function (string $key) use ($row): ?string {
-                $text = is_scalar($row[$key] ?? null) ? trim((string) $row[$key]) : '';
-
-                return $text !== '' ? $text : null;
-            };
+        foreach (PostedRows::of($rows) as $row) {
+            $value = PostedRows::reader($row);
 
             $job = new self();
             $job->id = $value('id');
