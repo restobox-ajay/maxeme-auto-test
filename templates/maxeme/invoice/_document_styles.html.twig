@@ -34,6 +34,8 @@
 .wo-table p { margin: 0 0 6px; }
 .wo-items td { height: 7.5em; }
 .wo-master { font-size: 12.5px; }
+/* Thread 13347/13425: the work order prints black and white, so its heading carries no colour. */
+.wo-section-title { color: {{ c.bandInk }}; }
 .wo-blank { display: inline-block; width: 120px; border-bottom: 1px solid {{ c.muted }}; vertical-align: bottom; height: 1em; }
 .wo-blank-wide { width: 260px; }
 .wo-tech { border-bottom: 1px solid {{ c.muted }}; width: 70%; margin-top: 8px; }
