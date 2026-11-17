@@ -71,7 +71,7 @@ abstract class AbstractChargeController extends AbstractMaxemeController
         $repository = $this->repository();
         $list = ListQuery::fromRequest($request, array_keys($repository::SORTS));
         $charges = $repository->findAllInView($list);
-        $filename = sprintf('%s-%s.csv', $name, (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename($name, $timezone);
         $activity->exported('service', $entityType, $filename, count($charges), $list->describe());
 
         return CsvExport::response($filename, ['Code', 'Name', 'Price', 'Tax Class', 'Active'], (static function () use ($charges): \Generator {

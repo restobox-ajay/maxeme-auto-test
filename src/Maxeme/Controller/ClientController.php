@@ -86,7 +86,7 @@ final class ClientController extends AbstractMaxemeController
         $find = SearchTerm::fromRequest($request);
         $list = ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS));
         $clients = $this->clients->findAllInView($find, $list);
-        $filename = sprintf('clients-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('clients', $timezone);
 
         $view = ($find->text !== '' ? sprintf('search "%s", ', $find->text) : '') . $list->describe();
         $activity->exported('people', 'Client', $filename, count($clients), $view);

@@ -83,7 +83,7 @@ final class ServiceItemController extends AbstractMaxemeController
         $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS));
         $services = $repository->findAllInView($list);
-        $filename = sprintf('services-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('services', $timezone);
         $activity->exported('service', 'ServiceItem', $filename, count($services), $list->describe());
 
         return CsvExport::response($filename, ['Name', 'Label', 'Default Price', 'Tax Class', 'Service Lines'], (static function () use ($services): \Generator {

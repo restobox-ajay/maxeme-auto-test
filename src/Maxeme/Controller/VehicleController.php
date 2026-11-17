@@ -136,7 +136,7 @@ final class VehicleController extends AbstractMaxemeController
         $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(VehicleRepository::LIST_SORTS));
         $vehicles = $this->vehicles->findAllInView(SearchTerm::fromRequest($request), $list);
-        $filename = sprintf('vehicles-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('vehicles', $timezone);
         $activity->exported('car', 'Vehicle', $filename, count($vehicles), $list->describe());
 
         return CsvExport::response($filename, ['Customer', 'Year', 'Make', 'Model', 'Colour', 'Licence Plate', 'VIN', 'Mileage'], (static function () use ($vehicles): \Generator {

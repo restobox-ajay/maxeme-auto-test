@@ -14,6 +14,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final class CsvExport
 {
+    /** "<slug>-YYYY-MM-DD.csv", dated today in the given (shop) timezone. */
+    public static function datedFilename(string $slug, string $timezone): string
+    {
+        return sprintf('%s-%s.csv', $slug, (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+    }
+
     /**
      * @param list<string> $header column titles
      * @param iterable<list<string|int|float|null>> $rows

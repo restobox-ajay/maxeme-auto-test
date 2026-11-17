@@ -88,7 +88,7 @@ final class RepairOrderController extends AbstractMaxemeController
         $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc');
         $repairOrders = $this->repairOrders->findAllInView($list);
-        $filename = sprintf('repair-orders-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('repair-orders', $timezone);
         $activity->exported('work-order', 'RepairOrder', $filename, count($repairOrders), $list->describe());
         $numbers = $this->numbers;
 

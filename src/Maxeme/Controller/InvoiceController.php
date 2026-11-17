@@ -229,7 +229,7 @@ final class InvoiceController extends AbstractMaxemeController
         $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc');
         $invoices = $this->repository->findAllInView(SearchTerm::fromRequest($request), $list);
-        $filename = sprintf('invoices-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('invoices', $timezone);
         $activity->exported('accounting', 'Invoice', $filename, count($invoices), $list->describe());
         $numbers = $this->numbers;
 

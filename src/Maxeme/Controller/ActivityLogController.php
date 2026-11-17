@@ -58,7 +58,7 @@ final class ActivityLogController extends AbstractController
         $filter = ActivityLogFilter::fromRequest($request);
         $list = ListQuery::fromRequest($request, array_keys(ActivityLog::SORTS), 'desc');
         $rows = $this->log->all($filter, $list);
-        $filename = sprintf('activity-log-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));
+        $filename = CsvExport::datedFilename('activity-log', $timezone);
         $activity->exported('log', 'AuditLog', $filename, count($rows), $list->describe());
 
         return CsvExport::response($filename, ['When', 'User', 'Role', 'Area', 'Action', 'What', 'Record', 'Record id'], (static function () use ($rows, $timezone): \Generator {
