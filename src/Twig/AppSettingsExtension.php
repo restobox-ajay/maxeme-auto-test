@@ -35,15 +35,24 @@ final class AppSettingsExtension extends AbstractExtension
         return $this->settings->siteName();
     }
 
+    /**
+     * Templates never get a secret: app_setting() is also allowed inside the sandbox that renders
+     * staff-editable email and cover-page templates, so without this a template could print
+     * API keys, tokens or passwords stored as settings.
+     */
     public function getSetting(string $key, ?string $default = null): ?string
     {
+        if (AppSettings::isSensitiveKey($key)) {
+            return $default;
+        }
+
         return $this->settings->get($key, $default);
     }
 
-    /** @return array<string, string|null> */
+    /** @return array<string, string|null> every setting except the secret-named ones */
     public function getAll(): array
     {
-        return $this->settings->all();
+        return array_filter($this->settings->all(), static fn (string $key): bool => !AppSettings::isSensitiveKey($key), ARRAY_FILTER_USE_KEY);
     }
 }
 

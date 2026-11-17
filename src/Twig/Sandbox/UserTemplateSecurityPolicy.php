@@ -142,7 +142,7 @@ final class UserTemplateSecurityPolicy implements SecurityPolicyInterface
 
     public function checkMethodAllowed($obj, $method): void
     {
-        if ($this->isReadable($obj)) {
+        if ($this->isReadable($obj) && !self::isForbiddenMember((string) $method, true)) {
             return;
         }
 
@@ -155,7 +155,7 @@ final class UserTemplateSecurityPolicy implements SecurityPolicyInterface
 
     public function checkPropertyAllowed($obj, $property): void
     {
-        if ($this->isReadable($obj)) {
+        if ($this->isReadable($obj) && !self::isForbiddenMember((string) $property, false)) {
             return;
         }
 
@@ -174,6 +174,21 @@ final class UserTemplateSecurityPolicy implements SecurityPolicyInterface
      * per-getter allowlist would be stale the day it was written. Everything outside that shape —
      * the container, Request, kernel, repositories, Twig's own runtime — is refused.
      */
+    /**
+     * A template reads; it never changes anything and never sees a secret. Without this an
+     * admin-authored template could call `user.setRoles([...])` (saved if anything flushes later in
+     * the request) or print `user.password` / `user.apiKey` / a reset token from the send context.
+     */
+    private static function isForbiddenMember(string $name, bool $isMethod): bool
+    {
+        if (preg_match('/password|token|secret|api_?key|salt|credential/i', $name) === 1) {
+            return true;
+        }
+
+        return $isMethod
+            && preg_match('/^(set|add|remove|clear|reset|replace|apply|record|mark|move|amend|withdraw|lock|unlock|transition|cancel|void|delete|erase|persist|flush|refresh|queue)([A-Z_0-9]|$)/', $name) === 1;
+    }
+
     private function isReadable(object $obj): bool
     {
         foreach (self::ALLOWED_CLASSES as $allowed) {

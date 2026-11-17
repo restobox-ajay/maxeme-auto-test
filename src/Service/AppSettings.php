@@ -548,6 +548,15 @@ final class AppSettings
         $this->cache->delete(self::CACHE_KEY_ALL);
     }
 
+    /**
+     * A setting key whose name says it holds a secret (api_key, *_token, *_password, *_dsn…).
+     * Templates use it to refuse such keys: app_setting() runs inside the staff-editable sandbox.
+     */
+    public static function isSensitiveKey(string $key): bool
+    {
+        return self::isSensitiveEnvVarName(strtoupper(trim(preg_replace('/[^a-z0-9_]+/i', '_', $key) ?? '', '_')));
+    }
+
     /** True if this env var name must never be exposed via a setting's ${VAR}/%env(VAR)% placeholder. */
     public static function isSensitiveEnvVarName(string $name): bool
     {
