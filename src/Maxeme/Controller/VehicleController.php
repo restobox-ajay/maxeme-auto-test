@@ -18,6 +18,7 @@ use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ClientProfileTab;
 use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Listing\SearchTerm;
+use App\Maxeme\Repository\AppointmentRepository;
 use App\Maxeme\Repository\ClientRepository;
 use App\Maxeme\Repository\RepairOrderRepository;
 use App\Maxeme\Repository\ServiceCategoryRepository;
@@ -53,7 +54,7 @@ final class VehicleController extends AbstractMaxemeController
     /** The vehicle page: its details and stats, its repair orders (by service or service category), its notes. */
     #[Route('/admin/vehicles/{id}', name: 'maxeme_vehicle_show', requirements: ['id' => '\d+'], methods: ['GET'])]
     #[RequiresPermission(Permission::CAR_VIEW)]
-    public function show(#[MapEntity] Vehicle $vehicle, Request $request, RepairOrderRepository $repairOrders, ServiceCategoryRepository $categories): Response
+    public function show(#[MapEntity] Vehicle $vehicle, Request $request, RepairOrderRepository $repairOrders, ServiceCategoryRepository $categories, AppointmentRepository $appointmentRepository): Response
     {
         if (!$vehicle->isActive()) {
             throw $this->createNotFoundException('This vehicle has been deleted.');
@@ -75,8 +76,13 @@ final class VehicleController extends AbstractMaxemeController
         }
         uasort($usedServices, static fn (ServiceItem $a, ServiceItem $b): int => strcasecmp($a->getName(), $b->getName()));
 
+        // Its appointments (mockup): the pending ones first, then the rest, newest first.
+        $appointments = $appointmentRepository->findBy(['vehicle' => $vehicle], ['startTime' => 'DESC']);
+        usort($appointments, static fn ($a, $b): int => (int) $b->getStatus()->isPending() <=> (int) $a->getStatus()->isPending() ?: $b->getStartTime() <=> $a->getStartTime());
+
         return $this->render('maxeme/vehicle/show.html.twig', [
             'vehicle' => $vehicle,
+            'appointments' => $appointments,
             'history' => $history,
             'stats' => self::stats($all),
             'services' => array_values($usedServices),

@@ -86,6 +86,30 @@
         </div>
     </section>
 
+    {# P25 (mockup): the appointments booked for this vehicle, pending first, then newest first. #}
+    <section class="table-card no-paginate mx-ro-after" id="vehicle-appointments">
+        <div class="table-header"><h2>Appointments</h2></div>
+        <div class="wide-table-wrap">
+            <table id="vehicle-appointment-table">
+                <thead><tr><th>Date</th><th>Duration</th><th>Status</th><th>Repair Order</th><th>Note</th><th></th></tr></thead>
+                <tbody>
+                    {% for appointment in appointments %}
+                        <tr>
+                            <td data-label="Date" class="mx-nowrap">{{ appointment.startTime|date('m/d/Y g:i A') }}</td>
+                            <td data-label="Duration">{{ appointment.durationInHours + 0 }} h</td>
+                            <td data-label="Status"><span class="badge mx-appt-badge appt-{{ appointment.status.value }}">{{ appointment.status.label }}</span></td>
+                            <td data-label="Repair Order">{% if appointment.repairOrder %}<a class="mx-nowrap" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">{{ ro_number(appointment.repairOrder) }}</a>{% else %}<span class="muted-line">—</span>{% endif %}</td>
+                            <td data-label="Note">{{ appointment.note }}</td>
+                            <td data-label="Actions">{% if is_granted('/appointment/edit') %}<a class="button mx-btn-sm mx-success" href="{{ path('maxeme_appointment_edit', { id: appointment.id }) }}">Edit Appointment</a>{% endif %}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-table-cell">No appointments for this vehicle.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <div class="mx-ro-after">
         {% include 'maxeme/_notes.html.twig' with {
             notes: vehicle.notes,
