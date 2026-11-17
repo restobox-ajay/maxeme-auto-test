@@ -72,3 +72,13 @@
 .site-admin .content-frame input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(.filter-row input),
 .site-admin .content-frame select:not(.filter-row select),
 .site-admin .content-frame textarea { border-color: #d1d5db; border-radius: 6px; font-size: .84rem; }
+
+/* T5 Status badges: the mockup tints appointment status pills (13% of the status colour behind
+   text in that colour) instead of filling them solid. */
+.site-admin .badge.mx-appt-badge, .mx-appt-badge { color: var(--mx-appt-colour, #6b7280) !important; background: color-mix(in srgb, var(--mx-appt-colour, #6b7280) 13%, transparent) !important; }
+.mx-appt-badge.appt-new { --mx-appt-colour: var(--mx-appt-new); }
+.mx-appt-badge.appt-in_progress { --mx-appt-colour: var(--mx-appt-in-progress); }
+.mx-appt-badge.appt-complete { --mx-appt-colour: var(--mx-appt-complete); }
+.mx-appt-badge.appt-extended { --mx-appt-colour: var(--mx-appt-extended); }
+.mx-appt-badge.appt-no_show { --mx-appt-colour: var(--mx-appt-no-show); }
+.mx-appt-badge.appt-cancelled { --mx-appt-colour: var(--mx-appt-cancelled); }
