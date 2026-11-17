@@ -102,3 +102,6 @@
 .site-admin .button.back-button::before { content: "←"; width: 16px; height: 16px; margin-right: 0; padding: 0; border: 1.5px solid currentColor; border-radius: 50%; color: inherit; background: transparent; font-size: .6rem; font-weight: 700; }
 .site-admin .button.back-button:hover { color: #333; border-color: #adadad; background: #e6e6e6; transform: none; }
 .site-admin .button.back-button:hover::before { color: inherit; background: transparent; }
+
+/* T8 Form buttons: Cancel / Save sit at the bottom right, as in the mockup's .form-actions. */
+.site-admin .content-frame .form-actions:not(.inline-form-grid > .form-actions) { justify-content: flex-end; gap: 6px; }
