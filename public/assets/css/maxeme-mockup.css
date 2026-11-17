@@ -254,3 +254,17 @@
 .site-admin .badge.warn { color: #92400e; background: #fffbeb; }
 .site-admin .badge.danger { color: #d9534f; background: #fff1f2; }
 .site-admin .badge.danger-soft { color: #b42318; background: #fee4e2; }
+
+/* T13 Headings and header buttons: page and card headings use the mockup's 1.6 line height (24px
+   rows), card titles in form cards are .95rem; buttons on the right of a page header (Back, Logs,
+   Edit…) are the normal 32px size — only the ones beside the title are small (T4). Form inputs are
+   36px tall like the mockup's. */
+.site-admin .content-frame h1, .site-admin .content-frame .panel-title-row h1, .site-admin .content-frame h2, .site-admin .content-frame .table-header h2 { line-height: 1.6 !important; }
+.site-admin .content-frame .form-card > h2 { font-size: .95rem; }
+.site-admin .content-frame .panel-title-row .panel-actions .button, .site-admin .content-frame .panel-title-row .panel-actions .mx-btn-sm { height: 32px; min-height: 32px; padding: 0 12px; border-radius: 8px; font-size: .8125rem; }
+.site-admin .content-frame .form-card input[type="text"],
+.site-admin .content-frame .form-card input[type="email"],
+.site-admin .content-frame .form-card input[type="tel"],
+.site-admin .content-frame .form-card input[type="number"],
+.site-admin .content-frame .form-card input[type="date"],
+.site-admin .content-frame .form-card select { min-height: 36px; }
