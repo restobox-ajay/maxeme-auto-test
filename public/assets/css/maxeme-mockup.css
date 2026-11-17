@@ -174,3 +174,14 @@
 .mx-stat { border-radius: 12px; border-color: #e5e7eb; padding: 14px 16px; }
 #vehicle-history .table-header { justify-content: flex-start; }
 #vehicle-history .mx-history-filter { margin-right: auto; display: flex; gap: 8px; }
+
+/* P8 Dashboard: each block is a white rounded card (border, 12px radius, 20/22 padding) with its title
+   in the card and a blue link beside it; counts in Needs attention are bold (zero stays grey). */
+.site-admin .content-frame .mx-dash .table-card { border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
+.site-admin .content-frame .mx-dash .table-header { background: transparent; border-bottom: 0; padding: 0 0 12px; justify-content: space-between; }
+.site-admin .content-frame .mx-dash .table-header h2 { font-size: .95rem; }
+.mx-dash .table-header a { color: #428bca; font-size: .85rem; font-weight: 500; }
+.mx-dash-todo a { padding: 8px 2px; border-bottom: 1px solid #e5e7eb; }
+.mx-dash-todo a:last-child { border-bottom: 0; }
+.mx-dash-todo b { font-weight: 700; color: #1f2937; }
+.mx-dash-todo b.is-zero { font-weight: 400; color: #6b7280; }
