@@ -15,19 +15,6 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/admin')]
 final class SystemController extends AbstractAdminController
 {
-    /** Same multi-format parsing as EstimateController::parseEstimateDateFilter(). */
-    private function parseLogDateFilter(string $raw): ?\DateTimeImmutable
-    {
-        foreach (['Y-m-d', 'm/d/Y', 'm-d-Y', 'd/m/Y', 'd-m-Y'] as $fmt) {
-            $dt = \DateTimeImmutable::createFromFormat($fmt, $raw);
-            if ($dt instanceof \DateTimeImmutable) {
-                return $dt;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * #426: a prelaunch checklist, accessible to every admin (unlike Error Log/Database
      * Console/Mail Queue, which stay Tech-Support-only). Every item comes from
@@ -102,7 +89,7 @@ final class SystemController extends AbstractAdminController
 
         $filterDate = trim((string) ($filters['date'] ?? ''));
         if ($filterDate !== '') {
-            $parsedDate = $this->parseLogDateFilter($filterDate);
+            $parsedDate = $this->parseDateFilter($filterDate);
             if ($parsedDate instanceof \DateTimeImmutable) {
                 // A recognised full date maps to exactly one day in the display timezone —
                 // convert it to its UTC window rather than substring-matching the stored UTC
@@ -365,7 +352,7 @@ final class SystemController extends AbstractAdminController
 
         $filterDate = trim((string) ($filters['date'] ?? ''));
         if ($filterDate !== '') {
-            $parsedDate = $this->parseLogDateFilter($filterDate);
+            $parsedDate = $this->parseDateFilter($filterDate);
             if ($parsedDate instanceof \DateTimeImmutable) {
                 // occurred_at is a UTC instant; the admin types a day in the display timezone, so it
                 // has to go through the same window conversion as the Email Log's Date filter (and

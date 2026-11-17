@@ -66,28 +66,6 @@ use TaxBundle\Tax\TaxCalculatorResolver;
 #[Route('/admin')]
 final class EstimateController extends AbstractAdminController
 {
-    private function parseEstimateDateFilter(?string $raw): ?\DateTimeImmutable
-    {
-        $v = trim((string) $raw);
-        if ($v === '') {
-            return null;
-        }
-
-        $candidates = ['Y-m-d', 'm/d/Y', 'm-d-Y', 'd/m/Y', 'd-m-Y'];
-        foreach ($candidates as $fmt) {
-            $dt = \DateTimeImmutable::createFromFormat($fmt, $v);
-            if ($dt instanceof \DateTimeImmutable) {
-                return $dt;
-            }
-        }
-
-        try {
-            return new \DateTimeImmutable($v);
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
     #[Route('/estimate', name: 'admin_estimate_index', methods: ['GET'])]
     public function index(Request $request, EntityManagerInterface $entityManager, BusinessDate $businessDate): Response
     {
@@ -161,7 +139,7 @@ final class EstimateController extends AbstractAdminController
 
         $filterCreatedAt = trim((string) ($filters['createdAt'] ?? ''));
         if ($filterCreatedAt !== '') {
-            $createdAt = $this->parseEstimateDateFilter($filterCreatedAt);
+            $createdAt = $this->parseDateFilter($filterCreatedAt);
             if ($createdAt instanceof \DateTimeImmutable) {
                 // The admin sees this date in the display timezone, but e.createdAt is stored in
                 // UTC — the typed day has to be converted to its UTC window before it can be
