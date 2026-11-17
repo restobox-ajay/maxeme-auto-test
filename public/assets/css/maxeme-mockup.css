@@ -96,3 +96,9 @@
 .site-admin .content-frame .table-card { border: 1px solid #e5e7eb; margin-bottom: 18px; }
 .site-admin .content-frame .table-header { padding: 14px 18px; background: #f9fafb; }
 .site-admin .content-frame .table-header h2 { font-size: .92rem; font-weight: 700; }
+
+/* T7 Back button: the mockup's plain outline button with a small "←" in a circle. */
+.site-admin .button.back-button { min-width: 0; color: #333; border-color: #ccc; background: #fff; gap: 6px; }
+.site-admin .button.back-button::before { content: "←"; width: 16px; height: 16px; margin-right: 0; padding: 0; border: 1.5px solid currentColor; border-radius: 50%; color: inherit; background: transparent; font-size: .6rem; font-weight: 700; }
+.site-admin .button.back-button:hover { color: #333; border-color: #adadad; background: #e6e6e6; transform: none; }
+.site-admin .button.back-button:hover::before { color: inherit; background: transparent; }
