@@ -13,6 +13,7 @@ use App\Entity\SalesTax;
 use App\Repository\SalesTaxRepository;
 use App\Service\AdminUrlGenerator;
 use App\Service\AppSettings;
+use App\Service\QuantityScale;
 use App\Service\CompanyFulfillmentRegionService;
 use App\Service\WarehouseFulfillmentRegionService;
 use App\Service\CustomerUrlGenerator;
@@ -138,6 +139,7 @@ final class ConfigController extends AbstractAdminController
         'company_name', 'company_phone', 'company_address', 'company_city', 'company_state',
         'company_postal_code', 'company_country', 'company_gst_number', 'website_url', 'logo_url',
         'favicon_url', 'product_image_placeholder_url', 'timezone', 'base_currency', 'fulfillment_regions',
+        QuantityScale::SETTING_KEY,
         'invoice_payment_note', 'invoice_footer_note', 'email_footer_copyright', 'email_footer_address',
         'terms_url', 'privacy_url', 'returns_url', 'guest_catalog_visible', 'guest_catalog_default_url',
         'company_registration_mode', 'company_registration_default_price_list_id', 'company_registration_default_fulfillment_region_id',
@@ -420,6 +422,12 @@ final class ConfigController extends AbstractAdminController
                 'description' => 'IANA timezone identifier (e.g. America/New_York or Asia/Kolkata) used to display every date/time '
                     . 'across the site, PDFs, and emails. All storage stays UTC regardless of this value. Blank or an unrecognised '
                     . 'identifier falls back to UTC.',
+            ],
+            QuantityScale::SETTING_KEY => [
+                'name' => 'Quantity Decimal Places',
+                'value' => (string) QuantityScale::MAX_DECIMALS,
+                'description' => sprintf('How many decimals a quantity keeps (0 to %d), e.g. 1.333 hours of labour. '
+                    . 'Only totals are rounded to the cent. A product whose unit has its own rounding step uses that instead.', QuantityScale::MAX_DECIMALS),
             ],
             'base_currency' => [
                 'name' => 'Base Currency',
@@ -2127,7 +2135,10 @@ final class ConfigController extends AbstractAdminController
                 new \ArrayObject(['name' => $name, 'key' => $key]),
                 new ValidAppSettingRequest($entityManager, $setting->getId()),
             );
-            if (count($violations) > 0) {
+            if (count($violations) === 0 && $key === QuantityScale::SETTING_KEY
+                && !(ctype_digit($value) && (int) $value <= QuantityScale::MAX_DECIMALS)) {
+                $this->addFlash('error', sprintf('Quantity Decimal Places must be a whole number from 0 to %d.', QuantityScale::MAX_DECIMALS));
+            } elseif (count($violations) > 0) {
                 $this->addFlash('error', (string) $violations[0]->getMessage());
             } else {
                 $setting
