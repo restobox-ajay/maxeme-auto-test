@@ -1,11 +1,9 @@
 {% extends 'maxeme/resetting/_layout.html.twig' %}
 {% set card_title = 'Check your email' %}
 {% block card %}
-    {% if alreadyRequested %}
-        <div class="alert warn mx-auth-message">The password for this user has already been requested within the last {{ hours }} hours.</div>
-    {% else %}
-        <p class="mx-auth-message">An email has been sent to <strong>{{ email }}</strong>. It contains a link you must click to reset your password.</p>
-    {% endif %}
+    {# One answer for every outcome, so the page never tells whether an account exists. #}
+    <p class="mx-auth-message">If the username or email address matches an active account, an email has been sent to that account's address. It contains a link you must click to reset your password.</p>
+    <p class="mx-auth-message muted-line">A new link can be requested once every {{ hours }} hours; if one was already sent, use that email.</p>
 
     <a class="button outline full-width cancel-reset-button" href="{{ path('admin_login') }}">Back to login page</a>
 {% endblock %}

@@ -38,24 +38,18 @@ final class PasswordResetController extends AbstractController
         }
 
         $username = trim((string) $request->request->get('username', ''));
-        [$outcome, $user] = $this->passwordReset->request($username);
+        $this->passwordReset->request($username);
 
-        return match ($outcome) {
-            PasswordResetOutcome::UnknownUser => $this->render('maxeme/resetting/request.html.twig', ['invalidUsername' => $username]),
-            PasswordResetOutcome::AlreadyRequested => $this->render('maxeme/resetting/check_email.html.twig', ['alreadyRequested' => true, 'hours' => $this->passwordReset->windowHours()]),
-            PasswordResetOutcome::Sent => $this->redirectToRoute('maxeme_resetting_check_email', ['email' => $user?->getEmail()]),
-        };
+        // Every outcome (sent, unknown account, already requested in this window) gets the same
+        // answer, so the page cannot be used to find out which usernames exist or to read an
+        // account's email address (the legacy app said "does not exist" and showed the address).
+        return $this->redirectToRoute('maxeme_resetting_check_email');
     }
 
     #[Route('/check-email', name: 'check_email', methods: ['GET'])]
-    public function checkEmail(Request $request): Response
+    public function checkEmail(): Response
     {
-        $email = trim((string) $request->query->get('email', ''));
-        if ($email === '') {
-            return $this->redirectToRoute('maxeme_resetting_request');
-        }
-
-        return $this->render('maxeme/resetting/check_email.html.twig', ['email' => $email, 'alreadyRequested' => false]);
+        return $this->render('maxeme/resetting/check_email.html.twig', ['hours' => $this->passwordReset->windowHours()]);
     }
 
     #[Route('/reset/{token}', name: 'reset', methods: ['GET', 'POST'])]

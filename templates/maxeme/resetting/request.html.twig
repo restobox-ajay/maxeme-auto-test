@@ -5,9 +5,6 @@
 
     <form class="form-grid admin-login-form" method="post" action="{{ path('maxeme_resetting_request') }}" role="form">
         {{ csrf_field() }}
-        {% if invalidUsername is defined %}
-            <div class="admin-login-error span-2">The username or email address "{{ invalidUsername }}" does not exist.</div>
-        {% endif %}
         <label class="span-2" for="username">
             Username or email address
             <input type="text" id="username" name="username" required placeholder="username or email">
