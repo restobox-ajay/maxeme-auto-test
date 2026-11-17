@@ -140,9 +140,6 @@
                 <label class="span-2"><span>Internal Comment <small class="muted-line">(for staff only: never printed on the work order, quote or invoice)</small></span>
                     <textarea name="concern" rows="3" placeholder="e.g. customer says clunk over bumps, brakes squeal when cold">{{ data.concern }}</textarea>
                 </label>
-                <label class="span-2"><span>Recommendations <small class="muted-line">(for the customer: printed on the work order and carried onto the invoice)</small></span>
-                    <textarea name="recommendations" rows="3" maxlength="2000" placeholder="e.g. Front rotors scored, resurface at next visit.">{{ data.recommendations }}</textarea>
-                </label>
             </div>
         </section>
 
@@ -180,6 +177,16 @@
             <p id="ro-jobs-empty" class="empty-table-cell" {{ form.jobs is not empty ? 'hidden' }}>No services yet: the customer may not know what is wrong.</p>
             <div class="mx-line-actions">
                 <button type="button" id="ro-job-add" class="button mx-btn-sm mx-success">+ Add Service</button>
+            </div>
+        </section>
+
+        {# ── Work order notes (mockup): the customer-facing recommendations, after the services ── #}
+        <section class="form-card">
+            <h2>Work order notes</h2>
+            <div class="form-grid">
+                <label><span>Recommendations <small class="muted-line">(for the customer: printed on the work order and carried onto the invoice)</small></span>
+                    <textarea name="recommendations" rows="3" maxlength="2000" placeholder="e.g. Front rotors scored, resurface at next visit.">{{ data.recommendations }}</textarea>
+                </label>
             </div>
         </section>
 
