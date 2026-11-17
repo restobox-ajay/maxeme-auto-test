@@ -4,7 +4,8 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#206eb8">
-        <title>{% block title %}{{ site_name() }}{% endblock %}</title>
+        {# P15: browser tabs end in the shop's name, as in the mockup, also on the core pages that say "| Admin". #}
+        <title>{% apply replace({' | Admin': ' | ' ~ site_name()}) %}{% block title %}{{ site_name() }}{% endblock %}{% endapply %}</title>
         {% set faviconUrl = app_setting('favicon_url', '') %}
         {% if faviconUrl %}<link rel="icon" href="{{ faviconUrl }}">{% endif %}
         <link rel="preconnect" href="https://fonts.googleapis.com">

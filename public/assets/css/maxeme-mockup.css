@@ -202,3 +202,8 @@
 
 /* P14 Repair Order Board: each column's number in a blue circle (mockup). */
 .mx-board-step { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #428bca; color: #fff; font-size: .72rem; font-weight: 700; margin-right: 4px; }
+
+/* P15 Stock adjustment: two columns (Quantity | Reference, Note | When) with Product, Location and
+   Reason across, as in the mockup. */
+.site-admin #adjust-form.form-grid { grid-template-columns: 1fr 1fr; column-gap: 16px; }
+.site-admin #adjust-form.form-grid > .span-2 { grid-column: 1 / -1; }

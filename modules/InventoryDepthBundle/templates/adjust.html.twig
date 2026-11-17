@@ -30,7 +30,7 @@
 
             <label class="span-2 adj-search">
                 Product
-                <input type="text" id="adjust-product-search" value="{{ product ? (product.sku ?: product.name) ~ ' — ' ~ product.name }}" placeholder="Search by SKU, name, category or vendor…" autocomplete="off" aria-label="Search products" {{ product ? '' : 'autofocus' }}>
+                <input type="text" id="adjust-product-search" value="{{ product ? (product.sku ?: product.name) ~ ' — ' ~ product.name }}" placeholder="Search by SKU, name, category or vendor…" autocomplete="off" aria-label="Search products">
                 <div class="adj-results" id="adjust-product-results" role="listbox" hidden></div>
             </label>
 
