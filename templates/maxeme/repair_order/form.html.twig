@@ -255,6 +255,9 @@
                         </tbody>
                     </table>
                 </div>
+                {# Mockup theme T10: the entries count under the table. #}
+                {% set historyCount = history|length %}
+                <div class="table-footer"><span class="table-count">Showing {{ historyCount ? 1 : 0 }} to {{ historyCount }} of {{ historyCount }} entries</span></div>
             </section>
         </div>
     {% else %}

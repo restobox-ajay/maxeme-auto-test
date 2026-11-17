@@ -34,6 +34,9 @@
             </tbody>
         </table>
     </div>
+    {# Mockup theme T10: the entries count under the table. #}
+    {% set noteCount = notes|length %}
+    <div class="table-footer"><span class="table-count">Showing {{ noteCount ? 1 : 0 }} to {{ noteCount }} of {{ noteCount }} entries</span></div>
 </section>
 
 {% if canEdit %}
