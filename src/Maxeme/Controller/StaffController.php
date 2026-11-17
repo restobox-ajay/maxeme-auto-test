@@ -52,7 +52,7 @@ final class StaffController extends AbstractController
     public function create(Request $request): Response
     {
         $account = StaffAccountRequest::fromRequest($request);
-        $errors = $this->accounts->validate($account);
+        $errors = $this->accounts->validate($account) + $this->roleGrantErrors($account->roles);
 
         if ($errors !== []) {
             return $this->renderIndex($account, $errors, Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -81,7 +81,7 @@ final class StaffController extends AbstractController
 
         if ($request->isMethod('POST')) {
             $account = StaffAccountUpdateRequest::fromRequest($request, $user);
-            $errors = $this->accounts->validate($account, $user);
+            $errors = $this->accounts->validate($account, $user) + $this->roleGrantErrors($account->roles, StaffRole::allOf($user));
 
             if ($errors === []) {
                 try {
@@ -99,7 +99,7 @@ final class StaffController extends AbstractController
             'user' => $user,
             'account' => $account,
             'errors' => $errors,
-            'assignableRoles' => StaffRole::assignable(),
+            'assignableRoles' => $this->assignableRoles(),
         ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 
@@ -156,7 +156,38 @@ final class StaffController extends AbstractController
             'statuses' => [AdminUserStatus::Active, AdminUserStatus::Inactive],
             'account' => $account,
             'errors' => $errors,
-            'assignableRoles' => StaffRole::assignable(),
+            'assignableRoles' => $this->assignableRoles(),
         ], new Response(status: $status));
+    }
+
+    /**
+     * The roles the signed-in user may give an account. Only a Super Admin (or Tech Support) may
+     * grant Super Admin: otherwise an Admin could make a Super Admin account and, through it, reach
+     * the Super Admin-only pages and the database console (the same line StaffAccountVoter draws
+     * for changing an existing Super Admin account).
+     *
+     * @return list<StaffRole>
+     */
+    private function assignableRoles(): array
+    {
+        if ($this->isGranted(StaffRole::SuperAdmin->value)) {
+            return StaffRole::assignable();
+        }
+
+        return array_values(array_filter(StaffRole::assignable(), static fn (StaffRole $role): bool => $role !== StaffRole::SuperAdmin));
+    }
+
+    /**
+     * @param list<StaffRole> $roles   the posted roles
+     * @param list<StaffRole> $current the roles the account already holds (kept, not granted)
+     *
+     * @return array<string, string> a 'roles' error when a role is newly given that the user may not grant
+     */
+    private function roleGrantErrors(array $roles, array $current = []): array
+    {
+        $assignable = $this->assignableRoles();
+        $refused = array_filter($roles, static fn (StaffRole $role): bool => !in_array($role, $current, true) && !in_array($role, $assignable, true));
+
+        return $refused === [] ? [] : ['roles' => 'Only a Super Admin can give an account the Super Admin role.'];
     }
 }
