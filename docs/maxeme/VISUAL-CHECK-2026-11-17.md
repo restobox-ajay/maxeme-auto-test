@@ -137,3 +137,52 @@ size and weight, colours, borders, radius, padding, height) of the main elements
 ## Not checked
 - The login, forgot-password and reset pages: the session was logged in.
 - Printing and the PDFs. Vendor detail, because the local database has no vendors.
+
+## Fixes made (2026-11-17): one commit each, so any one can be reverted
+
+To undo one item: `git revert <commit>`. All the theme CSS lives in `public/assets/css/maxeme-mockup.css`
+(one section per item, headed T1…T10 / P1…P20); removing its `<link>` in `templates/base.html.twig`
+drops all of that CSS at once.
+
+### Theme (every page)
+
+| # | Commit | What changed |
+|---|---|---|
+| T1 | `7132c84` | Top bar breadcrumb "Group › Page"; adds `maxeme-mockup.css` |
+| T2 | `02865b2` | Sidebar: blue current page, item sizes, brand, searches, "‹ Collapse" |
+| T3 | `0ff3e6e` | Tables: density and sizes, flat filter boxes, blue links in cells, left Actions heading, no empty scrollbar strip, head controls keep their case |
+| T4 | `34713f0` | Small buttons in rows and headers, outline "⋯" row menu, mockup input borders |
+| T5 | `0d42e6b` | Appointment status badges tinted, not solid |
+| T6 | `1c5cf0e` | Content inset 24px, rounded form cards, list-card header |
+| T7 | `fb6a007` | Back button with the circled arrow |
+| T8 | `9006504` | Cancel / Save bottom-right |
+| T9 | `72eb9fb` | Labels above fields, hint inline |
+| T10 | `a7d94f1` | "Showing x to y of N entries" under Notes and History |
+
+### Pages
+
+| # | Commit | What changed |
+|---|---|---|
+| P1 | `ca58d21` | Calendar: outline toolbar, weekday title, "Nov 15 – Nov 21" week title, hour labels only, no today tint in Day/Week, month weeks only, "+N" when appointments stack |
+| P2 | `9d5ddac` | Appointment form: mockup field order, "Type:", read-only grey boxes, no Check-in on the form, slot calendar full width |
+| P3 | `e510f3e` | Repair order: no Repair Order / Invoices sub-tabs (list is under Invoice ▾), CUSTOMER / VEHICLE / STATUS headings, pickup under the customer, Status note, compact Totals, centred Notes / History buttons |
+| P4 | `e5b79d4` | Repair order list: Master Technician column with its search box (13687) |
+| P5 | `ad35d73` | Quote and invoice print black and white with bordered blocks and a gridded items table (13347 / 13425) |
+| P6 | `7a40d9f` | Appointment amounts "$365.69"; Pending / Past band light blue |
+| P7 | `7974bc1` | Vehicle page: VEHICLE card, separate tiles (first counts all repair orders), filters beside the heading |
+| P8 | `62559cd` | Dashboard: white rounded cards, blue header links, bold counts |
+| P9 | `7a6ccd2` | Services: Active switch and filter on the list; Status (Active) on the form |
+| P10 | — | Clients / Vehicles: no change needed (the "Open" column is the row's 🔍 icon; the ⋯ menu is built by script) |
+| P11 | `822bfc1` | Title buttons stay in a row (Service Reminders shows Export CSV); no extra card titles on Labour, Government Fees, Service Reminders; Actions heading on Service Categories |
+| P12 | `586ff90` | Date preset reads "Custom date range" |
+| P13 | `49b6e2d` | Payment report: blue Filter, Clear link, bold Overall row, entries count, "All methods" normal case |
+| P14 | `6819fa1` | Repair Order Board numbers in blue circles |
+| P15 | `e874ca1` | Stock adjustment: no auto-opened suggestions, two columns; browser tabs end in the shop name instead of "\| Admin" |
+| P16 | `fb79f90` | Settings › Tax Rates compact card |
+| P17 | `ea212dd` | Choose a client: Start without a client, "—" in empty cells, sidebar / breadcrumb on the screen being started |
+| P18 | `2ed9b92` | Product form: two columns, Logs and Delete beside Back, compact image box; remarks and descriptions kept in a closed section |
+| P19 | `66cc3e6` | Invoice Remark: text plus Add / Edit remark link |
+| P20 | `ff274cc` | Invoice pages under Schedule › Repair Order in the sidebar and breadcrumb |
+| — | `4741f09` | Stylesheet version bump so browsers load the new CSS (revert only if reverting all of the above) |
+
+Not changed, on purpose: the vendor page keeps no Payments tab (thread 14028 overrides the older mockup).
