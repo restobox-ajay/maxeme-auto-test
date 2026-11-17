@@ -49,8 +49,10 @@ final class ServiceReminderQueueController extends AbstractMaxemeController
     /** Export CSV: every entry of the current view (search boxes, status, sort), not just the page. */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::REMINDER_VIEW)]
-    public function export(Request $request, ActivityRecorder $activity, DocumentNumbers $numbers, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ActivityRecorder $activity, DocumentNumbers $numbers, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(ServiceReminderQueueRepository::SORTS), 'desc');
         $entries = $this->queue->findAllInView($list);
         $zone = new \DateTimeZone($timezone);

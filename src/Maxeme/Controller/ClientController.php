@@ -79,8 +79,10 @@ final class ClientController extends AbstractMaxemeController
      */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
-    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ActivityRecorder $activity, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $find = SearchTerm::fromRequest($request);
         $list = ListQuery::fromRequest($request, array_keys(ClientRepository::SORTS));
         $clients = $this->clients->findAllInView($find, $list);
@@ -157,8 +159,10 @@ final class ClientController extends AbstractMaxemeController
     /** Client Profile › Appointments › Past Appointments › Export CSV (mockup a38e7a2): every row of its search and sort. */
     #[Route('/{id}/past-appointments.csv', name: 'export_past_appointments', requirements: ['id' => '\d+'], methods: ['GET'])]
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
-    public function exportPastAppointments(#[MapEntity] Client $client, Request $request, AppointmentRepository $appointments, ActivityRecorder $activity, DocumentNumbers $numbers, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function exportPastAppointments(#[MapEntity] Client $client, Request $request, AppointmentRepository $appointments, ActivityRecorder $activity, DocumentNumbers $numbers, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(AppointmentRepository::PAST_SORTS), 'desc');
         $rows = $appointments->findCompletedForClient($client, $list);
         $filename = sprintf('past-appointments-%d.csv', $client->getId());
@@ -183,8 +187,10 @@ final class ClientController extends AbstractMaxemeController
     /** Client Profile › Repair Orders › Export CSV (mockup a38e7a2): every row of its search and sort. */
     #[Route('/{id}/repair-orders.csv', name: 'export_repair_orders', requirements: ['id' => '\d+'], methods: ['GET'])]
     #[RequiresPermission(Permission::PEOPLE_VIEW)]
-    public function exportRepairOrders(#[MapEntity] Client $client, Request $request, RepairOrderRepository $repairOrders, ActivityRecorder $activity, DocumentNumbers $numbers, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function exportRepairOrders(#[MapEntity] Client $client, Request $request, RepairOrderRepository $repairOrders, ActivityRecorder $activity, DocumentNumbers $numbers, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc');
         $rows = $repairOrders->findForClient($client, $list);
         $filename = sprintf('repair-orders-%d.csv', $client->getId());

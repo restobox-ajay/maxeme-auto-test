@@ -82,8 +82,10 @@ final class RepairOrderController extends AbstractMaxemeController
     /** Repair Orders › Export CSV: every repair order of the current view (search boxes, status, sort), not just the page. */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
-    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ActivityRecorder $activity, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(RepairOrderRepository::SORTS), 'desc');
         $repairOrders = $this->repairOrders->findAllInView($list);
         $filename = sprintf('repair-orders-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));

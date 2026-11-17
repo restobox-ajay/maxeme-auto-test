@@ -223,8 +223,10 @@ final class InvoiceController extends AbstractMaxemeController
     /** Invoices › Export CSV: every invoice of the current view (search, sort), not just the page. */
     #[Route('/admin/invoices/export.csv', name: 'maxeme_invoice_export', methods: ['GET'], priority: 10)]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
-    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ActivityRecorder $activity, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc');
         $invoices = $this->repository->findAllInView(SearchTerm::fromRequest($request), $list);
         $filename = sprintf('invoices-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));

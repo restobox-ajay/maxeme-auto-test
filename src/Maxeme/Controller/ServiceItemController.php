@@ -77,8 +77,10 @@ final class ServiceItemController extends AbstractMaxemeController
     /** Services › Export CSV: every service of the current view (search boxes and sort), not just the page shown, with its lines in one cell. */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::SERVICE_VIEW)]
-    public function export(Request $request, ServiceItemRepository $repository, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ServiceItemRepository $repository, ActivityRecorder $activity, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(ServiceItemRepository::SORTS));
         $services = $repository->findAllInView($list);
         $filename = sprintf('services-%s.csv', (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->format('Y-m-d'));

@@ -51,8 +51,10 @@ final class ActivityLogController extends AbstractController
     /** Activity Log › Export CSV: every row of the current filter and sort, not just the page. */
     #[Route('/export.csv', name: 'export', methods: ['GET'])]
     #[RequiresPermission(Permission::LOG_VIEW)]
-    public function export(Request $request, ActivityRecorder $activity, #[Autowire(param: 'maxeme.timezone')] string $timezone): Response
+    public function export(Request $request, ActivityRecorder $activity, \App\Service\AppSettings $appSettings): Response
     {
+        // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
+        $timezone = $appSettings->timezone()->getName();
         $filter = ActivityLogFilter::fromRequest($request);
         $list = ListQuery::fromRequest($request, array_keys(ActivityLog::SORTS), 'desc');
         $rows = $this->log->all($filter, $list);
