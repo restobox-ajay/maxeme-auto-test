@@ -112,6 +112,6 @@ class InvoiceServiceLine
     /** Quantity × price, in cents. */
     public function totalCents(): int
     {
-        return (int) round((float) $this->quantity * Money::toCents($this->salePrice));
+        return Money::times($this->quantity, $this->salePrice);
     }
 }

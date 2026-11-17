@@ -304,7 +304,7 @@ final class RepairOrderInvoicing
         if ($errors === []) {
             $cents = 0;
             foreach ($kept as [$line, $row]) {
-                $cents += (int) round((float) $row['quantity'] * Money::toCents((string) $row['price']));
+                $cents += Money::times($row['quantity'], (string) $row['price']);
             }
             foreach ($invoice->getPartLines() as $part) {
                 $cents += $part->totalCents();

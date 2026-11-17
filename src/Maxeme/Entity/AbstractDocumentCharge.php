@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Entity;
 
+use App\Maxeme\Accounting\Money;
 use App\Maxeme\Enum\DocumentChargeKind;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -53,7 +54,7 @@ abstract class AbstractDocumentCharge
     /** What it adds to the total, in cents: negative for a discount. */
     public function getSignedCents(): int
     {
-        $cents = abs((int) round((float) $this->amount * 100));
+        $cents = abs(Money::toCents($this->amount));
 
         return $this->kind === DocumentChargeKind::Discount ? -$cents : $cents;
     }

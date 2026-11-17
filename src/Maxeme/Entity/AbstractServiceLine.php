@@ -134,7 +134,7 @@ abstract class AbstractServiceLine
     /** Quantity × price per unit, in cents. */
     public function getExtendedCents(): int
     {
-        return (int) round((float) $this->quantity * Money::toCents($this->unitPrice));
+        return Money::times($this->quantity, $this->unitPrice);
     }
 
     public function isChargeThrough(): bool { return $this->chargeThrough; }

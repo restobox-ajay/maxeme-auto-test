@@ -30,6 +30,12 @@ final class Money
         return $amount !== null ? self::fromCents(self::toCents($amount)) : null;
     }
 
+    /** A line's total: $quantity (may be fractional, e.g. 1.5 hours) times $unitPrice, rounded to the cent. */
+    public static function times(string|int|float|null $quantity, string|int|float|null $unitPrice): int
+    {
+        return (int) round((float) $quantity * self::toCents($unitPrice));
+    }
+
     /** $rate percent of $cents, rounded to the cent. */
     public static function percentOf(int $cents, int $rate): int
     {
