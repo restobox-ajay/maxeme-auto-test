@@ -98,6 +98,8 @@ parameters:
             - admin_bundle_procurement_vendors
             - admin_bundle_procurement_vendor
             - admin_bundle_procurement_vendor_address_book
+            - admin_bundle_procurement_receipts
+            - admin_bundle_procurement_receipt
         /parts/edit:
             - admin_product_detail_columns_save
             - admin_product_inventory_create
@@ -135,6 +137,11 @@ parameters:
             - admin_bundle_procurement_vendor_note_add
             - admin_bundle_procurement_vendor_note_update
             - admin_bundle_procurement_vendor_note_delete
+            # Receive Stock: recording a purchase (vendor, quantity, unit cost), with or without a
+            # purchase order. Each receipt is a row of the part's Purchase History (thread 13631).
+            - admin_bundle_procurement_receive
+            - admin_bundle_procurement_receive_submit
+            - admin_bundle_procurement_receipt_void
 
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
@@ -176,6 +183,8 @@ parameters:
               - { key: products, label: Products, route: admin_product_detail_index, role: /parts/view,
                   match: [admin_product_detail_, admin_product_inventory_, admin_product_redirect, admin_bundle_inventory_depth_stock_by_product, admin_bundle_inventory_depth_product_lookup],
                   add: { label: Add a product, route: admin_product_inventory_create, role: /parts/edit } }
+              - { key: receive_stock, label: Receive Stock, route: admin_bundle_procurement_receipts, role: /parts/view, match: [admin_bundle_procurement_receipt, admin_bundle_procurement_receive],
+                  add: { label: Receive stock from a vendor, route: admin_bundle_procurement_receive, role: /parts/edit } }
               - { key: stock_adjustment, label: Stock Adjustment, route: admin_bundle_inventory_depth_adjust, role: /parts/edit }
               - { key: movements, label: Movement History, route: admin_bundle_inventory_depth_movements, role: /parts/view }
               - { key: product_import, label: Product Import, route: admin_product_import_index, role: /parts/edit, match: [admin_product_import_] }

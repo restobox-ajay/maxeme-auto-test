@@ -43,7 +43,7 @@ services:
     # to core's ProductActivityFeedResolver and ProductVendorResolver, discovered purely by tag —
     # the hub never imports this class or any other of this module's.
     ProcurementBundle\Hook\ProductPurchaseActivityProvider:
-        tags: ['app.product_activity_provider', 'app.product_vendor_provider']
+        tags: ['app.product_activity_provider', 'app.product_vendor_provider', 'app.product_purchase_history_provider']
 
     # Vendor sheet import (docs/plans/2026-09-15-vendor-sheet-and-po-csv-import.md), on the unified
     # import framework — core finds this purely by tag, never by referencing this class.
