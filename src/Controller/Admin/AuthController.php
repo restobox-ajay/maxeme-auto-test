@@ -51,6 +51,7 @@ final class AuthController extends AbstractAdminController
         RateLimiterFactoryInterface $passwordResetRequestLimiter,
         \App\Service\AppSettings $appSettings,
         \App\Service\RateLimiterGate $rateLimiterGate,
+        \App\Service\AdminUrlGenerator $adminUrls,
     ): Response {
         $token = trim((string) $request->query->get('token', ''));
         if ($token !== '') {
@@ -125,7 +126,9 @@ final class AuthController extends AbstractAdminController
                 $user->setResetTokenExpiresAt($appSettings->passwordResetExpiresAt());
                 $entityManager->flush();
 
-                $resetUrl = $this->generateUrl('admin_password_reset', ['token' => $resetToken], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+                // Pinned to ADMIN_HOST, never the request's Host header: a forged Host would
+                // otherwise mail the victim a reset link (and its token) on the attacker's domain.
+                $resetUrl = $adminUrls->generate('admin_password_reset', ['token' => $resetToken]);
 
                 $ctx = [
                     'user' => $user,

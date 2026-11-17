@@ -8,6 +8,7 @@ use App\Entity\AdminUser;
 use App\Enum\AdminUserStatus;
 use App\Maxeme\Security\PasswordResetOutcome;
 use App\Repository\AdminUserRepository;
+use App\Service\AdminUrlGenerator;
 use App\Service\AppSettings;
 use App\Service\ResetTokenService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,7 +16,6 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
 /**
@@ -36,7 +36,8 @@ final class PasswordResetService
         private readonly AppSettings $appSettings,
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
-        private readonly UrlGeneratorInterface $urls,
+        /** Pins the link to ADMIN_HOST, so a forged Host header cannot redirect the emailed token. */
+        private readonly AdminUrlGenerator $urls,
         private readonly StaffAccountService $accounts,
         private readonly LoggerInterface $logger,
     ) {
@@ -96,7 +97,7 @@ final class PasswordResetService
             ->subject('Reset Password')
             ->text($this->twig->render('maxeme/emails/password_reset.txt.twig', [
                 'user' => $user,
-                'confirmationUrl' => $this->urls->generate('maxeme_resetting_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL),
+                'confirmationUrl' => $this->urls->generate('maxeme_resetting_reset', ['token' => $token]),
             ]));
 
         try {

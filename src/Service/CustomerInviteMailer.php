@@ -10,7 +10,6 @@ use App\Entity\CustomerUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 use App\Service\Email\EmailTemplateRenderer;
 
@@ -22,7 +21,7 @@ final class CustomerInviteMailer
         private readonly EmailTemplateRenderer $emailTemplates,
         private readonly CustomerUrlGenerator $customerUrlGenerator,
         private readonly ResetTokenService $resetTokenService,
-        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly AdminUrlGenerator $adminUrlGenerator,
         private readonly AppSettings $appSettings,
     ) {
     }
@@ -40,7 +39,7 @@ final class CustomerInviteMailer
                 'user_email' => $user->getEmail(),
                 'reset_url' => $user instanceof CustomerUser
                     ? $this->customerUrlGenerator->generate('customer_account_setup', ['token' => $token])
-                    : $this->urlGenerator->generate('admin_account_setup', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL),
+                    : $this->adminUrlGenerator->generate('admin_account_setup', ['token' => $token]),
                 'expiry_description' => $this->appSettings->inviteTokenExpiryDescription(),
             ];
 
