@@ -37,6 +37,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  */
 final class StatusTransitionRefusedSubscriber implements EventSubscriberInterface
 {
+    use RefusedRequestResponseTrait;
+
     public static function getSubscribedEvents(): array
     {
         return [
@@ -74,27 +76,5 @@ final class StatusTransitionRefusedSubscriber implements EventSubscriberInterfac
         }
 
         return new RedirectResponse($this->safeReturnUrl($request));
-    }
-
-    /** Never bounce a rejected request onward to an attacker-supplied Referer. */
-    private function safeReturnUrl(Request $request): string
-    {
-        $referer = (string) $request->headers->get('referer', '');
-
-        return $referer !== '' && str_starts_with($referer, $request->getSchemeAndHttpHost() . '/')
-            ? $referer
-            : '/';
-    }
-
-    private function expectsJson(Request $request): bool
-    {
-        if ($request->isXmlHttpRequest()) {
-            return true;
-        }
-
-        $accept = (string) $request->headers->get('Accept', '');
-
-        return str_contains($accept, 'application/json')
-            || ($accept !== '' && !str_contains($accept, 'text/html'));
     }
 }
