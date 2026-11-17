@@ -267,8 +267,6 @@ final class InvoiceOrderMatcher
     /** A quantity as a person would type it: 3.00 reads back as 3, and 0.50 as 0.5. */
     private static function trimmed(float $quantity): string
     {
-        $formatted = number_format($quantity, 2, '.', '');
-
-        return str_contains($formatted, '.') ? rtrim(rtrim($formatted, '0'), '.') : $formatted;
+        return \App\Service\QuantityScale::trim(\App\Service\QuantityScale::round($quantity));
     }
 }

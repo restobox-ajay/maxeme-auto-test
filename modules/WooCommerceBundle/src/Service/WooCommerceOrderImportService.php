@@ -280,7 +280,7 @@ final class WooCommerceOrderImportService
                 ->setLocation($invoiceLine->getLocation())
                 ->setUnit($invoiceLine->getUnit())
                 ->setTaxCode($invoiceLine->getTaxCode())
-                ->setQuantity(number_format($quantity, 2, '.', ''))
+                ->setQuantity(QuantityScale::round($quantity))
                 ->setPrice(number_format($price, 2, '.', ''))
                 ->setSubtotal(number_format($lineSubtotal, 2, '.', ''))
                 ->setSortOrder($sortOrder++);
@@ -421,7 +421,7 @@ final class WooCommerceOrderImportService
                 ->setName($product->getName())
                 ->setSku($product->getSku())
                 ->setUnit($product->getUnit())
-                ->setQuantity(number_format($quantity, 2, '.', ''))
+                ->setQuantity(QuantityScale::round($quantity))
                 ->setCost((string) ($product->getCostPrice() ?? '0.00'))
                 ->setPrice(number_format($unitPrice, 2, '.', ''))
                 ->setSubtotal(number_format($lineTotal, 2, '.', ''))

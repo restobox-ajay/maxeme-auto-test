@@ -2331,7 +2331,7 @@ final class EstimateController extends AbstractAdminController
             $estimate->addLine(
                 (new EstimateLine())
                     ->setProduct($product instanceof ProductCore ? $product : null)
-                    ->setQuantity(number_format(max(0.0, (float) ($row['qty'] ?? 0)), 2, '.', ''))
+                    ->setQuantity(\App\Service\QuantityScale::round(max(0.0, (float) ($row['qty'] ?? 0))))
                     ->setSubtotal(number_format((float) ($row['subtotal'] ?? 0), 2, '.', ''))
                     // #full-parity, 2026-09-13 — see OrderController::previewOrderFromRequest()'s
                     // own comment on this same fix: a present-but-empty tax_code must fall back to

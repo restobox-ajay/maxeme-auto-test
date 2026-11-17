@@ -164,8 +164,6 @@ final class OverInvoicingGuard
     /** '12' rather than '12.00' — how OrderInvoicingService's own refusal states its figures. */
     private static function trimmed(float $quantity): string
     {
-        $formatted = number_format($quantity, 2, '.', '');
-
-        return str_contains($formatted, '.') ? rtrim(rtrim($formatted, '0'), '.') : $formatted;
+        return \App\Service\QuantityScale::trim(\App\Service\QuantityScale::round($quantity));
     }
 }

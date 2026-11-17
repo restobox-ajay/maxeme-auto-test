@@ -2147,7 +2147,7 @@ final class OrderController extends AbstractAdminController
                     // Quantity is floored the same way a save floors it — a negative one is not a
                     // quantity. The subtotal is NOT: a line priced negative has a negative
                     // subtotal, and flooring it here previewed tax the save would never produce.
-                    ->setQuantity($this->decimal(max(0.0, (float) ($row['qty'] ?? 0))))
+                    ->setQuantity(\App\Service\QuantityScale::round(max(0.0, (float) ($row['qty'] ?? 0))))
                     ->setSubtotal($this->decimal((float) ($row['subtotal'] ?? 0)))
                     // #full-parity, 2026-09-13: a present-but-EMPTY tax_code (the ordinary case for
                     // a line that never overrode the product's own default) used to read as

@@ -513,7 +513,7 @@ final class SalesReturnController extends AbstractAdminController
                     ->setInvoiceLine($invoiceLine instanceof InvoiceLine ? $invoiceLine : null)
                     ->setName(trim((string) ($row['name'] ?? '')) !== '' ? trim((string) $row['name']) : $product->getName())
                     ->setSku($this->nullable($row['sku'] ?? null) ?? $product->getSku())
-                    ->setQuantity(number_format($quantity, 2, '.', ''))
+                    ->setQuantity(QuantityScale::round($quantity, $product))
                     ->setReason($this->nullable($row['reason'] ?? null))
                     ->setSortOrder($sortOrder++),
             );

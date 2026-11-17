@@ -711,7 +711,7 @@ final class CreditMemoController extends AbstractAdminController
                 ->setLocation($this->nullableText($row['location'] ?? null))
                 ->setUnit($this->nullableText($row['unit'] ?? null))
                 ->setTaxCode($this->nullableText($row['tax_code'] ?? null))
-                ->setQuantity(number_format($quantity, 2, '.', ''))
+                ->setQuantity(QuantityScale::round($quantity))
                 ->setPrice(number_format($price, 2, '.', ''))
                 ->setSubtotal(number_format($lineSubtotal, 2, '.', ''))
                 ->setSortOrder($sortOrder++);

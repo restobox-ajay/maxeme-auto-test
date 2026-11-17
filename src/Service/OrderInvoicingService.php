@@ -156,7 +156,7 @@ final class OrderInvoicingService
                 throw new \DomainException(sprintf(
                     '%s: %s requested but only %s left to invoice on order %s.',
                     $row['line']->getName(),
-                    rtrim(rtrim(number_format($quantity, 2, '.', ''), '0'), '.'),
+                    self::trimmed($quantity),
                     rtrim(rtrim($order->uninvoicedQuantityFor($row['line']), '0'), '.'),
                     $order->getOrderNumber(),
                 ));
@@ -440,9 +440,7 @@ final class OrderInvoicingService
     /** A quantity as a person would type it: 0.60 reads back as 0.6, and 4.00 as 4. */
     private static function trimmed(float $quantity): string
     {
-        $formatted = number_format($quantity, 2, '.', '');
-
-        return str_contains($formatted, '.') ? rtrim(rtrim($formatted, '0'), '.') : $formatted;
+        return \App\Service\QuantityScale::trim(\App\Service\QuantityScale::round($quantity));
     }
 
     /**
