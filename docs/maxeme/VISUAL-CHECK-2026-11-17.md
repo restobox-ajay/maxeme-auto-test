@@ -186,3 +186,22 @@ drops all of that CSS at once.
 | — | `4741f09` | Stylesheet version bump so browsers load the new CSS (revert only if reverting all of the above) |
 
 Not changed, on purpose: the vendor page keeps no Payments tab (thread 14028 overrides the older mockup).
+
+### Re-check (full re-run of the comparison, same day): further fixes
+
+| # | Commit | What changed |
+|---|---|---|
+| T11 | `bcc309d` | Column headings at the mockup's 11.2px and in capitals again (T3 had taken the capitals off sortable headings); square filter boxes |
+| T12 | `9ee5145` | Badge colours from the mockup palette (success green, info, warn, danger) |
+| T13 | `ff3e7d0` | Heading line height 1.6, 32px buttons on the right of page headers, 36px form inputs |
+| P21 | `42ee088` | Report / board / reminder date bars and Activity Log filters in a white rounded card |
+| P22 | `cb849ad` | Client / vehicle row open button is a small outline button |
+| P23 | `3b983b2` | Error Log row View is a small outline button |
+| P24 | `447c074` | Product list column groups in the grey uppercase band; product form buttons Back, Logs, Delete |
+| P25 | `e58bba3` | Vehicle page Appointments card (pending first, Edit Appointment) |
+| P26 | `5b2dfde` | Reminders title without the count |
+| — | `c79a151` | Stylesheet version bump |
+
+Still different on purpose: the vendor page has no Payments tab (thread 14028); the product form keeps
+Remarks / descriptions (closed section) and its per-warehouse stock table; the report note wording on
+Service Report is unchanged because it describes how this app calculates the figures.
