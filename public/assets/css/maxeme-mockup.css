@@ -246,3 +246,11 @@
 .site-admin .content-frame thead > tr:not(.filter-row) > th button:not(.button) { text-transform: uppercase; letter-spacing: .04em; }
 .site-admin .content-frame .table-card tr.filter-row input,
 .site-admin .content-frame .table-card tr.filter-row select { border-radius: 0 !important; color: #000; font-weight: 500; border-top: 0; border-bottom: 0; border-left: 0; }
+
+/* T12 Badges: the mockup's palette — success green #15803d on #dcfce7, info #428bca on #eff6ff,
+   warn #92400e on #fffbeb, danger #d9534f on #fff1f2, danger-soft #b42318 on #fee4e2. */
+.site-admin .badge.success { color: #15803d; background: #dcfce7; }
+.site-admin .badge.info { color: #428bca; background: #eff6ff; }
+.site-admin .badge.warn { color: #92400e; background: #fffbeb; }
+.site-admin .badge.danger { color: #d9534f; background: #fff1f2; }
+.site-admin .badge.danger-soft { color: #b42318; background: #fee4e2; }
