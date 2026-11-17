@@ -235,3 +235,14 @@
 .mx-remark-edit-toggle > summary { display: inline-block; cursor: pointer; font-size: .8rem; color: #428bca; list-style: none; }
 .mx-remark-edit-toggle > summary::-webkit-details-marker { display: none; }
 .mx-remark-edit-toggle[open] > summary { margin-bottom: 6px; }
+
+/* T11 Re-check fixes for tables (follow-up to T3): column headings are the mockup's 11.2px and keep
+   their capitals even when the heading is a sort link (T3's "keep case" now covers only buttons and
+   form controls in a heading); filter boxes are square with dark 500-weight text. */
+.site-admin .content-frame .table-card table thead > tr:not(.filter-row):not(.column-groups) > th,
+.site-admin .content-frame table:not(.invoice-document table) thead > tr:not(.filter-row) > th { font-size: .7rem; padding: 9px 12px; }
+.site-admin .content-frame thead > tr:not(.filter-row) > th > a,
+.site-admin .content-frame thead > tr:not(.filter-row) > th a.sort-link,
+.site-admin .content-frame thead > tr:not(.filter-row) > th button:not(.button) { text-transform: uppercase; letter-spacing: .04em; }
+.site-admin .content-frame .table-card tr.filter-row input,
+.site-admin .content-frame .table-card tr.filter-row select { border-radius: 0 !important; color: #000; font-weight: 500; border-top: 0; border-bottom: 0; border-left: 0; }
