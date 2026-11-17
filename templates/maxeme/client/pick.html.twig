@@ -7,6 +7,8 @@
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: for.eyebrow, title: for.title, lead: 'Choose the client first: search by name, preferred name, phone, address or invoice #.' } %}
         {% block actions %}
             {% if is_granted('/people/edit') %}<a class="button mx-success" id="pick-new-client" href="{{ path('maxeme_client_index', { add: 1, next: for.value }) }}">+ Create new client</a>{% endif %}
+            {# P17 (mockup): a repair order can be started before the customer is known. #}
+            {% if for.value == 'repair_order' %}<a class="button outline" id="pick-no-client" href="{{ path('maxeme_repair_order_new') }}">Start without a client</a>{% endif %}
             <a class="button back-button" href="{{ path('maxeme_home') }}">Back</a>
         {% endblock %}
     {% endembed %}
@@ -36,11 +38,11 @@
                 <tbody>
                     {% for client in page.items %}
                         <tr id="pick_{{ client.id }}">
-                            <td data-label="First name">{{ client.firstName }}</td>
-                            <td data-label="Last name">{{ client.lastName }}</td>
-                            <td data-label="Preferred name">{{ client.preferredName }}</td>
-                            <td data-label="Phone">{{ client.phones|map(p => p|phone)|join(' · ') }}</td>
-                            <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine }}</td>
+                            <td data-label="First name">{{ client.firstName ?: '—' }}</td>
+                            <td data-label="Last name">{{ client.lastName ?: '—' }}</td>
+                            <td data-label="Preferred name">{{ client.preferredName ?: '—' }}</td>
+                            <td data-label="Phone">{{ client.phones|map(p => p|phone)|join(' · ') ?: '—' }}</td>
+                            <td data-label="Address">{{ client.primaryAddress ? client.primaryAddress.oneLine : '—' }}</td>
                             <td data-label="Actions"><a class="button primary mx-btn-sm" href="{{ path(for.route, { id: client.id }) }}">Choose</a></td>
                         </tr>
                     {% else %}
@@ -54,4 +56,24 @@
         </div>
         {{ mx.list_footer(page) }}
     </section>
+    {# P17 (mockup): the sidebar and breadcrumb point at the screen the client is being picked for
+       (Schedule › Repair Order, Appointments or Reminders), not at People › Client. #}
+    {% set forList = { repair_order: path('maxeme_repair_order_index'), appointment: path('maxeme_appointment_calendar'), reminder: path('maxeme_reminder_index') }[for.value] %}
+    <script>
+        // After load: the sidebar script sets its own current item first.
+        window.addEventListener('load', function () {
+            var link = document.querySelector('.nav a.nav-sub[href="{{ forList|e('js') }}"]');
+            if (!link) { return; }
+            document.querySelectorAll('.nav .nav-sub.is-current').forEach(function (a) { a.classList.remove('is-current'); });
+            link.classList.add('is-current');
+            var group = link.closest('.nav-group');
+            if (group) {
+                document.querySelectorAll('.nav .nav-group.is-open').forEach(function (g) { if (g !== group) { g.classList.remove('is-open'); } });
+                group.classList.add('is-open');
+                var title = group.querySelector('.nav-group-title .nav-label');
+                var crumb = document.querySelector('.mx-crumb');
+                if (crumb && title) { crumb.textContent = title.textContent.trim() + ' › ' + link.textContent.trim(); }
+            }
+        });
+    </script>
 {% endblock %}
