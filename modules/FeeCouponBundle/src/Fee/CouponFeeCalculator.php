@@ -147,43 +147,7 @@ final class CouponFeeCalculator implements FeeCalculatorInterface
      */
     private function coupons(): array
     {
-        $raw = (string) ($this->appSettings->get('checkout_coupons', '') ?? '');
-        if (trim($raw) === '') {
-            return [];
-        }
-
-        try {
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\Throwable) {
-            return [];
-        }
-
-        if (!is_array($decoded)) {
-            return [];
-        }
-
-        $coupons = [];
-        foreach ($decoded as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-
-            $code = strtoupper(trim((string) ($row['code'] ?? '')));
-            $type = strtolower(trim((string) ($row['type'] ?? '')));
-            $value = (float) ($row['value'] ?? 0);
-            if ($code === '' || !in_array($type, ['percent', 'fixed'], true) || $value <= 0) {
-                continue;
-            }
-
-            $coupons[] = [
-                'code' => $code,
-                'type' => $type,
-                'value' => $value,
-                'minSubtotal' => max(0.0, (float) ($row['minSubtotal'] ?? 0)),
-            ];
-        }
-
-        return $coupons;
+        return \App\Service\CheckoutCoupons::parse((string) ($this->appSettings->get('checkout_coupons', '') ?? ''));
     }
 
     /** Admin switch (checkout_coupons_enabled) for whether coupon codes may be used at all. */

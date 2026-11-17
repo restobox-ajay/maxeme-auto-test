@@ -794,43 +794,7 @@ final class OrderController extends AbstractCustomerController
 
     private function orderPaymentCoupons(?string $raw): array
     {
-        if ($raw === null || trim($raw) === '') {
-            return [];
-        }
-
-        try {
-            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\Throwable) {
-            return [];
-        }
-
-        if (!is_array($decoded)) {
-            return [];
-        }
-
-        $coupons = [];
-        foreach ($decoded as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-
-            $code = strtoupper(trim((string) ($row['code'] ?? '')));
-            $type = strtolower(trim((string) ($row['type'] ?? '')));
-            $value = (float) ($row['value'] ?? 0);
-            if ($code === '' || !in_array($type, ['percent', 'fixed'], true) || $value <= 0) {
-                continue;
-            }
-
-            $coupons[] = [
-                'code' => $code,
-                'type' => $type,
-                'value' => $value,
-                'minSubtotal' => max(0.0, (float) ($row['min_subtotal'] ?? 0)),
-                'label' => trim((string) ($row['label'] ?? '')),
-            ];
-        }
-
-        return $coupons;
+        return \App\Service\CheckoutCoupons::parse($raw);
     }
 
     private function resolveOrderCouponFromRequest(Request $request, AppSettings $appSettings, SalesOrder $order): array
