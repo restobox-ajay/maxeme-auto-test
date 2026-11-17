@@ -425,8 +425,8 @@ final class ConfigController extends AbstractAdminController
             ],
             QuantityScale::SETTING_KEY => [
                 'name' => 'Quantity Decimal Places',
-                'value' => (string) QuantityScale::MAX_DECIMALS,
-                'description' => sprintf('How many decimals a quantity keeps (0 to %d), e.g. 1.333 hours of labour. '
+                'value' => '2',
+                'description' => sprintf('How many decimals a quantity keeps (0 to %d), e.g. 1.5 hours of labour. '
                     . 'Only totals are rounded to the cent. A product whose unit has its own rounding step uses that instead.', QuantityScale::MAX_DECIMALS),
             ],
             'base_currency' => [

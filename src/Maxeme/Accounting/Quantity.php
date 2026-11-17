@@ -7,11 +7,12 @@ namespace App\Maxeme\Accounting;
 use App\Service\QuantityScale;
 
 /**
- * A line's quantity (hours of labour, a count of parts) as stored: core's quantity rounding
- * (QuantityScale, up to 4 decimals), never the 2 of money. Only a TOTAL is rounded to the cent
- * (Money::times()), so 1.333 hours at $90 is $119.97, not 1.33 × $90 = $119.70.
+ * A line's quantity (hours of labour, a count of parts) as stored. It uses core's quantity
+ * rounding: QuantityScale, at the "Quantity Decimal Places" setting (2 by default, at most 4).
+ * The total is worked out from the stored quantity and then rounded to the cent (Money::times()):
+ * 1.25 hours at $90.99 is $113.74 (113.7375 rounded).
  *
- * Trailing zeros go, so a form shows "1.5", not "1.5000".
+ * Trailing zeros go, so a form shows "1.5", not "1.50".
  */
 final class Quantity
 {

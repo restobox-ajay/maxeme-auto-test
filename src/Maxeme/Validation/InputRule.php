@@ -37,7 +37,7 @@ enum InputRule: string
             // A price that may be negative (a discount, a credit).
             self::SignedMoney => '-?[0-9]{1,8}(?:\.[0-9]{1,2})?',
             // Hours or a count: 2, 1.5, 0.25.
-            self::Quantity => '[0-9]{1,5}(?:\.[0-9]{1,4})?',
+            self::Quantity => '[0-9]{1,5}(?:\.[0-9]{1,2})?',
         };
     }
 
