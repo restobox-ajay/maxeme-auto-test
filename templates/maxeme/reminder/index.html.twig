@@ -25,7 +25,7 @@
             <p class="muted-line mx-board-note">{{ later }} more reminder{{ later == 1 ? ' is' : 's are' }} dated after {{ period.to|date('m/d/Y', false) }}.</p>
         {% endif %}
         <div class="table-header">
-            <h2>Reminders <span class="muted-line">{{ page.total }}</span></h2>
+            <h2>Reminders</h2>{# P26: no count beside the title (mockup); the footer says how many. #}
             {{ mx.list_search(page, 'reminders') }}
         </div>
         <div class="table-scroll-region">
