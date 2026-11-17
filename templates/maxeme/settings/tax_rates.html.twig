@@ -2,8 +2,8 @@
 {% extends 'maxeme/settings/_layout.html.twig' %}
 {% set tab = 'tax_rates' %}
 {% block settings_body %}
-    <section class="table-card">
-        <div class="table-header"><h2>Tax Rates</h2></div>
+    {# P16 (mockup): a compact card, no title bar and no pager; the note and Save share the last row. #}
+    <section class="table-card no-paginate mx-tax-rates">
         <form method="post" action="{{ path('maxeme_settings_tax_rates_save') }}">
             {{ csrf_field() }}
             <div class="wide-table-wrap">
@@ -23,8 +23,10 @@
                     </tbody>
                 </table>
             </div>
-            <p class="muted-line">New invoices charge these rates. A saved invoice keeps the rates it was saved with until it is saved again.</p>
-            {% if rates %}<div class="form-actions"><button class="button primary" type="submit">Save tax rates</button></div>{% endif %}
+            <div class="mx-tax-rates-foot">
+                <p class="muted-line">New invoices charge these rates. A saved invoice keeps the rates it was saved with until it is saved again.</p>
+                {% if rates %}<button class="button primary" type="submit">Save tax rates</button>{% endif %}
+            </div>
         </form>
     </section>
 {% endblock %}

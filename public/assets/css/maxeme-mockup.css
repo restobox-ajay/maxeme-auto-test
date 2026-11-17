@@ -207,3 +207,12 @@
    Reason across, as in the mockup. */
 .site-admin #adjust-form.form-grid { grid-template-columns: 1fr 1fr; column-gap: 16px; }
 .site-admin #adjust-form.form-grid > .span-2 { grid-column: 1 / -1; }
+
+/* P16 Settings › Tax Rates: a compact card about half the page wide, grey code chips, and the note and
+   Save on one row inside the card (mockup). */
+.site-admin .content-frame .mx-tax-rates { max-width: 640px; }
+.mx-tax-rates td code { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #f3f4f6; font-size: .72rem; }
+.mx-tax-rates input[type="text"] { max-width: 220px; }
+.mx-tax-rates input[type="number"] { max-width: 70px; }
+.mx-tax-rates-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; }
+.mx-tax-rates-foot .muted-line { margin: 0; font-size: .74rem; }
