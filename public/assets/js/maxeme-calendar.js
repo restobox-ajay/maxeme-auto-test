@@ -181,6 +181,23 @@
         slotDuration: { minutes: config.slotMinutes },
         slotMinTime: config.slotMinTime,
         slotMaxTime: config.slotMaxTime,
+        // Mockup look (P1): hour labels only ("7am"), month shows only its own weeks, the Day title carries
+        // the weekday and the Week title names both months ("Nov 15 – Nov 21, 2026"), and overlapping
+        // appointments stack at most 3 deep in Week / 8 in Day before a "+N" link.
+        slotLabelInterval: '01:00',
+        slotLabelFormat: { hour: 'numeric', meridiem: 'short' },
+        fixedWeekCount: false,
+        views: {
+            timeGridDay: { titleFormat: { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }, eventMaxStack: 8 },
+            timeGridWeek: {
+                eventMaxStack: 3,
+                titleFormat: function (arg) {
+                    var opt = { month: 'short', day: 'numeric', timeZone: 'UTC' };
+                    var end = arg.end.marker;
+                    return arg.start.marker.toLocaleDateString('en-US', opt) + ' – ' + end.toLocaleDateString('en-US', opt) + ', ' + end.getUTCFullYear();
+                }
+            }
+        },
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay listLink' },
         // The List view is a page of its own (mockup deba1ef).
         customButtons: { listLink: { text: 'list', click: function () { window.location.href = config.listUrl; } } },

@@ -110,3 +110,30 @@
    label text, instead of a 170px label column on the left. */
 .site-admin .form-grid:not(.address-form-grid):not(.product-form-grid):not(.inline-form-grid) > label:not(.check-row):not(.radio-choice):not(.file-upload-label):not(.note-modal-field):not(.rich-text-field) { grid-template-columns: minmax(0, 1fr); row-gap: 4px; align-items: start; font-size: .78rem; font-weight: 600; color: #374151; }
 .site-admin .form-grid:not(.inline-form-grid) > label > span > small.muted-line, .site-admin .form-grid label > span small, .site-admin .form-grid label > span .muted-line { display: inline; margin: 0 0 0 3px; font-weight: 400; color: #6b7280; font-size: .72rem; }
+
+/* P1 Calendar (appointments): outline toolbar buttons, smaller title, bold day headers, small grey
+   hour labels, no yellow "today" column in Day/Week (the month cell keeps it), 12px event text,
+   small grey weekday heads in Month. The slot calendar on the appointment form shares these. */
+.mx-calendar, .appointment-calendar-wrap {
+    --fc-button-bg-color: #fff; --fc-button-border-color: #ccc; --fc-button-text-color: #333;
+    --fc-button-hover-bg-color: #e6e6e6; --fc-button-hover-border-color: #adadad;
+    --fc-button-active-bg-color: #3071a9; --fc-button-active-border-color: #3071a9;
+}
+.mx-calendar .fc .fc-button, .appointment-calendar-wrap .fc .fc-button { height: 28px; padding: 0 9px; font-size: .76rem; font-weight: 500; border-radius: 6px; box-shadow: none !important; }
+.mx-calendar .fc .fc-button-group > .fc-button, .appointment-calendar-wrap .fc .fc-button-group > .fc-button { border-radius: 0; }
+.mx-calendar .fc .fc-button-group > .fc-button:first-child, .appointment-calendar-wrap .fc .fc-button-group > .fc-button:first-child { border-radius: 6px 0 0 6px; }
+.mx-calendar .fc .fc-button-group > .fc-button:last-child, .appointment-calendar-wrap .fc .fc-button-group > .fc-button:last-child { border-radius: 0 6px 6px 0; }
+.mx-calendar .fc .fc-button-primary:not(:disabled).fc-button-active, .appointment-calendar-wrap .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
+.mx-calendar .fc .fc-button:disabled, .appointment-calendar-wrap .fc .fc-button:disabled { opacity: .55; }
+.mx-calendar .fc-toolbar-title, .appointment-calendar-wrap .fc-toolbar-title { font-size: 1rem; font-weight: 700; }
+.mx-calendar .fc-timegrid .fc-col-header-cell-cushion { font-size: .8rem; font-weight: 700; color: #1f2937; padding: 7px 4px; }
+.mx-calendar .fc-col-header-cell { background: #f4f5f7; }
+.mx-calendar .fc-timegrid-slot-label-cushion { font-size: .68rem; color: #6b7280; }
+.mx-calendar .fc-timegrid-col.fc-day-today { background: #fff; }
+.site-admin .content-frame .fc td a:not(.button) { color: inherit; }
+/* FullCalendar's own grid keeps its cell padding and centring (the T3 table rule must not reach it). */
+.site-admin .content-frame .fc table:not(.invoice-document table) th,
+.site-admin .content-frame .fc table:not(.invoice-document table) td { padding: 0; font-size: inherit; letter-spacing: normal; }
+.site-admin .content-frame .fc table:not(.invoice-document table) th { text-align: center; }
+.mx-calendar .mx-event-lines { font-size: .76rem; }
+.mx-calendar .fc-dayGridMonth-view .fc-col-header-cell-cushion { text-transform: uppercase; font-size: .7rem; font-weight: 500; color: #6b7280; }
