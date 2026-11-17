@@ -6,6 +6,7 @@ namespace App\Maxeme\Service;
 
 use App\Entity\ProductCore;
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Accounting\Quantity;
 use App\Maxeme\Dto\ServiceLineData;
 use App\Maxeme\Entity\AbstractServiceLine;
 use App\Maxeme\Entity\GovtFee;
@@ -75,7 +76,7 @@ final class ServiceLineBuilder
 
             $lines[] = ($line ?? $newLine($type))
                 ->setItem($item)
-                ->setQuantity(Money::rounded($row->quantity))
+                ->setQuantity(Quantity::normalize($row->quantity))
                 ->setUnitPrice(Money::rounded($row->unitPrice))
                 ->setChargeThrough($row->chargeThrough);
         }

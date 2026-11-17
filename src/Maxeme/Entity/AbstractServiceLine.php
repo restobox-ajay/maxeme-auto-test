@@ -46,7 +46,7 @@ abstract class AbstractServiceLine
     private ?GovtFee $govtFee = null;
 
     /** Hours for labour, a count otherwise; always 1 for a discount. */
-    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    #[ORM\Column(type: 'decimal', precision: 14, scale: 4)]
     private string $quantity = '1.00';
 
     /** In dollars (CDN); negative for a discount. */

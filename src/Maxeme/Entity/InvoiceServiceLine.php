@@ -53,7 +53,7 @@ class InvoiceServiceLine
         #[ORM\Column(length: 255, nullable: true)]
         private ?string $name,
         /** 1 for a service; hours or a count for a charge-through line. */
-        #[ORM\Column(type: 'decimal', precision: 10, scale: 2, options: ['default' => 1])]
+        #[ORM\Column(type: 'decimal', precision: 14, scale: 4, options: ['default' => 1])]
         private string $quantity = '1',
         /** The price of one, as billed (dollars). */
         #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]

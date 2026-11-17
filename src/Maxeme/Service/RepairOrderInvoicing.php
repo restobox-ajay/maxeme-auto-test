@@ -8,6 +8,7 @@ use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\InvoiceCalculator;
 use App\Maxeme\Accounting\Money;
+use App\Maxeme\Accounting\Quantity;
 use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Dto\IssuedInvoiceForm;
 use App\Maxeme\Entity\PaymentType;
@@ -223,7 +224,7 @@ final class RepairOrderInvoicing
             }
             $invoice->addServiceLine($service);
             foreach ($children as [$line, $label, $quantity]) {
-                $invoice->addServiceLine((new InvoiceServiceLine($invoice, $label, Money::rounded((string) $quantity), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax, $this->partTaxes)));
+                $invoice->addServiceLine((new InvoiceServiceLine($invoice, $label, Quantity::normalize($quantity), $line->getUnitPrice(), null, $service))->setTax(LineTax::ofLine($line, $serviceTax, $this->partTaxes)));
             }
             $wrote = true;
         }
@@ -329,7 +330,7 @@ final class RepairOrderInvoicing
             }
         }
         foreach ($kept as [$line, $row]) {
-            $line->change((string) $row['name'], (string) Money::rounded($row['quantity']), Money::rounded($row['price']));
+            $line->change((string) $row['name'], Quantity::normalize($row['quantity']), Money::rounded($row['price']));
         }
         $invoice->replaceCharges(array_map(static fn (array $charge): InvoiceCharge => $charge[0]->setKind($charge[2])->setLabel((string) $charge[1]->label)->setAmount((string) Money::rounded($charge[1]->amount)), $charges));
 
