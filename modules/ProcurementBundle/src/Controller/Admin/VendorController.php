@@ -14,7 +14,6 @@ use ProcurementBundle\Entity\PurchaseOrder;
 use ProcurementBundle\Entity\Vendor;
 use ProcurementBundle\Entity\VendorAddress;
 use ProcurementBundle\Entity\VendorBill;
-use ProcurementBundle\Entity\VendorBillPaymentApplication;
 use ProcurementBundle\Entity\VendorContact;
 use ProcurementBundle\Entity\VendorNote;
 use ProcurementBundle\Entity\VendorReturn;
@@ -381,6 +380,9 @@ final class VendorController extends AbstractProcurementController
      *     listRoute: ?string,
      *     listLabel: ?string
      * }>
+     *
+     * No Payments tab (thread 14028): payments to vendors cannot be entered from here, so the client
+     * asked for it to be removed. A bill's own Payments screen still lists what was paid against it.
      */
     private const DOCUMENT_TABS = [
         'purchase-orders' => [
@@ -409,15 +411,6 @@ final class VendorController extends AbstractProcurementController
             'link' => 'Number',
             'status' => 'Status',
             'empty' => 'Nothing has been sent back to this vendor.',
-            'listRoute' => null,
-            'listLabel' => null,
-        ],
-        'payments' => [
-            'label' => 'Payments',
-            'columns' => ['Paid', 'Bill', 'Method', 'Amount', 'Recorded by'],
-            'link' => 'Bill',
-            'status' => null,
-            'empty' => 'Nothing has been paid to this vendor yet.',
             'listRoute' => null,
             'listLabel' => null,
         ],
@@ -609,7 +602,6 @@ final class VendorController extends AbstractProcurementController
             'purchase-orders' => $this->purchaseOrderRows($vendor),
             'bills' => $this->billRows($vendor),
             'returns' => $this->returnRows($vendor),
-            'payments' => $this->paymentRows($vendor),
             // Unreachable: detail() has already replaced any key that is not in DOCUMENT_TABS with
             // the default. Loud rather than an empty tab, because an empty tab is what a vendor with
             // no documents looks like and the two must not be confusable (#624).
@@ -703,51 +695,6 @@ final class VendorController extends AbstractProcurementController
                 'Status' => $return->getStatus()->value,
             ],
         ], $returns);
-    }
-
-    /**
-     * Every payment claim made against this vendor's bills.
-     *
-     * `vendor_bill_payment_application` hangs off the bill and not off the vendor, so this is a join
-     * rather than a findBy — which is also why the answer is worth having on this page at all: "what
-     * have we paid Steelhead" is otherwise four bill screens opened one after another.
-     *
-     * The APPLICATION and not the underlying payment (#708: a payment can settle several bills, so
-     * one payment made to this vendor can be more than one row here — one per bill it touched, which
-     * is exactly the granularity "what has this vendor been paid against each bill" wants). The row
-     * names the BILL rather than the payment, because a payment has no identity a person uses: the
-     * link goes to that bill's payments screen, where the row can actually be corrected.
-     *
-     * @return list<array{href: ?string, cells: array<string, string>}>
-     */
-    private function paymentRows(Vendor $vendor): array
-    {
-        /** @var list<VendorBillPaymentApplication> $applications */
-        $applications = $this->em->createQueryBuilder()
-            ->select('a', 'b')
-            ->from(VendorBillPaymentApplication::class, 'a')
-            ->join('a.bill', 'b')
-            ->where('b.vendor = :vendor')
-            ->setParameter('vendor', $vendor)
-            ->orderBy('a.appliedAt', 'DESC')
-            ->addOrderBy('a.id', 'DESC')
-            ->getQuery()
-            ->getResult();
-
-        return array_map(function (VendorBillPaymentApplication $application): array {
-            $bill = $application->getBill();
-
-            return [
-                'href' => $this->generateUrl('admin_bundle_procurement_bill_payments', ['id' => $bill->getId()]),
-                'cells' => [
-                    'Paid' => $application->getAppliedAt()->format('Y-m-d'),
-                    'Bill' => $bill->getDocumentNumber(),
-                    'Method' => $application->getMethod(),
-                    'Amount' => self::money($bill->getCurrency(), $application->getAmount()),
-                    'Recorded by' => $application->getRecordedBy()?->getUserIdentifier() ?? '—',
-                ],
-            ];
-        }, $applications);
     }
 
     /**
