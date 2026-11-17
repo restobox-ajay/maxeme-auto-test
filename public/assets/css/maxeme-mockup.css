@@ -216,3 +216,14 @@
 .mx-tax-rates input[type="number"] { max-width: 70px; }
 .mx-tax-rates-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; }
 .mx-tax-rates-foot .muted-line { margin: 0; font-size: .74rem; }
+
+/* P18 Product form: two columns across the card (mockup), with Remarks / Short / Long Description in a
+   closed section underneath instead of a third column. */
+.product-form-card .product-form-grid { grid-template-columns: minmax(0, 1fr); }
+.product-form-card .product-form-grid .mx-product-more { display: block; grid-column: 1 / -1; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+.mx-product-more > summary { cursor: pointer; font-size: .82rem; font-weight: 600; color: #374151; }
+.mx-product-more[open] > summary { margin-bottom: 10px; }
+.mx-product-more > label { display: grid; gap: 4px; margin-bottom: 12px; }
+.product-image-field .field-label { text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; font-weight: 700; color: #6b7280; }
+.product-image-field .image-dropzone-inner { min-height: 0; padding: 14px; }
+.product-image-field .image-dropzone-inner svg, .product-image-field .image-dropzone-inner .dropzone-icon { display: none; }

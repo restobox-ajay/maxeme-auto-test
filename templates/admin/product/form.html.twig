@@ -84,6 +84,12 @@
                 <h1>{{ mode }} Product</h1>
             </div>
             <div class="panel-actions">
+                {# P18 (mockup): Logs and Delete beside Back on a saved product. #}
+                {% if mode == 'Update' and product.id %}
+                    {% if is_granted('/log/view') %}<a class="button outline" href="{{ path('maxeme_activity_log_index', { record: 'ProductCore', id: product.id }) }}">Logs</a>{% endif %}
+                    <button type="button" class="button danger js-post-action" data-url="{{ path('admin_product_delete', { id: product.id }) }}" data-token="{{ csrf_token_value() }}"
+                            data-redirect="{{ path('admin_product_detail_index') }}" data-confirm-title="Delete Confirmation" data-confirm-before="Delete the product " data-item="{{ product.name|default('') }}" data-confirm-after="?">Delete</button>
+                {% endif %}
                 <a class="button back-button" href="{{ app.request.query.get('redirect') ? path(app.request.query.get('redirect')) : path('admin_product_detail_index') }}">Back</a>
             </div>
         </div>
@@ -423,7 +429,9 @@
                 </label>
             </div>
 
-            <div class="product-form-side">
+            {# P18 (mockup): the form is two columns; remarks and descriptions sit closed underneath, kept for the catalogue. #}
+            <details class="product-form-side mx-product-more">
+                <summary>Remarks and descriptions</summary>
                 <label>
                     Remarks
                     <textarea name="remarks">{{ product.remarks }}</textarea>
@@ -470,7 +478,7 @@
                         <textarea name="long_description">{{ product.long }}</textarea>
                     </span>
                 </label>
-            </div>
+            </details>
 
             {% if feeFieldFragments is defined and feeFieldFragments|length > 0 %}
             <div class="span-2 fee-fields-section">
