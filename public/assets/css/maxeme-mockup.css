@@ -82,3 +82,17 @@
 .mx-appt-badge.appt-extended { --mx-appt-colour: var(--mx-appt-extended); }
 .mx-appt-badge.appt-no_show { --mx-appt-colour: var(--mx-appt-no-show); }
 .mx-appt-badge.appt-cancelled { --mx-appt-colour: var(--mx-appt-cancelled); }
+
+/* T6 Page frame and cards: the mockup's content sits 24px in from the sidebar with cards spaced
+   apart; form cards are rounded (12px), list cards stay square with a grey header like the mockup's
+   .table-card. */
+@media (min-width: 981px) {
+    .site-admin .content-frame { padding: 0 24px 80px; }
+    .site-admin .content-frame > .admin-content-header { margin: 0 -24px 6px; }
+    .site-admin .content-frame > .panel.compact-panel { padding-left: 0; padding-right: 0; }
+}
+.site-admin .content-frame .form-card { border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 20px 22px; margin-bottom: 16px; }
+.site-admin .content-frame .mx-card { border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+.site-admin .content-frame .table-card { border: 1px solid #e5e7eb; margin-bottom: 18px; }
+.site-admin .content-frame .table-header { padding: 14px 18px; background: #f9fafb; }
+.site-admin .content-frame .table-header h2 { font-size: .92rem; font-weight: 700; }
