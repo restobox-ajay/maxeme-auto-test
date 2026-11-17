@@ -158,7 +158,7 @@ parameters:
           icon: calendar
           children:
               - { key: dashboard, label: Dashboard, route: maxeme_home, role: /appointment/view, match: [maxeme_home] }
-              - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_],
+              - { key: repair_orders, label: Repair Order, route: maxeme_repair_order_index, role: /work-order/view, match: [maxeme_repair_order_, maxeme_work_order_, maxeme_invoice_show, maxeme_invoice_edit, maxeme_invoice_issued_edit, maxeme_invoice_payments, maxeme_invoice_payment_new, maxeme_invoice_payment_edit, maxeme_invoice_send],
                   add: { label: New repair order, route: maxeme_repair_order_new, role: /work-order/edit } }
               - { key: work_order_board, label: Repair Order Board, route: maxeme_board_index, role: /work-order/view, match: [maxeme_board_] }
               - { key: appointments, label: Appointments, route: maxeme_appointment_calendar, role: /appointment/view, match: [maxeme_appointment_],
