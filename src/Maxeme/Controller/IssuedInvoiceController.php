@@ -91,9 +91,7 @@ final class IssuedInvoiceController extends AbstractMaxemeController
         } catch (\DomainException $exception) {
             $this->addFlash('error', $exception->getMessage());
         }
-        $back = (string) $request->request->get('back', '');
-
-        return str_starts_with($back, '/admin/') ? $this->redirect($back) : $this->redirectToRoute('maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
+        return $this->redirectBack($request, 'maxeme_invoice_show', ['invoiceKey' => $invoice->getInvoiceKey()]);
     }
 
     #[Route('/delete', name: 'delete', methods: ['POST'])]

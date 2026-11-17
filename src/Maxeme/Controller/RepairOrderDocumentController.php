@@ -114,9 +114,7 @@ final class RepairOrderDocumentController extends AbstractMaxemeController
         } catch (\DomainException $exception) {
             $this->addFlash('error', $exception->getMessage());
         }
-        $back = (string) $request->request->get('back', '');
-
-        return str_starts_with($back, '/admin/') ? $this->redirect($back) : $this->redirectToRoute('maxeme_repair_order_edit', ['id' => $id]);
+        return $this->redirectBack($request, 'maxeme_repair_order_edit', ['id' => $id]);
     }
 
     #[Route('/quote', name: 'quote', methods: ['GET'])]

@@ -68,7 +68,7 @@
                                                     data-confirm-after="?">Delete</button>
                                         {% endif %}
                                     {% endif %}
-                                    {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="back" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}
+                                    {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}
                                     {{ mx.logs_link(invoice) }}
                                 </div>
                             </td>
