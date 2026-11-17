@@ -52,6 +52,7 @@ final class AuthController extends AbstractAdminController
         \App\Service\AppSettings $appSettings,
         \App\Service\RateLimiterGate $rateLimiterGate,
         \App\Service\AdminUrlGenerator $adminUrls,
+        ValidatorInterface $validator,
     ): Response {
         $token = trim((string) $request->query->get('token', ''));
         if ($token !== '') {
@@ -71,12 +72,10 @@ final class AuthController extends AbstractAdminController
                     return $this->redirectToRoute('admin_password_reset');
                 }
 
-                if ($password === '' || $confirm === '') {
-                    $this->addFlash('error', 'Please enter and confirm your new password.');
-                } elseif ($password !== $confirm) {
-                    $this->addFlash('error', 'Passwords do not match.');
-                } elseif (strlen($password) < 8) {
-                    $this->addFlash('error', 'Password must be at least 8 characters long.');
+                // Core's shared new-password rules (ValidNewPassword), as the customer reset and setup use.
+                $violations = $validator->validate(new \App\Validation\Dto\NewPasswordRequest($password, $confirm));
+                if (count($violations) > 0) {
+                    $this->addFlash('error', (string) $violations[0]->getMessage());
                 } else {
                     $user->setPassword($passwordHasher->hashPassword($user, $password));
                     $user->setResetToken(null);
@@ -175,6 +174,7 @@ final class AuthController extends AbstractAdminController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         ResetTokenService $resetTokenService,
+        ValidatorInterface $validator,
     ): Response {
         $token = trim((string) $request->query->get('token', ''));
         if ($token === '') {
@@ -197,12 +197,10 @@ final class AuthController extends AbstractAdminController
                 return $this->redirectToRoute('admin_password_reset');
             }
 
-            if ($password === '' || $confirm === '') {
-                $this->addFlash('error', 'Please enter and confirm your new password.');
-            } elseif ($password !== $confirm) {
-                $this->addFlash('error', 'Passwords do not match.');
-            } elseif (strlen($password) < 8) {
-                $this->addFlash('error', 'Password must be at least 8 characters long.');
+            // Core's shared new-password rules (ValidNewPassword), as the customer reset and setup use.
+            $violations = $validator->validate(new \App\Validation\Dto\NewPasswordRequest($password, $confirm));
+            if (count($violations) > 0) {
+                $this->addFlash('error', (string) $violations[0]->getMessage());
             } else {
                 $user->setPassword($passwordHasher->hashPassword($user, $password));
                 $user->setResetToken(null);

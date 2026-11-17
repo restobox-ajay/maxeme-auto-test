@@ -34,8 +34,8 @@ final class ValidNewPasswordValidator extends ConstraintValidator
             $this->context->buildViolation('Please enter and confirm your new password.')->addViolation();
         } elseif ($value->password !== $value->confirmPassword) {
             $this->context->buildViolation('Passwords do not match.')->addViolation();
-        } elseif (strlen($value->password) < 8) {
-            $this->context->buildViolation('Password must be at least 8 characters long.')->addViolation();
+        } elseif (\App\Validation\PasswordPolicy::isTooShort($value->password)) {
+            $this->context->buildViolation(\App\Validation\PasswordPolicy::tooShortMessage())->addViolation();
         }
     }
 }

@@ -66,8 +66,8 @@ final class ValidRegistrationRequestValidator extends ConstraintValidator
             $this->context->buildViolation('Password and confirm password are required.')->atPath('password')->addViolation();
         } elseif ($password !== $confirmPassword) {
             $this->context->buildViolation('Passwords do not match.')->atPath('confirm_password')->addViolation();
-        } elseif (strlen($password) < 8) {
-            $this->context->buildViolation('Password must be at least 8 characters long.')->atPath('password')->addViolation();
+        } elseif (\App\Validation\PasswordPolicy::isTooShort($password)) {
+            $this->context->buildViolation(\App\Validation\PasswordPolicy::tooShortMessage())->atPath('password')->addViolation();
         }
 
         if ((string) ($value['agree_terms'] ?? '') !== '1') {

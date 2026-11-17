@@ -1327,8 +1327,8 @@ final class UserController extends AbstractAdminController
         $password = $generate ? $this->generatePassword() : (string) $request->request->get('password', '');
 
         if (!$generate) {
-            if (strlen($password) < 8) {
-                $this->addFlash('error', 'Password must be at least 8 characters long.');
+            if (\App\Validation\PasswordPolicy::isTooShort($password)) {
+                $this->addFlash('error', \App\Validation\PasswordPolicy::tooShortMessage());
 
                 return $this->redirectToRoute('admin_user_set_password', $back);
             }

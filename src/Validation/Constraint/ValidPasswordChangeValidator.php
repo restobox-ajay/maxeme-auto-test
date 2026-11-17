@@ -47,8 +47,8 @@ final class ValidPasswordChangeValidator extends ConstraintValidator
         if ($value->newPassword === '') {
             $this->context->buildViolation('New password is required.')
                 ->atPath('newPassword')->addViolation();
-        } elseif (strlen($value->newPassword) < 8) {
-            $this->context->buildViolation('New password must be at least 8 characters long.')
+        } elseif (\App\Validation\PasswordPolicy::isTooShort($value->newPassword)) {
+            $this->context->buildViolation(\App\Validation\PasswordPolicy::tooShortMessage('New password'))
                 ->atPath('newPassword')->addViolation();
         }
 
