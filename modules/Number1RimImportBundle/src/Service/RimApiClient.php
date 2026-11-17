@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Number1RimImportBundle\Service;
 
+use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -16,9 +17,17 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class RimApiClient
 {
-    public function __construct(
-        private readonly HttpClientInterface $httpClient,
-    ) {}
+    private readonly HttpClientInterface $httpClient;
+
+    /**
+     * The API URL is typed on an admin screen, so the client refuses private, loopback and
+     * link-local addresses, including after a redirect. A wrong or hostile URL then cannot use
+     * the server to reach its own internal network or the cloud metadata service.
+     */
+    public function __construct(HttpClientInterface $httpClient)
+    {
+        $this->httpClient = new NoPrivateNetworkHttpClient($httpClient);
+    }
 
     /** @return list<list<mixed>> */
     public function fetchRows(string $apiUrl, string $apiClientId, string $apiKey): array
