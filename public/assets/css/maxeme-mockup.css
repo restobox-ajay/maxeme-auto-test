@@ -199,3 +199,6 @@
 .site-admin .content-frame table tfoot td { background: #fafbfc; font-weight: 600; }
 .mx-clear-link { margin-left: 6px; font-size: .78rem; color: #428bca; }
 .site-admin .content-frame th .mx-method-filter, .site-admin .content-frame th summary { text-transform: none; letter-spacing: 0; }
+
+/* P14 Repair Order Board: each column's number in a blue circle (mockup). */
+.mx-board-step { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #428bca; color: #fff; font-size: .72rem; font-weight: 700; margin-right: 4px; }
