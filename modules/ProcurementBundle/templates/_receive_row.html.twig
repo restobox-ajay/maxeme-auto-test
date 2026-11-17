@@ -89,10 +89,20 @@
     <td class="qty-td" data-label="{{ order ? 'Arriving now' : 'Quantity arriving' }}">
         <input type="text" name="{{ idx }}[quantity]" value="{{ row.quantity|default(defaultQuantity|default('')) }}"
                inputmode="decimal" aria-label="Quantity arriving">
-        {# Recorded and never applied to the product's own cost (see GoodsReceiptLine's own
-           docblock) — carried through as the order line's cost, or whatever was typed on a
-           previous pass of this same row, without its own column on this table. #}
-        <input type="hidden" name="{{ idx }}[unit_cost]" value="{{ row.unit_cost|default(defaultUnitCost|default('')) }}">
+    </td>
+    {# What was paid per unit. Recorded on the receipt and never applied to the product's own
+       cost (see GoodsReceiptLine's own docblock). A purchase-order line brings the order's cost
+       along; anything else (no PO, or a substitution) is typed here. Either way it is what the
+       part's Purchase History shows (thread 13631). #}
+    <td data-label="Unit cost">
+        {% if orderLine %}
+            <input type="hidden" name="{{ idx }}[unit_cost]" value="{{ row.unit_cost|default(defaultUnitCost|default('')) }}">
+            {% set cost = row.unit_cost|default(defaultUnitCost|default('')) %}
+            {{ cost != '' ? '$' ~ cost|price : '—' }}
+        {% else %}
+            <input type="text" name="{{ idx }}[unit_cost]" value="{{ row.unit_cost|default('') }}"
+                   inputmode="decimal" placeholder="0.00" aria-label="Unit cost for line {{ index + 1 }}">
+        {% endif %}
     </td>
     <td class="id-c" data-label="Lot">
         {% if needs and needs.capturesLot %}
