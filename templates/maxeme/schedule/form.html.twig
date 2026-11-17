@@ -11,10 +11,6 @@
         {% block actions %}
             {% if isEdit and not appointment.locked %}
                 <div class="mx-doc-actions">
-                    {% if appointment.status.value == 'new' %}
-                        <button type="button" class="button mx-btn-sm primary js-post-action" data-reload
-                                data-url="{{ path('maxeme_appointment_check_in', { id: appointment.id }) }}" data-token="{{ csrf_token_value() }}">Check-in</button>
-                    {% endif %}
                     {# A completed appointment is never deleted (mockup ca9d795). #}
                     {% if appointment.status.value != 'complete' %}
                         <button type="button" class="button mx-btn-sm danger js-post-action" data-redirect="{{ profileUrl }}"
@@ -56,11 +52,6 @@
                 <label>Phone number:
                     <input type="text" value="{{ client.phones|map(p => p|phone)|join(' · ') }}" readonly>
                 </label>
-                <label for="appointment_type">Appointment for:
-                    <select id="appointment_type" name="type">
-                        {% for type in types %}<option value="{{ type.value }}" data-needs-vehicle="{{ type.needsVehicle ? 1 : 0 }}" {{ data.type == type.value ? 'selected' }}>{{ type.label }}</option>{% endfor %}
-                    </select>
-                </label>
                 <label for="client_vehicle_name">Vehicle:
                     <select id="client_vehicle_name" name="vehicle_id">
                         <option value="" {{ data.vehicleId is null ? 'selected' }}>(no vehicle)</option>
@@ -90,13 +81,6 @@
                     </select>
                     {% if isEdit and appointment.repairOrder %}<a class="muted-line" href="{{ path('maxeme_repair_order_edit', { id: appointment.repairOrder.id }) }}">Open {{ ro_number(appointment.repairOrder) }}</a>{% endif %}
                 </label>
-                {# The same technician as its repair order's (mockup 986d771): picking one here sets it there too. #}
-                <label for="appointment_technician">Assigned Technician:
-                    <select id="appointment_technician" name="technician_id">
-                        <option value="">(none)</option>
-                        {% for choice in technicians %}<option value="{{ choice.user.id }}" {{ data.technicianId == choice.user.id ~ '' ? 'selected' }}>{{ choice.user.name }}{{ choice.stale ? ' (no longer an active technician)' }}</option>{% endfor %}
-                    </select>
-                </label>
                 {% if isEdit %}
                     <label for="appointment_status">Status:
                         <select id="appointment_status" name="status">
@@ -106,6 +90,19 @@
                         </select>
                     </label>
                 {% endif %}
+                {# Mockup order (P2): … Repair Order, Status, Type, Assigned Technician, Note. #}
+                <label for="appointment_type">Type:
+                    <select id="appointment_type" name="type">
+                        {% for type in types %}<option value="{{ type.value }}" data-needs-vehicle="{{ type.needsVehicle ? 1 : 0 }}" {{ data.type == type.value ? 'selected' }}>{{ type.label }}</option>{% endfor %}
+                    </select>
+                </label>
+                {# The same technician as its repair order's (mockup 986d771): picking one here sets it there too. #}
+                <label for="appointment_technician">Assigned Technician:
+                    <select id="appointment_technician" name="technician_id">
+                        <option value="">(none)</option>
+                        {% for choice in technicians %}<option value="{{ choice.user.id }}" {{ data.technicianId == choice.user.id ~ '' ? 'selected' }}>{{ choice.user.name }}{{ choice.stale ? ' (no longer an active technician)' }}</option>{% endfor %}
+                    </select>
+                </label>
                 <label>Note:
                     <textarea name="note" rows="3">{{ data.note }}</textarea>
                 </label>
@@ -131,5 +128,5 @@
 {% block javascripts %}
     {{ parent() }}
     {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-    <script src="/assets/js/maxeme-appointment-form.js?v=3"></script>
+    <script src="/assets/js/maxeme-appointment-form.js?v=4"></script>
 {% endblock %}

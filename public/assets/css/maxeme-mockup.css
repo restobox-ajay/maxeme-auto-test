@@ -137,3 +137,14 @@
 .site-admin .content-frame .fc table:not(.invoice-document table) th { text-align: center; }
 .mx-calendar .mx-event-lines { font-size: .76rem; }
 .mx-calendar .fc-dayGridMonth-view .fc-col-header-cell-cushion { text-transform: uppercase; font-size: .7rem; font-weight: 500; color: #6b7280; }
+
+/* P2 Appointment form: read-only Client and Phone in grey boxes; the slot calendar fills the column
+   (the "who starts at this time" list drops below it, and only once a slot is picked); hour labels
+   grey as in the mockup. */
+.appt-form-grid input[readonly] { background: #f5f6f8; }
+.appointment-calendar-wrap.is-day { grid-template-columns: minmax(0, 1fr); }
+#timeslot-detail { height: auto; margin-top: 10px; }
+#timeslot-detail:has(#timeslot-detail-container[hidden]) { display: none; }
+#timeslot-detail-list { height: auto; max-height: 240px; }
+.appointment-calendar-wrap .fc-timegrid-slot-label { color: #6b7280; background: #f9fafb; }
+.appointment-calendar-wrap .fc-event .fc-title { text-align: left; padding-left: 6px; }

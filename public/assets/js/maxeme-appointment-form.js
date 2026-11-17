@@ -99,6 +99,10 @@
         slotMaxTime: config.slotMaxTime,
         displayEventTime: false,
         slotLabelFormat: { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
+        // Mockup look (P2): no weekday header row; the Day title carries the weekday.
+        dayHeaders: false,
+        slotLabelInterval: '01:00',
+        views: { timeGridDay: { titleFormat: { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' } } },
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridDay' },
         buttonText: { today: 'today', month: 'month', day: 'day' },
         editable: false,
