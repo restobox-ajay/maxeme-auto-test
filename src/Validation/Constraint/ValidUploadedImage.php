@@ -24,6 +24,8 @@ final class ValidUploadedImage extends Constraint
         public readonly int $maxBytes,
         public readonly string $invalidTypeMessage,
         public readonly string $tooLargeMessage,
+        public readonly string $unsafeSvgMessage = 'This SVG contains scripts, event handlers or external links, '
+            . 'which are not allowed. Export it again as a plain SVG, or upload a PNG.',
         ?array $groups = null,
         mixed $payload = null,
     ) {
