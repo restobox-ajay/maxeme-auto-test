@@ -8,6 +8,7 @@ use App\Entity\ProductCore;
 use App\Entity\ProductImage;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -26,6 +27,13 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final class RimImageSyncService
 {
     private const PREFIX = 'rim-api-';
+
+    /**
+     * The only file types this writes under public/, keyed by the sniffed MIME type. The extension
+     * is never taken from the URL: a feed returning "x.php" would otherwise drop a runnable script
+     * into the web root (and an .svg/.html file would be stored XSS on the app's origin).
+     */
+    private const IMAGE_TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -112,7 +120,9 @@ final class RimImageSyncService
     private function download(string $url, string $path): void
     {
         try {
-            $response = $this->httpClient->request('GET', $url, ['timeout' => 30]);
+            // No loopback/private/link-local targets (cloud metadata, the host's own services):
+            // the URLs come from an external feed and the response is saved to a public path.
+            $response = (new NoPrivateNetworkHttpClient($this->httpClient))->request('GET', $url, ['timeout' => 30, 'max_redirects' => 3]);
             $status = $response->getStatusCode();
             $content = $response->getContent(false);
         } catch (HttpClientExceptionInterface) {
@@ -121,6 +131,12 @@ final class RimImageSyncService
         }
 
         if ($status < 200 || $status >= 300 || $content === '') {
+            return;
+        }
+
+        // Only real raster images are kept (the filename's extension is already one of IMAGE_TYPES).
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($content);
+        if (!is_string($mime) || !isset(self::IMAGE_TYPES[$mime])) {
             return;
         }
 
@@ -134,9 +150,15 @@ final class RimImageSyncService
             return null;
         }
 
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            return null; // no file://, php://, ftp:// … reads
+        }
+
         $path = parse_url($url, PHP_URL_PATH);
         $ext = is_string($path) ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : '';
-        $ext = preg_match('/^[a-z0-9]{1,5}$/', $ext) === 1 ? $ext : 'jpg';
+        $ext = $ext === 'jpeg' ? 'jpg' : $ext;
+        $ext = in_array($ext, self::IMAGE_TYPES, true) ? $ext : 'jpg';
 
         return self::PREFIX . sha1($url) . '.' . $ext;
     }
