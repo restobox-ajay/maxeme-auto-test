@@ -57,8 +57,7 @@ final class AppointmentData
     {
         $data = new self();
         foreach (['type' => 'type', 'vehicleId' => 'vehicle_id', 'start' => 'start', 'end' => 'end', 'note' => 'note', 'repairOrderId' => 'repair_order_id', 'status' => 'status', 'technicianId' => 'technician_id'] as $property => $field) {
-            $value = trim((string) $request->request->get($field, ''));
-            $data->{$property} = $value !== '' ? $value : null;
+            $data->{$property} = \App\Service\TextInput::nullableString($request->request->get($field));
         }
 
         return $data;

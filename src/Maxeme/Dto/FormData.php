@@ -30,8 +30,7 @@ abstract class FormData
     {
         $data = new static();
         foreach (static::FIELDS as $field => $property) {
-            $value = is_scalar($values[$field] ?? null) ? trim((string) $values[$field]) : '';
-            $data->{$property} = $value !== '' ? $value : null;
+            $data->{$property} = \App\Service\TextInput::nullableString($values[$field] ?? null);
         }
 
         return $data;

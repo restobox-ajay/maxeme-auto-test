@@ -44,8 +44,7 @@ final class DocumentEmailData
     {
         $data = new self();
         foreach (['to', 'cc', 'subject', 'message'] as $field) {
-            $value = trim((string) $request->request->get($field, ''));
-            $data->{$field} = $value !== '' ? $value : null;
+            $data->{$field} = \App\Service\TextInput::nullableString($request->request->get($field));
         }
 
         return $data;

@@ -77,23 +77,19 @@ final class InvoiceData
         $post = $request->request;
 
         foreach (self::SNAPSHOT_FIELDS as $field => $property) {
-            $value = trim((string) $post->get($field, ''));
-            $data->snapshot[$property] = $value !== '' ? $value : null;
+            $data->snapshot[$property] = \App\Service\TextInput::nullableString($post->get($field));
         }
 
-        $unit = trim((string) $post->get('vehicle_mileage_unit', ''));
-        $data->vehicleMileageUnit = $unit !== '' ? $unit : null;
+        $data->vehicleMileageUnit = \App\Service\TextInput::nullableString($post->get('vehicle_mileage_unit'));
 
-        $date = trim((string) $post->get('invoice_date', ''));
-        $data->invoiceDate = $date !== '' ? strtolower($date) : null;
-        $discount = trim((string) $post->get('discount_amount', ''));
-        $data->discount = $discount !== '' ? $discount : null;
+        $date = \App\Service\TextInput::nullableString($post->get('invoice_date'));
+        $data->invoiceDate = $date !== null ? strtolower($date) : null;
+        $data->discount = \App\Service\TextInput::nullableString($post->get('discount_amount'));
         $data->gstRate = $post->getInt('gst');
         $data->pstRate = $post->getInt('pst');
         $paymentType = $post->getInt('payment_type');
         $data->paymentTypeId = $paymentType > 0 ? $paymentType : null;
-        $amount = trim((string) $post->get('payment_amount', ''));
-        $data->paymentAmount = $amount !== '' ? $amount : null;
+        $data->paymentAmount = \App\Service\TextInput::nullableString($post->get('payment_amount'));
         $data->paid = $post->getBoolean('paid');
 
         foreach ($post->all('items') as $row) {
