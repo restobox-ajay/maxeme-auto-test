@@ -105,12 +105,9 @@ final class StaffAccountService
     /** @param StaffAccountRequest $request already passed validate() */
     public function create(StaffAccountRequest $request): AdminUser
     {
-        $user = (new AdminUser())
-            ->setEmail($request->email)
-            ->setUsername($request->username)
-            ->setFirstName($request->firstName)
-            ->setLastName($request->lastName)
-            ->setRoles(array_map(static fn (StaffRole $role): string => $role->value, $request->roles));
+        $user = new AdminUser();
+        $this->applyIdentity($user, $request);
+        $user->setRoles(array_map(static fn (StaffRole $role): string => $role->value, $request->roles));
         $this->setPassword($user, $request->password->password);
 
         $this->entityManager->persist($user);
@@ -122,12 +119,18 @@ final class StaffAccountService
     /** @param ProfileUpdateRequest $request already passed validate() */
     public function updateIdentity(AdminUser $user, ProfileUpdateRequest $request): void
     {
+        $this->applyIdentity($user, $request);
+        $this->entityManager->flush();
+    }
+
+    /** The fields every staff-account form edits: email, username, names and phone (blank is none). */
+    private function applyIdentity(AdminUser $user, AccountIdentityRequest $request): void
+    {
         $user->setEmail($request->email)
             ->setUsername($request->username)
             ->setFirstName($request->firstName)
             ->setLastName($request->lastName)
             ->setPhoneNumber($request->phoneNumber !== '' ? $request->phoneNumber : null);
-        $this->entityManager->flush();
     }
 
     /**
@@ -144,11 +147,7 @@ final class StaffAccountService
             throw new \DomainException('This is the only active Super Admin. Make another account Super Admin first.');
         }
 
-        $user->setEmail($request->email)
-            ->setUsername($request->username)
-            ->setFirstName($request->firstName)
-            ->setLastName($request->lastName)
-            ->setPhoneNumber($request->phoneNumber !== '' ? $request->phoneNumber : null);
+        $this->applyIdentity($user, $request);
 
         if ($request->roles !== [] && $request->roles !== $current) {
             $staffRoles = array_map(static fn (StaffRole $role): string => $role->value, StaffRole::cases());

@@ -16,14 +16,6 @@ final class StaffAccountRequest extends AccountIdentityRequest
     #[Assert\Valid]
     public NewPasswordRequest $password;
 
-    #[Assert\NotBlank(message: 'First name is required.')]
-    #[Assert\Length(max: 120)]
-    public string $firstName = '';
-
-    #[Assert\NotBlank(message: 'Last name is required.')]
-    #[Assert\Length(max: 120)]
-    public string $lastName = '';
-
     /** @var list<StaffRole> one or more (mockup 3d5095e) */
     #[Assert\Count(min: 1, minMessage: 'Pick at least one role.')]
     public array $roles = [];
@@ -41,8 +33,6 @@ final class StaffAccountRequest extends AccountIdentityRequest
             (string) $request->request->get('password', ''),
             (string) $request->request->get('password_confirm', ''),
         );
-        $dto->firstName = trim((string) $request->request->get('first_name', ''));
-        $dto->lastName = trim((string) $request->request->get('last_name', ''));
         $dto->roles = StaffRole::listFrom($request->request->all()['roles'] ?? []);
 
         return $dto;

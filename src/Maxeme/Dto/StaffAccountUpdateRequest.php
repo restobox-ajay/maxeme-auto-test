@@ -6,8 +6,6 @@ namespace App\Maxeme\Dto;
 
 use App\Entity\AdminUser;
 use App\Maxeme\Security\StaffRole;
-use App\Maxeme\Validation\Formatted;
-use App\Maxeme\Validation\InputRule;
 use App\Validation\Dto\NewPasswordRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -22,19 +20,6 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
     #[Assert\Valid]
     public ?NewPasswordRequest $password = null;
 
-    #[Assert\NotBlank(message: 'First name is required.')]
-    #[Assert\Length(max: 120)]
-    public string $firstName = '';
-
-    #[Assert\NotBlank(message: 'Last name is required.')]
-    #[Assert\Length(max: 120)]
-    public string $lastName = '';
-
-    /** Optional. */
-    #[Assert\Length(max: 40)]
-    #[Formatted(InputRule::Phone)]
-    public string $phoneNumber = '';
-
     /** @var list<StaffRole> one or more (mockup 3d5095e); a Tech Support account keeps its roles */
     #[Assert\Count(min: 1, minMessage: 'Pick at least one role.')]
     public array $roles = [];
@@ -42,11 +27,7 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
     public static function fromUser(AdminUser $user): self
     {
         $dto = new self();
-        $dto->email = $user->getEmail();
-        $dto->username = (string) $user->getUsername();
-        $dto->firstName = (string) $user->getFirstName();
-        $dto->lastName = (string) $user->getLastName();
-        $dto->phoneNumber = (string) $user->getPhoneNumber();
+        $dto->fillFromUser($user);
         $dto->roles = StaffRole::allOf($user);
 
         return $dto;
@@ -56,9 +37,6 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
     {
         $dto = new self();
         $dto->fillIdentity($request);
-        $dto->firstName = trim((string) $request->request->get('first_name', ''));
-        $dto->lastName = trim((string) $request->request->get('last_name', ''));
-        $dto->phoneNumber = trim((string) $request->request->get('phone_number', ''));
 
         $dto->roles = StaffRole::of($user) === StaffRole::TechSupport
             ? StaffRole::allOf($user)
