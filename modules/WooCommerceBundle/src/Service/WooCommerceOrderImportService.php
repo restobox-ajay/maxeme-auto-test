@@ -471,8 +471,7 @@ final class WooCommerceOrderImportService
 
     private function nullableString(mixed $value): ?string
     {
-        $string = trim((string) ($value ?? ''));
-
-        return $string === '' ? null : $string;
+        // Core's rule (#395, #303): a tampered array counts as absent, control characters go.
+        return \App\Service\TextInput::nullableString($value);
     }
 }

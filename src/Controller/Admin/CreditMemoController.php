@@ -981,8 +981,7 @@ final class CreditMemoController extends AbstractAdminController
 
     private function nullableText(mixed $value): ?string
     {
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
+        // Core's rule (#395, #303): a tampered array counts as absent, control characters go.
+        return \App\Service\TextInput::nullableString($value);
     }
 }

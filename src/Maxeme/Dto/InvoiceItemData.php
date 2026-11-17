@@ -71,13 +71,13 @@ final class InvoiceItemData
 
     private static function id(mixed $value): ?int
     {
-        return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
+        // Digits only, as AbstractMaxemeController::idParam(): "1.5" or "1e3" is not an id.
+        return (is_int($value) || (is_string($value) && ctype_digit($value))) && (int) $value > 0 ? (int) $value : null;
     }
 
     private static function text(mixed $value): ?string
     {
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        // Core's rule: a tampered array is absent and control characters (NUL breaks the PDF) go.
+        return \App\Service\TextInput::nullableString($value);
     }
 }

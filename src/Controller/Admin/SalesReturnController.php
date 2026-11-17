@@ -512,9 +512,9 @@ final class SalesReturnController extends AbstractAdminController
                     ->setProduct($product)
                     ->setInvoiceLine($invoiceLine instanceof InvoiceLine ? $invoiceLine : null)
                     ->setName(trim((string) ($row['name'] ?? '')) !== '' ? trim((string) $row['name']) : $product->getName())
-                    ->setSku($this->nullable((string) ($row['sku'] ?? '')) ?? $product->getSku())
+                    ->setSku($this->nullable($row['sku'] ?? null) ?? $product->getSku())
                     ->setQuantity(number_format($quantity, 2, '.', ''))
-                    ->setReason($this->nullable((string) ($row['reason'] ?? '')))
+                    ->setReason($this->nullable($row['reason'] ?? null))
                     ->setSortOrder($sortOrder++),
             );
         }
@@ -567,10 +567,9 @@ final class SalesReturnController extends AbstractAdminController
     }
 
     /** '' means "the operator left it blank", which is a NULL column and not an empty string. */
-    private function nullable(string $value): ?string
+    private function nullable(mixed $value): ?string
     {
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
+        // Core's rule (#395): a tampered lines[n][sku][] array counts as absent instead of a 500.
+        return \App\Service\TextInput::nullableString($value);
     }
 }

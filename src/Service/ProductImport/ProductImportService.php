@@ -1622,9 +1622,8 @@ final class ProductImportService implements ImportRowExecutorInterface, ImportRu
 
     private function nullableText(mixed $value): ?string
     {
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        // Core's rule (#395, #303): a tampered array counts as absent, control characters go.
+        return \App\Service\TextInput::nullableString($value);
     }
 
     // Same legacy-input mapping as Admin\ProductController::normalizeSalesTaxCode() —
