@@ -160,7 +160,8 @@ final class RepairOrderController extends AbstractMaxemeController
                 'label' => $client->getFullName(),
                 'category' => null,
                 'price' => null,
-                'phones' => array_map(ContactFormat::phone(...), $client->getPhones()),
+                // A list, not the phone1..phone4 keys: keyed, it reaches the page as a JSON object and the picker failed.
+                'phones' => array_values(array_map(ContactFormat::phone(...), $client->getPhones())),
                 'email' => $client->getEmail(),
                 'vehicles' => array_map(self::vehicleOption(...), array_values($client->getVehicles()->toArray())),
                 'addresses' => array_map(self::addressOption(...), array_values($client->getAddresses()->toArray())),
