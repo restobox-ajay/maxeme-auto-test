@@ -42,13 +42,7 @@ final class DocumentNumbers
      */
     public function number(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
     {
-        $custom = match ($kind) {
-            DocumentKind::Invoice => $invoice->getCustomNumber(),
-            DocumentKind::WorkOrder => $invoice->getRepairOrder()?->getWorkOrderNumber(),
-            DocumentKind::Quote => null,
-        };
-
-        return $custom ?? ($invoice->isSaved() ? $this->automaticNumber($invoice, $kind) : '');
+        return self::customNumber($invoice, $kind) ?? ($invoice->isSaved() ? $this->automaticNumber($invoice, $kind) : '');
     }
 
     /**
@@ -62,14 +56,16 @@ final class DocumentNumbers
     {
         $prefix = $this->prefix($kind->prefixKey());
 
-        return static function (Invoice $invoice) use ($kind, $prefix): string {
-            $custom = match ($kind) {
-                DocumentKind::Invoice => $invoice->getCustomNumber(),
-                DocumentKind::WorkOrder => $invoice->getRepairOrder()?->getWorkOrderNumber(),
-                DocumentKind::Quote => null,
-            };
+        return static fn (Invoice $invoice): string => self::customNumber($invoice, $kind) ?? ($invoice->isSaved() ? $prefix . $invoice->getDisplayedId() : '');
+    }
 
-            return $custom ?? ($invoice->isSaved() ? $prefix . $invoice->getDisplayedId() : '');
+    /** The number typed in, if any: the invoice's own for the invoice, its repair order's work order number for the work order. */
+    private static function customNumber(Invoice $invoice, DocumentKind $kind): ?string
+    {
+        return match ($kind) {
+            DocumentKind::Invoice => $invoice->getCustomNumber(),
+            DocumentKind::WorkOrder => $invoice->getRepairOrder()?->getWorkOrderNumber(),
+            DocumentKind::Quote => null,
         };
     }
 
