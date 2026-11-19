@@ -1,15 +1,6 @@
-{# An invoice document as dompdf renders it (App\Maxeme\Document\PdfRenderer). Vars: invoice, kind, fontFamily. #}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        @page { margin: 0.8cm; }
-        body { font-family: {% if fontFamily %}'{{ fontFamily }}', {% endif %}'DejaVu Sans', Helvetica, sans-serif; font-size: 9px; color: #1e293b; margin: 0; }
-        {% include 'maxeme/invoice/_document_styles.html.twig' with { c: { band: '#ffffff', bandInk: '#000000', accent: '#3071a9', ink: '#1e293b', line: '#d8dee9', soft: '#eef1f6', muted: '#64748b', card: '#ffffff' } } only %}
-    </style>
-</head>
-<body>
+{# An invoice document as dompdf renders it (App\Maxeme\Document\PdfRenderer::render()), in the same
+   page as every other document's PDF. Vars: invoice, kind, fontFamily. #}
+{% extends 'maxeme/document/pdf.html.twig' %}
+{% block document %}
     {% include kind.template with { invoice: invoice, kind: kind } only %}
-</body>
-</html>
+{% endblock %}
