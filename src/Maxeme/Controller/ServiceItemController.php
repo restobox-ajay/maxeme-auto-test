@@ -123,7 +123,8 @@ final class ServiceItemController extends AbstractMaxemeController
             ServiceLineType::GovtFee => array_map($charge, $this->govtFees->searchActive($term)),
             ServiceLineType::Part => array_map(
                 static fn (ProductCore $product): array => ['label' => ItemLabel::product($product), 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice() ?? $product->getOriginalPrice())],
-                $products->searchPage($term)['products'],
+                // Only Active products are offered (as on the invoice), not Draft or Inactive ones.
+                array_values(array_filter($products->searchPage($term)['products'], static fn (ProductCore $product): bool => $product->isSellable())),
             ),
             default => [],
         };
