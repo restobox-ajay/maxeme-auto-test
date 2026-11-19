@@ -48,7 +48,12 @@
                         <tr><td>PST: <strong>{{ invoice.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.pstAmount) }}</strong></td></tr>
                         <tr class="grand-total-row"><td>Total:</td><td class="r">{{ mx.money(invoice.totalPrice) }}</td></tr>
                         {% if not isQuote and invoice.paid %}
+                        {% set paidWith = invoice_balance(invoice).methods %}
+                        {% if paidWith|length > 1 %}
+                        {% for method in paidWith %}<tr><td>Payment method: {{ method.type }}</td><td class="r"><strong>{{ mx.money(method.amount) }}</strong></td></tr>{% endfor %}
+                        {% else %}
                         <tr><td>Payment method: {{ invoice.paymentType ? invoice.paymentType.name }}</td><td class="r"><strong>{{ mx.money(invoice.paymentAmount) }}</strong></td></tr>
+                        {% endif %}
                         {% if invoice.changeAmount > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(invoice.changeAmount) }}</strong></td></tr>{% endif %}
                         {% elseif not isQuote and invoice.status.value != 'cancelled' %}
                         {% set due = invoice_balance(invoice) %}

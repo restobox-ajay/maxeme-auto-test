@@ -63,7 +63,11 @@
                         <tr class="grand-total-row"><td>Grand Total:</td><td class="r">{{ mx.money(document.total) }}</td></tr>
                         {# Paid: the method, the amount and any change; issued: what is still due; cancelled: nothing. #}
                         {% if document.payment and document.payment.paid %}
+                            {% if document.payment.methods|length > 1 %}
+                                {% for method in document.payment.methods %}<tr><td>Payment method: {{ method.type }}</td><td class="r"><strong>{{ mx.money(method.amount) }}</strong></td></tr>{% endfor %}
+                            {% else %}
                             <tr><td>Payment method: {{ document.payment.type }}</td><td class="r"><strong>{{ mx.money(document.payment.amount) }}</strong></td></tr>
+                            {% endif %}
                             {% if document.payment.change > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(document.payment.change) }}</strong></td></tr>{% endif %}
                         {% elseif document.payment and not document.payment.cancelled %}
                             {% if document.payment.paidSoFar > 0 %}<tr><td>Paid so far:</td><td class="r"><strong>{{ mx.money(document.payment.paidSoFar) }}</strong></td></tr>{% endif %}

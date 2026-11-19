@@ -61,7 +61,7 @@
                             <td><a href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}" target="_blank" rel="noopener">{{ doc_number(invoice) }}</a></td>
                             <td>{{ invoice.documentDate|date('m/d/Y') }}</td>
                             <td>{{ invoice.documentDate|date('h:i:s A') }}</td>
-                            <td>{{ invoice.paymentType ? invoice.paymentType.name }}</td>
+                            <td>{{ row.method }}</td>
                             {% for key, heading in amounts %}<td class="num">{{ mx.money(row.amounts[key]) }}</td>{% endfor %}
                             <td class="mx-remark-cell">
                                 <span class="mx-remark-text">{{ invoice.adminNote }}</span>

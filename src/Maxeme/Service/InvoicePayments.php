@@ -31,6 +31,45 @@ final class InvoicePayments
         return $this->entityManager->getRepository(InvoicePayment::class)->findBy(['invoice' => $invoice], ['paidAt' => 'ASC', 'id' => 'ASC']);
     }
 
+    /**
+     * What each invoice was paid with: per payment method, the amount paid with it, in the order the
+     * methods were first used (one query for all of them). An invoice with no payment records (paid
+     * before payments were recorded one by one) is left out; callers fall back to its own method.
+     *
+     * @param iterable<Invoice> $invoices
+     *
+     * @return array<int, list<array{type: ?PaymentType, cents: int}>> invoice id => methods
+     */
+    public function methodsByInvoice(iterable $invoices): array
+    {
+        $ids = [];
+        foreach ($invoices as $invoice) {
+            if ($invoice->getId() !== null) {
+                $ids[] = $invoice->getId();
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+
+        $methods = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $payments = $this->entityManager->getRepository(InvoicePayment::class)->createQueryBuilder('p')
+                ->addSelect('t')->leftJoin('p.paymentType', 't')
+                ->andWhere('IDENTITY(p.invoice) IN (:ids)')->setParameter('ids', $chunk)
+                ->orderBy('p.paidAt', 'ASC')->addOrderBy('p.id', 'ASC')
+                ->getQuery()->getResult();
+            foreach ($payments as $payment) {
+                $invoiceId = (int) $payment->getInvoice()->getId();
+                $key = $payment->getPaymentType()?->getId() ?? 0;
+                $methods[$invoiceId][$key] ??= ['type' => $payment->getPaymentType(), 'cents' => 0];
+                $methods[$invoiceId][$key]['cents'] += Money::toCents($payment->getAmount());
+            }
+        }
+
+        return array_map(array_values(...), $methods);
+    }
+
     public function paidCents(Invoice $invoice): int
     {
         return array_sum(array_map(static fn (InvoicePayment $payment): int => Money::toCents($payment->getAmount()), $this->of($invoice)));

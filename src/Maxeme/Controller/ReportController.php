@@ -85,7 +85,7 @@ final class ReportController extends AbstractMaxemeController
         return CsvExport::response($filename, ['Invoice #', 'Date', 'Time', 'Payment method', ...array_values(PaymentReport::AMOUNTS), 'Remark'], (static function () use ($result, $numbers, $timezone): \Generator {
             foreach ($result['rows'] as $row) {
                 $date = $row['invoice']->getDocumentDate()->setTimezone($timezone);
-                yield [$numbers->number($row['invoice']), $date->format('m/d/Y'), $date->format('h:i:s A'), $row['invoice']->getPaymentType()?->getName(), ...array_values($row['amounts']), $row['invoice']->getAdminNote()];
+                yield [$numbers->number($row['invoice']), $date->format('m/d/Y'), $date->format('h:i:s A'), $row['method'], ...array_values($row['amounts']), $row['invoice']->getAdminNote()];
             }
             if ($result['rows'] !== []) {
                 yield ['Overall', '', '', '', ...array_values($result['totals']), ''];
