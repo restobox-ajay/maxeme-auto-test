@@ -51,7 +51,9 @@
                         <tr><td>Payment method: {{ invoice.paymentType ? invoice.paymentType.name }}</td><td class="r"><strong>{{ mx.money(invoice.paymentAmount) }}</strong></td></tr>
                         {% if invoice.changeAmount > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(invoice.changeAmount) }}</strong></td></tr>{% endif %}
                         {% elseif not isQuote and invoice.status.value != 'cancelled' %}
-                        <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(invoice.totalPrice) }}</strong></td></tr>
+                        {% set due = invoice_balance(invoice) %}
+                        {% if due.paidSoFar > 0 %}<tr><td>Paid so far:</td><td class="r"><strong>{{ mx.money(due.paidSoFar) }}</strong></td></tr>{% endif %}
+                        <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(due.balance) }}</strong></td></tr>
                         {% endif %}
                     </table>
                 </td>

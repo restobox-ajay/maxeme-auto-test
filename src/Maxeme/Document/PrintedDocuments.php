@@ -20,6 +20,7 @@ use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\RepairOrderCharge;
 use App\Maxeme\Entity\RepairOrderJob;
 use App\Maxeme\Entity\RepairOrderJobLine;
+use App\Maxeme\Service\InvoicePayments;
 
 /**
  * Builds the PrintedDocument of an invoice (from its frozen lines), and of a repair order's quote
@@ -30,6 +31,7 @@ final class PrintedDocuments
     public function __construct(
         private readonly DocumentNumbers $numbers,
         private readonly PartTaxes $partTaxes,
+        private readonly InvoicePayments $payments,
     ) {
     }
 
@@ -71,7 +73,9 @@ final class PrintedDocuments
             pstRate: $invoice->getPstRate(),
             pst: $invoice->getPstAmount(),
             total: $invoice->getTotalPrice(),
-            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $invoice->getPaymentAmount(), 'change' => $invoice->getChangeAmount()],
+            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $invoice->getPaymentAmount(), 'change' => $invoice->getChangeAmount(),
+                // From the payments themselves (as the Payments page): an unpaid invoice prints what is still due.
+                'paidSoFar' => Money::fromCents($this->payments->paidCents($invoice)), 'balance' => Money::fromCents($this->payments->balanceCents($invoice))],
             note: $invoice->getNote(),
             recommendations: $invoice->getRecommendations(),
             masterTechnician: $invoice->getRepairOrder()?->getMasterTechnician()?->getName(),

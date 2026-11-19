@@ -66,7 +66,8 @@
                             <tr><td>Payment method: {{ document.payment.type }}</td><td class="r"><strong>{{ mx.money(document.payment.amount) }}</strong></td></tr>
                             {% if document.payment.change > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(document.payment.change) }}</strong></td></tr>{% endif %}
                         {% elseif document.payment and not document.payment.cancelled %}
-                            <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(document.total) }}</strong></td></tr>
+                            {% if document.payment.paidSoFar > 0 %}<tr><td>Paid so far:</td><td class="r"><strong>{{ mx.money(document.payment.paidSoFar) }}</strong></td></tr>{% endif %}
+                            <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(document.payment.balance) }}</strong></td></tr>
                         {% endif %}
                     </table>
                 </td>

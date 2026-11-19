@@ -57,7 +57,23 @@ final class MaxemeExtension
         private readonly DocumentNumbers $numbers,
         private readonly TaxMap $taxMap,
         private readonly \App\Maxeme\Repository\TaxClassRepository $taxClasses,
+        private readonly \App\Maxeme\Service\InvoicePayments $payments,
     ) {
+    }
+
+    /**
+     * {% set due = invoice_balance(invoice) %}: what its payments add up to and what is still due, as
+     * the Payments page counts them; for a printed invoice that is not paid in full.
+     *
+     * @return array{paidSoFar: string, balance: string}
+     */
+    #[AsTwigFunction('invoice_balance')]
+    public function invoiceBalance(Invoice $invoice): array
+    {
+        return [
+            'paidSoFar' => \App\Maxeme\Accounting\Money::fromCents($this->payments->paidCents($invoice)),
+            'balance' => \App\Maxeme\Accounting\Money::fromCents($this->payments->balanceCents($invoice)),
+        ];
     }
 
     /**
