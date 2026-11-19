@@ -61,8 +61,8 @@ final class MaxemeExtension
     }
 
     /**
-     * {{ tax_class_labels() }}: code => "S – GST+PST" for every tax class (Settings › Tax Classes), in
-     * their order; the product form's Sales Tax Code choices (mockup).
+     * {{ tax_class_labels() }}: code => its label ("S - GST+PST", TaxClass::getLabel()) for every tax
+     * class (Settings › Tax Classes), in their order; the product form's Sales Tax Code choices (mockup).
      *
      * @return array<string, string>
      */
@@ -71,7 +71,7 @@ final class MaxemeExtension
     {
         $labels = [];
         foreach ($this->taxClasses->findAllOrdered() as $class) {
-            $labels[$class->getCode()] = sprintf('%s – %s', $class->getCode(), $class->getName());
+            $labels[$class->getCode()] = $class->getLabel();
         }
 
         return $labels;
