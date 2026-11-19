@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Maxeme\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
-use App\Entity\ProductCore;
-use App\Maxeme\Accounting\Money;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Dto\ServiceItemData;
 use App\Maxeme\Dto\ServiceLineData;
@@ -18,6 +16,7 @@ use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Listing\CsvExport;
 use App\Maxeme\Listing\ItemLabel;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\PartSearch;
 use App\Maxeme\Repository\GovtFeeRepository;
 use App\Maxeme\Repository\LabourRepository;
 use App\Maxeme\Repository\ServiceCategoryRepository;
@@ -28,7 +27,6 @@ use App\Maxeme\Security\Permission;
 use App\Maxeme\Service\RecordWriter;
 use App\Maxeme\Service\RecordRules;
 use App\Maxeme\Service\ServiceLineBuilder;
-use App\Service\Product\ProductPicker;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -112,7 +110,7 @@ final class ServiceItemController extends AbstractMaxemeController
     /** The service page's line item search: `type` (a ServiceLineType) and the text typed, `q`. */
     #[Route('/line-items', name: 'line_items', methods: ['GET'])]
     #[RequiresPermission(Permission::SERVICE_EDIT)]
-    public function lineItems(Request $request, ProductPicker $products): JsonResponse
+    public function lineItems(Request $request, PartSearch $parts): JsonResponse
     {
         $term = trim((string) $request->query->get('q', ''));
         $charge = static fn (AbstractCharge $charge): array => ['label' => ItemLabel::charge($charge), 'value' => $charge->getId(), 'price' => $charge->getPrice()];
@@ -121,11 +119,7 @@ final class ServiceItemController extends AbstractMaxemeController
             ServiceLineType::Labour => array_map($charge, $this->labour->searchActive($term, ['sublet' => false])),
             ServiceLineType::Sublet => array_map($charge, $this->labour->searchActive($term, ['sublet' => true])),
             ServiceLineType::GovtFee => array_map($charge, $this->govtFees->searchActive($term)),
-            ServiceLineType::Part => array_map(
-                static fn (ProductCore $product): array => ['label' => ItemLabel::product($product), 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice() ?? $product->getOriginalPrice())],
-                // Only Active products are offered (as on the invoice), not Draft or Inactive ones.
-                array_values(array_filter($products->searchPage($term)['products'], static fn (ProductCore $product): bool => $product->isSellable())),
-            ),
+            ServiceLineType::Part => $parts->search($term),
             default => [],
         };
 

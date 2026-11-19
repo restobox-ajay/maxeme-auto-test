@@ -7,7 +7,6 @@ namespace App\Maxeme\Controller;
 use App\Maxeme\Accounting\InvoiceSettings;
 use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\Money;
-use App\Service\Product\ProductPicker;
 use App\Maxeme\Audit\ActivityRecorder;
 use App\Maxeme\Document\DocumentKind;
 use App\Maxeme\Document\DocumentMailer;
@@ -18,8 +17,8 @@ use App\Maxeme\Entity\Appointment;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Enum\InvoiceSaveIntent;
 use App\Maxeme\Listing\CsvExport;
-use App\Maxeme\Listing\ItemLabel;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\PartSearch;
 use App\Maxeme\Listing\SearchTerm;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Repository\PaymentTypeRepository;
@@ -183,18 +182,15 @@ final class InvoiceController extends AbstractMaxemeController
     /** The item name autocomplete: sellable products (parts) and services matching `q` (legacy invoiceItemSearching). */
     #[Route('/admin/invoices/items', name: 'maxeme_invoice_items', methods: ['GET'], priority: 10)]
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
-    public function items(Request $request, ProductPicker $products, ServiceItemRepository $services, PartTaxes $partTaxes): JsonResponse
+    public function items(Request $request, PartSearch $parts, ServiceItemRepository $services, PartTaxes $partTaxes): JsonResponse
     {
         $term = trim((string) $request->query->get('q', ''));
         $type = (string) $request->query->get('type', '');
         $items = [];
 
         if ($type !== 'services') {
-            // Parts are core's products: its own search (name, SKU, barcode), sellable ones only.
-            foreach ($products->searchPage($term)['products'] as $product) {
-                if ($product->isSellable()) {
-                    $items[] = ['label' => ItemLabel::product($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice() ?? $product->getOriginalPrice())]; // Sale Price, else the Original Price
-                }
+            foreach ($parts->search($term) as $part) {
+                $items[] = ['category' => 'Parts'] + $part;
             }
         }
         if ($type !== 'parts') {
