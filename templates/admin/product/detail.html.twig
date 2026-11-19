@@ -97,6 +97,8 @@
                         <th class="is-sortable{% if currentSort == 'sku' %} is-sorted-{{ currentDir }}{% endif %} col-sku"  data-sort-field="sku"><a href="{{ path('admin_product_detail_index', {sort: 'sku', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">SKU</a></th>
                         {% set nextDir = currentSort == 'category' and currentDir == 'asc' ? 'desc' : 'asc' %}
                         <th class="is-sortable{% if currentSort == 'category' %} is-sorted-{{ currentDir }}{% endif %} col-category"  data-sort-field="category"><a href="{{ path('admin_product_detail_index', {sort: 'category', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Category</a></th>
+                        {# Maxeme: the product's vendor (maxeme_product_vendor); not sortable or filterable. #}
+                        <th class="col-vendor">Vendor</th>
                         {% set nextDir = currentSort == 'type' and currentDir == 'asc' ? 'desc' : 'asc' %}
                         <th class="is-sortable{% if currentSort == 'type' %} is-sorted-{{ currentDir }}{% endif %} col-type"  data-sort-field="type"><a href="{{ path('admin_product_detail_index', {sort: 'type', dir: nextDir, limit: currentLimit, page: 1, filters: filters}) }}">Type</a></th>
                         {% set nextDir = currentSort == 'unit' and currentDir == 'asc' ? 'desc' : 'asc' %}
@@ -145,6 +147,7 @@
                                 {% endfor %}
                             </select>
                         </th>
+                        <th class="col-vendor"></th>
                         <th class="col-type">
                             <select name="filters[type]" onchange="this.form.submit()" aria-label="Filter by type">
                                 <option value="">All types</option>

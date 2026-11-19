@@ -74,6 +74,8 @@ final class ProductController extends AbstractAdminController
         private readonly ProductBaseUnitService $baseUnits,
         private readonly ProductAvailableUnitService $availableUnits,
         private readonly ProductPrivacyLinker $productPrivacyLinker,
+        // Maxeme: the product's Vendor (mockup), kept in maxeme_product_vendor.
+        private readonly \App\Maxeme\Service\ProductVendors $productVendors,
         #[Autowire(service: 'doctrine.debug_data_holder')]
         private readonly ?DebugDataHolder $debugData = null,
     ) {}
@@ -105,6 +107,8 @@ final class ProductController extends AbstractAdminController
         'name' => ['Product name', 'core'],
         'sku' => ['SKU', 'core'],
         'category' => ['Category', 'core'],
+        // Maxeme: who the shop buys it from (maxeme_product_vendor), as in the mockup's product list.
+        'vendor' => ['Vendor', 'core'],
         'type' => ['Type', 'core'],
         'unit' => ['U/M', 'core'],
         'weight' => ['Weight', 'core'],
@@ -1654,6 +1658,7 @@ final class ProductController extends AbstractAdminController
                 $entityManager->flush();
                 $this->productPrivacyLinker->sync($product, $privateCompanyIds, $entityManager);
                 $this->syncProductPricing($product, $request, $entityManager);
+                $this->productVendors->saveFromRequest($product, $request);
                 $this->syncProductInventory($product, $request, $entityManager, $appSettings);
                 foreach ($this->feeFieldProviders as $provider) {
                     if ($provider instanceof FeeFieldProviderInterface && $this->bundleStatusRepo->isActiveForInstance($provider)) {
@@ -1735,6 +1740,7 @@ final class ProductController extends AbstractAdminController
             if ($product->getName() !== '' && $product->getSku() !== '') {
                 $product->touch();
                 $this->syncProductPricing($product, $request, $entityManager);
+                $this->productVendors->saveFromRequest($product, $request);
                 // Before syncProductInventory(), which returns without reading a box the form did
                 // not render once the product is dimensional. The other order would let one save
                 // both switch the mode on AND write a typed quantity over the opening balance.

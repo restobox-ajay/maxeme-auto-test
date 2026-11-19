@@ -34,6 +34,7 @@ final class AuditLogEnricher
         'GovtFee' => 'service',
         'Part' => 'parts',
         'InventoryHistory' => 'parts',
+        'ProductVendor' => 'parts',
         'RepairOrder' => 'work-order',
         'RepairOrderJob' => 'work-order',
         'RepairOrderJobLine' => 'work-order',

@@ -1,3 +1,4 @@
+{% set vendorNames = product_vendor_names(products) %}
 {% for product in products %}
     <tr>
         <td data-label="ID" class="col-id searchable">{{ product.id }}</td>
@@ -11,6 +12,7 @@
         <td data-label="Product name" class="col-name product-name-cell searchable">{{ product.name }}</td>
         <td data-label="SKU" class="col-sku searchable">{{ product.sku }}</td>
         <td data-label="Category" class="col-category">{{ product.category }}</td>
+        <td data-label="Vendor" class="col-vendor">{{ vendorNames[product.id]|default('-') }}</td>
         <td data-label="Type" class="col-type">{{ product.type }}</td>
         <td data-label="U/M" class="col-unit">{{ product.unit }}</td>
         <td data-label="Weight" class="col-weight">{{ product.weight }}</td>
@@ -59,7 +61,7 @@
     </tr>
 {% else %}
     <tr>
-        <td colspan="23" class="empty-table-cell">
+        <td colspan="24" class="empty-table-cell">
             <strong>No products found.</strong>
             <span>Products will appear here once created.</span>
         </td>

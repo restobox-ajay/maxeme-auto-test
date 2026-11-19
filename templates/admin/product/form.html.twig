@@ -335,6 +335,20 @@
                     </select>
                     <small>Optional. Add categories from Products &gt; Categories when needed.</small>
                 </label>
+                {# Vendor (Maxeme mockup): who the shop buys it from, one per product (maxeme_product_vendor).
+                   A form sent back with an error keeps what was picked. #}
+                {% set vendorChoice = product_vendor_options(product.id|default(null)) %}
+                {% set vendorSelected = app.request.method == 'POST' ? app.request.request.get('vendor_id', '') : (vendorChoice.selected ?? '') %}
+                <label>
+                    Vendor
+                    <select name="vendor_id">
+                        <option value="">None</option>
+                        {% for vendor in vendorChoice.options %}
+                            <option value="{{ vendor.id }}" {{ vendorSelected ~ '' == vendor.id ~ '' ? 'selected' : '' }}>{{ vendor.name }}{{ vendor.active ? '' : ' (inactive)' }}</option>
+                        {% endfor %}
+                    </select>
+                    <small>Who the shop buys it from. Managed on <a href="{{ path('admin_bundle_procurement_vendors') }}">Vendors</a>.</small>
+                </label>
                 <label>
                     Visible to Customers
                     <select name="visible">
