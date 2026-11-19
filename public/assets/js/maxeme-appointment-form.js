@@ -182,7 +182,7 @@
         if (day < todayKey && day !== initialStart.slice(0, 10)) {
             summary += '\n\nThis day is in the past. Book it anyway?';
         }
-        window.WC.confirm('Confirm appointment', 'Client: ', $('#client_full_name').value, summary, function () {
+        window.MxConfirm('Confirm appointment', 'Client: ', $('#client_full_name').value, summary, function () {
             form.dataset.confirmed = '1';
             form.submit();
         });

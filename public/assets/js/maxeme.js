@@ -219,12 +219,14 @@
             return;
         }
 
-        window.WC.confirm(
+        // data-item="" names nothing (the text says it all); no data-item at all: "this item".
+        window.MxConfirm(
             $btn.data('confirm-title') || 'Please confirm',
             $btn.data('confirm-before') || 'Are you sure about ',
-            $btn.data('item') || 'this item',
+            $btn.is('[data-item]') ? String($btn.data('item')) : 'this item',
             $btn.data('confirm-after') || '?',
-            function () { post($btn); }
+            function () { post($btn); },
+            true
         );
     });
 }(jQuery));
@@ -520,4 +522,38 @@
         fetch(link.getAttribute('data-log-url'), { method: 'POST', body: body, headers: { 'X-CSRF-TOKEN': link.getAttribute('data-token') || '', 'Accept': 'application/json' } }).catch(function () {});
         if (window.WC && window.WC.showToast) { window.WC.showToast(filename + ' downloaded (' + count + ' rows).', 'success'); }
     });
+}());
+
+/*
+ * window.MxConfirm(title, before, item, after, onConfirm, danger): app.js's #delete-modal (WC.confirm)
+ * with two changes. No item (empty) leaves out the "this item" app.js puts in its place. And a question
+ * that is not a delete (danger false: "Issue the invoice now?", "Confirm appointment") shows a question
+ * mark and the primary OK, not the bin and the red button; the modal is put back when it closes.
+ */
+(function () {
+    'use strict';
+
+    var QUESTION = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+
+    window.MxConfirm = function (title, before, item, after, onConfirm, danger) {
+        window.WC.confirm(title, before, item, after, onConfirm);
+        var overlay = document.getElementById('delete-modal');
+        if (!overlay) { return; }
+        if (!item) {
+            var strong = overlay.querySelector('#delete-modal-item');
+            if (strong) { strong.remove(); }
+        }
+        if (danger) { return; }
+        var icon = overlay.querySelector('.delete-modal-icon');
+        var bin = icon ? icon.innerHTML : '';
+        overlay.classList.add('mx-confirm');
+        if (icon) { icon.innerHTML = QUESTION; }
+        var watch = new MutationObserver(function () {
+            if (overlay.classList.contains('is-open')) { return; }
+            overlay.classList.remove('mx-confirm');
+            if (icon) { icon.innerHTML = bin; }
+            watch.disconnect();
+        });
+        watch.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    };
 }());

@@ -773,3 +773,21 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-dash-todo b { min-width: 2ch; text-align: right; }
 .mx-dash-todo b.is-zero { color: var(--muted, #6b7280); font-weight: 400; }
 .mx-dash-todo small { color: var(--muted, #6b7280); }
+
+/* MxConfirm (maxeme.js): a question that is not a delete, in the shared #delete-modal. */
+.delete-modal-overlay.mx-confirm .delete-modal-icon {
+    background: var(--mx-primary-soft);
+    color: var(--mx-primary);
+}
+.delete-modal-overlay.mx-confirm .delete-modal-confirm {
+    background: var(--mx-primary) !important;
+    border-color: var(--mx-primary) !important;
+}
+.delete-modal-overlay.mx-confirm .delete-modal-confirm:hover {
+    background: var(--mx-primary-hover) !important;
+    border-color: var(--mx-primary-hover) !important;
+}
+/* Its text keeps its line breaks (the appointment summary is one line per field). */
+.delete-modal-overlay.mx-confirm .delete-modal-body {
+    white-space: pre-line;
+}

@@ -19,7 +19,7 @@
             .then(function (response) { return response.json().then(function (json) { return { status: response.status, json: json }; }); })
             .then(function (result) {
                 if (result.status === 409 && result.json.confirm) {
-                    window.WC.confirm('Move repair order', '', '', result.json.confirm, function () { send(id, status, true); });
+                    window.MxConfirm('Move repair order', '', '', result.json.confirm, function () { send(id, status, true); });
                     return;
                 }
                 if (result.status >= 400) { toast(result.json.message || 'The repair order could not be moved.', 'error'); return; }
@@ -27,7 +27,7 @@
                 var offer = result.json.offerInvoice;
                 if (offer) {
                     /* Completed with no invoice yet (mockup 88ddf43): issue it now, or stay on the board. */
-                    window.WC.confirm('Issue the invoice now?', '', '', offer.question, function () { postForm(offer.url); });
+                    window.MxConfirm('Issue the invoice now?', '', '', offer.question, function () { postForm(offer.url); });
                     return;
                 }
                 window.setTimeout(function () { window.location.reload(); }, 500);
