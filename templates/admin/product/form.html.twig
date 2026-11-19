@@ -282,6 +282,12 @@
                     Original Price
                     <input type="number" step="0.01" min="0" name="original_price" value="{{ product.originalRaw }}">
                 </label>
+                {# Sale Price (Maxeme mockup): the product's default price, what repair orders and invoices charge. #}
+                <label>
+                    Sale Price
+                    <input type="number" step="0.01" min="0" name="default_price" value="{{ product.defaultPriceRaw|default('') }}">
+                    <small>What repair orders and invoices charge. Left blank it follows the Original Price.</small>
+                </label>
                 <label>
                     Deposit
                     <input type="number" step="0.01" min="0" name="deposit" value="{{ product.depositRaw }}">

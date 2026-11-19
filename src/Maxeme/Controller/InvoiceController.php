@@ -193,7 +193,7 @@ final class InvoiceController extends AbstractMaxemeController
             // Parts are core's products: its own search (name, SKU, barcode), sellable ones only.
             foreach ($products->searchPage($term)['products'] as $product) {
                 if ($product->isSellable()) {
-                    $items[] = ['label' => ItemLabel::product($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice())];
+                    $items[] = ['label' => ItemLabel::product($product), 'category' => 'Parts', 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice() ?? $product->getOriginalPrice())]; // Sale Price, else the Original Price
                 }
             }
         }

@@ -122,7 +122,7 @@ final class ServiceItemController extends AbstractMaxemeController
             ServiceLineType::Sublet => array_map($charge, $this->labour->searchActive($term, ['sublet' => true])),
             ServiceLineType::GovtFee => array_map($charge, $this->govtFees->searchActive($term)),
             ServiceLineType::Part => array_map(
-                static fn (ProductCore $product): array => ['label' => ItemLabel::product($product), 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice())],
+                static fn (ProductCore $product): array => ['label' => ItemLabel::product($product), 'value' => $product->getId(), 'price' => Money::rounded($product->getDefaultPrice() ?? $product->getOriginalPrice())],
                 $products->searchPage($term)['products'],
             ),
             default => [],

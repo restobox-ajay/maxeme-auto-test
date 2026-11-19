@@ -1903,6 +1903,7 @@ final class ProductController extends AbstractAdminController
             'categoryId' => (string) ($product->getCategory()?->getId() ?? ''),
             'costRaw' => $product->getCostPrice() ?? '',
             'originalRaw' => $product->getOriginalPrice() ?? '',
+            'defaultPriceRaw' => $product->getDefaultPrice() ?? '',
             'priceRaw' => $pricing?->getPrice() ?? '',
             'depositRaw' => $product->getDeposit() ?? '',
             'privateCompanyIds' => $companyIds,
@@ -1948,6 +1949,7 @@ final class ProductController extends AbstractAdminController
             'categoryId' => '',
             'costRaw' => '',
             'originalRaw' => '',
+            'defaultPriceRaw' => '',
             'priceRaw' => '',
             'depositRaw' => '',
             'privateCompanyIds' => [],
@@ -2030,6 +2032,7 @@ final class ProductController extends AbstractAdminController
         $row['costRaw'] = trim((string) $request->request->get('cost_price', ''));
         $row['originalRaw'] = trim((string) $request->request->get('original_price', ''));
         $row['priceRaw'] = trim((string) $request->request->get('sale_price', ''));
+        $row['defaultPriceRaw'] = trim((string) $request->request->get('default_price', ''));
         $row['depositRaw'] = trim((string) $request->request->get('deposit', ''));
         $row['status'] = (string) $request->request->get('status', 'Active');
         $row['visible'] = (string) $request->request->get('visible', 'Yes');
@@ -2138,6 +2141,12 @@ final class ProductController extends AbstractAdminController
             ->setShortDescription($shortDescription !== '' ? $shortDescription : null)
             ->setLongDescription($longDescription !== '' ? $longDescription : null)
             ->setDescription($longDescription !== '' ? $longDescription : ($shortDescription !== '' ? $shortDescription : null));
+
+        // Sale Price (Maxeme mockup): what repair orders and invoices charge; blank follows the
+        // Original Price. Only when the form posted the box, so a post without it keeps the price.
+        if ($request->request->has('default_price')) {
+            $product->setDefaultPrice($this->nullableMoney($request->request->get('default_price')));
+        }
 
         $rawCompanyIds = $request->request->all('private_companies');
         $rawCompanyIds = is_array($rawCompanyIds) ? $rawCompanyIds : [];
