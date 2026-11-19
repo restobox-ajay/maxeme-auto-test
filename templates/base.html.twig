@@ -7,7 +7,9 @@
         {# P15: browser tabs end in the shop's name, as in the mockup, also on the core pages that say "| Admin". #}
         <title>{% apply replace({' | Admin': ' | ' ~ site_name()}) %}{% block title %}{{ site_name() }}{% endblock %}{% endapply %}</title>
         {% set faviconUrl = app_setting('favicon_url', '') %}
-        {% if faviconUrl %}<link rel="icon" href="{{ faviconUrl }}">{% endif %}
+        {# With no favicon uploaded (Settings › Branding), an empty icon: otherwise the browser asks for
+           /favicon.ico, which does not exist, and every page view adds a 404 to the Error Log. #}
+        {% if faviconUrl %}<link rel="icon" href="{{ faviconUrl }}">{% else %}<link rel="icon" href="data:,">{% endif %}
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
