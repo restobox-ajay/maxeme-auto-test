@@ -97,8 +97,7 @@ final class InvoiceRepository extends ServiceEntityRepository
     /** How many invoices the Invoices list's current view holds (no page), for its CSV's activity entry. */
     public function countAllInView(SearchTerm $find, ListQuery $list): int
     {
-        return (int) ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)
-            ->select('COUNT(i.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+        return (int) $this->allInView($find, $list)->select('COUNT(i.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -111,7 +110,7 @@ final class InvoiceRepository extends ServiceEntityRepository
     public function iterateAllInView(SearchTerm $find, ListQuery $list, int $batchSize = 200): iterable
     {
         $em = $this->getEntityManager();
-        $query = ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)->getQuery();
+        $query = $this->allInView($find, $list)->getQuery();
         $i = 0;
         foreach ($query->toIterable() as $invoice) {
             yield $invoice;
@@ -120,6 +119,12 @@ final class InvoiceRepository extends ServiceEntityRepository
             }
         }
         $em->clear();
+    }
+
+    /** The Invoices list's current view (search boxes and sort), not paged: what its CSV holds. */
+    private function allInView(SearchTerm $find, ListQuery $list): QueryBuilder
+    {
+        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS);
     }
 
     private function listQuery(SearchTerm $find): QueryBuilder
