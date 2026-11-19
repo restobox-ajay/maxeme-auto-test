@@ -66,6 +66,16 @@ class RepairOrderJob
     public function getId(): ?int { return $this->id; }
     public function getRepairOrder(): RepairOrder { return $this->repairOrder; }
 
+    /**
+     * An empty service row: no name, no catalogue service, no lines and no price. The legacy import
+     * left one on 700+ repair orders; it is not shown, printed or counted (RepairOrder::getJobs()),
+     * and the next save of its repair order drops it.
+     */
+    public function isBlank(): bool
+    {
+        return trim($this->name) === '' && $this->service === null && $this->lines->isEmpty() && (float) $this->price === 0.0;
+    }
+
     public function getService(): ?ServiceItem { return $this->service; }
     public function setService(?ServiceItem $service): self { $this->service = $service; return $this; }
 

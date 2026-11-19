@@ -399,8 +399,11 @@ class RepairOrder implements HasNotes
         $this->lastUpdated = new \DateTimeImmutable();
     }
 
-    /** @return list<RepairOrderJob> in order */
-    public function getJobs(): array { return array_values($this->jobs->toArray()); }
+    /** @return list<RepairOrderJob> in order, empty imported rows left out (RepairOrderJob::isBlank()) */
+    public function getJobs(): array
+    {
+        return array_values(array_filter($this->jobs->toArray(), static fn (RepairOrderJob $job): bool => !$job->isBlank()));
+    }
 
     /** @param list<RepairOrderJob> $jobs this repair order's, in order; one left out is deleted */
     public function replaceJobs(array $jobs): void
