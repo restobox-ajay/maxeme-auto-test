@@ -32,22 +32,7 @@ final class ProfileController extends AbstractController
     #[Route('', name: 'show', methods: ['GET', 'POST'])]
     public function show(Request $request, #[CurrentUser] AdminUser $user, ValidatorInterface $validator): Response
     {
-        $errors = [];
-
-        if ($request->isMethod('POST')) {
-            $errors = $this->applyPasswordChange($request, $user, $validator);
-
-            if ($errors === []) {
-                $this->addFlash('success', 'The password has been changed.');
-
-                return $this->redirectToRoute('maxeme_profile_show');
-            }
-        }
-
-        return $this->render('maxeme/profile/show.html.twig', [
-            'user' => $user,
-            'errors' => $errors,
-        ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
+        return $this->passwordForm($request, $user, $validator, 'maxeme/profile/show.html.twig', ['user' => $user]);
     }
 
     #[Route('/edit', name: 'edit', methods: ['GET', 'POST'])]
@@ -77,6 +62,17 @@ final class ProfileController extends AbstractController
     #[Route('/change-password', name: 'change_password', methods: ['GET', 'POST'])]
     public function changePassword(Request $request, #[CurrentUser] AdminUser $user, ValidatorInterface $validator): Response
     {
+        return $this->passwordForm($request, $user, $validator, 'maxeme/profile/change_password.html.twig');
+    }
+
+    /**
+     * A page with the password form (the profile page's inline one, or its own page): a valid POST
+     * changes the password and goes back to the profile; an invalid one re-renders with errors.
+     *
+     * @param array<string, mixed> $vars the page's other variables
+     */
+    private function passwordForm(Request $request, AdminUser $user, ValidatorInterface $validator, string $template, array $vars = []): Response
+    {
         $errors = [];
 
         if ($request->isMethod('POST')) {
@@ -89,9 +85,7 @@ final class ProfileController extends AbstractController
             }
         }
 
-        return $this->render('maxeme/profile/change_password.html.twig', [
-            'errors' => $errors,
-        ], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
+        return $this->render($template, $vars + ['errors' => $errors], new Response(status: $errors === [] ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY));
     }
 
     /**
