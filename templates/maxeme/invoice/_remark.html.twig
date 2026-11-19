@@ -1,0 +1,17 @@
+{# The invoice's Remark card (mockup d2fbfc8, P19): internal, shown to staff above the invoice, never
+   part of it, never printed. The remark as text, then an Add / Edit remark link that opens the box.
+   Shared by the invoice page (maxeme/document/page.html.twig) and the older invoice print page
+   (maxeme/invoice/_document_page.html.twig). Vars: invoice. #}
+<section class="panel compact-panel no-print mx-remark-card" id="invoice-remark">
+    <strong>Remark</strong> <span class="muted-line">(internal: never printed)</span>
+    <div class="mx-remark-text-block">{% if invoice.adminNote %}{{ invoice.adminNote }}{% else %}<span class="muted-line">No remark.</span>{% endif %}</div>
+    {% if is_granted('/accounting/edit') %}
+    <details class="mx-remark-edit-toggle"><summary>{{ invoice.adminNote ? 'Edit remark' : 'Add remark' }}</summary>
+        <form method="post" action="{{ path('maxeme_invoice_remark', { invoiceKey: invoice.invoiceKey }) }}" class="mx-remark-form">
+            {{ csrf_field() }}
+            <textarea name="admin_note" rows="2" maxlength="1000" placeholder="No remark.">{{ invoice.adminNote }}</textarea>
+            <button class="button mx-btn-sm outline" type="submit">{{ invoice.adminNote ? 'Save remark' : 'Add remark' }}</button>
+        </form>
+    </details>
+    {% endif %}
+</section>

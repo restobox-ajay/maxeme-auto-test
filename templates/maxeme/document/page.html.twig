@@ -96,21 +96,7 @@
         </div>
     {% endif %}
     {% if invoice and is_granted('/accounting/view') %}
-        {# The Remark (mockup d2fbfc8): internal, shown to staff above the invoice, never part of it, never printed. #}
-        <section class="panel compact-panel no-print mx-remark-card" id="invoice-remark">
-            <strong>Remark</strong> <span class="muted-line">(internal: never printed)</span>
-            {# P19 (mockup): the remark as text, then an Add / Edit remark link that opens the box. #}
-            <div class="mx-remark-text-block">{% if invoice.adminNote %}{{ invoice.adminNote }}{% else %}<span class="muted-line">No remark.</span>{% endif %}</div>
-            {% if is_granted('/accounting/edit') %}
-            <details class="mx-remark-edit-toggle"><summary>{{ invoice.adminNote ? 'Edit remark' : 'Add remark' }}</summary>
-                <form method="post" action="{{ path('maxeme_invoice_remark', { invoiceKey: invoice.invoiceKey }) }}" class="mx-remark-form">
-                    {{ csrf_field() }}
-                    <textarea name="admin_note" rows="2" maxlength="1000" placeholder="No remark.">{{ invoice.adminNote }}</textarea>
-                    <button class="button mx-btn-sm outline" type="submit">{{ invoice.adminNote ? 'Save remark' : 'Add remark' }}</button>
-                </form>
-            </details>
-            {% endif %}
-        </section>
+        {% include 'maxeme/invoice/_remark.html.twig' with { invoice: invoice } only %}
     {% endif %}
     <div class="invoice-page-container">
         {% include document.kind.printedTemplate with { document: document } only %}
