@@ -2154,6 +2154,10 @@ final class ProductController extends AbstractAdminController
         if ($request->request->has('default_price')) {
             $product->setDefaultPrice($this->nullableMoney($request->request->get('default_price')));
         }
+        // Private (Maxeme mockup): "Private — hidden from the catalogue" is not visible to customers.
+        if ($request->request->get('product_private') === '1') {
+            $product->setVisible(false);
+        }
 
         $rawCompanyIds = $request->request->all('private_companies');
         $rawCompanyIds = is_array($rawCompanyIds) ? $rawCompanyIds : [];

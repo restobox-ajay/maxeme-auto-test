@@ -411,48 +411,28 @@
                         <option value="bulk" {{ product.shippingClass == 'bulk' ? 'selected' : '' }}>Bulk</option>
                     </select>
                 </label>
+                {# Maxeme mockup: Private is a plain choice. Private = hidden from the customer catalogue,
+                   saved as Visible to Customers = No (the two selects follow each other). B2B is off for
+                   this shop, so customers are not picked here; any customers a product is already
+                   restricted to are posted back unchanged. #}
                 <label>
                     Private
-                    <div class="ss-wrap ss-multi-wrap" id="ss-private-companies">
-                        <button type="button" class="ss-trigger" aria-haspopup="listbox" aria-expanded="false">
-                            {%- if product.privateCompanyIds is defined and product.privateCompanyIds|length > 0 -%}
-                                {%- set selectedLabels = [] -%}
-                                {%- for company in companies -%}
-                                    {%- if company.id in product.privateCompanyIds -%}
-                                        {%- set selectedLabels = selectedLabels|merge([company.label|default(company.name)]) -%}
-                                    {%- endif -%}
-                                {%- endfor -%}
-                                {{ selectedLabels|join(', ') }}
-                            {%- else -%}
-                                Select customers...
-                            {%- endif -%}
-                        </button>
-                        <div class="ss-panel" role="listbox">
-                            <div class="ss-search-wrap">
-                                <input class="ss-search" type="text" placeholder="Search customers..." autocomplete="off">
-                            </div>
-                            <ul class="ss-list">
-                                <li class="ss-item ss-multi-item ss-multi-all" data-value="__all__" role="option">
-                                    <input type="checkbox" tabindex="-1">
-                                    <span>Select all</span>
-                                </li>
-                                {% for company in companies %}
-                                    <li class="ss-item ss-multi-item{{ company.id in product.privateCompanyIds ? ' is-selected' : '' }}"
-                                        data-value="{{ company.id }}" role="option">
-                                        <input type="checkbox" tabindex="-1" {{ company.id in product.privateCompanyIds ? 'checked' : '' }}>
-                                        <span>{{ company.label|default(company.name) }}</span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                            <p class="ss-empty" hidden>No results found.</p>
-                        </div>
-                        <select class="ss-hidden-select" name="private_companies[]" multiple aria-hidden="true" tabindex="-1">
-                            {% for company in companies %}
-                                <option value="{{ company.id }}" {{ company.id in product.privateCompanyIds ? 'selected' : '' }}>{{ company.label|default(company.name) }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <select name="product_private" class="js-product-private">
+                        <option value="0" {{ product.visible != 'No' ? 'selected' : '' }}>Public — offered to everyone</option>
+                        <option value="1" {{ product.visible == 'No' ? 'selected' : '' }}>Private — hidden from the catalogue</option>
+                    </select>
+                    {% for companyId in product.privateCompanyIds|default([]) %}<input type="hidden" name="private_companies[]" value="{{ companyId }}">{% endfor %}
+                    <small>Choosing customers for a private product needs B2B, which is off for this shop.</small>
                 </label>
+                <script>
+                    (function () {
+                        var priv = document.querySelector('.js-product-private');
+                        var visible = priv && priv.form ? priv.form.querySelector('select[name="visible"]') : null;
+                        if (!priv || !visible) { return; }
+                        priv.addEventListener('change', function () { visible.value = priv.value === '1' ? 'No' : 'Yes'; });
+                        visible.addEventListener('change', function () { priv.value = visible.value === 'No' ? '1' : '0'; });
+                    })();
+                </script>
             </div>
 
             {# P18 (mockup): the form is two columns; remarks and descriptions sit closed underneath, kept for the catalogue. #}
