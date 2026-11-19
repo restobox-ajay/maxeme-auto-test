@@ -371,31 +371,37 @@
                         {% endfor %}
                     </select>
                 </label>
+                {# Maxeme mockup: the choices are the shop's tax classes, "S – GST+PST" (Settings › Tax
+                   Classes); a stored code that is not one of them stays listed, as it is. #}
+                {% set taxLabels = tax_class_labels() %}
+                {% set currentTax = product.salesTaxCode|default('') %}
+                {% if currentTax != '' and taxLabels[currentTax] is not defined %}{% set taxLabels = taxLabels|merge({(currentTax): currentTax}) %}{% endif %}
                 <label>
                     Sales Tax Code
                     <div class="ss-wrap" id="ss-sales-tax-code">
                         <button type="button" class="ss-trigger" aria-haspopup="listbox" aria-expanded="false">
-                            {{ product.salesTaxCode|default('') ?: 'Select Sales Tax Code' }}
+                            {{ taxLabels[currentTax]|default('Select Sales Tax Code') }}
                         </button>
                         <div class="ss-panel" role="listbox">
                             <div class="ss-search-wrap">
                                 <input class="ss-search" type="text" placeholder="Search..." autocomplete="off">
                             </div>
                             <ul class="ss-list">
-                                <li class="ss-item{{ (product.salesTaxCode|default('') == '') ? ' is-selected' : '' }}" data-value="" role="option">Select Sales Tax Code</li>
-                                <li class="ss-item{{ product.salesTaxCode == 'E' ? ' is-selected' : '' }}" data-value="E" role="option">E</li>
-                                <li class="ss-item{{ product.salesTaxCode == 'G' ? ' is-selected' : '' }}" data-value="G" role="option">G</li>
-                                <li class="ss-item{{ product.salesTaxCode == 'S' ? ' is-selected' : '' }}" data-value="S" role="option">S</li>
+                                <li class="ss-item{{ currentTax == '' ? ' is-selected' : '' }}" data-value="" role="option">Select Sales Tax Code</li>
+                                {% for code, label in taxLabels %}
+                                    <li class="ss-item{{ currentTax == code ? ' is-selected' : '' }}" data-value="{{ code }}" role="option">{{ label }}</li>
+                                {% endfor %}
                             </ul>
                             <p class="ss-empty" hidden>No results found.</p>
                         </div>
                         <select class="ss-native" name="sales_tax_code" aria-hidden="true" tabindex="-1">
-                            <option value="" {{ (product.salesTaxCode|default('') == '') ? 'selected' : '' }}></option>
-                            <option value="E" {{ product.salesTaxCode == 'E' ? 'selected' : '' }}>E</option>
-                            <option value="G" {{ product.salesTaxCode == 'G' ? 'selected' : '' }}>G</option>
-                            <option value="S" {{ product.salesTaxCode == 'S' ? 'selected' : '' }}>S</option>
+                            <option value="" {{ currentTax == '' ? 'selected' : '' }}></option>
+                            {% for code, label in taxLabels %}
+                                <option value="{{ code }}" {{ currentTax == code ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
+                    <small>The tax classes from <a href="{{ path('maxeme_settings_tax_class_index') }}">Settings</a>.</small>
                 </label>
                 <label>
                     Shipping Class

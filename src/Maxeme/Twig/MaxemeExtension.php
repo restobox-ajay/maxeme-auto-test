@@ -56,7 +56,25 @@ final class MaxemeExtension
     public function __construct(
         private readonly DocumentNumbers $numbers,
         private readonly TaxMap $taxMap,
+        private readonly \App\Maxeme\Repository\TaxClassRepository $taxClasses,
     ) {
+    }
+
+    /**
+     * {{ tax_class_labels() }}: code => "S – GST+PST" for every tax class (Settings › Tax Classes), in
+     * their order; the product form's Sales Tax Code choices (mockup).
+     *
+     * @return array<string, string>
+     */
+    #[AsTwigFunction('tax_class_labels')]
+    public function taxClassLabels(): array
+    {
+        $labels = [];
+        foreach ($this->taxClasses->findAllOrdered() as $class) {
+            $labels[$class->getCode()] = sprintf('%s – %s', $class->getCode(), $class->getName());
+        }
+
+        return $labels;
     }
 
     /** {{ tax_map()|json_encode }}: the catalogue items not taxed both GST and PST, for live totals (TaxMap). */

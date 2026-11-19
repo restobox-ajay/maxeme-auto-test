@@ -1946,7 +1946,8 @@ final class ProductController extends AbstractAdminController
             'id' => '',
             'name' => '',
             'sku' => '',
-            'type' => '',
+            // Maxeme mockup: a new product starts as a Part taxed S (GST+PST); both can be changed.
+            'type' => 'Part',
             'unit' => '',
             'weight' => '',
             'visible' => 'Yes',
@@ -1960,7 +1961,7 @@ final class ProductController extends AbstractAdminController
             'depositRaw' => '',
             'privateCompanyIds' => [],
             'deletedRaw' => 'No',
-            'salesTaxCode' => '',
+            'salesTaxCode' => 'S',
             'shippingClass' => '',
             'remarks' => '',
             'short' => '',
