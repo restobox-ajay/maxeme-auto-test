@@ -228,16 +228,19 @@ final class InvoiceController extends AbstractMaxemeController
         // The shop's timezone setting (Settings), the zone every screen shows; not the fixed maxeme.timezone parameter.
         $timezone = $appSettings->timezone()->getName();
         $list = ListQuery::fromRequest($request, array_keys(InvoiceRepository::LIST_SORTS), 'desc');
-        $invoices = $this->repository->findAllInView(SearchTerm::fromRequest($request), $list);
+        $find = SearchTerm::fromRequest($request);
+        // Streamed one invoice at a time (the whole table at once ran out of memory).
+        $invoices = $this->repository->iterateAllInView($find, $list);
         $filename = CsvExport::datedFilename('invoices', $timezone);
-        $activity->exported('accounting', 'Invoice', $filename, count($invoices), $list->describe());
-        $numbers = $this->numbers;
+        $activity->exported('accounting', 'Invoice', $filename, $this->repository->countAllInView($find, $list), $list->describe());
+        $number = $this->numbers->numberer(DocumentKind::Invoice);
+        $zone = new \DateTimeZone($timezone);
 
-        return CsvExport::response($filename, ['Invoice #', 'Date', 'Client', 'Vehicle', 'Status', 'Payment method', 'Subtotal', 'Sales Tax', 'Total'], (static function () use ($invoices, $numbers, $timezone): \Generator {
+        return CsvExport::response($filename, ['Invoice #', 'Date', 'Client', 'Vehicle', 'Status', 'Payment method', 'Subtotal', 'Sales Tax', 'Total'], (static function () use ($invoices, $number, $zone): \Generator {
             foreach ($invoices as $invoice) {
                 yield [
-                    $numbers->number($invoice),
-                    $invoice->getDocumentDate()->setTimezone(new \DateTimeZone($timezone))->format('m/d/Y'),
+                    $number($invoice),
+                    $invoice->getDocumentDate()->setTimezone($zone)->format('m/d/Y'),
                     $invoice->getClientFullName(),
                     $invoice->getVehicleFullName(),
                     $invoice->getStatus()->label(),

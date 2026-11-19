@@ -94,10 +94,32 @@ final class InvoiceRepository extends ServiceEntityRepository
         return ListPage::paginate($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS);
     }
 
-    /** @return list<Invoice> every invoice of the Invoices list's current view (no page), for its CSV */
-    public function findAllInView(SearchTerm $find, ListQuery $list): array
+    /** How many invoices the Invoices list's current view holds (no page), for its CSV's activity entry. */
+    public function countAllInView(SearchTerm $find, ListQuery $list): int
     {
-        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)->getQuery()->getResult();
+        return (int) ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)
+            ->select('COUNT(i.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Every invoice of the Invoices list's current view (no page), for its CSV, one at a time: the
+     * whole table (15 000+ imported invoices) hydrated at once ran past PHP's memory limit, so the
+     * entity manager lets go of each batch once it has been written.
+     *
+     * @return iterable<Invoice>
+     */
+    public function iterateAllInView(SearchTerm $find, ListQuery $list, int $batchSize = 200): iterable
+    {
+        $em = $this->getEntityManager();
+        $query = ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS)->getQuery();
+        $i = 0;
+        foreach ($query->toIterable() as $invoice) {
+            yield $invoice;
+            if (++$i % $batchSize === 0) {
+                $em->clear();
+            }
+        }
+        $em->clear();
     }
 
     private function listQuery(SearchTerm $find): QueryBuilder

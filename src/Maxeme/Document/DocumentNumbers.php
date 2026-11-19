@@ -51,6 +51,28 @@ final class DocumentNumbers
         return $custom ?? ($invoice->isSaved() ? $this->automaticNumber($invoice, $kind) : '');
     }
 
+    /**
+     * number() for many invoices of one kind (a CSV export): the prefix is read once, not per row.
+     * Read per row, the settings cache lookups pile up in dev's traceable cache and a 15 000-row
+     * export ran out of memory.
+     *
+     * @return \Closure(Invoice): string
+     */
+    public function numberer(DocumentKind $kind = DocumentKind::Invoice): \Closure
+    {
+        $prefix = $this->prefix($kind->prefixKey());
+
+        return static function (Invoice $invoice) use ($kind, $prefix): string {
+            $custom = match ($kind) {
+                DocumentKind::Invoice => $invoice->getCustomNumber(),
+                DocumentKind::WorkOrder => $invoice->getRepairOrder()?->getWorkOrderNumber(),
+                DocumentKind::Quote => null,
+            };
+
+            return $custom ?? ($invoice->isSaved() ? $prefix . $invoice->getDisplayedId() : '');
+        };
+    }
+
     /** The number it has when none is typed in: "INV-001482" / "WO-001482". */
     public function automaticNumber(Invoice $invoice, DocumentKind $kind = DocumentKind::Invoice): string
     {
