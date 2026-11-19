@@ -6,41 +6,18 @@
 <div class="invoice-document">
     {% include 'maxeme/invoice/_band.html.twig' with { label: isQuote ? 'QUOTE / 報價單' : kind.title|upper } only %}
     <div class="invoice-body">
-        <table class="inv-meta-table">
-            <tr>
-                <td class="inv-meta-col">
-                    <p><strong>{{ kind.title }} Number:</strong> {{ doc_number(invoice, kind) }}</p>
-                    <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
-                    <p><strong>{{ isQuote ? 'Quote Date:' : 'Invoice Completed On:' }}</strong> {{ (isQuote ? 'now' : invoice.documentDate)|date('m/d/Y h:i a') }}</p>
-                </td>
-                <td class="inv-meta-col">
-                    <p><strong>{{ maxeme_company.name }}</strong></p>
-                    <p>{{ maxeme_company.address }}</p>
-                </td>
-                <td class="inv-meta-col last">
-                    <p><strong>Company Phone:</strong> {{ maxeme_company.phone }}</p>
-                </td>
-            </tr>
-        </table>
-
-        <div class="invoice-section-title">Customer Information</div>
-        <table class="inv-addr-table">
-            <tr>
-                <td class="address-box">
-                    <h3>Bill to</h3>
-                    <p><strong>{{ invoice.clientFullName }}</strong></p>
-                    <p>Phone: {{ invoice.clientHomeNumber }}</p>
-                    <p>{{ invoice.clientAddress }}</p>
-                </td>
-                <td class="address-box">
-                    <h3>Vehicle</h3>
-                    <p><strong>{{ invoice.vehicleFullName }}</strong></p>
-                    <p>{{ invoice.vehicleMileage }}{{ invoice.vehicleMileage matches '/^[0-9,. ]+$/' ? ' ' ~ invoice.vehicleMileageUnit.label }}</p>
-                    <p>{{ invoice.vehicleLicense }}</p>
-                    <p>{{ invoice.vehicleVin }}</p>
-                </td>
-            </tr>
-        </table>
+        {% embed 'maxeme/document/_header.html.twig' with { vehicle: { name: invoice.vehicleFullName, mileage: invoice.vehicleMileage, mileageUnit: invoice.vehicleMileageUnit ? invoice.vehicleMileageUnit.label, license: invoice.vehicleLicense, vin: invoice.vehicleVin } } %}
+            {% block meta %}
+            <p><strong>{{ kind.title }} Number:</strong> {{ doc_number(invoice, kind) }}</p>
+            <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
+            <p><strong>{{ isQuote ? 'Quote Date:' : 'Invoice Completed On:' }}</strong> {{ (isQuote ? 'now' : invoice.documentDate)|date('m/d/Y h:i a') }}</p>
+            {% endblock %}
+            {% block bill_to %}
+            <p><strong>{{ invoice.clientFullName }}</strong></p>
+            <p>Phone: {{ invoice.clientHomeNumber }}</p>
+            <p>{{ invoice.clientAddress }}</p>
+            {% endblock %}
+        {% endembed %}
 
         <div class="invoice-section-title">{{ kind.title }} Items</div>
         <table class="invoice-table item-table">

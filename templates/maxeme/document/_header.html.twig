@@ -1,0 +1,37 @@
+{# The top of a printed invoice or quote: the document's own details, the shop's name, address and
+   phone, then Customer Information (Bill to and the vehicle). Embedded by the repair order documents
+   (maxeme/document/_sales_document.html.twig) and the older invoice print
+   (maxeme/invoice/_invoice_document.html.twig), which read their values from different records.
+   Blocks: meta (the first column: number, PST number, date), bill_to (under "Bill to").
+   Vars: vehicle {name, mileage, mileageUnit, license, vin}. #}
+<table class="inv-meta-table">
+    <tr>
+        <td class="inv-meta-col">
+            {% block meta %}{% endblock %}
+        </td>
+        <td class="inv-meta-col">
+            <p><strong>{{ maxeme_company.name }}</strong></p>
+            <p>{{ maxeme_company.address }}</p>
+        </td>
+        <td class="inv-meta-col last">
+            <p><strong>Company Phone:</strong> {{ maxeme_company.phone }}</p>
+        </td>
+    </tr>
+</table>
+
+<div class="invoice-section-title">Customer Information</div>
+<table class="inv-addr-table">
+    <tr>
+        <td class="address-box">
+            <h3>Bill to</h3>
+            {% block bill_to %}{% endblock %}
+        </td>
+        <td class="address-box">
+            <h3>Vehicle</h3>
+            <p><strong>{{ vehicle.name }}</strong></p>
+            {% if vehicle.mileage %}<p>{{ vehicle.mileage }}{{ vehicle.mileage matches '/^[0-9,. ]+$/' ? ' ' ~ vehicle.mileageUnit }}</p>{% endif %}
+            <p>{{ vehicle.license }}</p>
+            <p>{{ vehicle.vin }}</p>
+        </td>
+    </tr>
+</table>

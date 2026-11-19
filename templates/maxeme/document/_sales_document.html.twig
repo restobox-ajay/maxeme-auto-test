@@ -6,50 +6,27 @@
 <div class="invoice-document">
     {% include 'maxeme/invoice/_band.html.twig' with { label: isInvoice ? document.kind.title|upper : 'QUOTE / 報價單' } only %}
     <div class="invoice-body">
-        <table class="inv-meta-table">
-            <tr>
-                <td class="inv-meta-col">
-                    <p><strong>{{ document.kind.title }} Number:</strong> {{ document.number }}</p>
-                    <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
-                    <p><strong>{{ isInvoice ? 'Invoice Date' : 'Quote Date' }}:</strong> {{ document.date|date('m/d/Y h:i a') }}</p>
-                    {% if document.quoteStatus %}
-                        {# The customer's answer (mockup 345c037), printed too. #}
-                        {% set answer = document.quoteStatus %}
-                        <p class="quote-status quote-status-{{ answer.state }}"><strong>Status:</strong>
-                            {% if answer.state == 'declined' %}<span style="color:#b42318;font-weight:700">&#10006; Declined · {{ answer.at|date('m/d/Y') }}</span>
-                            {% elseif answer.state == 'awaiting' %}<span style="color:#6b7686">Awaiting approval</span>
-                            {% else %}<span style="color:#1a7f37;font-weight:700">&#10004; Accepted{{ answer.via ? ' · ' ~ answer.via }}{{ answer.at ? ' · ' ~ answer.at|date('m/d/Y') }}</span>{% endif %}
-                        </p>
-                    {% endif %}
-                </td>
-                <td class="inv-meta-col">
-                    <p><strong>{{ maxeme_company.name }}</strong></p>
-                    <p>{{ maxeme_company.address }}</p>
-                </td>
-                <td class="inv-meta-col last">
-                    <p><strong>Company Phone:</strong> {{ maxeme_company.phone }}</p>
-                </td>
-            </tr>
-        </table>
-
-        <div class="invoice-section-title">Customer Information</div>
-        <table class="inv-addr-table">
-            <tr>
-                <td class="address-box">
-                    <h3>Bill to</h3>
-                    <p><strong>{{ document.clientName }}</strong></p>
-                    {% for phone in document.phones %}<p>Phone {{ loop.index }}: {{ phone }}</p>{% endfor %}
-                    {% if document.address %}<p>Address: {{ document.address }}</p>{% endif %}
-                </td>
-                <td class="address-box">
-                    <h3>Vehicle</h3>
-                    <p><strong>{{ document.vehicleName }}</strong></p>
-                    {% if document.mileage %}<p>{{ document.mileage }}{{ document.mileage matches '/^[0-9,. ]+$/' ? ' ' ~ document.mileageUnit }}</p>{% endif %}
-                    <p>{{ document.vehicleLicense }}</p>
-                    <p>{{ document.vehicleVin }}</p>
-                </td>
-            </tr>
-        </table>
+        {% embed 'maxeme/document/_header.html.twig' with { vehicle: { name: document.vehicleName, mileage: document.mileage, mileageUnit: document.mileageUnit, license: document.vehicleLicense, vin: document.vehicleVin } } %}
+            {% block meta %}
+            <p><strong>{{ document.kind.title }} Number:</strong> {{ document.number }}</p>
+            <p><strong>PST Number:</strong> {{ maxeme_company.pst_number }}</p>
+            <p><strong>{{ isInvoice ? 'Invoice Date' : 'Quote Date' }}:</strong> {{ document.date|date('m/d/Y h:i a') }}</p>
+            {% if document.quoteStatus %}
+                {# The customer's answer (mockup 345c037), printed too. #}
+                {% set answer = document.quoteStatus %}
+                <p class="quote-status quote-status-{{ answer.state }}"><strong>Status:</strong>
+                    {% if answer.state == 'declined' %}<span style="color:#b42318;font-weight:700">&#10006; Declined · {{ answer.at|date('m/d/Y') }}</span>
+                    {% elseif answer.state == 'awaiting' %}<span style="color:#6b7686">Awaiting approval</span>
+                    {% else %}<span style="color:#1a7f37;font-weight:700">&#10004; Accepted{{ answer.via ? ' · ' ~ answer.via }}{{ answer.at ? ' · ' ~ answer.at|date('m/d/Y') }}</span>{% endif %}
+                </p>
+            {% endif %}
+            {% endblock %}
+            {% block bill_to %}
+            <p><strong>{{ document.clientName }}</strong></p>
+            {% for phone in document.phones %}<p>Phone {{ loop.index }}: {{ phone }}</p>{% endfor %}
+            {% if document.address %}<p>Address: {{ document.address }}</p>{% endif %}
+            {% endblock %}
+        {% endembed %}
 
         <div class="invoice-section-title">{{ document.kind.title }} Items</div>
         <table class="invoice-table item-table">
