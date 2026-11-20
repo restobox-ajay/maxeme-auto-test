@@ -107,7 +107,7 @@
             <script>
                 /* From Choose a client's "+ Create new client" (mockup 258fdc2): open the form, filled from the typed words. */
                 window.addEventListener('load', function () {
-                    var q = {{ (app.request.query.get('q') ?? '')|json_encode|raw }}.trim(), form = document.getElementById('manageAddForm');
+                    var q = '{{ (app.request.query.get('q') ?? '')|e('js') }}'.trim(), form = document.getElementById('manageAddForm');
                     if (q !== '') {
                         if (/^[\d\s().+-]{7,}$/.test(q)) { form.elements.phone_1.value = q; }
                         else { var words = q.split(/\s+/); form.elements.first_name.value = words[0]; form.elements.last_name.value = words.slice(1).join(' '); }
