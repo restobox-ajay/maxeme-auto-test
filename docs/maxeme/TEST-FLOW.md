@@ -94,7 +94,8 @@ should show, and what was found when it was run on 2026-11-19 (local, `http://ma
 
 ## 8. After the job
 
-1. **Reminders › Service Reminder Queue**: the client's entry, Queued, due = completion date + rule days.
+1. **Schedule › Reminders** (the service reminder queue is listed here; `/admin/service-reminder-queue` redirects to it):
+   the client's entry, email status Queued, due = completion date + rule days (widen the period to see it).
    View email (preview), **Send now** → Sent (only to the queue; run the worker to see it in the Email Log),
    Book Appointment, Resolved, phone status (Not called / No answer / Reached…).
 2. **Reminders** (manual): client page › add a reminder for a date; it appears in the Reminders list.
@@ -165,3 +166,25 @@ Receptionist and the Secretary roles.
 | F7 | Email Log is empty locally because the async queue has no worker (10 messages waiting, 6 from September) | messenger `async` | Expected; run the worker |
 | F8 | The service's lines are advice only: a service without a default price adds 0.00 to the RO until a price is typed | Services form | By design; worth a hint on the form |
 | F9 | 463 imported paid invoices have no payment amount stored, so they print "Payment method: Cash" with a blank amount | `_sales_document.html.twig`, `_invoice_document.html.twig` (payment line) | **Fixed**: with no stored amount the line shows what the payments took, else the total (434 of them are 0.00 invoices; the other 29 have payments equal to the total) |
+| F10 | Work order PDF from an invoice (`/admin/invoices/{key}/work-order.pdf`) gave a 500; its "printed" call too | `WorkOrderController` (missing `use` lines) | **Fixed** 7bd25d4 |
+| F11 | The printed invoice showed phones as digits ("6045550101"), the quote and work order as "604-555-0101" | `PrintedDocuments`, `_invoice_document.html.twig` | **Fixed** b125e22 |
+| F12 | Part stock and product changes (core ProductInventory, InventoryDetail, ProductCore) were filed under "System" in the Activity Log | `AuditLogEnricher` | **Fixed**: filed under Parts and service; 285 existing entries moved |
+| F13 | The repair order's Odometer In is not copied to the vehicle (the older invoice form does, as legacy did), so the vehicle page and the reminders show the last mileage typed on the vehicle | `RepairOrderWriter` / `RepairOrderInvoicing` | Open: decide whether saving (or invoicing) a repair order should update the vehicle's mileage |
+
+## Recheck on 2026-11-20 (local, Chrome)
+
+- **Link crawl**: every `/admin` link reachable from the dashboard, two of each kind of page (272 pages, 92 distinct
+  routes): no error status, no error page, no redirect to login. The Error Log page itself contains error text (expected).
+- **Not linked anywhere, called directly**: calendar feed, slots, days, slot; client, vehicle, repair order, service
+  and line-item searches; invoice find, items, print, work order, edit-issued; every PDF; every CSV export
+  (header and rows); password reset pages. All fine except F10.
+- **JavaScript**: 59 pages opened in the browser, no console errors from the app.
+- **Flow by hand**: appointment 24/11 10:00 → RO-015196 (odometer, tag, repair name, pickup address, service at 280,
+  technician) → quote QO-015196 emailed (an invalid address is refused) → approved by phone (Authorized) → check-in
+  (In Progress) → board drag to Completed, "Issue the invoice now?" → INV-015840 → remark → 400 refused, Debit 100
+  (Paid so far / Balance due printed), Credit Card 218.60 → Paid, RO Invoiced, appointment Completed → work order
+  PDF sets First Printed once → Change Invoice # to QA-2002, found by the sidebar box, cleared → invoice emailed →
+  service reminder queued (due 05/19/2027) → Payment Report "Debit 100.00 + Credit Card 218.60", Service Report,
+  vehicle page totals → Activity Log has every step.
+- New QA records: appointment 17719, RO-015196, INV-015840 (key `980e66193a73f009`), payments 12581–12582,
+  reminder queue entry 2.

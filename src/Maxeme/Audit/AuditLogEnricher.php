@@ -35,6 +35,10 @@ final class AuditLogEnricher
         'Part' => 'parts',
         'InventoryHistory' => 'parts',
         'ProductVendor' => 'parts',
+        // Core's product and stock records: a Maxeme part (see Part), its stock and its stock moves.
+        'ProductCore' => 'parts',
+        'ProductInventory' => 'parts',
+        'InventoryDetail' => 'parts',
         'RepairOrder' => 'work-order',
         'RepairOrderJob' => 'work-order',
         'RepairOrderJobLine' => 'work-order',
