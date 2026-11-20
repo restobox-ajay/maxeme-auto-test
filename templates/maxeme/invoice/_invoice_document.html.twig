@@ -14,7 +14,7 @@
             {% endblock %}
             {% block bill_to %}
             <p><strong>{{ invoice.clientFullName }}</strong></p>
-            <p>Phone: {{ invoice.clientHomeNumber }}</p>
+            <p>Phone: {{ invoice.clientHomeNumber|phone }}</p>
             <p>{{ invoice.clientAddress }}</p>
             {% endblock %}
         {% endembed %}

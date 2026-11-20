@@ -53,7 +53,7 @@ final class PrintedDocuments
             date: $invoice->getDocumentDate(),
             status: $invoice->getStatus()->label(),
             clientName: $invoice->getClientFullName(),
-            phones: array_values(array_filter([$invoice->getClientHomeNumber(), $invoice->getClientCellNumber()], static fn (?string $phone): bool => $phone !== null && $phone !== '')),
+            phones: array_map(ContactFormat::phone(...), array_values(array_filter([$invoice->getClientHomeNumber(), $invoice->getClientCellNumber()], static fn (?string $phone): bool => $phone !== null && $phone !== ''))),
             address: $invoice->getClientAddress(),
             email: $invoice->getClient()?->getEmail(),
             vehicleYear: $invoice->getVehicleYear(),
