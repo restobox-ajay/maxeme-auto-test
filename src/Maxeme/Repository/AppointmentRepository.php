@@ -105,12 +105,7 @@ final class AppointmentRepository extends ServiceEntityRepository
     /** @return list<Appointment> the client's new, in-progress and extended appointments, soonest first */
     public function pendingForClient(Client $client): array
     {
-        return $this->createQueryBuilder('a')
-            ->addSelect('v', 'ro')
-            ->leftJoin('a.vehicle', 'v')
-            ->leftJoin('a.repairOrder', 'ro')
-            ->andWhere('a.client = :client')->setParameter('client', $client)
-            ->andWhere('a.status IN (:pending)')->setParameter('pending', AppointmentStatus::pending())
+        return $this->forClient($client, true)
             ->orderBy('a.startTime', 'ASC')
             ->getQuery()
             ->getResult();
@@ -124,13 +119,7 @@ final class AppointmentRepository extends ServiceEntityRepository
      */
     public function recentForClient(Client $client, int $limit = 10): array
     {
-        $query = fn (bool $pending) => $this->createQueryBuilder('a')
-            ->addSelect('v', 'ro')
-            ->leftJoin('a.vehicle', 'v')
-            ->leftJoin('a.repairOrder', 'ro')
-            ->andWhere('a.client = :client')->setParameter('client', $client)
-            ->andWhere($pending ? 'a.status IN (:pending)' : 'a.status NOT IN (:pending)')->setParameter('pending', AppointmentStatus::pending())
-            ->orderBy('a.startTime', 'DESC');
+        $query = fn (bool $pending) => $this->forClient($client, $pending)->orderBy('a.startTime', 'DESC');
         $count = fn (bool $pending): int => (int) (clone $query($pending))->select('COUNT(a.id)')->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
 
         $pending = $query(true)->setMaxResults($limit)->getQuery()->getResult();
@@ -144,23 +133,24 @@ final class AppointmentRepository extends ServiceEntityRepository
     /** @return ListPage<Appointment> the client's past appointments: completed, cancelled, no-show */
     public function findCompletedPageForClient(Client $client, ListQuery $list): ListPage
     {
-        return ListPage::paginate($this->pastForClient($client), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
+        return ListPage::paginate($this->forClient($client, false), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model']);
     }
 
     /** @return list<Appointment> every past appointment of the client in the list's search and sort (its Export CSV) */
     public function findCompletedForClient(Client $client, ListQuery $list): array
     {
-        return ListPage::filter($this->pastForClient($client), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model'])->getQuery()->getResult();
+        return ListPage::filter($this->forClient($client, false), $list, self::PAST_SORTS, ['a.note', 'v.manufacturer', 'v.model'])->getQuery()->getResult();
     }
 
-    private function pastForClient(Client $client): \Doctrine\ORM\QueryBuilder
+    /** The client's pending (new, in progress, extended) or past appointments, with their vehicle and repair order. */
+    private function forClient(Client $client, bool $pending): \Doctrine\ORM\QueryBuilder
     {
         return $this->createQueryBuilder('a')
             ->addSelect('v', 'ro')
             ->leftJoin('a.vehicle', 'v')
             ->leftJoin('a.repairOrder', 'ro')
             ->andWhere('a.client = :client')->setParameter('client', $client)
-            ->andWhere('a.status NOT IN (:pending)')->setParameter('pending', AppointmentStatus::pending());
+            ->andWhere($pending ? 'a.status IN (:pending)' : 'a.status NOT IN (:pending)')->setParameter('pending', AppointmentStatus::pending());
     }
 
     /** The start of the latest repair-order appointment up to $nowUtc, or null (the board's "show that day" hint). */
