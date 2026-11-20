@@ -45,6 +45,7 @@ final class AuditLogEnricher
         'InvoicePartLine' => 'accounting',
         'InvoiceServiceLine' => 'accounting',
         'InvoiceCharge' => 'accounting',
+        'InvoicePayment' => 'accounting',
         'Client' => 'people',
         'ClientAddress' => 'people',
         'ClientNote' => 'people',
