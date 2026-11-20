@@ -28,6 +28,7 @@ use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\InvoiceVoter;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Accounting\PartTaxes;
+use App\Maxeme\Accounting\PaymentReport;
 use App\Maxeme\Document\DocumentActions;
 use App\Maxeme\Service\RepairOrderInvoicing;
 use App\Maxeme\Service\InvoicePayments;
@@ -231,21 +232,37 @@ final class InvoiceController extends AbstractMaxemeController
         $activity->exported('accounting', 'Invoice', $filename, $this->repository->countAllInView($find, $list), $list->describe());
         $number = $this->numbers->numberer(DocumentKind::Invoice);
         $zone = new \DateTimeZone($timezone);
+        $payments = $this->invoicePayments;
 
-        return CsvExport::response($filename, ['Invoice #', 'Date', 'Client', 'Vehicle', 'Status', 'Payment method', 'Subtotal', 'Sales Tax', 'Total'], (static function () use ($invoices, $number, $zone): \Generator {
+        return CsvExport::response($filename, ['Invoice #', 'Date', 'Client', 'Vehicle', 'Status', 'Payment method', 'Subtotal', 'Sales Tax', 'Total'], (static function () use ($invoices, $number, $zone, $payments): \Generator {
+            // Paid with more than one method: each with its amount ("Debit 100.00 + Credit Card 218.60", as the
+            // Payment Report). The payments are looked up 200 invoices at a time, before the iterator clears them.
+            $rows = static function (array $batch) use ($number, $zone, $payments): \Generator {
+                $methodsOf = $payments->methodsByInvoice($batch);
+                foreach ($batch as $invoice) {
+                    $methods = $methodsOf[$invoice->getId()] ?? [];
+                    yield [
+                        $number($invoice),
+                        $invoice->getDocumentDate()->setTimezone($zone)->format('m/d/Y'),
+                        $invoice->getClientFullName(),
+                        $invoice->getVehicleFullName(),
+                        $invoice->getStatus()->label(),
+                        count($methods) > 1 ? PaymentReport::methodLabel($methods) : $invoice->getPaymentType()?->getName(),
+                        $invoice->getSubtotal(),
+                        $invoice->getSalesTax(),
+                        $invoice->getTotalPrice(),
+                    ];
+                }
+            };
+            $batch = [];
             foreach ($invoices as $invoice) {
-                yield [
-                    $number($invoice),
-                    $invoice->getDocumentDate()->setTimezone($zone)->format('m/d/Y'),
-                    $invoice->getClientFullName(),
-                    $invoice->getVehicleFullName(),
-                    $invoice->getStatus()->label(),
-                    $invoice->getPaymentType()?->getName(),
-                    $invoice->getSubtotal(),
-                    $invoice->getSalesTax(),
-                    $invoice->getTotalPrice(),
-                ];
+                $batch[] = $invoice;
+                if (count($batch) === 200) {
+                    yield from $rows($batch);
+                    $batch = [];
+                }
             }
+            yield from $rows($batch);
         })());
     }
 
