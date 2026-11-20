@@ -75,6 +75,21 @@ final class InvoicePayments
         return array_sum(array_map(static fn (InvoicePayment $payment): int => Money::toCents($payment->getAmount()), $this->of($invoice)));
     }
 
+    /**
+     * The amount printed next to "Payment method" on a paid invoice: the amount handed over (it can
+     * include change), or, when none was stored (older imported invoices), what its payments took,
+     * else its total, since a paid invoice was paid in full.
+     */
+    public function paidAmount(Invoice $invoice): string
+    {
+        if ($invoice->getPaymentAmount() !== null && $invoice->getPaymentAmount() !== '') {
+            return $invoice->getPaymentAmount();
+        }
+        $cents = $this->paidCents($invoice);
+
+        return $cents > 0 ? Money::fromCents($cents) : Money::fromCents(Money::toCents($invoice->getTotalPrice()));
+    }
+
     public function balanceCents(Invoice $invoice): int
     {
         return max(0, Money::toCents($invoice->getTotalPrice()) - $this->paidCents($invoice));

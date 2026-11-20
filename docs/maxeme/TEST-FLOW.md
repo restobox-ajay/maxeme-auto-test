@@ -164,4 +164,4 @@ Receptionist and the Secretary roles.
 | F6 | Invoice payments are filed under area "System" in the Activity Log, not Accounting | `AuditLogEnricher` (no InvoicePayment entry) | **Fixed**: InvoicePayment filed under Accounting; the 5 existing entries moved too |
 | F7 | Email Log is empty locally because the async queue has no worker (10 messages waiting, 6 from September) | messenger `async` | Expected; run the worker |
 | F8 | The service's lines are advice only: a service without a default price adds 0.00 to the RO until a price is typed | Services form | By design; worth a hint on the form |
-| F9 | 463 imported paid invoices have no payment amount stored, so they print "Payment method: Cash" with a blank amount | `_sales_document.html.twig`, `_invoice_document.html.twig` (payment line) | Open |
+| F9 | 463 imported paid invoices have no payment amount stored, so they print "Payment method: Cash" with a blank amount | `_sales_document.html.twig`, `_invoice_document.html.twig` (payment line) | **Fixed**: with no stored amount the line shows what the payments took, else the total (434 of them are 0.00 invoices; the other 29 have payments equal to the total) |

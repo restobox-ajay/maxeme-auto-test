@@ -73,7 +73,7 @@ final class PrintedDocuments
             pstRate: $invoice->getPstRate(),
             pst: $invoice->getPstAmount(),
             total: $invoice->getTotalPrice(),
-            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $invoice->getPaymentAmount(), 'change' => $invoice->getChangeAmount(),
+            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $this->payments->paidAmount($invoice), 'change' => $invoice->getChangeAmount(),
                 // From the payments themselves (as the Payments page): an unpaid invoice prints what is still due.
                 'paidSoFar' => Money::fromCents($this->payments->paidCents($invoice)), 'balance' => Money::fromCents($this->payments->balanceCents($invoice)),
                 // Paid with more than one method: each, with what it paid (one method keeps the single line).
