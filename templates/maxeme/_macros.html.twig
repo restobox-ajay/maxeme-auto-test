@@ -60,6 +60,24 @@
     {{ value|amount }}
 {%- endmacro %}
 
+{# A printed invoice's payment rows under the totals (InvoicePayments::summary()): paid, the method and
+   amount (each method when split) and any change; unpaid, what was paid so far and the balance due;
+   cancelled (or none: a quote), nothing. #}
+{% macro payment_rows(payment) -%}
+    {% import _self as mx %}
+    {% if payment and payment.paid %}
+        {% if payment.methods|length > 1 %}
+            {% for method in payment.methods %}<tr><td>Payment method: {{ method.type }}</td><td class="r"><strong>{{ mx.money(method.amount) }}</strong></td></tr>{% endfor %}
+        {% else %}
+        <tr><td>Payment method: {{ payment.type }}</td><td class="r"><strong>{{ mx.money(payment.amount) }}</strong></td></tr>
+        {% endif %}
+        {% if payment.change > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(payment.change) }}</strong></td></tr>{% endif %}
+    {% elseif payment and not payment.cancelled %}
+        {% if payment.paidSoFar > 0 %}<tr><td>Paid so far:</td><td class="r"><strong>{{ mx.money(payment.paidSoFar) }}</strong></td></tr>{% endif %}
+        <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(payment.balance) }}</strong></td></tr>
+    {% endif %}
+{%- endmacro %}
+
 {# The Logs button every record has: its history in the Activity Log (who changed what, and when),
    for the roles that may read the log. In an .mx-actions group it lands in the ⋯ menu after two. #}
 {% macro logs_link(record, class = 'button outline mx-btn-sm') -%}

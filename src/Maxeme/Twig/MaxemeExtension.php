@@ -62,21 +62,15 @@ final class MaxemeExtension
     }
 
     /**
-     * {% set due = invoice_balance(invoice) %}: what its payments add up to and what is still due, as
-     * the Payments page counts them, and what it was paid with (each method and its amount), for the
-     * older invoice print, and the amount its single "Payment method" line shows (InvoicePayments::paidAmount()).
+     * {{ mx.payment_rows(invoice_payment(invoice)) }}: what the older invoice print says about the
+     * payment, the same as the repair order print's (InvoicePayments::summary()).
      *
-     * @return array{paidSoFar: string, balance: string, paidAmount: string, methods: list<array{type: string, amount: string}>}
+     * @return array{paid: bool, cancelled: bool, type: ?string, amount: string, change: string, paidSoFar: string, balance: string, methods: list<array{type: string, amount: string}>}
      */
-    #[AsTwigFunction('invoice_balance')]
-    public function invoiceBalance(Invoice $invoice): array
+    #[AsTwigFunction('invoice_payment')]
+    public function invoicePayment(Invoice $invoice): array
     {
-        return [
-            'paidSoFar' => \App\Maxeme\Accounting\Money::fromCents($this->payments->paidCents($invoice)),
-            'balance' => \App\Maxeme\Accounting\Money::fromCents($this->payments->balanceCents($invoice)),
-            'paidAmount' => $this->payments->paidAmount($invoice),
-            'methods' => array_map(static fn (array $method): array => ['type' => (string) $method['type']?->getName(), 'amount' => \App\Maxeme\Accounting\Money::fromCents($method['cents'])], $this->payments->methodsByInvoice([$invoice])[$invoice->getId()] ?? []),
-        ];
+        return $this->payments->summary($invoice);
     }
 
     /**

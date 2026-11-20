@@ -76,6 +76,29 @@ final class InvoicePayments
     }
 
     /**
+     * What a printed invoice says about its payment (both prints, PrintedDocuments and the older invoice
+     * print): paid (the method and amount, each method when split, any change), or what was paid so far
+     * and is still due, as the Payments page counts them; cancelled says nothing.
+     *
+     * @return array{paid: bool, cancelled: bool, type: ?string, amount: string, change: string, paidSoFar: string, balance: string, methods: list<array{type: string, amount: string}>}
+     */
+    public function summary(Invoice $invoice): array
+    {
+        $methods = $this->methodsByInvoice([$invoice])[$invoice->getId()] ?? [];
+
+        return [
+            'paid' => $invoice->isPaid(),
+            'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled,
+            'type' => $invoice->getPaymentType()?->getName(),
+            'amount' => $this->paidAmount($invoice),
+            'change' => $invoice->getChangeAmount(),
+            'paidSoFar' => Money::fromCents($this->paidCents($invoice)),
+            'balance' => Money::fromCents($this->balanceCents($invoice)),
+            'methods' => array_map(static fn (array $method): array => ['type' => (string) $method['type']?->getName(), 'amount' => Money::fromCents($method['cents'])], $methods),
+        ];
+    }
+
+    /**
      * The amount printed next to "Payment method" on a paid invoice: the amount handed over (it can
      * include change), or, when none was stored (older imported invoices), what its payments took,
      * else its total, since a paid invoice was paid in full.

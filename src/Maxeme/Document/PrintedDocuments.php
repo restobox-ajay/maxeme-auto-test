@@ -9,7 +9,6 @@ use App\Maxeme\Accounting\RepairOrderCalculator;
 use App\Maxeme\Accounting\LineTax;
 use App\Maxeme\Accounting\PartTaxes;
 use App\Maxeme\Entity\Invoice;
-use App\Maxeme\Enum\InvoiceStatus;
 use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\WorkStatus;
@@ -73,11 +72,7 @@ final class PrintedDocuments
             pstRate: $invoice->getPstRate(),
             pst: $invoice->getPstAmount(),
             total: $invoice->getTotalPrice(),
-            payment: ['paid' => $invoice->isPaid(), 'cancelled' => $invoice->getStatus() === InvoiceStatus::Cancelled, 'type' => $invoice->getPaymentType()?->getName(), 'amount' => $this->payments->paidAmount($invoice), 'change' => $invoice->getChangeAmount(),
-                // From the payments themselves (as the Payments page): an unpaid invoice prints what is still due.
-                'paidSoFar' => Money::fromCents($this->payments->paidCents($invoice)), 'balance' => Money::fromCents($this->payments->balanceCents($invoice)),
-                // Paid with more than one method: each, with what it paid (one method keeps the single line).
-                'methods' => self::paidWith($this->payments->methodsByInvoice([$invoice])[$invoice->getId()] ?? [])],
+            payment: $this->payments->summary($invoice),
             note: $invoice->getNote(),
             recommendations: $invoice->getRecommendations(),
             masterTechnician: $invoice->getRepairOrder()?->getMasterTechnician()?->getName(),
@@ -167,16 +162,6 @@ final class PrintedDocuments
      *
      * @return array{state: string, via: ?string, at: ?\DateTimeImmutable}
      */
-    /**
-     * @param list<array{type: ?\App\Maxeme\Entity\PaymentType, cents: int}> $methods
-     *
-     * @return list<array{type: string, amount: string}>
-     */
-    private static function paidWith(array $methods): array
-    {
-        return array_map(static fn (array $method): array => ['type' => (string) $method['type']?->getName(), 'amount' => Money::fromCents($method['cents'])], $methods);
-    }
-
     private static function quoteStatus(RepairOrder $repairOrder): array
     {
         $declined = $repairOrder->getQuoteDeclinedAt();

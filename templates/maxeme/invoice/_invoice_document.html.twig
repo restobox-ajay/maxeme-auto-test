@@ -47,20 +47,7 @@
                         <tr><td>GST: <strong>{{ invoice.gstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.gstAmount) }}</strong></td></tr>
                         <tr><td>PST: <strong>{{ invoice.pstRate }}%</strong></td><td class="r"><strong>{{ mx.money(invoice.pstAmount) }}</strong></td></tr>
                         <tr class="grand-total-row"><td>Total:</td><td class="r">{{ mx.money(invoice.totalPrice) }}</td></tr>
-                        {% if not isQuote and invoice.paid %}
-                        {% set paid = invoice_balance(invoice) %}
-                        {% set paidWith = paid.methods %}
-                        {% if paidWith|length > 1 %}
-                        {% for method in paidWith %}<tr><td>Payment method: {{ method.type }}</td><td class="r"><strong>{{ mx.money(method.amount) }}</strong></td></tr>{% endfor %}
-                        {% else %}
-                        <tr><td>Payment method: {{ invoice.paymentType ? invoice.paymentType.name }}</td><td class="r"><strong>{{ mx.money(paid.paidAmount) }}</strong></td></tr>
-                        {% endif %}
-                        {% if invoice.changeAmount > 0 %}<tr><td>Change:</td><td class="r"><strong>{{ mx.money(invoice.changeAmount) }}</strong></td></tr>{% endif %}
-                        {% elseif not isQuote and invoice.status.value != 'cancelled' %}
-                        {% set due = invoice_balance(invoice) %}
-                        {% if due.paidSoFar > 0 %}<tr><td>Paid so far:</td><td class="r"><strong>{{ mx.money(due.paidSoFar) }}</strong></td></tr>{% endif %}
-                        <tr><td>Balance due:</td><td class="r"><strong>{{ mx.money(due.balance) }}</strong></td></tr>
-                        {% endif %}
+                        {% if not isQuote %}{{ mx.payment_rows(invoice_payment(invoice)) }}{% endif %}
                     </table>
                 </td>
             </tr>
