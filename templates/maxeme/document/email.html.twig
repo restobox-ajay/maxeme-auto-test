@@ -11,7 +11,8 @@
 
     <form method="post" id="document-email-form">
         {{ csrf_field() }}
-        <section class="form-card">
+        {# L7: a compact card with Cancel / Send inside it, as in the mockup. #}
+        <section class="form-card mx-email-card">
             <div class="form-grid inline-form-grid mx-form-two">
                 {{ mx.form_errors(errors) }}
                 <label class="span-2"><span>To <span class="mx-req">*</span> <small class="muted-line">(separate addresses with commas)</small></span>
@@ -31,10 +32,10 @@
                     <span class="mx-attachment-chip">📄 {{ document.filename }}</span>
                 </div>
             </div>
+            <div class="form-actions">
+                <a class="button outline" href="{{ backUrl }}">Cancel</a>
+                <button class="button primary" type="submit">Send</button>
+            </div>
         </section>
-        <div class="form-actions">
-            <a class="button outline" href="{{ backUrl }}">Cancel</a>
-            <button class="button primary" type="submit">Send</button>
-        </div>
     </form>
 {% endblock %}
