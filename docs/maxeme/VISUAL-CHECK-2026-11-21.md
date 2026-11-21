@@ -85,3 +85,18 @@ product import mapping (needs an upload).
 - The temporary mockup folder under `public/` is removed.
 - Its 107 Error Log entries (404s for the mockup's `assets/version.txt`, and one typed `edit-issued` URL) are deleted.
 - No Activity Log entries were made: the check only opened pages.
+
+## Fixes made (2026-11-21): one commit each
+
+| # | Commit | What changed |
+|---|---|---|
+| G1 | `3fb2943` | `/admin/invoices/{key}/work-order` opens the repair order's own work order when the invoice belongs to one. Every imported invoice links to a repair order, so they all open it now. It prints the customer's current details and the repair order's WO number (WO-000676 rather than WO-000798), as the mockup does. |
+| L1 | `bfd6098` | Breadcrumb third part (`crumb_tail` block): RO number, client name, vehicle name (› Edit), service name / Service, role, Detail, appointment title, New reminder, Email, Edit, Form, Edit Invoice. My Profile / Edit / Change Password read "Account › …". |
+| L2 | `cad3a6b` | My Profile: two cards side by side, label / value left-aligned with "—" when empty, New / Repeat password on one row. |
+| L3, L4 | `a6e79eb` | Activity detail: details card (label / value) beside Changes. Role page: Access by area beside Granted in the file. |
+| L5 | `f9e5cad` | Invoice builder: Client Info and Vehicle Info in two columns, prices "65.00", wider Quantity / Price, square − / + with a blue +. |
+| L6 | `1fd8add` | Date presets as in the mockup: This Week = Sunday to today, Last Week = Sunday to Saturday, This Month = 1st to today. Reminders reads "This Week"; options in the mockup's order. |
+| L7 | `79489be` | Email page: 680px card, Attachment label above the file, Cancel / Send inside the card. |
+| L8 | `4c69c15` | `edit-issued` for an invoice not issued from a repair order redirects to the invoice builder instead of a 404. |
+
+The section 3 items (core / module pages) are unchanged.
