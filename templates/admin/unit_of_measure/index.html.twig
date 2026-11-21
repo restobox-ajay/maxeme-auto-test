@@ -74,8 +74,8 @@
                             <th><input type="text" name="filters[code]" value="{{ filters.code|default('') }}" form="unit-of-measure-filters" aria-label="Filter code"></th>
                             <th><input type="text" name="filters[name]" value="{{ filters.name|default('') }}" form="unit-of-measure-filters" aria-label="Filter name"></th>
                             <th>
-                                <select name="filters[family]" form="unit-of-measure-filters" aria-label="Filter family">
-                                    <option value=""></option>
+                                <select name="filters[family]" form="unit-of-measure-filters" aria-label="Filter family" onchange="this.form.submit()">
+                                    <option value="">All</option>
                                     {% for family in families %}
                                         <option value="{{ family }}"{{ filters.family|default('') == family ? ' selected' : '' }}>{{ family }}</option>
                                     {% endfor %}
@@ -84,7 +84,7 @@
                             <th></th>
                             <th></th>
                             <th></th>
-                            <th><button class="table-action" type="submit" form="unit-of-measure-filters">Filter</button></th>
+                            <th class="mx-filter-actions"><button class="button outline mx-btn-sm" type="submit" form="unit-of-measure-filters">Filter</button> <a class="button outline mx-btn-sm" href="{{ path('admin_product_unit_of_measure_index') }}">Clear</a></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,7 +102,6 @@
                     {% endfor %}
                 </select>
             </label>
-            <button class="table-action" type="submit" form="unit-of-measure-filters">Apply</button>
             {% include 'admin/_table_count.html.twig' with {
                 count: rows|length,
                 total: total,

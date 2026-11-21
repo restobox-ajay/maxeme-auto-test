@@ -92,10 +92,12 @@ final class UnitOfMeasureController extends AbstractController
         // One query per referencing column for the whole page, not one per row — see
         // UnitOfMeasureService::referenceCountsForPage().
         $references = $this->service->referenceCountsForPage($result['rows']);
+        // What the Referenced by column shows: records per kind, "Products (12)" (Maxeme mockup).
+        $referencedBy = $this->service->referencingRecordsForPage($result['rows']);
 
         $rows = [];
         foreach ($result['rows'] as $unit) {
-            $rows[] = ['unit' => $unit, 'references' => $references[(int) $unit->getId()] ?? []];
+            $rows[] = ['unit' => $unit, 'references' => $references[(int) $unit->getId()] ?? [], 'referencedBy' => $referencedBy[(int) $unit->getId()] ?? []];
         }
 
         return $this->render('admin/unit_of_measure/index.html.twig', [

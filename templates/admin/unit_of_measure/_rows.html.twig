@@ -3,11 +3,15 @@
         <td data-label="Code"><strong>{{ row.unit.code }}</strong></td>
         <td data-label="Name">{{ row.unit.name }}</td>
         <td data-label="Family">{{ row.unit.family }}</td>
-        <td data-label="To family base">{{ row.unit.factorToFamilyBase }}</td>
-        <td data-label="Rounding">{{ row.unit.roundingPrecision }}{% if row.unit.wholeNumbersOnly %} <small>whole numbers only</small>{% endif %}</td>
-        {# `table.column (count)`, exactly as the refusal message names them — the admin who is told
-           a unit is frozen can see from the grid what is holding it. #}
-        <td data-label="Referenced by">{% if row.references|length == 0 %}&mdash;{% else %}{% for label, count in row.references %}{{ label }} ({{ count }}){{ loop.last ? '' : ', ' }}{% endfor %}{% endif %}</td>
+        {# Without trailing zeros: "1", "0.01" (Maxeme mockup), not "1.000000". #}
+        {% set factor = row.unit.factorToFamilyBase ~ '' %}
+        {% set precision = row.unit.roundingPrecision ~ '' %}
+        <td data-label="To family base">{{ '.' in factor ? factor|trim('0', 'right')|trim('.', 'right') : factor }}</td>
+        <td data-label="Rounding">{{ '.' in precision ? precision|trim('0', 'right')|trim('.', 'right') : precision }}{% if row.unit.wholeNumbersOnly %} <small>whole numbers only</small>{% endif %}</td>
+        {# Records per kind, "Products (12)" (Maxeme mockup); the `table.column (count)` the refusal
+           message names stays in the tooltip, so an admin told a unit is frozen can still see
+           exactly what holds it. #}
+        <td data-label="Referenced by"{% if row.references|length > 0 %} title="{% for label, count in row.references %}{{ label }} ({{ count }}){{ loop.last ? '' : ', ' }}{% endfor %}"{% endif %}>{% if row.referencedBy|length == 0 %}&mdash;{% else %}{% for kind, count in row.referencedBy %}{{ kind }} ({{ count }}){{ loop.last ? '' : ', ' }}{% endfor %}{% endif %}</td>
         <td data-label="Actions">
             {# One control per row, opened by the browser rather than by app.js — see
                admin/_row_actions_no_js.html.twig for why this is <details> and not the
@@ -16,7 +20,7 @@
                The delete form is emitted in the cell: the filter form above is closed before the
                table starts, so nothing nests. #}
             <details class="row-action-menu no-js-row-actions">
-                <summary class="table-action" aria-label="Actions for {{ row.unit.code }}">Actions</summary>
+                <summary class="button outline mx-btn-sm" aria-label="Actions for {{ row.unit.code }}">Actions</summary>
                 <div class="row-action-dropdown">
                     <a href="{{ path('admin_product_unit_of_measure_edit', {id: row.unit.id}) }}">Edit</a>
                     {# Offered only where UnitOfMeasureService would allow it, so the menu does not
@@ -28,6 +32,7 @@
                             <button class="danger" type="submit">Delete</button>
                         </form>
                     {% endif %}
+                    {% if is_granted('/log/view') %}<a href="{{ path('maxeme_activity_log_index', {record: 'UnitOfMeasure', id: row.unit.id}) }}">Logs</a>{% endif %}
                 </div>
             </details>
         </td>

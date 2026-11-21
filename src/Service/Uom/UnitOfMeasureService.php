@@ -231,6 +231,49 @@ final class UnitOfMeasureService
     }
 
     /**
+     * For people rather than for the refusal message: how many RECORDS of each kind use each unit
+     * of a page, "Products" => 12, a product counted once however many of its unit columns name the
+     * unit (the Maxeme mockup's "Referenced by: Products (12)").
+     *
+     * @param list<UnitOfMeasure> $units
+     *
+     * @return array<int, array<string, int>> keyed by unit id, then by record kind
+     */
+    public function referencingRecordsForPage(array $units): array
+    {
+        $ids = array_values(array_filter(array_map(static fn (UnitOfMeasure $unit): ?int => $unit->getId(), $units)));
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var array<int, array<string, array<int, true>>> $records unit id => kind => record id set */
+        $records = [];
+        foreach ($this->referencingAssociations() as [$entityClass, $field]) {
+            $kind = self::recordKind($entityClass);
+            $rows = $this->em->createQueryBuilder()
+                ->select('IDENTITY(r.' . $field . ') AS unitId', 'r.id AS recordId')
+                ->from($entityClass, 'r')
+                ->andWhere('IDENTITY(r.' . $field . ') IN (:ids)')->setParameter('ids', $ids)
+                ->getQuery()->getArrayResult();
+            foreach ($rows as $row) {
+                $records[(int) $row['unitId']][$kind][(int) $row['recordId']] = true;
+            }
+        }
+
+        return array_map(static fn (array $kinds): array => array_map('count', $kinds), $records);
+    }
+
+    /** "ProductCore" => "Products", "InvoiceLine" => "Invoice lines". */
+    private static function recordKind(string $entityClass): string
+    {
+        $short = substr($entityClass, (int) strrpos($entityClass, '\\') + 1);
+        $short = preg_replace('/Core$/', '', $short) ?? $short;
+        $words = strtolower((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $short));
+
+        return ucfirst($words) . 's';
+    }
+
+    /**
      * Every `table.column` in the entity map that can point at a unit, sorted.
      *
      * Exposed so a test can state what the sweep discovers, and so that the same test fails —
