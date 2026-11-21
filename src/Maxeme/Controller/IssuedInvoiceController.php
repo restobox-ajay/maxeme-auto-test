@@ -19,7 +19,6 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -40,8 +39,10 @@ final class IssuedInvoiceController extends AbstractMaxemeController
     #[RequiresPermission(Permission::ACCOUNTING_EDIT)]
     public function edit(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request, PaymentTypeRepository $paymentTypes, ScheduleSettings $schedule, InvoicePayments $payments): Response
     {
+        // An invoice not issued from a repair order is edited in the invoice builder (as the mockup's
+        // issued-invoice-edit sends it there), not refused.
         if (!$invoice->isIssuedFromRepairOrder()) {
-            throw new NotFoundHttpException('Only an invoice issued from a repair order is edited here.');
+            return $this->redirectToRoute('maxeme_invoice_edit', ['invoiceKey' => $invoice->getInvoiceKey()]);
         }
 
         $form = IssuedInvoiceForm::fromEntity($invoice, $schedule->timezone());
