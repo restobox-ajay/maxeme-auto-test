@@ -211,9 +211,9 @@ The flows the old import has no data for, seeded through the app itself and comp
 |---|---|---|---|
 | F14 | Vendors, vendor notes / contacts, product categories, stock movements and imports were filed under "System" in the Activity Log | `AuditLogEnricher` | **Fixed** c9e2b6a; the 15 existing entries moved |
 | F15 | A paid repair order's parts never leave stock: QA-PAD-1 still showed on hand 10 (before the +5 adjustment) and "Units sold 0" after four repair orders used 8 pads, and Recent Activity lists no invoice. The mockup's stock page lists each invoice ("Invoice INV-000069 (part of a service) −1") and takes it off on hand. This is G10 in FEATURES.md (the `shipped` hold is never turned into a stock decrement) | `RepairOrderStockIssue` | **Fixed** 89de40b, the user's rule: parts leave the stock when the invoice is issued and come back when it is cancelled (or deleted, or the RO Cancelled); the hold is released meanwhile. `app:maxeme:sync-repair-order-stock` took the 4 QA repair orders' 8 pads out (QA-PAD-1 on hand 15 → 7). Checked: cancel INV-015841 → back to 9 and held again (Completed); new INV-015842 → 7 again |
-| F16 | Stock Adjustment's "When" (a date) is saved as midnight UTC, so Movement History shows the evening before (2026-11-20 18:00 for an adjustment on 11-21) | core module `InventoryDepthBundle` `AdjustmentController::occurredAt()` | Open (core) |
+| F16 | Stock Adjustment's "When" (a date) is saved as midnight UTC, so Movement History shows the evening before (2026-11-20 18:00 for an adjustment on 11-21) | core `BusinessDate`, `AdjustmentController`, `PackConversionController` | **Fixed** 0c61f8b: the date is read in the shop's timezone; today = the moment it is recorded (a +1 "Stock found" on 11-21 shows 2026-11-21 05:57), another day = its start there. The QA receipt was corrected to 05:04 on the 21st |
 | F18 | The stock page's Recent Activity lists a repair order's parts as "ship (2.0000)" with no − sign or invoice number, and "Units sold" stays 0 (it counts core orders); Movement History shows the reason and the invoice number | `RepairOrderPartActivity`, core `StockController` | **Fixed** a892e2c: "Invoice INV-015840 · RO-015196 (part of a service) −2" rows linking to the RO's invoices, "Receipt QA-PO-1 +5" movement rows, filters All / Invoice / Movement (only types with rows), column "Change in on hand", Units sold 8 |
-| F17 | Product import stays "queued" locally: the request starts `import:process` in the background, which does not run under WAMP on Windows. Ran `php bin/console import:process` by hand and it completed | core import framework | Local only; on the server check it runs (or add `import:process` to the cron) |
+| F17 | Product import stayed "queued" locally: the background `import:process` was started with the first `php` on the web server's PATH, which under WAMP is PHP 8.1 (the site needs 8.2+), so it died at once with nothing logged | core `ImportQueueSpawner` | **Fixed** e3a121d: `IMPORT_PHP_BINARY` names the PHP to use (set to PHP 8.4 in `.env.local` here); a too-old or missing PHP is refused and written to the Error Log. Import #2 (QA-WIPER-1) completed on its own in 2 s |
 
 ### Core / module pages drawn differently in the mockup (in addition to C1–C5 in VISUAL-CHECK-2026-11-21.md)
 
@@ -224,3 +224,11 @@ The flows the old import has no data for, seeded through the app itself and comp
 | C8 | Stock page "Vendors" | The product's vendor | Only vendors it was bought from on a purchase order, so "—" for QA-PAD-1 |
 | C9 | Vendor form | Payment term is a dropdown; fields in two columns | Payment term is a text box; one column |
 | C10 | Import result | Back and Products buttons; Product Import stays selected in the sidebar | Back only; nothing selected in the sidebar |
+
+## Server steps for these fixes (when deploying)
+
+1. `.env.local`: `IMPORT_PHP_BINARY=` the PHP the site runs on (8.2+), e.g. `/opt/cpanel/ea-php84/root/usr/bin/php`.
+   Without it, an import is refused with an Error Log entry if the server's default `php` is older.
+2. Cron, as a safety net for imports: `* * * * * cd <site> && php bin/console import:process` (it exits at once when nothing is queued or another run holds the lock).
+3. Once: `php bin/console app:maxeme:sync-repair-order-stock` (F15).
+4. `MAILER_FROM` (F5) and the `messenger:consume async` cron for email.
