@@ -27,6 +27,8 @@ use Doctrine\ORM\EntityManagerInterface;
  *   anything else (an estimate, Cancelled) → none: what it held is released
  *
  * A part line holds its quantity whether or not it is charged through: the part is used either way.
+ * Once its invoice is issued the parts have left the stock (RepairOrderStockIssue), so it holds
+ * nothing any more: holding them too would count them twice.
  */
 final class RepairOrderReservationSubject implements InventoryReservationSubject
 {
@@ -34,6 +36,8 @@ final class RepairOrderReservationSubject implements InventoryReservationSubject
         private readonly RepairOrder $repairOrder,
         private readonly string $warehouseRegion,
         private readonly string $reference,
+        /** Its parts are already off the shelf (an invoice is issued): nothing left to hold. */
+        private readonly bool $issued = false,
     ) {
     }
 
@@ -49,7 +53,7 @@ final class RepairOrderReservationSubject implements InventoryReservationSubject
 
     public function targetBucket(): ?string
     {
-        return self::bucketFor($this->repairOrder->getStatus());
+        return $this->issued ? null : self::bucketFor($this->repairOrder->getStatus());
     }
 
     public function heldLines(): iterable

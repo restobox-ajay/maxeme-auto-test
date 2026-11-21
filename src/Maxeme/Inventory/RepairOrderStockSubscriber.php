@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Maxeme\Inventory;
 
 use App\Maxeme\Document\DocumentNumbers;
+use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\RepairOrder;
 use App\Maxeme\Entity\RepairOrderJob;
 use App\Maxeme\Entity\RepairOrderJobLine;
@@ -21,6 +22,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * or one of their lines is written, the repair order is reconciled after the flush (core's
  * InventoryReservationReconciler, with RepairOrderReservationSubject). So a status change moves
  * its parts between buckets, and a part added after the work started is held as approved at once.
+ * An invoice written for it (issued, cancelled, deleted) reconciles it too: once an invoice is
+ * issued its parts leave the stock and the hold is released, and they come back when it is
+ * cancelled (RepairOrderStockIssue).
  *
  * Repair orders converted from the legacy invoices hold nothing (holdsStock off): their parts left
  * the stock count long ago.
@@ -40,6 +44,7 @@ final class RepairOrderStockSubscriber
         private readonly InventoryReservationReconciler $reconciler,
         private readonly EntityManagerInterface $entityManager,
         private readonly DocumentNumbers $numbers,
+        private readonly RepairOrderStockIssue $stock,
         #[Autowire(param: 'maxeme.warehouse')]
         private readonly array $warehouse,
     ) {
@@ -51,7 +56,7 @@ final class RepairOrderStockSubscriber
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates(), ...$uow->getScheduledEntityDeletions()] as $entity) {
             $repairOrder = match (true) {
                 $entity instanceof RepairOrder => $entity,
-                $entity instanceof RepairOrderJob, $entity instanceof RepairOrderJobLine => $entity->getRepairOrder(),
+                $entity instanceof RepairOrderJob, $entity instanceof RepairOrderJobLine, $entity instanceof Invoice => $entity->getRepairOrder(),
                 default => null,
             };
             if ($repairOrder !== null) {
@@ -73,12 +78,21 @@ final class RepairOrderStockSubscriber
         $this->deleted = [];
 
         foreach ($repairOrders as $repairOrder) {
-            if ($repairOrder->holdsStock() && $repairOrder->getId() !== null) {
-                $this->reconciler->reconcile(
-                    new RepairOrderReservationSubject($repairOrder, $this->warehouse['region'], $this->numbers->repairOrderNumber($repairOrder)),
-                    $this->entityManager,
-                );
-            }
+            $this->reconcile($repairOrder);
         }
+    }
+
+    /** One repair order's hold and parts brought in line (also run by app:maxeme:sync-repair-order-stock). */
+    public function reconcile(RepairOrder $repairOrder): void
+    {
+        if (!$repairOrder->holdsStock() || $repairOrder->getId() === null) {
+            return;
+        }
+        // The hold first (released once an invoice is issued), then the parts off the shelf or back onto it.
+        $this->reconciler->reconcile(
+            new RepairOrderReservationSubject($repairOrder, $this->warehouse['region'], $this->numbers->repairOrderNumber($repairOrder), $this->stock->issuingInvoice($repairOrder) !== null),
+            $this->entityManager,
+        );
+        $this->stock->sync($repairOrder);
     }
 }
