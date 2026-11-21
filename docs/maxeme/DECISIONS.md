@@ -52,6 +52,8 @@ Legacy-converted ROs (`holdsStock` off) are excluded so imports don't trigger em
 ## ADR-010 RO status → stock bucket
 Accepted. `authorized` → sales_hold; `in_progress` and `awaiting_parts` → approved; completed and later → shipped; estimate and cancelled → released. Every Parts line holds stock whether or not it's charged through. Any line change reconciles the whole RO into its current bucket. · b563b5f
 
+Amended 2026-11-21 (F15, the user: "when invoice is issued, if it is cancelled re add the stock"): once the RO has an invoice that is not cancelled (and the RO is not Cancelled), its parts leave the stock (a core `ship` withdrawal, reference = invoice number, so on hand goes down) and the hold is released. When every invoice is cancelled or deleted, or the RO is Cancelled, they are received back and the RO holds by its status again. Parts changed after issuing move by the difference; only what is on the shelf is taken. `app:maxeme:sync-repair-order-stock` for ROs invoiced before. · 89de40b
+
 ## ADR-011 Work Order Board stages derived from RO status (superseded 2026-11-14: the Repair Order Board has one column per RO status, mockup 8c0ad56)
 Accepted. Stage isn't stored:
 - **Check-in vs Repairing** depends on whether a master technician is set ("work order issued").

@@ -17,7 +17,7 @@ Each item in `SPEC.md` checked against `main` at `7b4ed70` (2026-10-03), by read
 | G7 | CSV export is missing on service categories, reminders, service reminders, staff, settings lists, vehicle history and client profile tabs | §14 | 11 lists have it |
 | G8 | Govt fees: the auto-fee hook exists (`GovtFeeRule`, `GovtFeeRules::feesFor`), but no rule is written and nothing calls it | §6 | `src/Maxeme/Fee/GovtFeeRules.php` |
 | G9 | Service grid inline edit covers name, label, price and tax class, not colour or category | §4 | `maxeme_service_inline` |
-| G10 | Nothing in this snapshot turns `shipped` holds into an actual stock decrement | §11 | `RepairOrderStockSubscriber` |
+| G10 | ~~Nothing in this snapshot turns `shipped` holds into an actual stock decrement~~ Done 2026-11-21: parts leave the stock when the RO's invoice is issued and come back when it is cancelled (F15, ADR-010) | §11 | `RepairOrderStockIssue` · 89de40b |
 | G11 | Test coverage is thin: 21 files in `tests/Maxeme`, none on the reminder queue, stock buckets, charge-through totals, GHL, RO, documents, board or reports | — | `tests/Maxeme` |
 
 ## §1 Auth, logging, roles
