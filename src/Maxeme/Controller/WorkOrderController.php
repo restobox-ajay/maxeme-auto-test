@@ -33,6 +33,12 @@ final class WorkOrderController extends AbstractMaxemeController
     #[RequiresPermission(Permission::WORK_ORDER_VIEW)]
     public function show(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
     {
+        // An invoice that belongs to a repair order shows that repair order's own work order: one
+        // sheet, the same content wherever it is opened from (mockup 34181b0).
+        if ($invoice->getRepairOrder() !== null) {
+            return $this->redirectToRoute('maxeme_repair_order_work_order', ['id' => $invoice->getRepairOrder()->getId()]);
+        }
+
         return $this->render('maxeme/invoice/work_order.html.twig', ['invoice' => $invoice, 'kind' => DocumentKind::WorkOrder, 'vehicles' => []]);
     }
 
