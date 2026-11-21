@@ -19,6 +19,7 @@ use App\Repository\BundleStatusRepository;
 use App\Repository\TrackingPolicyRepository;
 use App\Service\Inventory\InventoryModeResolver;
 use App\Service\Inventory\ProductActivityFeedResolver;
+use App\Service\Inventory\ProductSalesResolver;
 use App\Service\Inventory\ProductVendorResolver;
 use App\Service\Product\ProductBarcodeSearchResolver;
 use App\Service\Product\ProductPicker;
@@ -52,9 +53,11 @@ final class StockController extends AbstractInventoryDepthController
      * The Recent Activity feed's row types, in the order the type filter offers them. "Order" also
      * covers invoice-sourced rows (docs/plans/2026-09-15-product-inventory-hub.md's own grouping) —
      * there is no separate "Invoice" tag, and Orders/Invoices/Purchase Orders/Credit Memos/Movements
-     * is where the id-based drill-through filters landed (see build order step 1).
+     * is where the id-based drill-through filters landed (see build order step 1). "Invoice" is an
+     * app's own invoices, given by a ProductActivityProviderInterface (Maxeme's repair orders).
+     * Only the types with rows are offered as filters.
      */
-    private const ACTIVITY_TYPES = ['order', 'purchase', 'shipment', 'creditmemo', 'movement'];
+    private const ACTIVITY_TYPES = ['order', 'invoice', 'purchase', 'shipment', 'creditmemo', 'movement'];
 
     public function __construct(
         EntityManagerInterface $em,
@@ -66,6 +69,7 @@ final class StockController extends AbstractInventoryDepthController
         private readonly ProductPicker $productPicker,
         private readonly ProductBarcodeSearchResolver $barcodeSearch,
         private readonly TrackingPolicyRepository $trackingPolicies,
+        private readonly ProductSalesResolver $sales,
     ) {
         parent::__construct($em, $bundleStatusRepo, $inventoryModes);
     }
@@ -279,7 +283,7 @@ final class StockController extends AbstractInventoryDepthController
             'reorderRows' => $this->reorderStatusRows($product),
             'salesSnapshot' => $this->salesSnapshot($product, 30),
             'lotSerial' => $this->lotSerialBreakdown($product, $now),
-            'activityTypes' => self::ACTIVITY_TYPES,
+            'activityTypes' => $this->activityTypesWithRows($product, $activity),
             'activity' => $activity,
             'activityRows' => $this->recentActivity($product, $activity, 20),
             'notes' => $this->productNotesForDisplay($product),
@@ -634,6 +638,9 @@ final class StockController extends AbstractInventoryDepthController
             ->getQuery()
             ->getSingleScalarResult();
 
+        // Plus units billed on an app's own invoices (ProductSalesProviderInterface).
+        $units += $this->sales->unitsSold($product, new \DateTimeImmutable($since));
+
         return ['days' => $days, 'units' => $units];
     }
 
@@ -744,15 +751,25 @@ final class StockController extends AbstractInventoryDepthController
      */
     private function recentActivity(ProductCore $product, string $typeFilter, int $limit): array
     {
+        // Purchases: ProcurementBundle's own answer, via the tagged-provider seam — see
+        // App\Contract\Inventory\ProductActivityProviderInterface's docblock for why this bundle
+        // never imports PurchaseOrderLine/GoodsReceiptLine directly. A provider row that stands for
+        // a movement group (`movementGroupId`, e.g. an app invoice taking parts off the shelf)
+        // replaces that group's plain Movement row, so the same units are not listed twice.
+        $provided = $this->activityFeed->activityFor($product, $limit);
+        $covered = [];
+        foreach ($provided as $row) {
+            if (isset($row['movementGroupId'])) {
+                $covered[(int) $row['movementGroupId']] = true;
+            }
+        }
+
         $rows = [
             ...$this->orderActivity($product),
-            // Purchases: ProcurementBundle's own answer, via the tagged-provider seam — see
-            // App\Contract\Inventory\ProductActivityProviderInterface's docblock for why this bundle
-            // never imports PurchaseOrderLine/GoodsReceiptLine directly.
-            ...$this->activityFeed->activityFor($product, $limit),
+            ...$provided,
             ...$this->shipmentActivity($product),
             ...$this->creditMemoActivity($product),
-            ...$this->movementActivity($product),
+            ...$this->movementActivity($product, $covered),
         ];
 
         usort($rows, static fn (array $a, array $b): int => $b['date'] <=> $a['date']);
@@ -762,6 +779,19 @@ final class StockController extends AbstractInventoryDepthController
         }
 
         return array_slice($rows, 0, $limit);
+    }
+
+    /**
+     * The filter buttons: the types that have rows in this product's feed, in ACTIVITY_TYPES order,
+     * plus the one selected (so it can be switched off even when empty).
+     *
+     * @return list<string>
+     */
+    private function activityTypesWithRows(ProductCore $product, string $selected): array
+    {
+        $present = array_column($this->recentActivity($product, '', 100), 'type');
+
+        return array_values(array_filter(self::ACTIVITY_TYPES, static fn (string $type): bool => $type === $selected || in_array($type, $present, true)));
     }
 
     /** Orders AND invoices for this product — one merged "Order" tag, per the plan's own grouping. */
@@ -862,8 +892,15 @@ final class StockController extends AbstractInventoryDepthController
         ], $lines);
     }
 
-    /** Inventory movements/transfers for this product — no per-row detail page, so the row links to the filtered list. */
-    private function movementActivity(ProductCore $product): array
+    /**
+     * Inventory movements/transfers for this product — no per-row detail page, so the row links to
+     * the filtered list. The quantity is signed as the change in stock (+ coming in, − leaving); a
+     * move between statuses inside the building stays unsigned. Groups in $covered are listed by a
+     * provider instead.
+     *
+     * @param array<int, true> $covered
+     */
+    private function movementActivity(ProductCore $product, array $covered = []): array
     {
         /** @var list<InventoryMovement> $movements */
         $movements = $this->em->getRepository(InventoryMovement::class)
@@ -874,12 +911,25 @@ final class StockController extends AbstractInventoryDepthController
             ->getQuery()
             ->getResult();
 
-        return array_map(fn (InventoryMovement $movement): array => [
-            'date' => $movement->getGroup()->getOccurredAt()->format('Y-m-d'),
-            'type' => 'movement',
-            'label' => $movement->getGroup()->getType() . ' (' . $movement->getQuantity() . ')',
-            'quantity' => (string) $movement->getQuantity(),
-            'url' => $this->generateUrl('admin_bundle_inventory_depth_movements', ['filters' => ['productId' => (string) $product->getId()]]),
-        ], $movements);
+        $movements = array_values(array_filter($movements, static fn (InventoryMovement $movement): bool => !isset($covered[(int) $movement->getGroup()->getId()])));
+
+        return array_map(function (InventoryMovement $movement) use ($product): array {
+            $group = $movement->getGroup();
+            $quantity = (string) $movement->getQuantity();
+            $sign = match (true) {
+                $movement->getFromDetail() === null => '+',
+                $movement->getToDetail() === null => '-',
+                default => '',
+            };
+            $reference = (string) $group->getReference();
+
+            return [
+                'date' => $group->getOccurredAt()->format('Y-m-d'),
+                'type' => 'movement',
+                'label' => ucfirst(str_replace('_', ' ', $group->getType())) . ($reference !== '' ? ' ' . $reference : ''),
+                'quantity' => $sign . (str_contains($quantity, '.') ? rtrim(rtrim($quantity, '0'), '.') : $quantity),
+                'url' => $this->generateUrl('admin_bundle_inventory_depth_movements', ['filters' => ['productId' => (string) $product->getId()]]),
+            ];
+        }, $movements);
     }
 }

@@ -203,6 +203,11 @@ services:
         arguments:
             $providers: !tagged_iterator app.product_vendor_provider
 
+    # Same seam for the hub's "Units sold": units billed on an app's own invoices.
+    App\Service\Inventory\ProductSalesResolver:
+        arguments:
+            $providers: !tagged_iterator app.product_sales_provider
+
     # #706: the reorder engine's missing term — how much of a product is already dispatched toward
     # a warehouse on a transfer but not yet received. WarehouseOpsBundle owns transfer data;
     # InventoryDepthBundle may not hold a compile-time reference to it. Absent or Inactive answers
@@ -304,6 +309,10 @@ services:
     # The repair order and work order prefixes, next to core's invoice and quote ones.
     App\Maxeme\Document\MaxemeDocumentPrefixProvider:
         tags: ['app.document_prefix_provider']
+
+    # The stock page's "Invoice" rows and Units sold for parts used on repair orders (F18).
+    App\Maxeme\Inventory\RepairOrderPartActivity:
+        tags: ['app.product_activity_provider', 'app.product_sales_provider']
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
