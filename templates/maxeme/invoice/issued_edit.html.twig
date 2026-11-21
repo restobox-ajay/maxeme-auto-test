@@ -4,6 +4,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Edit Invoice {{ doc_number(invoice) }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Edit Invoice{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Repair Order ' ~ ro_number(invoice.repairOrder) ~ ' · Invoice', title: 'Edit Invoice ' ~ doc_number(invoice) } %}
         {% block actions %}<a class="button back-button" href="{{ path('maxeme_invoice_show', { invoiceKey: invoice.invoiceKey }) }}">Back</a>{% endblock %}

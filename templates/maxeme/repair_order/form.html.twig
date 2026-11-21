@@ -5,6 +5,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{% if repairOrder.id %}{{ ro_number(repairOrder) }}{% endif %}{% endblock %}
 {% block admin_body %}
     {% set data = form.data %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule · Repair Order', title: title } %}

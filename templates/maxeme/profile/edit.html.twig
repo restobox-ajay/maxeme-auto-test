@@ -1,6 +1,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Edit Profile | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Edit{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'Edit Profile', lead: 'Enter your current password to confirm the change.' } %}
         {% block actions %}<a class="button back-button" href="{{ path('maxeme_profile_show') }}">Back</a>{% endblock %}

@@ -4,6 +4,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ vehicle.fullName }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{{ vehicle.fullName }}{% endblock %}
 {% block admin_body %}
     {% set canEdit = is_granted('/car/edit') %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'People · Vehicle', title: vehicle.fullName ?: 'Vehicle', lead: vehicle.licensePlate ? 'Licence plate ' ~ vehicle.licensePlate : null } %}

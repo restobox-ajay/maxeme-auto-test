@@ -3,6 +3,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Email {{ document.emailSubject }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Email{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: document.kind.emailTitle, title: 'Email ' ~ document.emailSubject } %}
         {% block actions %}<a class="button back-button" href="{{ backUrl }}">Back</a>{% endblock %}

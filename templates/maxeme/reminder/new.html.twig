@@ -2,6 +2,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}New reminder | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}New reminder{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Schedule', title: 'New reminder', lead: 'For ' ~ client.fullName ~ '. It joins Reminder Todo\'s with the ones added automatically.' } %}
         {% block actions %}<a class="button back-button" href="{{ path('maxeme_client_pick', { purpose: 'reminder' }) }}">Back</a>{% endblock %}

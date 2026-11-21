@@ -3,6 +3,7 @@
 {% set isEdit = appointment is not null %}
 {% set title = isEdit ? 'Edit an appointment' : 'Schedule an appointment' %}
 {% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{{ title }}{% endblock %}
 {% block admin_body %}
     {% set profileUrl = path('maxeme_client_show', { id: client.id, tab: 'appointments' }) %}
     {% set duration = isEdit ? appointment.durationInHours : settings.defaultDurationHours %}

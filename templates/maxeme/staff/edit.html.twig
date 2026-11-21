@@ -2,6 +2,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Edit Admin | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Edit{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Manage Admins', title: 'Edit ' ~ (user.username ?? user.email), lead: 'Leave the password boxes blank to keep the current password.' } %}
         {% block actions %}<a class="button back-button" href="{{ path('maxeme_staff_index') }}">Back</a>{% endblock %}

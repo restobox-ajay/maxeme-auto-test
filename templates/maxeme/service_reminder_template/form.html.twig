@@ -2,6 +2,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Form{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Reminder template', title: title } %}
         {% block actions %}<a class="button back-button" href="{{ path('maxeme_service_reminder_template_index') }}">Back</a>{% endblock %}

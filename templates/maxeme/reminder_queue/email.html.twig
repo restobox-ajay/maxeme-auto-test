@@ -2,6 +2,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}Service Reminder Email | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Email{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Reminders', title: 'Service Reminder Email', lead: entry.client.fullName ~ ' · ' ~ entry.vehicle.fullName ~ ' · ' ~ entry.serviceName } %}
         {% block title_actions %}

@@ -11,7 +11,13 @@
             {% for child in entry.children %}{% if crumb is null and not child.custom and child.matchesRoute(crumbRoute) %}{% set crumb = [entry.node.label, child.label] %}{% endif %}{% endfor %}
             {% if crumb is null and entry.node.route is not null and not entry.node.custom and entry.node.matchesRoute(crumbRoute) %}{% set crumb = [entry.node.label] %}{% endif %}
         {% endif %}{% endfor %}
-        <div class="mx-crumb">{{ crumb ? crumb|join(' › ') : '' }}</div>
+        {# My Profile is not in the sidebar: the mockup files it under "Account". #}
+        {% if crumb is null and crumbRoute starts with 'maxeme_profile_' %}{% set crumb = ['Account', crumbRoute == 'maxeme_profile_change_password' ? 'Change Password' : 'My Profile'] %}{% endif %}
+        {# A sub-page adds its record or its own name, as in the mockup ("Schedule › Repair Order › RO-015193"):
+           the page sets it in a `crumb_tail` block. #}
+        {#   The block's output is already escaped where it was rendered, so it is printed raw. #}
+        {% set crumbTail = crumb and block('crumb_tail') is defined ? block('crumb_tail')|trim : '' %}
+        <div class="mx-crumb">{{ crumb ? crumb|join(' › ') : '' }}{% if crumbTail != '' %} › {{ crumbTail|raw }}{% endif %}</div>
         {# The legacy navbar shows the user's first name, falling back to the login. #}
         {% set userMenuName = app.user ? (app.user.firstName ?: app.user.userIdentifier) : 'Admin' %}
         <div class="user-menu" id="user-menu">

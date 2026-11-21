@@ -1,5 +1,6 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}Activity #{{ entry.id }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}Detail{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Activity Log', title: entry.summary, lead: entry.occurredAt|date('m/d/Y h:i:s A') ~ ' · ' ~ entry.actorName ~ (entry.actorRole ? ' (' ~ entry.actorRole ~ ')') } %}
         {% block actions %}

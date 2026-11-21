@@ -1,5 +1,6 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}{{ role.label }} | Roles & Access | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{{ role.label }}{% endblock %}
 {% block admin_body %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Roles & Access', title: role.label, lead: role.value ~ ' · config/rbac/role_permissions/' ~ role.permissionKey ~ '_role_permission.php' } %}
         {% block actions %}

@@ -1,6 +1,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ client.fullName }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{{ client.fullName }}{% endblock %}
 {% block admin_body %}
     {% set canManage = is_granted('/people/edit') %}
     {% set canManageVehicles = is_granted('/car/edit') %}

@@ -2,6 +2,7 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% import 'maxeme/_macros.html.twig' as mx %}
 {% block title %}{{ title }} | {{ site_name() }}{% endblock %}
+{# Breadcrumb: the third part, as in the mockup. #}{% block crumb_tail %}{% if service and service.id %}{{ service.name }}{% else %}Service{% endif %}{% endblock %}
 {% block admin_body %}
     {% set returnTo = app.request.request.get('_return') ?: app.request.query.get('_return') %}
     {% embed 'maxeme/_page_header.html.twig' with { eyebrow: 'Services', title: title } %}
