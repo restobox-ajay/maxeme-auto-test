@@ -188,3 +188,38 @@ Receptionist and the Secretary roles.
   vehicle page totals → Activity Log has every step.
 - New QA records: appointment 17719, RO-015196, INV-015840 (key `980e66193a73f009`), payments 12581–12582,
   reminder queue entry 2.
+
+## Seeded flows on 2026-11-21 (local, Chrome, against the mockup)
+
+The flows the old import has no data for, seeded through the app itself and compared with the mockup page by page.
+
+| Flow | Result |
+|---|---|
+| Log in / Forgot password / Reset password (signed out) | Same fields, buttons and links as the mockup; "Forgot your password ?" appears after a failed log-in on both |
+| Vendor: create → vendor page → note → contact | Works. QA Test Vendor (vendor 2), note 1, contact 1 |
+| Product category: create, set on a part with the vendor | Works. QA Brakes (category 1) on QA-PAD-1, vendor QA Test Vendor |
+| Appointment today → dashboard | Appointment 17720, 11/21 10:00, RO-015197; shows in Today's appointments, then In the shop after check-in |
+| Repair order with a service and parts | Odometer 86500, tag K-21, pickup address, QA Brake Service at 280 with the pads charged through: subtotal 375.00, GST 18.50, PST 25.90 (the levy is exempt), total 419.40 |
+| Quote → approve → check-in → board (Awaiting Parts → Completed) → issue invoice → payment | QO-015197 approved by phone (Authorized, 2 pads held) → In Progress → INV-015841 → E-transfer 419.40 (payment 12583) → Paid, RO Invoiced, appointment Completed; Payment Report and Service Report list it |
+| Stock adjustment → stock page → Movement History | +5 QA-PAD-1, Purchase, ref QA-PO-1 (movement 1): on hand 15 |
+| Product import with column mapping | `qa-import.csv` with other column names → Match columns → import #1: QA-ROTOR-1 (57), QA-FILTER-1 (58) |
+| Activity Log / Error Log | Every step logged (after F14). No errors from the app |
+
+### Findings
+
+| # | Finding | Where | State |
+|---|---|---|---|
+| F14 | Vendors, vendor notes / contacts, product categories, stock movements and imports were filed under "System" in the Activity Log | `AuditLogEnricher` | **Fixed** c9e2b6a; the 15 existing entries moved |
+| F15 | A paid repair order's parts never leave stock: QA-PAD-1 still showed on hand 10 (before the +5 adjustment) and "Units sold 0" after four repair orders used 8 pads, and Recent Activity lists no invoice. The mockup's stock page lists each invoice ("Invoice INV-000069 (part of a service) −1") and takes it off on hand. This is G10 in FEATURES.md (the `shipped` hold is never turned into a stock decrement) | `RepairOrderStockSubscriber` / reservations | **Open**: needs your rule (when the part leaves stock: invoice issued, paid, or RO Completed) |
+| F16 | Stock Adjustment's "When" (a date) is saved as midnight UTC, so Movement History shows the evening before (2026-11-20 18:00 for an adjustment on 11-21) | core module `InventoryDepthBundle` `AdjustmentController::occurredAt()` | Open (core) |
+| F17 | Product import stays "queued" locally: the request starts `import:process` in the background, which does not run under WAMP on Windows. Ran `php bin/console import:process` by hand and it completed | core import framework | Local only; on the server check it runs (or add `import:process` to the cron) |
+
+### Core / module pages drawn differently in the mockup (in addition to C1–C5 in VISUAL-CHECK-2026-11-21.md)
+
+| # | Page | Mockup | Local |
+|---|---|---|---|
+| C6 | Vendor page | Logs and Delete buttons; a Payments tab; "View all stock movements"; Add Contact opens in a dialog | No Logs / Delete; no Payments tab; "View all purchase orders"; Add Contact is its own page |
+| C7 | Product Categories | Each row has Edit, Delete and ⋯; Status filter is a dropdown | Edit and Delete only; Status filter is a text box |
+| C8 | Stock page "Vendors" | The product's vendor | Only vendors it was bought from on a purchase order, so "—" for QA-PAD-1 |
+| C9 | Vendor form | Payment term is a dropdown; fields in two columns | Payment term is a text box; one column |
+| C10 | Import result | Back and Products buttons; Product Import stays selected in the sidebar | Back only; nothing selected in the sidebar |
