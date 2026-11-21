@@ -304,3 +304,15 @@
 .site-admin .content-frame .mx-kv dt { color: #6b7280; font-weight: 400; }
 .site-admin .content-frame .mx-kv dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
 @media (max-width: 900px) { .site-admin .content-frame .mx-grid2 { grid-template-columns: 1fr; } }
+
+/* L5 Invoice builder: Client Info and Vehicle Info in two columns (the notes full width); wider Quantity
+   and Price boxes; the row "+" in the mockup's blue, square − / + buttons. (Classes doubled: core's
+   .form-grid:not(…) one-column rule is more specific than a plain selector.) */
+.site-admin .content-frame .form-grid.mx-form-cols2.mx-form-cols2.mx-form-cols2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
+.site-admin .content-frame .form-grid.mx-form-cols2 > .span-2 { grid-column: 1 / -1; }
+.site-admin .content-frame .mx-item-table td.item-quantity { width: 150px; }
+.site-admin .content-frame .mx-item-table td.item-price { width: 170px; }
+.site-admin .content-frame .mx-item-table td.item-quantity input, .site-admin .content-frame .mx-item-table td.item-price input { width: 100%; }
+.site-admin .content-frame .mx-item-table .mini-action { border-radius: 4px; width: 22px; height: 22px; font-size: .85rem; }
+.site-admin .content-frame .mx-item-table .mini-action.item-add { border-color: #357ebd; background: #428bca; }
+.site-admin .content-frame .mx-item-table .mini-action.item-add:hover { border-color: #285e8e; background: #3071a9; }

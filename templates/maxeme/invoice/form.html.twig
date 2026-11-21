@@ -53,26 +53,27 @@
 
             <div class="mx-builder-cards">
                 <section class="form-card">
-                    <div class="form-grid">
-                        <div class="section-label">Client Info</div>
+                    {# L5: two columns, as in the mockup: First / Last, Preferred / Phone; the notes full width. #}
+                    <div class="form-grid mx-form-cols2">
+                        <div class="section-label span-2">Client Info</div>
                         <label>First name:<input type="text" name="client_first_name" value="{{ invoice.clientFirstName }}" placeholder="Client firstname"></label>
                         <label>Last name:<input type="text" name="client_last_name" value="{{ invoice.clientLastName }}" placeholder="Client lastname"></label>
                         <label>Preferred name:<input type="text" name="client_preferred_name" value="{{ invoice.clientPreferredName }}" placeholder="Client preferred name"></label>
                         <label>Phone number:<input type="text" name="client_home_number" value="{{ invoice.clientHomeNumber }}" placeholder="Client phone number"></label>
-                        <label>Address:<textarea name="client_address" placeholder="Client address">{{ invoice.clientAddress }}</textarea></label>
-                        <label>Client Note:<textarea name="client_note" placeholder="Client note">{{ invoice.clientNote }}</textarea></label>
+                        <label class="span-2">Address:<textarea name="client_address" placeholder="Client address">{{ invoice.clientAddress }}</textarea></label>
+                        <label class="span-2">Client Note:<textarea name="client_note" placeholder="Client note">{{ invoice.clientNote }}</textarea></label>
                     </div>
                 </section>
                 <section class="form-card">
-                    <div class="form-grid">
-                        <div class="section-label">Vehicle Info</div>
+                    <div class="form-grid mx-form-cols2">
+                        <div class="section-label span-2">Vehicle Info</div>
                         <label>Year:<input type="text" name="vehicle_year" value="{{ invoice.vehicleYear }}" placeholder="Vehicle year"></label>
                         <label>Manufacturer:<input type="text" name="vehicle_manufacturer" value="{{ invoice.vehicleManufacturer }}" placeholder="Vehicle manufacturer"></label>
                         <label>Model:<input type="text" name="vehicle_model" value="{{ invoice.vehicleModel }}" placeholder="Vehicle model"></label>
                         <label>License:<input type="text" name="vehicle_license" value="{{ invoice.vehicleLicense }}" placeholder="Vehicle license"></label>
                         <label>Vin number:<input type="text" name="vehicle_vin" value="{{ invoice.vehicleVin }}" placeholder="Vehicle VIN"></label>
                         <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage"><select name="vehicle_mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles" {{ invoice.vehicleMileageUnit.value == 'miles' ? 'selected' }}>MILES</option></select></span></label>
-                        <label>Appointment Note:<textarea name="note" placeholder="Note">{{ invoice.note }}</textarea></label>
+                        <label class="span-2">Appointment Note:<textarea name="note" placeholder="Note">{{ invoice.note }}</textarea></label>
                     </div>
                 </section>
             </div>
