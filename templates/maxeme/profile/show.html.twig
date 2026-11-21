@@ -5,6 +5,8 @@
     {% include 'maxeme/_page_header.html.twig' with { eyebrow: 'Account', title: 'My Profile' } only %}
 
     {% set fullName = [user.firstName, user.lastName]|filter(v => v)|join(' ') %}
+    {# L2: the profile card and Update Password side by side, as in the mockup. #}
+    <div class="mx-profile-grid">
     <section class="panel profile-panel mx-profile-card">
         <div class="profile-panel-head">
             <div class="profile-panel-icon">{{ (user.firstName ?: user.userIdentifier)|first|upper }}</div>
@@ -14,11 +16,11 @@
             </div>
         </div>
         <ul class="profile-detail-list">
-            <li><span>First name</span><strong>{{ user.firstName }}</strong></li>
-            <li><span>Last name</span><strong>{{ user.lastName }}</strong></li>
-            <li><span>Username</span><strong>{{ user.username }}</strong></li>
-            <li><span>Email</span><strong>{{ user.email }}</strong></li>
-            <li><span>Phone</span><strong>{{ user.phoneNumber|phone }}</strong></li>
+            <li><span>First name</span><strong>{{ user.firstName ?: '—' }}</strong></li>
+            <li><span>Last name</span><strong>{{ user.lastName ?: '—' }}</strong></li>
+            <li><span>Username</span><strong>{{ user.username ?: '—' }}</strong></li>
+            <li><span>Email</span><strong>{{ user.email ?: '—' }}</strong></li>
+            <li><span>Phone</span><strong>{{ user.phoneNumber ? user.phoneNumber|phone : '—' }}</strong></li>
         </ul>
         <div class="panel-actions">
             <a class="button primary" href="{{ path('maxeme_profile_edit') }}">Edit</a>
@@ -38,4 +40,5 @@
             </div>
         </form>
     </section>
+    </div>
 {% endblock %}

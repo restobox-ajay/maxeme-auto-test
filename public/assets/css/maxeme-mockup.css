@@ -285,3 +285,13 @@
 /* P24 Products: the column-group row (PRODUCT CORE / CATALOG CONTROLS / PRODUCT PRICING) in the
    mockup's grey band, uppercase and centred. */
 .site-admin .content-frame .wide-product-table .column-groups th { background: #eceef2 !important; color: #4b5563 !important; text-transform: uppercase; letter-spacing: .04em; font-size: .7rem; font-weight: 500; text-align: center; }
+
+/* L2 My Profile: the profile card and Update Password side by side; label / value pairs left-aligned;
+   New / Repeat password on one row (mockup). */
+.site-admin .content-frame .mx-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.site-admin .content-frame .mx-profile-grid .mx-profile-card { max-width: none; margin: 0; }
+.site-admin .content-frame .mx-profile-grid .profile-detail-list li { display: grid; grid-template-columns: 110px 1fr; justify-content: start; border-bottom: 0; padding: 3px 0; }
+.site-admin .content-frame .mx-profile-grid .profile-detail-list li > strong { font-weight: 400; text-align: left; }
+/*   (doubled class: core's .form-grid:not(…) rule is more specific than a plain one) */
+.site-admin .content-frame .mx-profile-grid .mx-profile-password .form-grid.form-grid { grid-template-columns: 1fr 1fr; column-gap: 12px; }
+@media (max-width: 900px) { .site-admin .content-frame .mx-profile-grid { grid-template-columns: 1fr; } }
