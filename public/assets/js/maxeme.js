@@ -385,18 +385,19 @@
         return date.getFullYear() + '-' + month + '-' + day;
     }
 
-    /* [from, to] for a preset, weeks starting on Monday. */
+    /* [from, to] for a preset, as in the mockup: weeks start on Sunday; This Week and This Month run
+       up to today; Last Week is Sunday to Saturday. */
     function range(preset) {
         var today = new Date();
         today.setHours(0, 0, 0, 0);
-        var day = (today.getDay() + 6) % 7;
+        var day = today.getDay();
         var add = function (base, days) { var d = new Date(base); d.setDate(d.getDate() + days); return d; };
         switch (preset) {
             case 'today': return [today, today];
             case 'yesterday': return [add(today, -1), add(today, -1)];
-            case 'this_week': return [add(today, -day), add(today, 6 - day)];
+            case 'this_week': return [add(today, -day), today];
             case 'last_week': return [add(today, -day - 7), add(today, -day - 1)];
-            case 'this_month': return [new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 0)];
+            case 'this_month': return [new Date(today.getFullYear(), today.getMonth(), 1), today];
             case 'last_month': return [new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 0)];
             default: return null;
         }
