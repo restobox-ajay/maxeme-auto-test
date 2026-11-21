@@ -54,6 +54,8 @@ services:
             $projectDir: '%kernel.project_dir%'
             $environment: '%kernel.environment%'
             $debug: '%kernel.debug%'
+            # The PHP that runs background imports; blank = the first `php` on the PATH (F17).
+            $phpBinary: '%env(IMPORT_PHP_BINARY)%'
 
     # Core's own product importer, brought fully into the unified framework — see
     # docs/plans/2026-09-18-unified-import-framework.md. Number1ProductImportBundle and
