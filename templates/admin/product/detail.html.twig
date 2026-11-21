@@ -147,7 +147,14 @@
                                 {% endfor %}
                             </select>
                         </th>
-                        <th class="col-vendor"></th>
+                        <th class="col-vendor">
+                            <select name="filters[vendor]" class="js-searchable-select" data-placeholder="All vendors" onchange="this.form.submit()" aria-label="Filter by vendor">
+                                <option value="">All vendors</option>
+                                {% for vendor in product_vendor_options(null).options %}
+                                    <option value="{{ vendor.id }}" {{ filters.vendor|default('') == vendor.id ? 'selected' : '' }}>{{ vendor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
                         <th class="col-type">
                             <select name="filters[type]" onchange="this.form.submit()" aria-label="Filter by type">
                                 <option value="">All types</option>
@@ -162,22 +169,22 @@
                         </th>
                         <th class="col-weight"><input type="text" name="filters[weight]" value="{{ filters.weight|default('') }}" aria-label="Filter by weight"></th>
                         <th class="col-visible">
-                            <input type="text" name="filters[visible]" value="{{ filters.visible|default('') }}" list="product-visible-options" aria-label="Filter by visible">
-                            <datalist id="product-visible-options">
-                                <option value="Yes"></option>
-                                <option value="No"></option>
-                            </datalist>
+                            <select name="filters[visible]" onchange="this.form.submit()" aria-label="Filter by visible">
+                                <option value="">All</option>
+                                {% for option in ['Yes', 'No'] %}<option value="{{ option }}" {{ filters.visible|default('') == option ? 'selected' }}>{{ option }}</option>{% endfor %}
+                            </select>
                         </th>
                         <th class="col-status">
-                            <input type="text" name="filters[status]" value="{{ filters.status|default('') }}" list="product-status-options" aria-label="Filter by status">
                             {# Enumerated from ProductStatus rather than hand-kept: this list said
                                Active/Inactive only, and a filter offering fewer values than the
-                               column can hold is how Draft would have stayed invisible here. #}
-                            <datalist id="product-status-options">
+                               column can hold is how Draft would have stayed invisible here. A
+                               dropdown (Maxeme mockup), applied when picked. #}
+                            <select name="filters[status]" onchange="this.form.submit()" aria-label="Filter by status">
+                                <option value="">All</option>
                                 {% for status in enum_cases('App\\Enum\\ProductStatus') %}
-                                    <option value="{{ status.value }}"></option>
+                                    <option value="{{ status.value }}" {{ filters.status|default('') == status.value ? 'selected' }}>{{ status.value }}</option>
                                 {% endfor %}
-                            </datalist>
+                            </select>
                         </th>
                         <th class="col-sales_tax_code"><input type="text" name="filters[sales_tax_code]" value="{{ filters.sales_tax_code|default('') }}" aria-label="Filter by tax class"></th>
                         <th class="col-shipping_class"><input type="text" name="filters[shipping_class]" value="{{ filters.shipping_class|default('') }}" aria-label="Filter by shipping class"></th>
@@ -185,11 +192,10 @@
                         <th class="col-short"><input type="text" name="filters[short]" value="{{ filters.short|default('') }}" aria-label="Filter by short description"></th>
                         <th class="col-long"><input type="text" name="filters[long]" value="{{ filters.long|default('') }}" aria-label="Filter by long description"></th>
                         <th class="col-privacy">
-                            <input type="text" name="filters[privacy]" value="{{ filters.privacy|default('') }}" list="product-privacy-options" aria-label="Filter by private/public">
-                            <datalist id="product-privacy-options">
-                                <option value="Public"></option>
-                                <option value="Private"></option>
-                            </datalist>
+                            <select name="filters[privacy]" onchange="this.form.submit()" aria-label="Filter by private/public">
+                                <option value="">All</option>
+                                {% for option in ['Public', 'Private'] %}<option value="{{ option }}" {{ filters.privacy|default('') == option ? 'selected' }}>{{ option }}</option>{% endfor %}
+                            </select>
                         </th>
                         <th class="col-custom_fields"></th>
                         <th class="col-cost"><input type="text" name="filters[cost]" value="{{ filters.cost|default('') }}" aria-label="Filter by cost price"></th>

@@ -322,3 +322,7 @@
 .site-admin .content-frame .form-card.mx-email-card { max-width: 680px; }
 .site-admin .content-frame .mx-email-card .mx-attachment { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .site-admin .content-frame .mx-email-card .form-actions { margin-top: 12px; }
+
+/* C1 Products list: Edit, Stock, Logs side by side (mockup). */
+.site-admin .wide-product-table td[data-label="Actions"] .action-group { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 4px; align-items: center; }
+.site-admin .wide-product-table td[data-label="Actions"] .action-group > * { white-space: nowrap; }

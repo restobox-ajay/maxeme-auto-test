@@ -157,6 +157,8 @@ final class ProductController extends AbstractAdminController
             'short' => trim((string) ($rawFilters['short'] ?? '')),
             'long' => trim((string) ($rawFilters['long'] ?? '')),
             'privacy' => trim((string) ($rawFilters['privacy'] ?? '')),
+            // Maxeme: the vendor dropdown (a vendor id), as in the mockup's product list.
+            'vendor' => trim((string) ($rawFilters['vendor'] ?? '')),
         ];
 
         $repo = $entityManager->getRepository(ProductCore::class);
@@ -265,6 +267,11 @@ final class ProductController extends AbstractAdminController
             $qb->andWhere('p.longDescription LIKE :flong')->setParameter('flong', '%' . $longFilter . '%');
         }
 
+        if ($filters['vendor'] !== '' && ctype_digit($filters['vendor'])) {
+            $qb->andWhere('p.id IN (SELECT IDENTITY(fpv.product) FROM App\Maxeme\Entity\ProductVendor fpv WHERE fpv.vendor = :fvendor)')
+                ->setParameter('fvendor', (int) $filters['vendor']);
+        }
+
         $privacyFilter = strtolower($filters['privacy']);
         if ($privacyFilter !== '') {
             if (str_contains($privacyFilter, 'priv')) {
@@ -344,9 +351,9 @@ final class ProductController extends AbstractAdminController
         $saved = $admin instanceof AdminUser
             ? $columnPrefRepo->resolveVisibleColumns($admin, self::PRODUCT_DETAIL_VIEW)
             : null;
-        // No stored preference => show everything. Never let a stored (or empty) selection hide the
-        // whole table.
-        $visibleColumns = $saved === null ? $allColumnKeys : array_values(array_intersect($allColumnKeys, $saved));
+        // No stored preference => everything but Custom Fields (not in the Maxeme mockup's list; still
+        // offered in Choose Columns). Never let a stored (or empty) selection hide the whole table.
+        $visibleColumns = $saved === null ? array_values(array_diff($allColumnKeys, ['custom_fields'])) : array_values(array_intersect($allColumnKeys, $saved));
         if ($visibleColumns === []) {
             $visibleColumns = $allColumnKeys;
         }

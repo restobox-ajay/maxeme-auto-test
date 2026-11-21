@@ -56,6 +56,9 @@
         <td data-label="Actions">
             <span class="action-group">
                 <a class="table-action" href="{{ path('admin_product_inventory_update', {id: product.id, redirect: 'admin_product_detail_index'}) }}">Edit</a>
+                {# Maxeme mockup: Stock (the stock page) and Logs beside Edit. #}
+                <a class="button outline mx-btn-sm" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">Stock</a>
+                {% if is_granted('/log/view') %}<a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_index', {record: 'ProductCore', id: product.id}) }}">Logs</a>{% endif %}
             </span>
         </td>
     </tr>
