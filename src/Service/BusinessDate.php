@@ -83,4 +83,29 @@ final class BusinessDate
             $localStart->modify('+1 day')->setTimezone($utc),
         ];
     }
+
+    /**
+     * The moment to record for a calendar date somebody picked in a date box ("when did this
+     * happen"), as a UTC instant: today's date is now, the actual moment it is being recorded;
+     * any other date is that day's start in the display timezone. Null for something that is not
+     * a date.
+     *
+     * A bare `new \DateTimeImmutable('2026-11-21')` is midnight in PHP's ambient zone (UTC, see
+     * Kernel), which a shop displaying America/Vancouver shows as 16:00 on the 20th: the day
+     * before the one that was picked.
+     */
+    public function momentForLocalDate(string $date): ?\DateTimeImmutable
+    {
+        $zone = $this->settings->timezone();
+        $day = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($date), $zone);
+        if ($day === false || $day->format('Y-m-d') !== trim($date)) {
+            return null;
+        }
+
+        if ($day->format('Y-m-d') === $this->today()) {
+            return \DateTimeImmutable::createFromInterface($this->clock->now())->setTimezone(new \DateTimeZone('UTC'));
+        }
+
+        return $day->setTimezone(new \DateTimeZone('UTC'));
+    }
 }

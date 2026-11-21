@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace InventoryDepthBundle\Controller\Admin;
 
+use App\Service\BusinessDate;
 use App\Repository\BundleStatusRepository;
 use App\Service\Inventory\InventoryModeResolver;
 use App\Service\Product\ProductPicker;
@@ -60,6 +61,7 @@ final class PackConversionController extends AbstractInventoryDepthController
         private readonly ProductPackRuleRepository $rules,
         private readonly PackConversionRepository $history,
         private readonly ProductPicker $products,
+        private readonly BusinessDate $businessDate,
     ) {
         parent::__construct($em, $bundleStatusRepo, $inventoryModes);
     }
@@ -318,10 +320,7 @@ final class PackConversionController extends AbstractInventoryDepthController
             return null;
         }
 
-        try {
-            return new \DateTimeImmutable($value);
-        } catch (\Exception) {
-            return null;
-        }
+        // A date picked in the shop's own calendar: today means now, another day its start there.
+        return $this->businessDate->momentForLocalDate($value);
     }
 }

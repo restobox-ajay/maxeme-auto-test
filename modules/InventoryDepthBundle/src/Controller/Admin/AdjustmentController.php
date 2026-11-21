@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace InventoryDepthBundle\Controller\Admin;
 
+use App\Service\BusinessDate;
 use App\Entity\ProductCore;
 use App\Entity\TrackingPolicy;
 use App\Entity\Warehouse;
@@ -133,6 +134,7 @@ final class AdjustmentController extends AbstractInventoryDepthController
         private readonly InventoryMovementRepository $ledger,
         private readonly InventoryDetailRepository $details,
         private readonly TrackingPolicyRepository $policies,
+        private readonly BusinessDate $businessDate,
     ) {
         parent::__construct($em, $bundleStatusRepo, $inventoryModes);
     }
@@ -852,11 +854,9 @@ final class AdjustmentController extends AbstractInventoryDepthController
             return null;
         }
 
-        try {
-            return new \DateTimeImmutable($raw);
-        } catch (\Exception) {
-            return null;
-        }
+        // A date picked in the shop's own calendar: today means now, another day its start
+        // there (not midnight UTC, which shows as the evening before).
+        return $this->businessDate->momentForLocalDate($raw);
     }
 
     /** Back to the form with the product and the reason still chosen, so nothing has to be re-picked. */
