@@ -295,3 +295,12 @@
 /*   (doubled class: core's .form-grid:not(…) rule is more specific than a plain one) */
 .site-admin .content-frame .mx-profile-grid .mx-profile-password .form-grid.form-grid { grid-template-columns: 1fr 1fr; column-gap: 12px; }
 @media (max-width: 900px) { .site-admin .content-frame .mx-profile-grid { grid-template-columns: 1fr; } }
+
+/* L3 / L4 Two cards side by side (the mockup's .grid2): activity detail, role page. Label / value card
+   as the mockup's .kv. */
+.site-admin .content-frame .mx-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.site-admin .content-frame .mx-grid2 > * { margin: 0; min-width: 0; }
+.site-admin .content-frame .mx-kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 0; font-size: .82rem; }
+.site-admin .content-frame .mx-kv dt { color: #6b7280; font-weight: 400; }
+.site-admin .content-frame .mx-kv dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .site-admin .content-frame .mx-grid2 { grid-template-columns: 1fr; } }

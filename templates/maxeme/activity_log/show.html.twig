@@ -8,20 +8,17 @@
         {% endblock %}
     {% endembed %}
 
-    <div class="mx-tab-stack">
-        <section class="table-card no-paginate">
-            <div class="wide-table-wrap">
-                <table>
-                    <tbody>
-                        <tr><th>User</th><td>{{ entry.actorName }}{{ entry.actorId ? ' (#' ~ entry.actorId ~ ')' }}</td></tr>
-                        <tr><th>Role</th><td>{{ entry.actorRole ?? '—' }}</td></tr>
-                        <tr><th>Area</th><td>{{ entry.area }}</td></tr>
-                        <tr><th>Action</th><td>{{ entry.action|replace({ '_': ' ' }) }}</td></tr>
-                        <tr><th>Record</th><td>{{ entry.entityType }}{{ entry.entityId ? ' #' ~ entry.entityId }}</td></tr>
-                        <tr><th>IP address</th><td>{{ entry.ipAddress ?? '—' }}</td></tr>
-                    </tbody>
-                </table>
-            </div>
+    {# L3: the details and the changes side by side, as in the mockup. #}
+    <div class="mx-grid2">
+        <section class="form-card mx-kv-card">
+            <dl class="mx-kv">
+                <dt>User</dt><dd>{{ entry.actorName }}{{ entry.actorId ? ' (#' ~ entry.actorId ~ ')' }}</dd>
+                <dt>Role</dt><dd>{{ entry.actorRole ?? '—' }}</dd>
+                <dt>Area</dt><dd>{{ entry.area }}</dd>
+                <dt>Action</dt><dd>{{ entry.action|replace({ '_': ' ' }) }}</dd>
+                <dt>Record</dt><dd>{{ entry.entityType }}{{ entry.entityId ? ' #' ~ entry.entityId }}</dd>
+                <dt>IP address</dt><dd>{{ entry.ipAddress ?? '—' }}</dd>
+            </dl>
         </section>
 
         <section class="table-card no-paginate">
