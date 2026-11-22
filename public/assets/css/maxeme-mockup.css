@@ -333,3 +333,6 @@
 .site-admin .mx-inline-find { display: flex; gap: 8px; align-items: flex-end; }
 .site-admin .mx-inline-find label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .site-admin .mx-inline-find .button { height: 38px; }
+
+/* C9 Vendor form: a compact two-column card. */
+.site-admin .content-frame .form-card.mx-vendor-form-card { max-width: 720px; }

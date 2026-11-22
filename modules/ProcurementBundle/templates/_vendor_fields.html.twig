@@ -16,7 +16,7 @@
 
    Params: vendor, paymentTerms, statuses, mode ('Create' | 'Update').
 #}
-<label>Name <span class="req">*</span>
+<label class="span-2">Name <span class="req">*</span>
     <input type="text" name="name" maxlength="200" value="{{ vendor.name }}" required>
 </label>
 <label>Our account number with them
@@ -40,9 +40,18 @@
             {% endfor %}
         </select>
     {% else %}
-        {# No `payment_term` table on this instance — a free-text box rather than a 500 on a
-           dropdown with nothing to put in it. #}
-        <input type="text" name="payment_term" maxlength="80" value="{{ vendor.paymentTerm }}">
+        {# No payment terms set up on this instance: the usual terms as a dropdown (Maxeme mockup),
+           still posting the plain text payment_term, with a value from before kept as an option. #}
+        {% set termChoices = ['COD', 'Net 15', 'Net 30', 'Net 60'] %}
+        <select name="payment_term">
+            <option value="">—</option>
+            {% for term in termChoices %}
+                <option value="{{ term }}"{{ vendor.paymentTerm == term ? ' selected' : '' }}>{{ term }}</option>
+            {% endfor %}
+            {% if vendor.paymentTerm and vendor.paymentTerm not in termChoices %}
+                <option value="{{ vendor.paymentTerm }}" selected>{{ vendor.paymentTerm }}</option>
+            {% endif %}
+        </select>
     {% endif %}
 </label>
 <label>Currency

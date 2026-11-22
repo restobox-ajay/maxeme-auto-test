@@ -32,10 +32,11 @@
         <div class="flash flash-error">{{ msg }}</div>
     {% endfor %}
 
-    <section class="form-card">
+    {# A compact two-column card (Maxeme mockup). #}
+    <section class="form-card mx-vendor-form-card">
         {# Posts to itself. No JavaScript in the path: a real submit button on a real form, which is
            what makes this page usable with scripting off. #}
-        <form class="form-grid" method="post" action="{{ mode == 'Update' ? path('admin_bundle_procurement_vendor_save') : path('admin_bundle_procurement_vendor_create') }}">
+        <form class="form-grid mx-form-cols2" method="post" action="{{ mode == 'Update' ? path('admin_bundle_procurement_vendor_save') : path('admin_bundle_procurement_vendor_create') }}">
             {{ csrf_field() }}
             {% if mode == 'Update' %}<input type="hidden" name="id" value="{{ vendor.id }}">{% endif %}
             {% include '@Procurement/_vendor_fields.html.twig' with {
