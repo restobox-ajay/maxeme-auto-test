@@ -225,7 +225,7 @@ The flows the old import has no data for, seeded through the app itself and comp
 | C9 | Vendor form | Payment term is a dropdown; fields in two columns | Payment term is a text box; one column |
 | C10 | Import result | Back and Products buttons; Product Import stays selected in the sidebar | Back only; nothing selected in the sidebar |
 
-Done on 2026-11-22: C6 `2996ac2` (vendor Logs / Delete refused while used, Payments tab, stock movements link, Add Contact dialog), C7 `aea685d` (category Logs, Status "All"), C8 `0919c4a` (stock page shows the product's vendor), C9 `76d7fa3` (two-column vendor form, Payment term dropdown), C10 `b12bda8` (import result Back / Products, Product Import selected). C1–C5: see `VISUAL-CHECK-2026-11-21.md`.
+Done on 2026-11-22: C6 `2996ac2` (vendor Logs / Delete refused while used, stock movements link, Add Contact dialog; its Payments tab was taken out again: the client asked for it to go in thread 14028, which the mockup drawing predates), C7 `aea685d` (category Logs, Status "All"), C8 `0919c4a` (stock page shows the product's vendor), C9 `76d7fa3` (two-column vendor form, Payment term dropdown), C10 `b12bda8` (import result Back / Products, Product Import selected). C1–C5: see `VISUAL-CHECK-2026-11-21.md`.
 
 ## Server steps for these fixes (when deploying)
 

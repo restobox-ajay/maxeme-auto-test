@@ -41,6 +41,13 @@ date presets, email page, edit issued invoice), F14–F18 (log areas, parts leav
 page Invoice rows, adjustment dates, background imports) and C1–C10 (Products list, Units of Measure,
 stock page, Movement History, Product Lookup, vendor page, categories, vendor form, import result).
 
+## Client comments (SureFeedback 13049)
+
+Unchanged since the last check: 55 threads, 284 comments, the newest from 2026-11-12. All are done except
+two waiting on the client: 13314 (Today in the calendar's Month view: checked again, it goes back to the
+current month) and 13628 (Ken to check the invoice admin note). One clash was found and fixed: C6 had put
+back the vendor page's Payments tab, which the client asked to remove in thread 14028; it is removed again.
+
 ## Clean-up
 
 The temporary mockup folder and scripts are removed. No Error Log or Activity Log entries came from the check.
