@@ -28,12 +28,19 @@ final class ProductVendorResolver
     /** @return list<string> */
     public function vendorNames(ProductCore $product, int $limit): array
     {
+        // Every active provider's names, in provider order, each name once (the product's own vendor
+        // set by the app, then the ones it was bought from on purchase orders).
+        $names = [];
         foreach ($this->providers as $provider) {
             if ($provider instanceof ProductVendorProviderInterface && $this->bundleStatusRepo->isActive($provider->getSource())) {
-                return $provider->vendorNames($product, $limit);
+                foreach ($provider->vendorNames($product, $limit) as $name) {
+                    if (!in_array($name, $names, true)) {
+                        $names[] = $name;
+                    }
+                }
             }
         }
 
-        return [];
+        return array_slice($names, 0, $limit);
     }
 }

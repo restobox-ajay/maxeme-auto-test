@@ -1,10 +1,19 @@
 {% extends 'admin/_main/layout.html.twig' %}
 {% block title %}Stock — {{ product.sku }} | Admin{% endblock %}
 {% block admin_body %}
+    {# Product Lookup, Edit product and Logs beside Back (Maxeme mockup). #}
+    {% set headerActions = [
+        {label: 'Product Lookup', href: path('admin_bundle_inventory_depth_product_lookup'), class: 'outline mx-btn-sm'},
+        {label: 'Edit product', href: path('admin_product_inventory_update', {id: product.id}), class: 'outline mx-btn-sm'},
+    ] %}
+    {% if is_granted('/log/view') %}
+        {% set headerActions = headerActions|merge([{label: 'Logs', href: path('maxeme_activity_log_index', {record: 'ProductCore', id: product.id}), class: 'outline mx-btn-sm'}]) %}
+    {% endif %}
     {% include '@InventoryDepth/_nav.html.twig' with {
         current: 'stock',
         heading: 'Stock: ' ~ (product.sku ?: product.name),
-        lead: 'Everything behind this product: availability, lots and serials, and recent activity.'
+        lead: 'Everything behind this product: availability, lots and serials, and recent activity.',
+        actions: headerActions
     } only %}
 
     {# Two-column shape ported verbatim from Company/Vendor's own detail screens — see
@@ -44,8 +53,8 @@
                                 </th>
                                 <th></th>
                                 <th>
-                                    <button class="button" type="submit">Filter</button>
-                                    <a class="button" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">Reset</a>
+                                    <button class="button primary mx-btn-sm" type="submit">Filter</button>
+                                    <a class="button outline mx-btn-sm" href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: product.id}) }}">Reset</a>
                                 </th>
                             </tr>
                         </thead>
@@ -60,7 +69,7 @@
                                 <td data-label="Lot">{{ row.lot ? row.lot.label : (row.expiry ? 'exp ' ~ row.expiry|date('Y-m-d') : '—') }}</td>
                                 <td data-label="Serial">{{ row.serial ?: '—' }}</td>
                                 <td data-label="Status">{{ row.status }}</td>
-                                <td data-label="Quantity"><strong>{{ row.quantity }}</strong></td>
+                                <td data-label="Quantity"><strong>{{ row.quantity|qty }}</strong></td>
                                 <td data-label="Updated">{{ row.updatedAt|date('Y-m-d H:i') }}</td>
                             </tr>
                         {% else %}
@@ -101,7 +110,7 @@
                                 <tr class="data-item-row{{ row.expired ? ' is-oversold' : '' }}">
                                     <td data-label="Lot">{{ row.lot.label }}{% if row.pending %} <span class="badge warn">Needs ID</span>{% endif %}</td>
                                     <td data-label="Expiry">{{ row.lot.expiry ? row.lot.expiry|date('Y-m-d') : 'Does not expire' }}</td>
-                                    <td data-label="Available"><strong>{{ row.quantity }}</strong></td>
+                                    <td data-label="Available"><strong>{{ row.quantity|qty }}</strong></td>
                                 </tr>
                             {% else %}
                                 <tr><td colspan="3" class="empty-table-cell">No lots with stock.</td></tr>
@@ -186,30 +195,31 @@
         <aside class="company-detail-side">
             <article class="card company-summary-card">
                 <h2>{{ product.sku ?: product.name }}</h2>
-                <div class="company-summary-body">
-                    <p><strong>Name:</strong> {{ product.name }}</p>
-                    <p><strong>Category:</strong> {{ product.category ? product.category.name : '—' }}</p>
-                    <p><strong>Status:</strong> {{ product.status }}</p>
-                    <p><strong>Inventory Mode:</strong> <span class="badge">{{ product.inventoryMode|capitalize }}</span></p>
+                {# Label / value columns (Maxeme mockup). #}
+                <dl class="company-summary-body mx-kv">
+                    <dt>Name</dt><dd>{{ product.name }}</dd>
+                    <dt>Category</dt><dd>{{ product.category ? product.category.name : '—' }}</dd>
+                    <dt>Status</dt><dd>{{ product.status }}</dd>
+                    <dt>Inventory Mode</dt><dd><span class="badge">{{ product.inventoryMode|capitalize }}</span></dd>
                     {% set trackingPolicy = product.trackingPolicy %}
                     {% if trackingPolicy and not trackingPolicy.inert %}
-                        <p><strong>Dimension:</strong> {{ trackingPolicy.mode == 'lot' ? 'Batch' : 'Serial' }}{{ trackingPolicy.requiresExpiry ? ' + Expiry' : '' }}</p>
-                        <p><strong>Required:</strong> {{ trackingPolicy.trackIn and trackingPolicy.trackOut ? 'In & Out' : (trackingPolicy.trackIn ? 'In Only' : 'Out Only') }}</p>
+                        <dt>Dimension</dt><dd>{{ trackingPolicy.mode == 'lot' ? 'Batch' : 'Serial' }}{{ trackingPolicy.requiresExpiry ? ' + Expiry' : '' }}</dd>
+                        <dt>Required</dt><dd>{{ trackingPolicy.trackIn and trackingPolicy.trackOut ? 'In & Out' : (trackingPolicy.trackIn ? 'In Only' : 'Out Only') }}</dd>
                     {% else %}
-                        <p><strong>Tracking:</strong> None</p>
+                        <dt>Tracking</dt><dd>None</dd>
                     {% endif %}
-                    <p><strong>Vendors:</strong> {{ vendorNames is empty ? '—' : vendorNames|join(', ') }}</p>
-                </div>
+                    <dt>Vendors</dt><dd>{{ vendorNames is empty ? '—' : vendorNames|join(', ') }}</dd>
+                </dl>
             </article>
 
             <article class="card company-summary-card">
                 <h2>Availability &amp; Value</h2>
-                <div class="company-summary-body">
-                    <p><strong>On hand:</strong> {{ availability.onHand|qty }}</p>
-                    <p><strong>Available:</strong> {{ availability.available|qty }}</p>
-                    <p><strong>Held/committed:</strong> {{ availability.held|qty }}</p>
-                    <p><strong>Value:</strong> {{ availability.value is not null ? '$' ~ availability.value|amount : '—' }}</p>
-                </div>
+                <dl class="company-summary-body mx-kv">
+                    <dt>On hand</dt><dd>{{ availability.onHand|qty }}</dd>
+                    <dt>Available</dt><dd>{{ availability.available|qty }}</dd>
+                    <dt>Held/committed</dt><dd>{{ availability.held|qty }}</dd>
+                    <dt>Value</dt><dd>{{ availability.value is not null ? '$' ~ availability.value|amount : '—' }}</dd>
+                </dl>
             </article>
 
             {% if reorderRows is not empty %}
@@ -230,9 +240,9 @@
 
             <article class="card company-summary-card">
                 <h2>Sales — Last {{ salesSnapshot.days }} Days</h2>
-                <div class="company-summary-body">
-                    <p><strong>Units sold:</strong> {{ salesSnapshot.units }}</p>
-                </div>
+                <dl class="company-summary-body mx-kv">
+                    <dt>Units sold</dt><dd>{{ salesSnapshot.units|qty }}</dd>
+                </dl>
             </article>
 
             {# Dated, authored notes (docs/plans/2026-09-15-product-inventory-hub.md decision #2) —

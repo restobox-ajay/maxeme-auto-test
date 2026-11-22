@@ -316,6 +316,10 @@ services:
     App\Maxeme\Inventory\RepairOrderPartActivity:
         tags: ['app.product_activity_provider', 'app.product_sales_provider']
 
+    # The stock page's Vendors line: the product's own vendor first (C8).
+    App\Maxeme\Inventory\ProductVendorName:
+        tags: [{ name: 'app.product_vendor_provider', priority: 10 }]
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
