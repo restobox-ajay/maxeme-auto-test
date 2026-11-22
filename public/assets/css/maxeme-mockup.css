@@ -326,3 +326,10 @@
 /* C1 Products list: Edit, Stock, Logs side by side (mockup). */
 .site-admin .wide-product-table td[data-label="Actions"] .action-group { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 4px; align-items: center; }
 .site-admin .wide-product-table td[data-label="Actions"] .action-group > * { white-space: nowrap; }
+
+/* C4 Movement History: Filter / Reset on their own line under the last filter box. */
+.site-admin .mx-filter-buttons { display: flex; gap: 4px; margin-top: 4px; white-space: nowrap; }
+/* C5 Product Lookup: the search box and Find on one row. */
+.site-admin .mx-inline-find { display: flex; gap: 8px; align-items: flex-end; }
+.site-admin .mx-inline-find label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.site-admin .mx-inline-find .button { height: 38px; }

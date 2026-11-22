@@ -54,8 +54,12 @@
                         <th><input type="text" name="filters[reference]" form="movements-filters" value="{{ filters.reference }}" placeholder="Order, RMA" aria-label="Filter reference"></th>
                         <th>
                             <input type="text" name="filters[actor]" form="movements-filters" value="{{ filters.actor }}" placeholder="Who" aria-label="Filter actor">
-                            <button class="button" type="submit">Filter</button>
-                            <a class="button" href="{{ path('admin_bundle_inventory_depth_movements') }}">Reset</a>
+                            {# Filter / Reset under the last heading (Maxeme mockup): the dates and dropdowns
+                               apply on their own; Filter applies the typed boxes. #}
+                            <div class="mx-filter-buttons">
+                                <button class="button primary mx-btn-sm" type="submit">Filter</button>
+                                <a class="button outline mx-btn-sm" href="{{ path('admin_bundle_inventory_depth_movements') }}">Reset</a>
+                            </div>
                         </th>
                     </tr>
                 </thead>
@@ -66,7 +70,7 @@
                         <td data-label="When">{{ m.group.occurredAt|date('Y-m-d H:i') }}</td>
                         <td data-label="Type">{{ m.group.type }}</td>
                         <td data-label="Product"><a href="{{ path('admin_bundle_inventory_depth_stock_by_product', {id: m.product.id}) }}">{{ m.product.sku ?: m.product.name }}</a></td>
-                        <td data-label="Qty"><strong>{{ m.quantity }}</strong></td>
+                        <td data-label="Qty"><strong>{{ m.quantity|qty }}</strong></td>
                         {# The stored reason code and the free-text note, in that order and both
                            optional (#585). They answer different questions — what class of thing
                            happened, and what this particular one was — so neither stands in for the
