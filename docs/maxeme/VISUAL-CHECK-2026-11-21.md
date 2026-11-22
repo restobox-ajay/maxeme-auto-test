@@ -99,4 +99,11 @@ product import mapping (needs an upload).
 | L7 | `79489be` | Email page: 680px card, Attachment label above the file, Cancel / Send inside the card. |
 | L8 | `4c69c15` | `edit-issued` for an invoice not issued from a repair order redirects to the invoice builder instead of a 404. |
 
-The section 3 items (core / module pages) are unchanged.
+The section 3 items (core / module pages) were done on 2026-11-22, with the C6–C10 found in the seeded run (`TEST-FLOW.md`):
+
+| # | Commit | What changed |
+|---|---|---|
+| C1 | `a2c992a` | Products list: Visible / Status / Private dropdown filters, Vendor filter, Edit · Stock · Logs per row, Custom Fields hidden by default. |
+| C2 | `465e753` | Units of Measure: "Products (55)", 1 / 0.001, Family applies when picked, small outline Actions with Logs, Filter / Clear. |
+| C3 | `0919c4a` | Stock page: Product Lookup / Edit product / Logs, quantities "8", label / value cards (activity filters were F18). |
+| C4, C5 | `d5f9228` | Movement History Filter / Reset under the last heading; Product Lookup Find beside the box. |
