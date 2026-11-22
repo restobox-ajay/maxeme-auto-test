@@ -14,6 +14,9 @@ use ProcurementBundle\Entity\PurchaseOrder;
 use ProcurementBundle\Entity\Vendor;
 use ProcurementBundle\Entity\VendorAddress;
 use ProcurementBundle\Entity\VendorBill;
+use ProcurementBundle\Entity\VendorBillPayment;
+use ProcurementBundle\Entity\VendorCustomFieldValue;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use ProcurementBundle\Entity\VendorContact;
 use ProcurementBundle\Entity\VendorNote;
 use ProcurementBundle\Entity\VendorReturn;
@@ -391,8 +394,9 @@ final class VendorController extends AbstractProcurementController
             'link' => 'Number',
             'status' => 'Status',
             'empty' => 'Nothing has been ordered from this vendor yet.',
-            'listRoute' => 'admin_bundle_procurement_purchase_orders',
-            'listLabel' => 'View all purchase orders for this vendor',
+            // Maxeme mockup: what came in is read in the stock movements.
+            'listRoute' => 'admin_bundle_inventory_depth_movements',
+            'listLabel' => 'View all stock movements',
         ],
         'bills' => [
             'label' => 'Bills',
@@ -411,6 +415,16 @@ final class VendorController extends AbstractProcurementController
             'link' => 'Number',
             'status' => 'Status',
             'empty' => 'Nothing has been sent back to this vendor.',
+            'listRoute' => null,
+            'listLabel' => null,
+        ],
+        // Not a document (see above): one movement of money, named beside the bill(s) it paid.
+        'payments' => [
+            'label' => 'Payments',
+            'columns' => ['Paid', 'Bill', 'Method', 'Amount', 'Recorded by'],
+            'link' => 'Bill',
+            'status' => null,
+            'empty' => 'Nothing has been paid to this vendor yet.',
             'listRoute' => null,
             'listLabel' => null,
         ],
@@ -602,6 +616,7 @@ final class VendorController extends AbstractProcurementController
             'purchase-orders' => $this->purchaseOrderRows($vendor),
             'bills' => $this->billRows($vendor),
             'returns' => $this->returnRows($vendor),
+            'payments' => $this->paymentRows($vendor),
             // Unreachable: detail() has already replaced any key that is not in DOCUMENT_TABS with
             // the default. Loud rather than an empty tab, because an empty tab is what a vendor with
             // no documents looks like and the two must not be confusable (#624).
@@ -695,6 +710,37 @@ final class VendorController extends AbstractProcurementController
                 'Status' => $return->getStatus()->value,
             ],
         ], $returns);
+    }
+
+    /**
+     * Payments to this vendor, newest first, each with the bill(s) it went against.
+     *
+     * @return list<array{href: ?string, cells: array<string, string>}>
+     */
+    private function paymentRows(Vendor $vendor): array
+    {
+        /** @var list<VendorBillPayment> $payments */
+        $payments = $this->em->getRepository(VendorBillPayment::class)
+            ->findBy(['vendor' => $vendor], ['paidAt' => 'DESC', 'id' => 'DESC']);
+
+        return array_map(function (VendorBillPayment $payment): array {
+            $bills = [];
+            foreach ($payment->getApplications() as $application) {
+                $bills[(int) $application->getBill()->getId()] = $application->getBill();
+            }
+            $first = $bills !== [] ? reset($bills) : null;
+
+            return [
+                'href' => $first !== null ? $this->generateUrl('admin_bundle_procurement_bill_payments', ['id' => $first->getId()]) : null,
+                'cells' => [
+                    'Paid' => $payment->getPaidAt()->format('Y-m-d'),
+                    'Bill' => $bills === [] ? 'Not applied' : implode(', ', array_map(static fn (VendorBill $bill): string => (string) $bill->getDocumentNumber(), $bills)),
+                    'Method' => $payment->getMethod(),
+                    'Amount' => self::money((string) ($payment->getCurrency() ?? ''), $payment->getAmount()),
+                    'Recorded by' => $payment->getUser()?->getEmail() ?? '—',
+                ],
+            ];
+        }, $payments);
     }
 
     /**
@@ -849,6 +895,78 @@ final class VendorController extends AbstractProcurementController
         $this->em->flush();
 
         return new JsonResponse(['ok' => true, 'message' => sprintf('%s was deactivated successfully.', $name)]);
+    }
+
+    /**
+     * Deletes a vendor nothing else uses (Maxeme mockup: "refused while a product is bought from
+     * this vendor"): its addresses, contacts and notes go with it. Anything else pointing at it —
+     * a product, a price, a purchase order, bill, receipt, return or payment — refuses it, naming
+     * what holds it, and the answer is Deactivate.
+     */
+    #[Route('/{id}/delete', name: 'admin_bundle_procurement_vendor_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function delete(int $id): JsonResponse
+    {
+        $this->denyIfInactive();
+
+        $vendor = $this->em->find(Vendor::class, $id);
+        if (!$vendor instanceof Vendor) {
+            return new JsonResponse(['ok' => false, 'message' => 'Vendor could not be found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $holding = $this->recordsUsing($vendor);
+        if ($holding !== []) {
+            $parts = [];
+            foreach ($holding as $kind => $count) {
+                $parts[] = sprintf('%d %s', $count, $count === 1 ? substr($kind, 0, -1) : $kind);
+            }
+
+            return new JsonResponse(['ok' => false, 'message' => sprintf('%s cannot be deleted: it is used by %s. Deactivate it instead.', $vendor->getName(), implode(', ', $parts))], Response::HTTP_CONFLICT);
+        }
+
+        $name = $vendor->getName();
+        foreach ($this->em->getRepository(VendorCustomFieldValue::class)->findBy(['vendor' => $vendor]) as $value) {
+            $this->em->remove($value);
+        }
+        // Addresses, contacts and notes cascade from the vendor.
+        $this->em->remove($vendor);
+        $this->em->flush();
+
+        return new JsonResponse(['ok' => true, 'message' => sprintf('%s was deleted.', $name)]);
+    }
+
+    /**
+     * Every other record pointing at this vendor, counted per kind ("products" => 2). Found from the
+     * entity map rather than a hand-kept list, so a new document type that names a vendor blocks a
+     * delete without anybody remembering to add it here.
+     *
+     * @return array<string, int>
+     */
+    private function recordsUsing(Vendor $vendor): array
+    {
+        $own = [VendorAddress::class, VendorContact::class, VendorNote::class, VendorCustomFieldValue::class];
+        $counts = [];
+        foreach ($this->em->getMetadataFactory()->getAllMetadata() as $meta) {
+            if (!$meta instanceof ClassMetadata || $meta->isMappedSuperclass || in_array($meta->getName(), $own, true)) {
+                continue;
+            }
+            foreach ($meta->associationMappings as $field => $mapping) {
+                if ($mapping->targetEntity !== Vendor::class || !$mapping->isToOne() || !$mapping->isOwningSide() || $mapping->inherited !== null) {
+                    continue;
+                }
+                $count = (int) $this->em->createQueryBuilder()
+                    ->select('COUNT(r)')
+                    ->from($meta->getName(), 'r')
+                    ->andWhere('r.' . $field . ' = :vendor')->setParameter('vendor', $vendor)
+                    ->getQuery()->getSingleScalarResult();
+                if ($count > 0) {
+                    $short = substr($meta->getName(), (int) strrpos($meta->getName(), '\\') + 1);
+                    $kind = $short === 'ProductVendor' ? 'products' : strtolower((string) preg_replace('/(?<!^)[A-Z]/', ' $0', $short)) . 's';
+                    $counts[$kind] = ($counts[$kind] ?? 0) + $count;
+                }
+            }
+        }
+
+        return $counts;
     }
 
     #[Route('/{id}/activate', name: 'admin_bundle_procurement_vendor_activate', requirements: ['id' => '\d+'], methods: ['POST'])]

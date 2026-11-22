@@ -126,6 +126,7 @@ parameters:
             - admin_bundle_procurement_vendor_save
             - admin_bundle_procurement_vendor_deactivate
             - admin_bundle_procurement_vendor_activate
+            - admin_bundle_procurement_vendor_delete
             - admin_bundle_procurement_vendor_address_form
             - admin_bundle_procurement_vendor_address_save
             - admin_bundle_procurement_vendor_address_delete

@@ -19,6 +19,8 @@
         <div class="company-detail-actions">
             <a class="button back-button" href="{{ path('admin_bundle_procurement_vendors') }}">Back</a>
             <a class="button outline" href="{{ path('admin_bundle_procurement_vendor_edit', {id: vendor.id}) }}">Edit</a>
+            {# Logs and Delete (Maxeme mockup); Delete is refused while anything uses the vendor. #}
+            {% if is_granted('/log/view') %}<a class="button outline" href="{{ path('maxeme_activity_log_index', {record: 'Vendor', id: vendor.id}) }}">Logs</a>{% endif %}
             {% if vendor.status == 'Inactive' %}
                 <button class="button primary js-company-status" type="button"
                         data-action="activate"
@@ -34,6 +36,14 @@
                         data-confirm-note="It drops out of every vendor picker; documents already raised are unaffected."
                         data-item="{{ vendor.name }}">Deactivate</button>
             {% endif %}
+            <button type="button" class="button danger js-post-action"
+                    data-url="{{ path('admin_bundle_procurement_vendor_delete', {id: vendor.id}) }}"
+                    data-token="{{ csrf_token_value() }}"
+                    data-redirect="{{ path('admin_bundle_procurement_vendors') }}"
+                    data-confirm-title="Delete Confirmation"
+                    data-confirm-before="Delete "
+                    data-item="{{ vendor.name }}"
+                    data-confirm-after="? Its contacts, addresses and notes go with it. A vendor still used by a product or a document cannot be deleted.">Delete</button>
         </div>
     </section>
 
@@ -149,7 +159,8 @@
             <article class="table-card company-detail-card no-search" id="vendor-contacts">
                 <div class="table-header">
                     <h2>Contacts <span class="badge">{{ contacts|length }}</span></h2>
-                    <a class="button primary company-card-action" href="{{ path('admin_bundle_procurement_vendor_contact_add', {id: vendor.id}) }}">Add Contact</a>
+                    {# Opens a dialog on this page (Maxeme mockup); the form posts to the same Add Contact action. #}
+                    <button type="button" class="button primary company-card-action" data-modal-open="#vendorContactModal">Add Contact</button>
                 </div>
                 <table class="admin-grid-table">
                     <tbody>
@@ -216,6 +227,33 @@
        a customer is only ever deactivated from this screen. Not given a home on this page this
        pass; see the delivery report for the question of whether/where it needs one. The route
        itself is untouched and still works. #}
+
+    <div class="admin-modal-overlay" id="vendorContactModal" role="dialog" aria-modal="true" aria-labelledby="vendorContactModalLabel">
+        <div class="admin-modal mx-modal-wide">
+            <div class="mx-modal-head">
+                <div><h2 id="vendorContactModalLabel">Add Contact: {{ vendor.name }}</h2></div>
+                <button class="admin-modal-x js-modal-close" type="button" aria-label="Close">&times;</button>
+            </div>
+            <form class="form-grid mx-form-cols2" method="post" action="{{ path('admin_bundle_procurement_vendor_contact_add', {id: vendor.id}) }}">
+                {{ csrf_field() }}
+                <label>First Name <input type="text" name="first_name" maxlength="120"></label>
+                <label>Last Name <input type="text" name="last_name" maxlength="120"></label>
+                <label>Job Title <input type="text" name="job_title" maxlength="120" placeholder="Orders desk"></label>
+                <label>Email <input type="email" name="email" maxlength="180"></label>
+                <label>Phone <input type="text" name="phone" maxlength="60"></label>
+                <label>Status
+                    <select name="status">
+                        {% for status in contactStatuses %}<option value="{{ status }}">{{ status }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="checkbox-label span-2"><input type="checkbox" name="is_primary" value="1"> Primary contact</label>
+                <div class="form-actions span-2">
+                    <button class="button outline js-modal-close" type="button">Back</button>
+                    <button class="button primary" type="submit">Add Contact</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="modal-backdrop note-modal" hidden>
         <form class="modal-card note-modal-card" method="post" action="{{ path('admin_bundle_procurement_vendor_note_add', {id: vendor.id}) }}" data-create-action="{{ path('admin_bundle_procurement_vendor_note_add', {id: vendor.id}) }}" data-update-action="{{ path('admin_bundle_procurement_vendor_note_update', {id: vendor.id}) }}" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
