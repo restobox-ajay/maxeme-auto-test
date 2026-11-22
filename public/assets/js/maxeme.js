@@ -387,8 +387,10 @@
 
     /* [from, to] for a preset, as in the mockup: weeks start on Sunday; This Week and This Month run
        up to today; Last Week is Sunday to Saturday. */
-    function range(preset) {
-        var today = new Date();
+    function range(preset, shopToday) {
+        // The shop's date when the page gives it (data-today), else the browser's.
+        var parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(shopToday || '');
+        var today = parts ? new Date(+parts[1], +parts[2] - 1, +parts[3]) : new Date();
         today.setHours(0, 0, 0, 0);
         var day = today.getDay();
         var add = function (base, days) { var d = new Date(base); d.setDate(d.getDate() + days); return d; };
@@ -409,12 +411,12 @@
         var to = form.querySelector('input[name=to]');
         // Show which preset the period already is, if any.
         ['today', 'yesterday', 'this_week', 'this_month', 'last_week', 'last_month'].some(function (preset) {
-            var r = range(preset);
+            var r = range(preset, select.dataset.today);
             if (iso(r[0]) === from.value && iso(r[1]) === to.value) { select.value = preset; return true; }
             return false;
         });
         select.addEventListener('change', function () {
-            var r = range(select.value);
+            var r = range(select.value, select.dataset.today);
             if (r) { from.value = iso(r[0]); to.value = iso(r[1]); }
         });
         [from, to].forEach(function (input) { input.addEventListener('input', function () { select.value = 'custom'; }); });

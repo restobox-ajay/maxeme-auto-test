@@ -3,7 +3,9 @@
    (ReportPeriod), hidden (extra query fields to keep, e.g. { method: 3 }). #}
 <div class="mx-period">
     <label class="mx-period-field"><span class="sr-only">Period</span>
-        <select data-period-preset aria-label="Period">
+        {# data-today: the shop's date (Twig's date filter is in the shop timezone), so the presets
+           count from the shop's day, not from the viewer's own clock in another timezone. #}
+        <select data-period-preset data-today="{{ 'now'|date('Y-m-d') }}" autocomplete="off" aria-label="Period">
             {# The mockup's order; the script shows the preset the From / To already are (else Custom). #}
             <option value="today">Today</option>
             <option value="yesterday">Yesterday</option>
