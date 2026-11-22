@@ -108,6 +108,7 @@ parameters:
             - admin_product_import_confirm
             - admin_product_import_template
             - admin_product_import_template_guide
+            - admin_import_log_detail
             - admin_category_create
             - admin_category_update
             - admin_category_toggle
@@ -179,7 +180,7 @@ parameters:
                   add: { label: Add a product, route: admin_product_inventory_create, role: /parts/edit } }
               - { key: stock_adjustment, label: Stock Adjustment, route: admin_bundle_inventory_depth_adjust, role: /parts/edit }
               - { key: movements, label: Movement History, route: admin_bundle_inventory_depth_movements, role: /parts/view }
-              - { key: product_import, label: Product Import, route: admin_product_import_index, role: /parts/edit, match: [admin_product_import_] }
+              - { key: product_import, label: Product Import, route: admin_product_import_index, role: /parts/edit, match: [admin_product_import_, admin_import_log_detail] }
               - { key: product_categories, label: Product Categories, route: admin_category_index, role: /parts/view, match: [admin_category_],
                   add: { label: Add a product category, route: admin_category_create, role: /parts/edit } }
               - { key: units_of_measure, label: UoM, route: admin_product_unit_of_measure_index, role: /parts/view, match: [admin_product_unit_of_measure_] }

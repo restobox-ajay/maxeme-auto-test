@@ -9,7 +9,13 @@
                 <h1>Import #{{ run.id }}: {{ run.importType }}</h1>
             </div>
             <div class="panel-actions">
-                <a class="button back-button info" href="{{ path('admin_import_log') }}">Back</a>
+                {# A product import goes back to Product Import and offers Products (Maxeme mockup). #}
+                {% if run.entityType == 'ProductCore' %}
+                    <a class="button back-button info" href="{{ path('admin_product_import_index') }}">Back</a>
+                    <a class="button primary" href="{{ path('admin_product_detail_index') }}">Products</a>
+                {% else %}
+                    <a class="button back-button info" href="{{ path('admin_import_log') }}">Back</a>
+                {% endif %}
             </div>
         </div>
     </section>
