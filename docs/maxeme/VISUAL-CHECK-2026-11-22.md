@@ -48,6 +48,19 @@ two waiting on the client: 13314 (Today in the calendar's Month view: checked ag
 current month) and 13628 (Ken to check the invoice admin note). One clash was found and fixed: C6 had put
 back the vendor page's Payments tab, which the client asked to remove in thread 14028; it is removed again.
 
+## Second run (later on 2026-11-22)
+
+The 73 pairs again, plus the repair order flow side by side on screen (list, new repair order, client,
+board, Payment Report). Against the first run only two things changed, both expected: the "+ Issue Invoice"
+label now matches, and the vendor page has no Payments tab (removed for thread 14028, so it now differs
+from the mockup drawing on purpose).
+
+One fix: the date presets read the viewer's clock. Opened from India in the evening (already the next day),
+the board showed "Yesterday" for the shop's today. The preset dropdown now carries the shop's date and
+counts from it (`d123bb9`); it also no longer has an old choice restored by the browser on reload.
+Small differences left as they are: New Repair Order has Back where the mockup has ⋯, and no
+"No customer picked." hint under the empty Customer box.
+
 ## Clean-up
 
 The temporary mockup folder and scripts are removed. No Error Log or Activity Log entries came from the check.
