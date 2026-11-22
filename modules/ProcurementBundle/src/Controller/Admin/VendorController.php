@@ -14,7 +14,6 @@ use ProcurementBundle\Entity\PurchaseOrder;
 use ProcurementBundle\Entity\Vendor;
 use ProcurementBundle\Entity\VendorAddress;
 use ProcurementBundle\Entity\VendorBill;
-use ProcurementBundle\Entity\VendorBillPayment;
 use ProcurementBundle\Entity\VendorCustomFieldValue;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use ProcurementBundle\Entity\VendorContact;
@@ -418,16 +417,6 @@ final class VendorController extends AbstractProcurementController
             'listRoute' => null,
             'listLabel' => null,
         ],
-        // Not a document (see above): one movement of money, named beside the bill(s) it paid.
-        'payments' => [
-            'label' => 'Payments',
-            'columns' => ['Paid', 'Bill', 'Method', 'Amount', 'Recorded by'],
-            'link' => 'Bill',
-            'status' => null,
-            'empty' => 'Nothing has been paid to this vendor yet.',
-            'listRoute' => null,
-            'listLabel' => null,
-        ],
     ];
 
     /**
@@ -616,7 +605,6 @@ final class VendorController extends AbstractProcurementController
             'purchase-orders' => $this->purchaseOrderRows($vendor),
             'bills' => $this->billRows($vendor),
             'returns' => $this->returnRows($vendor),
-            'payments' => $this->paymentRows($vendor),
             // Unreachable: detail() has already replaced any key that is not in DOCUMENT_TABS with
             // the default. Loud rather than an empty tab, because an empty tab is what a vendor with
             // no documents looks like and the two must not be confusable (#624).
@@ -710,37 +698,6 @@ final class VendorController extends AbstractProcurementController
                 'Status' => $return->getStatus()->value,
             ],
         ], $returns);
-    }
-
-    /**
-     * Payments to this vendor, newest first, each with the bill(s) it went against.
-     *
-     * @return list<array{href: ?string, cells: array<string, string>}>
-     */
-    private function paymentRows(Vendor $vendor): array
-    {
-        /** @var list<VendorBillPayment> $payments */
-        $payments = $this->em->getRepository(VendorBillPayment::class)
-            ->findBy(['vendor' => $vendor], ['paidAt' => 'DESC', 'id' => 'DESC']);
-
-        return array_map(function (VendorBillPayment $payment): array {
-            $bills = [];
-            foreach ($payment->getApplications() as $application) {
-                $bills[(int) $application->getBill()->getId()] = $application->getBill();
-            }
-            $first = $bills !== [] ? reset($bills) : null;
-
-            return [
-                'href' => $first !== null ? $this->generateUrl('admin_bundle_procurement_bill_payments', ['id' => $first->getId()]) : null,
-                'cells' => [
-                    'Paid' => $payment->getPaidAt()->format('Y-m-d'),
-                    'Bill' => $bills === [] ? 'Not applied' : implode(', ', array_map(static fn (VendorBill $bill): string => (string) $bill->getDocumentNumber(), $bills)),
-                    'Method' => $payment->getMethod(),
-                    'Amount' => self::money((string) ($payment->getCurrency() ?? ''), $payment->getAmount()),
-                    'Recorded by' => $payment->getUser()?->getEmail() ?? '—',
-                ],
-            ];
-        }, $payments);
     }
 
     /**
