@@ -68,7 +68,7 @@
                     <th><input type="text" name="filters[parent]" value="{{ filters.parent|default('') }}" form="category-grid-filters-form" data-filter-field="parent" aria-label="Filter parent category"></th>
                     <th>
                         <select name="filters[status]" form="category-grid-filters-form" data-filter-field="status" aria-label="Filter status">
-                            <option value=""></option>
+                            <option value="">All</option>
                             <option value="Visible" {{ filters.status|default('') == 'Visible' ? 'selected' : '' }}>Visible</option>
                             <option value="Hidden" {{ filters.status|default('') == 'Hidden' ? 'selected' : '' }}>Hidden</option>
                         </select>

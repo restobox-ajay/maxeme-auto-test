@@ -24,6 +24,8 @@
             <span class="action-group">
                 <a class="table-action" href="{{ path('admin_category_update', {id: category.id}) }}">Edit</a>
                 <button class="table-action danger js-delete" type="button" data-url="{{ path('admin_category_delete', {id: category.id}) }}" data-token="{{ csrf_token_value() }}" data-item="{{ category.name }}">Delete</button>
+                {# Logs beside Edit / Delete (Maxeme mockup). #}
+                {% if is_granted('/log/view') %}<a class="button outline mx-btn-sm" href="{{ path('maxeme_activity_log_index', {record: 'ProductCategory', id: category.id}) }}">Logs</a>{% endif %}
             </span>
         </td>
     </tr>
