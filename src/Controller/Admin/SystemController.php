@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Doctrine\CaseInsensitiveSort;
 use App\Entity\AuditLog;
 use App\Entity\EmailLog;
 use App\Entity\ErrorLog;
@@ -125,7 +126,7 @@ final class SystemController extends AbstractAdminController
         $sortField = $sortMap[$sort] ?? $sortMap['id'];
 
         $rows  = $qb->select('e')
-            ->orderBy($sortField, $dir)
+            ->orderBy(CaseInsensitiveSort::expression($qb, $sortField), $dir)
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()->getResult();
@@ -207,7 +208,7 @@ final class SystemController extends AbstractAdminController
         $sortField = $sortMap[$sort] ?? $sortMap['id'];
 
         $rows = $qb->select('e')
-            ->orderBy($sortField, $dir)
+            ->orderBy(CaseInsensitiveSort::expression($qb, $sortField), $dir)
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()
@@ -382,7 +383,7 @@ final class SystemController extends AbstractAdminController
         $sortField = $sortMap[$sort] ?? $sortMap['id'];
 
         $rows = $qb->select('a')
-            ->orderBy($sortField, $dir)
+            ->orderBy(CaseInsensitiveSort::expression($qb, $sortField), $dir)
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
             ->getQuery()

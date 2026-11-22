@@ -62,8 +62,9 @@ final class InvoiceRepository extends ServiceEntityRepository
     public const LIST_SORTS = [
         'id' => 'i.id',
         'createdOn' => 'i.createdOn',
-        'client' => 'i.clientLastName',
-        'vehicle' => 'i.vehicleManufacturer',
+        // As the columns read (mockup: first + last name; year, make and model), case-insensitive.
+        'client' => "LOWER(TRIM(CONCAT(COALESCE(i.clientFirstName, ''), ' ', COALESCE(i.clientLastName, ''))))",
+        'vehicle' => "LOWER(TRIM(CONCAT(COALESCE(i.vehicleYear, ''), ' ', COALESCE(i.vehicleManufacturer, ''), ' ', COALESCE(i.vehicleModel, ''))))",
         'status' => 'i.status',
         'totalPrice' => 'i.totalPrice',
     ];
@@ -91,7 +92,7 @@ final class InvoiceRepository extends ServiceEntityRepository
      */
     public function findPage(SearchTerm $find, ListQuery $list): ListPage
     {
-        return ListPage::paginate($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS);
+        return ListPage::paginate($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS, [], self::searchByNumber(...));
     }
 
     /** How many invoices the Invoices list's current view holds (no page), for its CSV's activity entry. */
@@ -124,7 +125,23 @@ final class InvoiceRepository extends ServiceEntityRepository
     /** The Invoices list's current view (search boxes and sort), not paged: what its CSV holds. */
     private function allInView(SearchTerm $find, ListQuery $list): QueryBuilder
     {
-        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS);
+        return ListPage::filter($this->listQuery($find), $list, self::LIST_SORTS, self::LIST_SEARCH_COLUMNS, [], self::searchByNumber(...));
+    }
+
+    /**
+     * The list's search box also finds an invoice by its number as shown ("INV-015842", "15842",
+     * "#15842") or by its custom number, as the mockup's search does.
+     */
+    private static function searchByNumber(QueryBuilder $query, string $text): string
+    {
+        $or = ['LOWER(i.customNumber) LIKE :list_search'];
+        $number = SearchTerm::of($text)->invoiceNumber();
+        if ($number !== null) {
+            $query->setParameter('list_search_number', $number);
+            $or[] = 'i.id = :list_search_number';
+        }
+
+        return '(' . implode(' OR ', $or) . ')';
     }
 
     private function listQuery(SearchTerm $find): QueryBuilder

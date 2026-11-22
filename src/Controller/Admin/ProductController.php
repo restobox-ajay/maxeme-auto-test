@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Doctrine\CaseInsensitiveSort;
 use App\Contract\Fee\FeeFieldProviderInterface;
 use App\Entity\AdminColumnPreference;
 use App\Entity\AdminUser;
@@ -322,7 +323,7 @@ final class ProductController extends AbstractAdminController
         $total = (int) $totalQuery->select('COUNT(p.id)')->getQuery()->getSingleScalarResult();
 
         $products = $qb->select('p')
-            ->orderBy($orderExpr, $dir)
+            ->orderBy(CaseInsensitiveSort::expression($qb, $orderExpr), $dir)
             ->addOrderBy('p.id', 'ASC')
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit)
@@ -530,7 +531,7 @@ final class ProductController extends AbstractAdminController
         $productsQb = $qb->select('p');
         if ($dynamicPricingSort === null) {
             $productsQb
-                ->orderBy($orderExpr, $dir)
+                ->orderBy(CaseInsensitiveSort::expression($productsQb, $orderExpr), $dir)
                 ->addOrderBy('p.id', 'ASC')
                 ->setFirstResult(($page - 1) * $limit)
                 ->setMaxResults($limit);

@@ -56,8 +56,9 @@ final class AppointmentRepository extends ServiceEntityRepository
         'start' => 'a.startTime',
         'status' => 'a.status',
         'type' => 'a.type',
-        'client' => 'c.firstName',
-        'vehicle' => 'v.manufacturer',
+        // As the columns read (mockup: the client's name; year, make and model), case-insensitive.
+        'client' => "LOWER(TRIM(CONCAT(COALESCE(c.firstName, ''), ' ', COALESCE(c.lastName, ''), ' ', COALESCE(c.preferredName, ''))))",
+        'vehicle' => "LOWER(TRIM(CONCAT(COALESCE(v.year, ''), ' ', COALESCE(v.manufacturer, ''), ' ', COALESCE(v.model, ''))))",
         'repairOrder' => 'ro.id',
     ];
 

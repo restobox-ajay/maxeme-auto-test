@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Listing;
 
+use App\Doctrine\CaseInsensitiveSort;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 
@@ -44,12 +45,13 @@ final class ListPage
      * @param array<string, string> $sorts sort key => DQL column (the keys ListQuery was built with)
      * @param list<string> $searchColumns DQL columns the search box looks in
      * @param array<string, string> $filterColumns column search box field => DQL column
+     * @param (callable(QueryBuilder, string): ?string)|null $searchAlso see filter()
      *
      * @return self<mixed>
      */
-    public static function paginate(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = []): self
+    public static function paginate(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = [], ?callable $searchAlso = null): self
     {
-        self::filter($queryBuilder, $query, $sorts, $searchColumns, $filterColumns)
+        self::filter($queryBuilder, $query, $sorts, $searchColumns, $filterColumns, $searchAlso)
             ->setFirstResult($query->offset())
             ->setMaxResults($query->limit);
 
@@ -63,12 +65,16 @@ final class ListPage
      * column search boxes (a case-insensitive "contains" on each filled box's column in
      * $filterColumns; every one has to match) and its sort (then the root alias's id, for a stable
      * order) to $queryBuilder, but no page: every row of the current view, e.g. for an export.
+     * A text column sorts case-insensitively ("abc" next to "ABC", as the mockup's tables sort);
+     * numbers and dates sort as they are. $searchAlso(QueryBuilder, search text) may add one more
+     * condition the search box can match (e.g. an invoice number), or return null.
      *
      * @param array<string, string> $sorts
      * @param list<string> $searchColumns
      * @param array<string, string> $filterColumns
+     * @param (callable(QueryBuilder, string): ?string)|null $searchAlso
      */
-    public static function filter(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = []): QueryBuilder
+    public static function filter(QueryBuilder $queryBuilder, ListQuery $query, array $sorts, array $searchColumns, array $filterColumns = [], ?callable $searchAlso = null): QueryBuilder
     {
         foreach (array_intersect_key($query->filters, $filterColumns) as $field => $text) {
             $queryBuilder
@@ -77,18 +83,20 @@ final class ListPage
         }
 
         if ($query->search !== '' && $searchColumns !== []) {
+            $or = array_map(static fn (string $column): string => sprintf('LOWER(%s) LIKE :list_search', $column), $searchColumns);
+            $extra = $searchAlso !== null ? $searchAlso($queryBuilder, $query->search) : null;
+            if ($extra !== null) {
+                $or[] = $extra;
+            }
             $queryBuilder
-                ->andWhere($queryBuilder->expr()->orX(...array_map(
-                    static fn (string $column): string => sprintf('LOWER(%s) LIKE :list_search', $column),
-                    $searchColumns,
-                )))
+                ->andWhere($queryBuilder->expr()->orX(...$or))
                 ->setParameter('list_search', '%' . mb_strtolower($query->search) . '%');
         }
 
         $alias = $queryBuilder->getRootAliases()[0];
 
         return $queryBuilder
-            ->orderBy($sorts[$query->sort], $query->dir)
+            ->orderBy(CaseInsensitiveSort::expression($queryBuilder, $sorts[$query->sort]), $query->dir)
             ->addOrderBy($alias . '.id', 'ASC');
     }
 
