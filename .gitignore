@@ -101,3 +101,11 @@ API_MANAGER_REVIEW.md
 
 # IDE (PhpStorm) project settings
 /.idea/
+
+# Dev server (cPanel): files the host keeps in the web root, and the mockup served beside the app
+# at /mockup/ (symlinks to the mockup's own checkout, ~/mockup-root)
+/public/.user.ini
+/public/php.ini
+/public/.well-known/
+/public/mockup
+/public/pull-*.php

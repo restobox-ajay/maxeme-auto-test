@@ -1,4 +1,5 @@
-DirectoryIndex index.php
+# index.html too: a static folder served beside the app (the dev server's /mockup/) opens on its index.
+DirectoryIndex index.php index.html
 
 <IfModule mod_negotiation.c>
     Options -MultiViews
@@ -16,7 +17,10 @@ DirectoryIndex index.php
     RewriteCond %{ENV:REDIRECT_STATUS} =""
     RewriteRule ^index\.php(?:/(.*)|$) %{ENV:BASE}/$1 [R=301,L]
 
+    # Real files and folders are served as they are (a folder such as /mockup/ by its index.html);
+    # everything else goes to Symfony.
     RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ %{ENV:BASE}/index.php [L]
 </IfModule>
 
