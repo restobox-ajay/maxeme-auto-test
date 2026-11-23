@@ -121,21 +121,92 @@ in miles) (`e2ca759`).
 4. **DONE** (commit "Out of date, Sync and Remark only where the mockup has them"; the in-page Remark box on the repair order's invoice kept, user's choice). **Shown on more pages than the mockup**: Out of date badge and Sync Repair Order off the Invoices list (keep on
    the repair order's Invoices tab); Remark card off the printed invoice (keep on the repair order document);
    Out of date banner down to the mockup's Sync button.
-5. **Hints and help text** the mockup doesn't have (sections 2–5): board drag hint and "Services done" tooltip,
+5. **LATER** (details in "Later" below). **Hints and help text** the mockup doesn't have (sections 2–5): board drag hint and "Services done" tooltip,
    Approve / Decline hints, "Charged so far" extras and Issue-another intro, edit-issued-invoice hints, Recommendations
    hint wording, Extended "(after check-in)", Products lead paragraph, Activity Log lead line, client inactive
    banner extra sentence.
-6. **Confirm dialogs** the mockup doesn't have: deleting a filled service line or discount row on the repair order.
-7. **Small extra buttons and links**: client Appointments tab "+ Repair Order" and the role-based "Work Order";
+6. **LATER**. **Confirm dialogs** the mockup doesn't have: deleting a filled service line or discount row on the repair order.
+7. **LATER**. **Small extra buttons and links**: client Appointments tab "+ Repair Order" and the role-based "Work Order";
    Choose a client "Clear search" bar; UoM "Filter" button; Client List preferred-name link; client profile
    Appointments card vehicle link; "Choose…" option on Add payment.
-8. **Settings / Logs**: Tax Classes and Payment Types card titles; Error Log Method / Summary to level / area,
+8. **LATER**. **Settings / Logs**: Tax Classes and Payment Types card titles; Error Log Method / Summary to level / area,
    File / Line and "(#id)" out; Email Log and Error Log Back → Appointments.
-9. **Dead markup**: the two hidden vehicle dialogs on the client page.
-10. **Platform extras on Parts & Service pages** (section 4): Products Pricing / Inventory tabs down to the mockup's
+9. **LATER**. **Dead markup**: the two hidden vehicle dialogs on the client page.
+10. **LATER**. **Platform extras on Parts & Service pages** (section 4): Products Pricing / Inventory tabs down to the mockup's
     columns; product form one Main stock box; Stock Adjustment, Stock page and Import log down to the mockup's.
     Biggest of the lot; to be planned page by page.
-11. **Ask first**: Edit user roles fallback (a guard for roles that can't be assigned there) and the Check your
+11. **LATER**. **Ask first**: Edit user roles fallback (a guard for roles that can't be assigned there) and the Check your
     email wording (security fix `c9edab4`) change behaviour, not just looks.
 
 Then the other way round (the last section above): what the mockup has and the app lacks.
+
+## Later (parked 2026-11-23)
+
+Items 1, 3 and 4 are done (`a48e0cd`, `e2ca759`, `a9faecd`, `0d16f5b`). Everything below waits; take them one at a
+time: explain, get the go-ahead, change, check in Chrome, commit.
+
+### Item 5: hint and help text (text only; nothing works differently)
+
+| # | Where | App now | Mockup | Change |
+|---|---|---|---|---|
+| 5.1 | Repair Order Board, under the columns (`board/index.html.twig:65`) | "Drag a card to another column to change its status." | nothing | remove |
+| 5.2 | Board card progress (`board/index.html.twig:48`) | tooltip "Services done" | none | remove |
+| 5.3 | Quote › Approve dialog (`document/page.html.twig`) | "The repair order becomes Authorized." | nothing | remove |
+| 5.4 | Quote › Decline dialog (same file) | "The repair order becomes Cancelled, and its pending appointments with it." | nothing | remove |
+| 5.5 | Repair order › Invoices › Charged so far (`repair_order/invoices.html.twig:83`) | "What the repair order orders, … Lines are matched by name." | "Invoices that are not cancelled. Cancelling an invoice frees what it charged." | mockup's text |
+| 5.6 | Same table (`:91`, `:100`) | "(fee / discount)" tag, ✓ marks, "Everything on the repair order is charged." | none | remove |
+| 5.7 | Issue another invoice dialog (`:107-114`) | intro listing the invoices; "Nothing remains to charge. Change the repair order first…" | "Only what has not been charged for yet is listed. Lower "Invoice now" to charge less."; empty: "Everything on this repair order is already charged." | mockup's text |
+| 5.8 | Edit issued invoice, above the items (`invoice/issued_edit.html.twig:20`) | "An issued line keeps its name and price; a quantity can only be lowered. …" | Items note: "A copy of the repair order when the invoice was issued. Only a quantity can change here, and only down; a row can be deleted (deleting a service deletes the charge-through lines under it). To change a price or add something, change the repair order and use Sync Repair Order. The repair order itself is not changed by what you do here: it stays what was ordered." | mockup's text |
+| 5.9 | Edit issued invoice, Status options (`:28`) | "Not cancelled (follows its payments)" / "Paid (follows its payments)" / Cancelled | "Issued" / "Paid (set by its payments)" / "Cancelled" | mockup's text |
+| 5.10 | Repair order form, Recommendations (`repair_order/form.html.twig:189`) | "(for the customer: printed on the work order and carried onto the invoice)" | "(for the customer: carried onto the invoice)" | mockup's text |
+| 5.11 | Appointment form, Status (`schedule/form.html.twig:90`) | "(after check-in)" on the greyed-out Extended | greyed out only | remove |
+| 5.12 | Products, under the title (`admin/product/detail.html.twig:18`) | "Products are managed across three areas: …" | nothing (mockup `898d57e` removed page leads) | remove |
+| 5.13 | Activity Log, one record's history (`activity_log/index.html.twig:7`) | "Who changed what, and when: this record and the records that belong to it." | title only | remove |
+| 5.14 | Inactive client banner (`client/show.html.twig:12`) | "…do not appear in the Client List or the searches. Their history is kept." | "…do not appear in the Client List." | mockup's text |
+
+With it, or with the "mockup has, app lacks" pass: Edit issued invoice "Payments are recorded under Payment ▾ …
+(view payments)" (`:33`) → the mockup's read-only **Paid** and **Balance due** with **Add payment · View payments**
+(as the builder got in item 3).
+
+### Item 6: confirm dialogs the mockup doesn't have
+Repair order form: deleting a filled service line (`maxeme-service-lines.js:69-75`) or a discount row
+(`maxeme-repair-order.js:38-43`) asks "Are you sure?"; the mockup removes at once (only the Services set-up page asks).
+Nothing is lost until Save.
+
+### Item 7: small extra buttons and links
+Client › Appointments tab "+ Repair Order" on rows without one and "Work Order" for roles without accounting
+(`client/_appointments.html.twig:37-45`); Choose a client "N matches · Clear search" bar (`_search_results.html.twig`);
+UoM "Filter" button (`unit_of_measure/index.html.twig:87`); Client List preferred name as a link
+(`client/index.html.twig:61`); client profile Appointments card vehicle link and type label (`client/show.html.twig:80`);
+Add payment "Choose…" empty method (mockup preselects one) (`invoice/payment_form.html.twig:76`).
+
+### Item 8: Settings and Logs
+Tax Classes and Payment Types card titles (`settings/tax_classes.html.twig:8`, `payment_types.html.twig:8`); Error Log
+Method / Summary → level / area, File / Line and "(#id)" out of the list (`error_log.html.twig:61-74`); Email Log and
+Error Log Back → Appointments.
+
+### Item 9: dead markup
+Client page: two hidden Add / Edit vehicle dialogs nothing opens (`client/show.html.twig:155-185`).
+
+### Item 10: platform extras on the Parts & Service pages (largest; plan page by page)
+Products › Pricing (price groups, per-price-list columns, bulk apply, Category) and › Inventory (warehouse and column
+choosers, per-warehouse columns) down to the mockup's tables; product form one Main stock box, no Fees / Custom
+Fields / locked-unit sections, Private and Visible independent; Stock Adjustment without bins / lots / serials /
+pickers / "Add ten more rows" / "Already reversed"; Stock page without Lots / Serials and Reorder cards and the
+Order / Purchase / Shipment / Credit Memo filters; Import log as the mockup's six-column window; Product Lookup
+suggestions as you type; Vendors "Addresses" page and Remit-To expand; then close the lot / serial tracking pages
+left open in item 1 (tracking policies, tracking worklist, lots).
+
+### Item 11: ask first (behaviour, not looks)
+Edit user roles fallback (`staff/edit.html.twig:22-23`); Check your email wording (security fix `c9edab4`).
+
+### Left as they are (user's choice)
+Item 2 (Appointments › List per day); 4e (Remark edited in place on the repair order's invoice); F22 (Reminders
+"Previous Appointment" date, as the mockup draws it).
+
+### Then: the mockup has, the app does not
+See "Found on the way" above: appointment edit Check-in, Client › Repair Orders search, Vehicle › Appointments paging,
+Service Report hint and count, Issue-another Ordered / Charged columns and "Show lines already charged", Edit issued
+invoice Paid / Balance due and Add payment, Activity detail Record link, Database Console "Switch off now", Email Log
+Module options and per-page, Vendors row "Logs", Appointment Status sort on Repair Orders; and the calendar "+N more"
+(mockup switches to Day / List).
