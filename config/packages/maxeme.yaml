@@ -301,11 +301,11 @@ parameters:
               # Core's own log screens (Super Admin only).
               - { key: email_log, label: Email Log, route: admin_email_log, role: ROLE_SUPER_ADMIN }
               - { key: error_log, label: Error Log, route: admin_error_log, role: ROLE_SUPER_ADMIN }
-        # Core's phpLiteAdmin console (Super Admin, and Tech Support by inheritance).
+        # Core's phpLiteAdmin console: Tech Support only (not Super Admin).
         - key: database
           label: Database
           icon: database
-          role: ROLE_SUPER_ADMIN
+          role: ROLE_TECH_SUPPORT
           children:
               - { key: database_console, label: Database Console, route: admin_db_console, match: [admin_db_] }
 

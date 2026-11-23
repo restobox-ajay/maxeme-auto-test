@@ -22,8 +22,8 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Super Admin / Tech Support access to the phpLiteAdmin console (ROLE_SUPER_ADMIN, which Tech Support
- * inherits).
+ * Tech Support access to the phpLiteAdmin console (ROLE_TECH_SUPPORT only: Super Admin does not get it,
+ * as the shop asked on 2026-11-23).
  *
  * The console is off by default and auto-disables after a window, so a stolen admin session cannot
  * simply walk into raw SQL: it has to take the extra, noisy step of switching the console on, which
@@ -47,7 +47,7 @@ final class DatabaseConsoleController extends AbstractAdminController
     #[Route('', name: 'admin_db_console', methods: ['GET'])]
     public function console(AppSettings $settings): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_SUPER_ADMIN');
+        $this->denyAccessUnlessGranted('ROLE_TECH_SUPPORT');
 
         $remaining = max(0, (int) $settings->get(AppSetting::DB_CONSOLE_ENABLED_UNTIL, '0') - time());
 
@@ -68,7 +68,7 @@ final class DatabaseConsoleController extends AbstractAdminController
         RateLimiterFactoryInterface $dbConsoleLimiter,
         RateLimiterGate $rateLimiterGate,
     ): Response {
-        $this->denyAccessUnlessGranted('ROLE_SUPER_ADMIN');
+        $this->denyAccessUnlessGranted('ROLE_TECH_SUPPORT');
 
         /** @var AdminUser $user */
         $user = $this->getUser();
@@ -114,7 +114,7 @@ final class DatabaseConsoleController extends AbstractAdminController
         RateLimiterFactoryInterface $dbConsoleLimiter,
         RateLimiterGate $rateLimiterGate,
     ): Response {
-        $this->denyAccessUnlessGranted('ROLE_SUPER_ADMIN');
+        $this->denyAccessUnlessGranted('ROLE_TECH_SUPPORT');
 
         if ((int) $settings->get(AppSetting::DB_CONSOLE_ENABLED_UNTIL, '0') <= time()) {
             // Force it off rather than leaving a lapsed timestamp lying around, so the stored state
