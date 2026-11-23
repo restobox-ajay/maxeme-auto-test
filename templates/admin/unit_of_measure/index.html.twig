@@ -67,7 +67,7 @@
                             <th class="is-sortable{% if currentSort == 'factor' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'factor', dir: nextDir, page: 1})) }}">To family base</a></th>
                             {% set nextDir = currentSort == 'precision' and currentDir == 'asc' ? 'desc' : 'asc' %}
                             <th class="is-sortable{% if currentSort == 'precision' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'precision', dir: nextDir, page: 1})) }}">Rounding</a></th>
-                            <th>Referenced by</th>
+                            <th class="is-sortable{% if currentSort == 'references' %} is-sorted-{{ currentDir }}{% endif %}"><a href="{{ path('admin_product_unit_of_measure_index', routeQuery|merge({sort: 'references', dir: nextDir, page: 1})) }}">Referenced by</a></th>
                             <th>Actions</th>
                         </tr>
                         <tr class="filter-row">

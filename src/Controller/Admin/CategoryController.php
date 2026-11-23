@@ -60,11 +60,20 @@ final class CategoryController extends AbstractAdminController
             $categoryRows = array_values(array_filter($categoryRows, static fn (array $row): bool => ($row['status'] ?? '') === $filters['status']));
         }
 
+        // The Products header sorts by the count (Maxeme mockup); otherwise the tree order.
+        $sorted = (string) $request->query->get('sort', '') === 'products';
+        $dir = strtolower((string) $request->query->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        if ($sorted) {
+            $sign = $dir === 'desc' ? -1 : 1;
+            usort($categoryRows, static fn (array $a, array $b): int => $sign * ((int) ($a['products'] ?? 0) <=> (int) ($b['products'] ?? 0)) ?: strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? '')));
+        }
+
         $total = count($categoryRows);
         $page = max(1, $page);
         $limit = max(1, $limit);
         $pageRows = array_slice($categoryRows, ($page - 1) * $limit, $limit);
-        $categoryRows = $this->withRepeatedParentContext($pageRows, $categoryRows);
+        // A sorted list is flat: no parent row repeated above a page that starts in a subtree.
+        $categoryRows = $sorted ? $pageRows : $this->withRepeatedParentContext($pageRows, $categoryRows);
 
         if ($request->isXmlHttpRequest()) {
             return $this->json([
@@ -83,8 +92,8 @@ final class CategoryController extends AbstractAdminController
             'limit' => $limit,
             'search' => $search,
             'filters' => $filters,
-            'currentSort' => 'hierarchy',
-            'currentDir' => 'asc',
+            'currentSort' => $sorted ? 'products' : 'hierarchy',
+            'currentDir' => $sorted ? $dir : 'asc',
         ]);
     }
 

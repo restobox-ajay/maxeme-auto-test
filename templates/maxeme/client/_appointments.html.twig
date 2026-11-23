@@ -102,7 +102,7 @@
         <div class="wide-table-wrap">
             <table id="past-appointments">
                 <thead>
-                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th><th>Repair Order</th><th class="num">$</th>{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
+                    <tr>{{ mx.sort_th(past, 'startTime', 'Date') }}<th>Time</th><th>Vehicle</th><th>Duration</th><th>Status</th>{{ mx.sort_th(past, 'repairOrder', 'Repair Order') }}{{ mx.sort_th(past, 'amount', '$', '', 'num') }}{{ mx.sort_th(past, 'note', 'Note') }}<th></th></tr>
                 </thead>
                 <tbody>
                     {% for appointment in past.items %}

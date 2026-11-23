@@ -8,6 +8,7 @@ use App\Maxeme\Accounting\Money;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoicePayment;
+use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Repository\PaymentTypeRepository;
 use App\Maxeme\Schedule\ScheduleSettings;
@@ -42,11 +43,24 @@ final class InvoicePaymentController extends AbstractMaxemeController
 
     #[Route('/admin/invoices/{invoiceKey}/payments', name: 'maxeme_invoice_payments', methods: ['GET'])]
     #[RequiresPermission(Permission::ACCOUNTING_VIEW)]
-    public function index(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice): Response
+    public function index(#[MapEntity(mapping: ['invoiceKey' => 'invoiceKey'])] Invoice $invoice, Request $request): Response
     {
+        // When, Method and $ sort (mockup payments.html); otherwise as InvoicePayments lists them.
+        $sort = ListQuery::fromRequest($request, ['default', 'paidAt', 'method', 'amount']);
+        $payments = $this->payments->of($invoice);
+        if ($sort->sort !== 'default') {
+            $sign = $sort->dir === 'desc' ? -1 : 1;
+            usort($payments, static fn (InvoicePayment $a, InvoicePayment $b): int => $sign * match ($sort->sort) {
+                'method' => strcasecmp((string) $a->getPaymentType()?->getName(), (string) $b->getPaymentType()?->getName()),
+                'amount' => Money::toCents($a->getAmount()) <=> Money::toCents($b->getAmount()),
+                default => $a->getPaidAt() <=> $b->getPaidAt(),
+            } ?: (int) $a->getId() <=> (int) $b->getId());
+        }
+
         return $this->render('maxeme/invoice/payments.html.twig', [
             'invoice' => $invoice,
-            'payments' => $this->payments->of($invoice),
+            'payments' => $payments,
+            'paymentSort' => $sort,
             'paid' => Money::fromCents($this->payments->paidCents($invoice)),
             'balance' => Money::fromCents($this->payments->balanceCents($invoice)),
         ]);

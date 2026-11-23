@@ -87,7 +87,18 @@ final class UnitOfMeasureController extends AbstractController
         $sort = (string) $request->query->get('sort', 'code');
         $dir = strtolower((string) $request->query->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        $result = $this->units->page($filters, $sort, $dir, $page, $limit);
+        if ($sort === 'references') {
+            // The Referenced by header (Maxeme mockup) sorts by how many records use the unit: a
+            // count no column holds, so every filtered unit is counted, sorted, then paged here.
+            $all = $this->units->page($filters, 'code', 'asc', 1, \PHP_INT_MAX);
+            $counts = $this->service->referencingRecordsForPage($all['rows']);
+            $sum = static fn (UnitOfMeasure $unit): int => array_sum($counts[(int) $unit->getId()] ?? []);
+            $sign = $dir === 'desc' ? -1 : 1;
+            usort($all['rows'], static fn (UnitOfMeasure $a, UnitOfMeasure $b): int => $sign * ($sum($a) <=> $sum($b)) ?: strcasecmp((string) $a->getCode(), (string) $b->getCode()));
+            $result = ['rows' => array_slice($all['rows'], ($page - 1) * $limit, $limit), 'total' => $all['total']];
+        } else {
+            $result = $this->units->page($filters, $sort, $dir, $page, $limit);
+        }
 
         // One query per referencing column for the whole page, not one per row — see
         // UnitOfMeasureService::referenceCountsForPage().

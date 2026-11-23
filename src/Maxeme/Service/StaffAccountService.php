@@ -49,6 +49,9 @@ final class StaffAccountService
      */
     public const SEARCH_FIELDS = ['first_name', 'last_name', 'email', 'username', 'role', 'status'];
 
+    /** The sortable columns (mockup admin-users.html); "default" keeps the listed order. */
+    public const SORTS = ['default', 'first_name', 'last_name', 'email', 'username'];
+
     /**
      * The listed accounts matching every non-empty column filter: the text columns contain the
      * typed text (any case), the role and status are the account's own.
@@ -57,14 +60,14 @@ final class StaffAccountService
      *
      * @return list<AdminUser>
      */
-    public function search(array $filters): array
+    public function search(array $filters, string $sort = 'default', string $dir = 'asc'): array
     {
         $filters = array_filter(
             array_map('trim', array_intersect_key($filters, array_flip(self::SEARCH_FIELDS))),
             static fn (string $value): bool => $value !== '',
         );
 
-        return array_values(array_filter($this->listedAccounts(), static function (AdminUser $user) use ($filters): bool {
+        $users = array_values(array_filter($this->listedAccounts(), static function (AdminUser $user) use ($filters): bool {
             foreach ($filters as $field => $value) {
                 $matches = match ($field) {
                     'role' => in_array($value, array_map(static fn (StaffRole $role): string => $role->value, StaffRole::allOf($user)), true),
@@ -81,6 +84,21 @@ final class StaffAccountService
 
             return true;
         }));
+
+        // A column header's sort, any case, A→Z or Z→A (blanks first going up).
+        $value = match ($sort) {
+            'first_name' => static fn (AdminUser $user): string => (string) $user->getFirstName(),
+            'last_name' => static fn (AdminUser $user): string => (string) $user->getLastName(),
+            'email' => static fn (AdminUser $user): string => (string) $user->getEmail(),
+            'username' => static fn (AdminUser $user): string => (string) $user->getUsername(),
+            default => null,
+        };
+        if ($value !== null) {
+            $sign = $dir === 'desc' ? -1 : 1;
+            usort($users, static fn (AdminUser $a, AdminUser $b): int => $sign * strcasecmp($value($a), $value($b)) ?: (int) $a->getId() <=> (int) $b->getId());
+        }
+
+        return $users;
     }
 
     /**

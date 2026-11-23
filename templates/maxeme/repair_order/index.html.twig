@@ -22,7 +22,7 @@
                         <th>Vehicle</th>
                         {% for key, label in { name: 'Repair Name', status: 'Status' } %}{{ mx.sort_th(page, key, label) }}{% endfor %}
                         <th>Appointment Status</th>
-                        <th>Master Technician</th>
+                        {{ mx.sort_th(page, 'technician', 'Master Technician') }}
                         {{ mx.sort_th(page, 'total', 'Total') }}
                         <th style="text-align:center;">Actions</th>
                     </tr>

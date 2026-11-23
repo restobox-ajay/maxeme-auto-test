@@ -48,16 +48,19 @@
                 <table id="appointment-list">
                     <thead>
                         <tr>
-                            {{ mx.sort_th(list, 'start', 'Date') }}{{ mx.sort_th(list, 'status', 'Status') }}{{ mx.sort_th(list, 'type', 'For') }}{{ mx.sort_th(list, 'client', 'Client') }}<th>Phone</th>{{ mx.sort_th(list, 'vehicle', 'Vehicle') }}{{ mx.sort_th(list, 'repairOrder', 'Repair order') }}<th>Technician</th><th class="num">$</th><th>Description</th><th>Actions</th>
+                            {{ mx.sort_th(list, 'start', 'Date') }}{{ mx.sort_th(list, 'status', 'Status') }}{{ mx.sort_th(list, 'type', 'For') }}{{ mx.sort_th(list, 'client', 'Client') }}<th>Phone</th>{{ mx.sort_th(list, 'vehicle', 'Vehicle') }}{{ mx.sort_th(list, 'repairOrder', 'Repair order') }}{{ mx.sort_th(list, 'technician', 'Technician') }}{{ mx.sort_th(list, 'amount', '$', '', 'num') }}<th>Description</th><th>Actions</th>
                         </tr>
                         <tr class="filter-row">
-                            <th></th>
+                            <th><input type="search" value="{{ list.query.filters.start ?? '' }}" data-filter-field="start" placeholder="mm/dd/yyyy" aria-label="Search date"></th>
                             <th><select data-filter-field="status" aria-label="Filter status"><option value="">All</option>{% for status in statuses %}<option value="{{ status.value }}" {{ (list.query.filters.status ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}</select></th>
                             <th><select data-filter-field="type" aria-label="Filter type"><option value="">All</option>{% for type in types %}<option value="{{ type.value }}" {{ (list.query.filters.type ?? '') == type.value ? 'selected' }}>{{ type.label }}</option>{% endfor %}</select></th>
                             {% for field, label in { client: 'client', phone: 'phone', vehicle: 'vehicle' } %}
                                 <th><input type="search" value="{{ list.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label }}"></th>
                             {% endfor %}
-                            <th></th><th></th><th></th>
+                            {% for field, label in { repairOrder: 'repair order', technician: 'technician' } %}
+                                <th><input type="search" value="{{ list.query.filters[field] ?? '' }}" data-filter-field="{{ field }}" placeholder="Search" aria-label="Search {{ label }}"></th>
+                            {% endfor %}
+                            <th></th>
                             <th><input type="search" value="{{ list.query.filters.description ?? '' }}" data-filter-field="description" placeholder="Search" aria-label="Search description"></th>
                             <th></th>
                         </tr>

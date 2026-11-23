@@ -21,7 +21,10 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class ReminderList
 {
-    public const SORTS = ['date', 'status', 'client'];
+    public const SORTS = ['date', 'status', 'client', 'phoneStatus', 'emailStatus'];
+
+    /** The header text boxes (mockup reminder-queue.html): filters[field], a case-insensitive "contains". */
+    public const TEXT_FILTERS = ['client', 'vehicle', 'note', 'phoneNumber', 'emailAddress'];
 
     /** The reminder statuses the Status filter offers: a reminder's, and a queue entry's New / Booked / Resolved. */
     public const STATUSES = ['new' => 'New', 'unavailable' => 'Unavailable', 'delayed' => 'Delayed', 'booked' => 'Booked', 'resolved' => 'Resolved', 'declined' => 'Declined'];
@@ -53,7 +56,14 @@ final class ReminderList
             ->getQuery()->getResult();
         foreach ($reminders as $reminder) {
             $rows[] = self::row('reminder', $reminder, null, $reminder->getReminderDate(), $reminder->getStatus()->value, $reminder->getStatus()->label(), $reminder->getStatus()->badge(), null, $reminder->getPhoneStatus()->value,
-                [$reminder->getClient()->getFullName(), $reminder->getVehicle()->getFullName(), $reminder->getNote(), $reminder->getDelayNote(), $reminder->getClient()->getEmail(), implode(' ', $reminder->getClient()->getPhones())]);
+                [$reminder->getClient()->getFullName(), $reminder->getVehicle()->getFullName(), $reminder->getNote(), $reminder->getDelayNote(), $reminder->getClient()->getEmail(), implode(' ', $reminder->getClient()->getPhones())],
+                [
+                    'client' => self::clientText($reminder->getClient()),
+                    'vehicle' => self::vehicleText($reminder->getVehicle()),
+                    'note' => trim($reminder->getNote() . ' ' . $reminder->getDelayNote()),
+                    'phoneNumber' => implode(' ', $reminder->getClient()->getPhones()),
+                    'emailAddress' => (string) $reminder->getClient()->getEmail(),
+                ], $reminder->getPhoneStatus()->label());
         }
         $entries = $this->entityManager->getRepository(ServiceReminderQueueEntry::class)->createQueryBuilder('e')
             ->addSelect('c', 'v')
@@ -67,7 +77,14 @@ final class ReminderList
             $own = $entry->isClosed() ? $entry->getStatus() : null;
             $status = $own?->value ?? 'new';
             $rows[] = self::row('queue', null, $entry, $entry->getQueuedAt(), $status, self::STATUSES[$status], $own !== null ? 'success' : ReminderStatus::New->badge(), self::emailStatus($entry), $entry->getPhoneStatus()->value,
-                [$entry->getClient()->getFullName(), $entry->getVehicle()->getFullName(), $entry->getServiceName(), $entry->getEmail(), implode(' ', $entry->getClient()->getPhones())]);
+                [$entry->getClient()->getFullName(), $entry->getVehicle()->getFullName(), $entry->getServiceName(), $entry->getEmail(), implode(' ', $entry->getClient()->getPhones())],
+                [
+                    'client' => self::clientText($entry->getClient()),
+                    'vehicle' => self::vehicleText($entry->getVehicle()),
+                    'note' => sprintf('%s %d days due %s', $entry->getServiceName(), $entry->getReminderDays(), $entry->getDueAt()->format('m/d/Y')),
+                    'phoneNumber' => implode(' ', $entry->getClient()->getPhones()),
+                    'emailAddress' => (string) ($entry->getEmail() ?: $entry->getClient()->getEmail()),
+                ], $entry->getPhoneStatus()->label());
         }
 
         $filters = $list->filters;
@@ -75,12 +92,15 @@ final class ReminderList
         $rows = array_values(array_filter($rows, static fn (array $row): bool => ($search === '' || self::searchMatches($row['search'], $search))
             && (($filters['status'] ?? '') === '' || $row['status'] === $filters['status'])
             && (($filters['phone'] ?? '') === '' || $row['phoneStatus'] === $filters['phone'])
-            && (($filters['email'] ?? '') === '' || $row['emailStatus'] === $filters['email'])));
+            && (($filters['email'] ?? '') === '' || $row['emailStatus'] === $filters['email'])
+            && self::textFiltersMatch($row['texts'], $filters)));
 
         $sign = $list->dir === 'desc' ? -1 : 1;
         usort($rows, static fn (array $a, array $b): int => $sign * match ($list->sort) {
             'status' => strcmp($a['statusLabel'], $b['statusLabel']),
             'client' => strcasecmp(self::client($a), self::client($b)),
+            'phoneStatus' => strcmp($a['phoneStatusLabel'], $b['phoneStatusLabel']),
+            'emailStatus' => strcmp(self::EMAIL_STATUSES[$a['emailStatus']] ?? '', self::EMAIL_STATUSES[$b['emailStatus']] ?? ''),
             default => $a['date'] <=> $b['date'],
         } ?: $b['date'] <=> $a['date']);
 
@@ -140,9 +160,51 @@ final class ReminderList
         return str_contains($strip($haystack), $strip($search));
     }
 
-    private static function row(string $kind, ?Reminder $reminder, ?ServiceReminderQueueEntry $entry, \DateTimeImmutable $date, string $status, string $label, string $badge, ?string $emailStatus, string $phoneStatus, array $searchable): array
+    /**
+     * Every filled header text box is in its column's text (any case); the Phone number box
+     * compares digits, so "604-555-0101" finds 6045550101.
+     *
+     * @param array<string, string> $texts
+     * @param array<string, string> $filters
+     */
+    private static function textFiltersMatch(array $texts, array $filters): bool
+    {
+        foreach (self::TEXT_FILTERS as $field) {
+            $value = $filters[$field] ?? '';
+            if ($value === '') {
+                continue;
+            }
+            $text = $texts[$field] ?? '';
+            $digits = preg_replace('/\D+/', '', $value) ?? '';
+            $matches = $field === 'phoneNumber' && $digits !== ''
+                ? str_contains(preg_replace('/\D+/', '', $text) ?? '', $digits)
+                : mb_stripos($text, $value) !== false;
+            if (!$matches) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** The Client Info column's text: the name and the latest note. */
+    private static function clientText(\App\Maxeme\Entity\Client $client): string
+    {
+        return trim($client->getFullName() . ' ' . ($client->getLatestNote()?->getText() ?? ''));
+    }
+
+    /** The Vehicle column's text: the vehicle and its plate. */
+    private static function vehicleText(\App\Maxeme\Entity\Vehicle $vehicle): string
+    {
+        return trim($vehicle->getFullName() . ' ' . $vehicle->getLicensePlate());
+    }
+
+    /** @param array<string, string> $texts the header boxes' column texts (TEXT_FILTERS) */
+    private static function row(string $kind, ?Reminder $reminder, ?ServiceReminderQueueEntry $entry, \DateTimeImmutable $date, string $status, string $label, string $badge, ?string $emailStatus, string $phoneStatus, array $searchable, array $texts = [], string $phoneStatusLabel = ''): array
     {
         return [
+            'texts' => $texts,
+            'phoneStatusLabel' => $phoneStatusLabel,
             'kind' => $kind,
             'reminder' => $reminder,
             'entry' => $entry,

@@ -28,17 +28,21 @@ Vehicles, Staff, Service Categories, Labour, Government Fees, Activity Log, Erro
 Board / Payment Report / Service Report periods, the sidebar Customer / Vehicle / Invoice # boxes. Email Log
 has no emails yet, so only "no error" could be checked there.
 
-## The mockup has, the app does not (not changed)
+## The mockup has, the app did not (added afterwards)
 
-| Page | Mockup | App |
-|---|---|---|
-| Staff | sorts First / Last name, Email, Username | no sorting |
-| Repair Orders | Master Technician sortable | not sortable |
-| Appointments (list) | Date filter; $ and Technician sortable; Technician filter | none of these |
-| Client › Appointments tab | Repair Order and $ sortable | Date and Note only |
-| Reminders | text filters Client, Vehicle, Reminder note, Phone number, Email; Phone / Email status sortable | Status / Phone status / Email status dropdowns |
-| Product Categories | Products count sortable | no sorting |
-| Units of Measure | Referenced by sortable | not sortable |
-| Vehicle page › Appointments | Date sortable | not sortable |
-| Invoice › Payments | When / Method / $ sortable | not sortable |
-| Error Log | Method and Summary show the level / area | they show the request's method / URL (sort still by level / area) |
+Each checked in Chrome after the change (both directions, and each new box with words from the rows).
+
+| Page | Added |
+|---|---|
+| Staff | First / Last name, Email, Username sort |
+| Repair Orders | Master Technician sorts (by the name shown) |
+| Appointments (list) | Date box (11/20/2026, 11/20/26, 11/20 or 2026-11-20); Technician and Repair order boxes; Technician and $ sort |
+| Client › Appointments tab | Repair Order and $ sort |
+| Reminders | Client Info, Vehicle, Reminder note, Phone number (digits), Email boxes; Phone / Email Status sort |
+| Product Categories | Products count sorts (the list goes flat while sorted) |
+| Units of Measure | Referenced by sorts (by the number of records) |
+| Vehicle page › Appointments | Date sorts |
+| Invoice › Payments | When / Method / $ sort |
+
+Still different: the Error Log Method and Summary columns show the request's method / URL where the mockup
+shows the level / area (they still sort by level / area).

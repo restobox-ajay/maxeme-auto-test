@@ -66,7 +66,7 @@ final class InvoiceRepository extends ServiceEntityRepository
         'client' => "LOWER(TRIM(CONCAT(COALESCE(i.clientFirstName, ''), ' ', COALESCE(i.clientLastName, ''), ' ', COALESCE(i.clientPreferredName, ''))))",
         'vehicle' => "LOWER(TRIM(CONCAT(COALESCE(i.vehicleYear, ''), ' ', COALESCE(i.vehicleManufacturer, ''), ' ', COALESCE(i.vehicleModel, ''))))",
         'status' => 'i.status',
-        'totalPrice' => 'i.totalPrice',
+        'totalPrice' => 'i.totalPrice + 0', // + 0: a few totals are stored as text, which SQLite sorts after every number
     ];
 
     /** The sidebar Invoice # box: the invoice number as shown, leading zeros and "#" optional. */

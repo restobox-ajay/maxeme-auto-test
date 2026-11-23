@@ -51,10 +51,12 @@ final class ScheduleController extends AbstractMaxemeController
             $day = (string) $request->query->get('day', $settings->toLocal(new \DateTimeImmutable())->format('Y-m-d'));
             $from = $day !== 'all' && \DateTimeImmutable::createFromFormat('!Y-m-d', $day) !== false ? $settings->dayStartsAt($day) : null;
             $day = $from !== null ? $day : 'all';
+            $query = ListQuery::fromRequest($request, array_keys(AppointmentRepository::LIST_SORTS), $from !== null ? 'asc' : 'desc');
             $list = $appointments->findListPage(
-                ListQuery::fromRequest($request, array_keys(AppointmentRepository::LIST_SORTS), $from !== null ? 'asc' : 'desc'),
+                $query,
                 $from,
                 $from?->modify('+1 day'),
+                isset($query->filters['start']) ? self::dateBoxRange($query->filters['start'], $settings) : null,
             );
         }
 
@@ -66,6 +68,31 @@ final class ScheduleController extends AbstractMaxemeController
             'statuses' => AppointmentStatus::cases(),
             'types' => AppointmentType::cases(),
         ]);
+    }
+
+    /**
+     * The list's Date box (mockup): a day as shown ("11/20/2026", "11/20/26", "11/20" = this year)
+     * or as stored ("2026-11-20"), as [from, to) in UTC; [x, x] (nothing) when it is not a date.
+     *
+     * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable}
+     */
+    private static function dateBoxRange(string $text, ScheduleSettings $settings): array
+    {
+        $day = null;
+        if (preg_match('~^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$~', $text, $m) === 1) {
+            $year = isset($m[3]) ? (strlen($m[3]) === 2 ? 2000 + (int) $m[3] : (int) $m[3]) : (int) $settings->toLocal(new \DateTimeImmutable())->format('Y');
+            $day = checkdate((int) $m[1], (int) $m[2], $year) ? sprintf('%04d-%02d-%02d', $year, $m[1], $m[2]) : null;
+        } elseif (preg_match('~^(\d{4})-(\d{1,2})-(\d{1,2})$~', $text, $m) === 1) {
+            $day = checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]) : null;
+        }
+        if ($day === null) {
+            $never = new \DateTimeImmutable('@0');
+
+            return [$never, $never];
+        }
+        $from = $settings->dayStartsAt($day);
+
+        return [$from, $from->modify('+1 day')];
     }
 
     /** FullCalendar's event source: `start` and `end` (shop dates). */

@@ -29,7 +29,9 @@ final class RepairOrderRepository extends ServiceEntityRepository
         'customer' => 'c.lastName',
         'name' => 'r.name',
         'status' => 'r.status',
-        'total' => 'r.total',
+        'total' => 'r.total + 0', // + 0: compared as a number even where stored as text
+        // Master Technician (mockup): the name as shown, any case.
+        'technician' => "LOWER(COALESCE(NULLIF(TRIM(CONCAT(COALESCE(t.firstName, ''), ' ', COALESCE(t.lastName, ''))), ''), t.username, t.email, ''))",
     ];
 
     /** The column search boxes (filters[field]) => column; status is matched exactly. */

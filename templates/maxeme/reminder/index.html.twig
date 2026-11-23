@@ -35,16 +35,17 @@
                     <tr>
                         {{ mx.sort_th(page, 'date', 'Date') }}{{ mx.sort_th(page, 'status', 'Status') }}
                         {% if canBook %}<th>Appointment</th>{% endif %}
-                        {{ mx.sort_th(page, 'client', 'Client Info') }}<th>Vehicle</th><th>Previous Appointment</th><th>Reminder note</th><th>Phone number</th><th>Phone Status</th><th>Email</th><th>Email Status</th>
+                        {{ mx.sort_th(page, 'client', 'Client Info') }}<th>Vehicle</th><th>Previous Appointment</th><th>Reminder note</th><th>Phone number</th>{{ mx.sort_th(page, 'phoneStatus', 'Phone Status') }}<th>Email</th>{{ mx.sort_th(page, 'emailStatus', 'Email Status') }}
                         <th>Action</th>
                     </tr>
                     <tr class="filter-row">
                         <th></th>
                         <th><select data-filter-field="status" aria-label="Filter status"><option value="">All</option>{% for value, label in statuses %}<option value="{{ value }}" {{ (page.query.filters.status ?? '') == value ? 'selected' }}>{{ label }}</option>{% endfor %}</select></th>
                         {% if canBook %}<th></th>{% endif %}
-                        <th></th><th></th><th></th><th></th><th></th>
+                        <th><input type="search" value="{{ page.query.filters.client ?? '' }}" data-filter-field="client" placeholder="Search" aria-label="Search client info"></th><th><input type="search" value="{{ page.query.filters.vehicle ?? '' }}" data-filter-field="vehicle" placeholder="Search" aria-label="Search vehicle"></th><th></th>
+                        <th><input type="search" value="{{ page.query.filters.note ?? '' }}" data-filter-field="note" placeholder="Search" aria-label="Search reminder note"></th><th><input type="search" value="{{ page.query.filters.phoneNumber ?? '' }}" data-filter-field="phoneNumber" placeholder="Search" aria-label="Search phone number"></th>
                         <th><select data-filter-field="phone" aria-label="Filter phone status"><option value="">All</option>{% for status in phoneStatuses %}<option value="{{ status.value }}" {{ (page.query.filters.phone ?? '') == status.value ? 'selected' }}>{{ status.label }}</option>{% endfor %}</select></th>
-                        <th></th>
+                        <th><input type="search" value="{{ page.query.filters.emailAddress ?? '' }}" data-filter-field="emailAddress" placeholder="Search" aria-label="Search email"></th>
                         <th><select data-filter-field="email" aria-label="Filter email status"><option value="">All</option>{% for value, label in emailStatuses %}<option value="{{ value }}" {{ (page.query.filters.email ?? '') == value ? 'selected' }}>{{ label }}</option>{% endfor %}</select></th>
                         <th></th>
                     </tr>

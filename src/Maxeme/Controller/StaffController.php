@@ -8,6 +8,7 @@ use App\Entity\AdminUser;
 use App\Enum\AdminUserStatus;
 use App\Maxeme\Dto\StaffAccountRequest;
 use App\Maxeme\Dto\StaffAccountUpdateRequest;
+use App\Maxeme\Listing\ListQuery;
 use App\Maxeme\Security\Attribute\RequiresPermission;
 use App\Maxeme\Security\Permission;
 use App\Maxeme\Security\StaffAccountVoter;
@@ -44,7 +45,7 @@ final class StaffController extends AbstractController
     {
         $filters = array_filter($request->query->all('filters'), 'is_string');
 
-        return $this->renderIndex(new StaffAccountRequest(), [], filters: $filters);
+        return $this->renderIndex(new StaffAccountRequest(), [], filters: $filters, list: ListQuery::fromRequest($request, StaffAccountService::SORTS));
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -147,10 +148,11 @@ final class StaffController extends AbstractController
      * @param array<string, string> $errors
      * @param array<string, string> $filters the column search boxes (filters[field])
      */
-    private function renderIndex(StaffAccountRequest $account, array $errors, int $status = Response::HTTP_OK, array $filters = []): Response
+    private function renderIndex(StaffAccountRequest $account, array $errors, int $status = Response::HTTP_OK, array $filters = [], ?ListQuery $list = null): Response
     {
         return $this->render('maxeme/staff/index.html.twig', [
-            'users' => $this->accounts->search($filters),
+            'users' => $this->accounts->search($filters, $list->sort ?? 'default', $list->dir ?? 'asc'),
+            'list' => $list,
             'filters' => $filters,
             'roles' => StaffRole::cases(),
             'statuses' => [AdminUserStatus::Active, AdminUserStatus::Inactive],

@@ -76,13 +76,21 @@ final class VehicleController extends AbstractMaxemeController
         }
         uasort($usedServices, static fn (ServiceItem $a, ServiceItem $b): int => strcasecmp($a->getName(), $b->getName()));
 
-        // Its appointments (mockup): the pending ones first, then the rest, newest first.
+        // Its appointments (mockup): the pending ones first, then the rest, newest first; or by the
+        // Date header (sort=start, the mockup's sortable Date).
+        $appointmentSort = ListQuery::fromRequest($request, ['default', 'start']);
         $appointments = $appointmentRepository->findBy(['vehicle' => $vehicle], ['startTime' => 'DESC']);
-        usort($appointments, static fn ($a, $b): int => (int) $b->getStatus()->isPending() <=> (int) $a->getStatus()->isPending() ?: $b->getStartTime() <=> $a->getStartTime());
+        if ($appointmentSort->sort === 'start') {
+            $sign = $appointmentSort->dir === 'desc' ? -1 : 1;
+            usort($appointments, static fn ($a, $b): int => $sign * ($a->getStartTime() <=> $b->getStartTime()));
+        } else {
+            usort($appointments, static fn ($a, $b): int => (int) $b->getStatus()->isPending() <=> (int) $a->getStatus()->isPending() ?: $b->getStartTime() <=> $a->getStartTime());
+        }
 
         return $this->render('maxeme/vehicle/show.html.twig', [
             'vehicle' => $vehicle,
             'appointments' => $appointments,
+            'appointmentSort' => $appointmentSort,
             'history' => $history,
             'stats' => self::stats($all),
             'services' => array_values($usedServices),

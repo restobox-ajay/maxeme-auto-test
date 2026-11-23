@@ -88,11 +88,11 @@
     </section>
 
     {# P25 (mockup): the appointments booked for this vehicle, pending first, then newest first. #}
-    <section class="table-card no-paginate mx-ro-after" id="vehicle-appointments">
+    <section class="table-card no-paginate mx-ro-after" id="vehicle-appointments" data-default-sort="default" data-default-dir="asc">
         <div class="table-header"><h2>Appointments</h2></div>
         <div class="wide-table-wrap">
             <table id="vehicle-appointment-table">
-                <thead><tr><th>Date</th><th>Duration</th><th>Status</th><th>Repair Order</th><th>Note</th><th></th></tr></thead>
+                <thead><tr><th data-sort-field="start" class="{{ appointmentSort.sort == 'start' ? 'is-sorted-' ~ appointmentSort.dir }}">Date</th><th>Duration</th><th>Status</th><th>Repair Order</th><th>Note</th><th></th></tr></thead>
                 <tbody>
                     {% for appointment in appointments %}
                         <tr>

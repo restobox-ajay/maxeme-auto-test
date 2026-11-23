@@ -22,11 +22,12 @@
         {% endif %}
     </section>
 
-    <section class="table-card no-search no-paginate" id="invoice-payments">
+    <section class="table-card no-search no-paginate" id="invoice-payments" data-default-sort="default" data-default-dir="asc">
         <div class="table-header"><h2>Payments</h2></div>
         <div class="wide-table-wrap">
             <table>
-                <thead><tr><th>When</th><th>Method</th><th class="num">$</th><th>Note</th>{% if canEdit %}<th></th>{% endif %}</tr></thead>
+                {% set sorted = 'is-sorted-' ~ paymentSort.dir %}
+                <thead><tr><th data-sort-field="paidAt" class="{{ paymentSort.sort == 'paidAt' ? sorted }}">When</th><th data-sort-field="method" class="{{ paymentSort.sort == 'method' ? sorted }}">Method</th><th data-sort-field="amount" class="num {{ paymentSort.sort == 'amount' ? sorted }}">$</th><th>Note</th>{% if canEdit %}<th></th>{% endif %}</tr></thead>
                 <tbody>
                     {% for payment in payments %}
                         <tr id="payment_{{ payment.id }}">

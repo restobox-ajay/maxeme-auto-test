@@ -16,15 +16,15 @@
         {% endblock %}
     {% endembed %}
 
-    <section class="table-card no-paginate" id="admin-card">
+    <section class="table-card no-paginate" id="admin-card" data-default-sort="default" data-default-dir="asc">
         <div class="wide-table-wrap">
             <table id="admin-table">
                 <thead>
                     <tr>
-                        <th>First name</th>
-                        <th>Last name</th>
-                        <th>Email</th>
-                        <th>Username</th>
+                        {# Sortable as in the mockup (admin-users.html); sort / dir in the URL. #}
+                        {% for key, label in { first_name: 'First name', last_name: 'Last name', email: 'Email', username: 'Username' } %}
+                            <th data-sort-field="{{ key }}" class="{{ list and list.sort == key ? 'is-sorted-' ~ list.dir }}">{{ label }}</th>
+                        {% endfor %}
                         <th>Roles</th>
                         <th>Status</th>
                         {% if canManage %}<th style="text-align:center;">Actions</th>{% endif %}

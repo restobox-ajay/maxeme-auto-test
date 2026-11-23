@@ -26,8 +26,9 @@
 {%- endmacro %}
 
 {# A header app.js makes sortable, marked with the current sort. #}
-{% macro sort_th(page, key, label, attrs = '') -%}
-    <th data-sort-field="{{ key }}" class="{{ page.query.sort == key ? 'is-sorted-' ~ page.query.dir }}" {{ attrs|raw }}>{{ label }}</th>
+{# cls: the header's own class (e.g. "num"), kept beside the sorted mark. #}
+{% macro sort_th(page, key, label, attrs = '', cls = '') -%}
+    <th data-sort-field="{{ key }}" class="{{ cls }}{{ page.query.sort == key ? (cls ? ' ' : '') ~ 'is-sorted-' ~ page.query.dir }}" {{ attrs|raw }}>{{ label }}</th>
 {%- endmacro %}
 
 {# The search box app.js submits as ?q=. #}

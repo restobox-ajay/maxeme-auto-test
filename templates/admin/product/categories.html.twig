@@ -59,7 +59,7 @@
                     <th>Parent category</th>
                     <th>Status</th>
                     <th>Client catalog</th>
-                    <th>Products</th>
+                    <th data-sort-field="products" class="{{ currentSort|default('') == 'products' ? 'is-sorted-' ~ currentDir }}">Products</th>
                     <th>Actions</th>
                 </tr>
                 <tr class="filter-row">
