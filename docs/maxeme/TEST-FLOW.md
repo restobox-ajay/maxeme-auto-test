@@ -169,7 +169,7 @@ Receptionist and the Secretary roles.
 | F10 | Work order PDF from an invoice (`/admin/invoices/{key}/work-order.pdf`) gave a 500; its "printed" call too | `WorkOrderController` (missing `use` lines) | **Fixed** 7bd25d4 |
 | F11 | The printed invoice showed phones as digits ("6045550101"), the quote and work order as "604-555-0101" | `PrintedDocuments`, `_invoice_document.html.twig` | **Fixed** b125e22 |
 | F12 | Part stock and product changes (core ProductInventory, InventoryDetail, ProductCore) were filed under "System" in the Activity Log | `AuditLogEnricher` | **Fixed**: filed under Parts and service; 285 existing entries moved |
-| F13 | The repair order's Odometer In is not copied to the vehicle (the older invoice form does, as legacy did), so the vehicle page and the reminders show the last mileage typed on the vehicle | `RepairOrderWriter` / `RepairOrderInvoicing` | Open: decide whether saving (or invoicing) a repair order should update the vehicle's mileage |
+| F13 | The repair order's Odometer In is not copied to the vehicle (the older invoice form does, as legacy did), so the vehicle page and the reminders show the last mileage typed on the vehicle | `RepairOrderWriter` / `RepairOrderInvoicing` | **Fixed** 2d18939: saving a repair order copies Odometer In to the vehicle when it is higher than the vehicle's reading (same unit compared); a lower reading leaves it. Checked 2026-11-23: 50000 → 52000; a later 51000 left 52000 |
 
 ## Recheck on 2026-11-20 (local, Chrome)
 
@@ -226,6 +226,39 @@ The flows the old import has no data for, seeded through the app itself and comp
 | C10 | Import result | Back and Products buttons; Product Import stays selected in the sidebar | Back only; nothing selected in the sidebar |
 
 Done on 2026-11-22: C6 `2996ac2` (vendor Logs / Delete refused while used, stock movements link, Add Contact dialog; its Payments tab was taken out again: the client asked for it to go in thread 14028, which the mockup drawing predates), C7 `aea685d` (category Logs, Status "All"), C8 `0919c4a` (stock page shows the product's vendor), C9 `76d7fa3` (two-column vendor form, Payment term dropdown), C10 `b12bda8` (import result Back / Products, Product Import selected). C1–C5: see `VISUAL-CHECK-2026-11-21.md`.
+
+## Full run on 2026-11-23 (local, Chrome)
+
+Sections 1–12 again from scratch, with new "QA2" records. Section 13 (log in as a Technician) was not
+run: it needs a password typed into the browser, which is left to you.
+
+| Section | Result |
+|---|---|
+| 1 Settings | GST 5 / PST 7, tax classes E / G / S, prefixes RO- WO- INV- QO- |
+| 2 Catalogue | QA2 Test Category, QA2-LAB (100/h, S), QA2-FEE (5, E), QA2-PAD-1 (product 60, sale 45, Main 10), QA2 Brake Service (service 346, 280, lines labour 1.5 h / pads × 2 / levy charged through / discount −10), reminder rule 180 days. **F19** found here |
+| 3 Client and vehicle | Qa2 Testclient (client 4061), address, note (author and time shown), vehicle 6231 (plate QA2234, 50000 km); sidebar Customer by phone "604-555-0199" and Vehicle by plate go straight to the record |
+| 4 Appointment → RO | 11/24 11:00 → "Appointment booked. Repair order RO-015198 created."; odometer 52,000, tag, repair name, pickup address, service loaded with its lines: subtotal 275.00, GST 13.50, PST 18.90 (levy exempt), total 307.40. Vehicle mileage 50000 → 52000 (F13). **F20** found here |
+| 5 Quote | QO-015198, QUOTE / 報價單, label, lines, totals; Save and Email → Pending on Estimate; Approve by phone → Authorized, "✔ Accepted · by phone" |
+| 6 Shop | Check-in → appointment and RO In Progress (so the board drag to In Progress is not needed); work order WO-015198 with technician, mileage, recommendations |
+| 7 Invoice and payment | Board drag to Completed → "Issue the invoice now?" → INV-015843 (same lines and totals); 400 refused ("more than the balance due"); Debit 100 + Credit Card 207.40 → Paid, RO Invoiced, appointment Completed; 2 pads left the stock ("Invoice INV-015843 · RO-015198 (part of a service) −2"); Change Invoice # to QA2-CUSTOM-77, found by the sidebar box, cleared back to INV-015843; PDF (application/pdf) and Save and Email open |
+| 8 After the job | Reminder queue entry (due 05/21/2027 = +180 days), View email, Send now → Sent, phone status Reached saved; manual reminder added; vehicle repair history and client tabs list RO-015198 |
+| 9 Reports | Payment Report: INV-015843 "Debit 100.00 + Credit Card 207.40", 275.00 + 32.40 = 307.40; Service Report: labour 190 + parts 90 − 10 + fee 5 = 275; both CSVs have the row |
+| 10 Lists | Checked in full the day before (`LIST-CHECK-2026-11-23.md`) |
+| 11 Logs | Every create / update / email / payment / stock movement of the run is in the Activity Log; Error Log: only F5 (no From address) and **F21** |
+| 12 Edge cases | Walk-in RO-015199 (existing client, vehicle filled, F1 still fixed; odometer 51000 left the vehicle at 52000) → Completed → yellow "Issue the invoice now?" bar → INV-015844 → Mark Paid (Cash 22.40); RO-015200 Cancelled (no Delete on a repair order); completed appointment has no Delete and its form shows "Paid and locked"; Inactive products are not offered in part searches |
+
+### Findings
+
+| # | Finding | Where | State |
+|---|---|---|---|
+| F19 | The item search on a service's lines (and a repair order's) showed no suggestions on a short list: the menu was drawn inside the table's scroll box and cut off. Also, a slower answer to an earlier keystroke could replace the list ("QA2" listed every "QA" part and every fee) | `maxeme.js` MxAutocomplete | **Fixed** 2d18939: the menu floats at its input (above it when there is no room below) and only the answer for the current text is shown |
+| F20 | Every repair order save logged "Appointment #… updated" with no change (the same start / end written again) | `Appointment::reschedule()`, `setPromisedAt()` | **Fixed** 2d18939: the same times are no change |
+| F21 | An error in the middle of a save left half of it in the database: the Error Log's own flush committed it (RO-015200 was saved without its appointment when a save failed; that save error came from the F20 change and was fixed before commit) | core `ErrorLogSubscriber` | **Fixed** 2d18939: the error row is a plain DBAL insert, as `ErrorLogWriter` already did. Checked: errors are still recorded, with the staff user |
+| F22 | Reminders › "Previous Appointment" for a queue entry shows the repair order's created date (11/22) and number, not the appointment's date (11/24) | `reminder/index.html.twig:71` | Open, small: left as it is |
+
+New QA2 records: client 4061, vehicle 6231, service 346, product 60, appointment 17721, RO-015198 / INV-015843
+(payments Debit 100 + Credit Card 207.40), RO-015199 / INV-015844 (Cash 22.40), RO-015200 (Cancelled),
+RO-015201 (open, appointment 11/26 10:00), reminder queue entry 4, one manual reminder.
 
 ## Server steps for these fixes (when deploying)
 
