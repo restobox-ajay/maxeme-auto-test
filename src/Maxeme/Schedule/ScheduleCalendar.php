@@ -72,7 +72,9 @@ final class ScheduleCalendar
             'title' => implode(' ', $lines),
             'start' => $this->local($appointment->getStartTime()),
             'end' => $this->local($appointment->getEndTime()),
-            'classNames' => ['appt-' . $appointment->getStatus()->value],
+            'classNames' => ['appt-' . $appointment->getStatus()->value, ...($appointment->isFixedOnCalendar() ? ['appt-fixed'] : [])],
+            // Completed, cancelled or paid: no dragging or resizing (mockup appointments.html).
+            ...($appointment->isFixedOnCalendar() ? ['editable' => false] : []),
             ...($colour !== null ? ['backgroundColor' => $colour, 'borderColor' => $colour] : []),
             'extendedProps' => [
                 'status' => $appointment->getStatus()->value,

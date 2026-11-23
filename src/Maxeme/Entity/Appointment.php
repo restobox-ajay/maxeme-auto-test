@@ -108,6 +108,12 @@ class Appointment
         }
     }
 
+    /** Stays where it is on the calendar (mockup appointments.html): completed, cancelled, or locked. */
+    public function isFixedOnCalendar(): bool
+    {
+        return $this->isLocked() || in_array($this->status, [AppointmentStatus::Complete, AppointmentStatus::Cancelled], true);
+    }
+
     /** Its own technician, else its repair order's: the one shown on the calendar and the lists. */
     public function getShownTechnician(): ?AdminUser
     {

@@ -318,6 +318,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-calendar .fc-timegrid-event-harness:hover .fc-timegrid-event { box-shadow: 0 6px 18px rgba(0,0,0,.25); min-height: max-content; }
 .mx-calendar .fc-timegrid-event-harness:hover .fc-event-main { overflow: visible; }
 .mx-calendar .fc-event.appt-cancelled { background: var(--mx-appt-cancelled); border-color: var(--mx-appt-cancelled); text-decoration: line-through; }
+.mx-calendar .fc-event.appt-fixed { cursor: pointer; }
 .page-alerts .alert { margin-bottom: 14px; }
 
 /* Icon strip beside a clicked event (legacy css/calendar.css #calendar_event_edit_ui) */

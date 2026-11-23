@@ -104,6 +104,9 @@ final class AppointmentService
     public function move(Appointment $appointment, string $start, string $end): void
     {
         $appointment->assertUnlocked();
+        if ($appointment->isFixedOnCalendar()) {
+            throw new \DomainException(sprintf('A %s appointment stays where it is: it can not be moved.', strtolower($appointment->getStatus()->label())));
+        }
         $appointment->reschedule(...$this->times($start, $end));
         $this->entityManager->flush();
     }
