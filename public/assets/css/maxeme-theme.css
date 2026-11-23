@@ -756,7 +756,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-method-filter > summary { padding: 0 7px; height: 30px; line-height: 30px; background: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 .mx-method-list { min-width: 180px; max-height: 60vh; overflow: auto; }
 .mx-method-option { display: flex !important; align-items: center; gap: 8px; padding: 4px 6px; font-weight: normal; text-transform: none; letter-spacing: 0; white-space: nowrap; }
-.mx-method-option input { width: 14px; height: 14px; margin: 0; flex: none; }
+.mx-method-option input, .table-card .filter-row .mx-method-option input { width: 14px; height: 14px; margin: 0; flex: none; }
 .mx-remark-cell { min-width: 260px; white-space: normal; }
 .mx-remark-cell .mx-remark-text { white-space: pre-wrap; }
 .mx-remark-edit { border: 0; background: none; cursor: pointer; color: #6b7280; padding: 0 2px; margin-left: 4px; }
