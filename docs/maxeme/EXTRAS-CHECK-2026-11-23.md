@@ -93,3 +93,47 @@ Appointments paging over 10 rows; Service Report "latest finished RO" hint and e
 Ordered / Charged columns and "Show lines already charged"; Edit issued invoice Paid / Balance due and Add payment;
 Activity detail Record link; Database Console "Switch off now"; Email Log Module options "Service Reminder" / "Other"
 and per-page select; Vendors row "Logs"; Appointment Status sort on Repair Orders.
+
+## To do (agreed 2026-11-23, one commit each, checked in Chrome)
+
+Done: invoice builder Mileage is a fixed unit label showing the invoice's own unit (KM, or MILES when saved
+in miles) (`e2ca759`).
+
+1. **Switch off the platform pages the mockup doesn't have** (section 1): answer "Page not found" for the core
+   pages (Orders, Quotes, Credit Notes, Sales Returns, Customers, Warehouses, Price Lists, Carts, Backorders,
+   Payment Terms, Shipping Zones, Sales Tax, Email Templates, Custom Fields, Fulfillment Regions, Redirects,
+   Front-end Menu, Connectors, Help, Onboarding, core Settings, User Manager, core Audit Log) and the unused pages
+   of the two active modules (Procurement: purchase orders, bills, RFQs, receiving, debit memos, AP aging, vendor
+   prices / returns / sheet import, hub; Inventory Depth: bins, cycle count, lots, low stock, pack conversion,
+   shipments, tracking, hub). Nothing deleted. Keep what the mockup pages use (vendors, stock pages, products with
+   Pricing / Inventory, imports). Then the links into them: vendor ⋯ Purchase Orders / Create Purchase Order,
+   "View all bills", "Aged breakdown"; Back on Product Lookup, Stock, Stock Adjustment, Movement History and
+   Vendors → Products; Database Console Back → Settings.
+2. **Appointments › List as the mockup draws it**: all appointments, "All appointments", newest first, 20 a page,
+   no ‹ › day steps / All days / date picker; "today" fills the Date box; columns Date, Status, Client, Phone,
+   Vehicle (plain), Repair order (type badge for non-repair), $, Description, Technician, Action; no "For" column
+   or filter; actions Repair order / + Repair order, Client, Invoice, Delete (not on completed); no Check-in / Edit.
+3. **Invoice builder totals**: read-only Paid and Balance due with "Add payment · View payments" ("Save first" on
+   a new invoice) in place of Payment method / paid amount / Paid checkbox / Change; part "−" removes at once
+   (no confirm, the last row too).
+4. **Shown on more pages than the mockup**: Out of date badge and Sync Repair Order off the Invoices list (keep on
+   the repair order's Invoices tab); Remark card off the printed invoice (keep on the repair order document);
+   Out of date banner down to the mockup's Sync button.
+5. **Hints and help text** the mockup doesn't have (sections 2–5): board drag hint and "Services done" tooltip,
+   Approve / Decline hints, "Charged so far" extras and Issue-another intro, edit-issued-invoice hints, Recommendations
+   hint wording, Extended "(after check-in)", Products lead paragraph, Activity Log lead line, client inactive
+   banner extra sentence.
+6. **Confirm dialogs** the mockup doesn't have: deleting a filled service line or discount row on the repair order.
+7. **Small extra buttons and links**: client Appointments tab "+ Repair Order" and the role-based "Work Order";
+   Choose a client "Clear search" bar; UoM "Filter" button; Client List preferred-name link; client profile
+   Appointments card vehicle link; "Choose…" option on Add payment.
+8. **Settings / Logs**: Tax Classes and Payment Types card titles; Error Log Method / Summary to level / area,
+   File / Line and "(#id)" out; Email Log and Error Log Back → Appointments.
+9. **Dead markup**: the two hidden vehicle dialogs on the client page.
+10. **Platform extras on Parts & Service pages** (section 4): Products Pricing / Inventory tabs down to the mockup's
+    columns; product form one Main stock box; Stock Adjustment, Stock page and Import log down to the mockup's.
+    Biggest of the lot; to be planned page by page.
+11. **Ask first**: Edit user roles fallback (a guard for roles that can't be assigned there) and the Check your
+    email wording (security fix `c9edab4`) change behaviour, not just looks.
+
+Then the other way round (the last section above): what the mockup has and the app lacks.
