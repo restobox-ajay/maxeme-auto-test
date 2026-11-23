@@ -138,6 +138,63 @@ parameters:
             - admin_bundle_procurement_vendor_note_update
             - admin_bundle_procurement_vendor_note_delete
 
+    # Pages the mockup does not have, closed with "Page not found" (App\Maxeme\EventSubscriber\
+    # HiddenAdminPageSubscriber): core's B2B screens and the active modules' screens the shop does
+    # not use. Their code stays; take a path out of the list to open the page again. Kept open:
+    # everything the mockup's pages use (products with their Pricing / Inventory tabs, categories,
+    # units of measure, imports and the import log, stock pages, vendors, Error Log, Database
+    # Console) and, until the parts pages are trimmed, lot / serial tracking (tracking policies,
+    # the tracking worklist, lots), which those pages link to for a tracked product.
+    maxeme.hidden_admin_pages:
+        prefixes:
+            # Core: selling, customers and the B2B storefront
+            - /admin/order
+            - /admin/estimate
+            - /admin/invoice
+            - /admin/credit-memo
+            - /admin/credit-memo-types
+            - /admin/sales-return
+            - /admin/company
+            - /admin/carts
+            - /admin/backorders
+            - /admin/price-list
+            - /admin/payment-terms
+            - /admin/sales-tax
+            - /admin/warehouse
+            - /admin/fulfillment-region
+            - /admin/company-fulfillment-region
+            - /admin/guest-fulfillment-regions
+            - /admin/shipping-zones
+            - /admin/email-template
+            - /admin/custom-fields
+            - /admin/redirect
+            - /admin/frontend-menu-management
+            - /admin/dashboard/recent-orders
+            # Core: platform set-up and tools (the shop has its own Settings, Admin User and Activity Log)
+            - /admin/settings
+            - /admin/user
+            - /admin/audit-log
+            - /admin/messenger
+            - /admin/connectors
+            - /admin/bundle-management
+            - /admin/onboarding
+            - /admin/help
+            - /admin/technical-docs
+            # Procurement: all but the vendor pages
+            - /admin/bundles/procurement
+            # Inventory Depth: what the stock pages don't use
+            - /admin/bundles/inventory-depth/bins
+            - /admin/bundles/inventory-depth/cycle-count
+            - /admin/bundles/inventory-depth/low-stock
+            - /admin/bundles/inventory-depth/pack-conversion
+            - /admin/bundles/inventory-depth/shipments
+            - /admin/bundles/inventory-depth/stock/location
+            - /admin/bundles/inventory-depth/stock/serial
+        exact:
+            - /admin/bundles/inventory-depth
+        except:
+            - /admin/bundles/procurement/vendors
+
     # The legacy Symfony 2 app's MySQL database, read only by app:maxeme:import-legacy.
     maxeme.legacy_database_url: '%env(default::LEGACY_DATABASE_URL)%'
 

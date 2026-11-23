@@ -99,7 +99,7 @@ and per-page select; Vendors row "Logs"; Appointment Status sort on Repair Order
 Done: invoice builder Mileage is a fixed unit label showing the invoice's own unit (KM, or MILES when saved
 in miles) (`e2ca759`).
 
-1. **Switch off the platform pages the mockup doesn't have** (section 1): answer "Page not found" for the core
+1. **DONE** (see the commit "Close the platform pages the mockup does not have"). **Switch off the platform pages the mockup doesn't have** (section 1): answer "Page not found" for the core
    pages (Orders, Quotes, Credit Notes, Sales Returns, Customers, Warehouses, Price Lists, Carts, Backorders,
    Payment Terms, Shipping Zones, Sales Tax, Email Templates, Custom Fields, Fulfillment Regions, Redirects,
    Front-end Menu, Connectors, Help, Onboarding, core Settings, User Manager, core Audit Log) and the unused pages
@@ -108,7 +108,9 @@ in miles) (`e2ca759`).
    shipments, tracking, hub). Nothing deleted. Keep what the mockup pages use (vendors, stock pages, products with
    Pricing / Inventory, imports). Then the links into them: vendor ⋯ Purchase Orders / Create Purchase Order,
    "View all bills", "Aged breakdown"; Back on Product Lookup, Stock, Stock Adjustment, Movement History and
-   Vendors → Products; Database Console Back → Settings.
+   Vendors → Products; Database Console Back → Settings. As built: `maxeme.hidden_admin_pages` in
+   `config/packages/maxeme.yaml`; lot / serial tracking pages left open for item 10; the vendor page's purchase
+   order, bills and AP aging links show the mockup's messages ("… not used by the shop") instead of opening a page.
 2. **Appointments › List as the mockup draws it**: all appointments, "All appointments", newest first, 20 a page,
    no ‹ › day steps / All days / date picker; "today" fills the Date box; columns Date, Status, Client, Phone,
    Vehicle (plain), Repair order (type badge for non-repair), $, Description, Technician, Action; no "For" column

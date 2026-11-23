@@ -55,8 +55,9 @@
         <span class="company-action-more row-action-menu">
             <button class="mini-action row-action-toggle" type="button" aria-expanded="false" aria-label="More vendor actions"></button>
             <span class="row-action-dropdown company-action-dropdown">
-                <a href="{{ path('admin_bundle_procurement_purchase_orders', {filters: {vendor: vendor.id}}) }}">View Purchase Orders</a>
-                <a href="{{ path('admin_bundle_procurement_purchase_order_new', {vendor: vendor.id}) }}">Create Purchase Order</a>
+                {# Maxeme mockup: the shop keeps no purchase orders of its own, so these say where to look instead. #}
+                <a href="#" data-toast="Purchase orders are the stock receipts listed here: see Movement History for every one.">View Purchase Orders</a>
+                <a href="#" data-toast="Purchase orders are not created here: record the receipt on Stock Adjustment when the goods arrive.">Create Purchase Order</a>
             </span>
         </span>
     </nav>
@@ -104,9 +105,13 @@
                 </table>
                 <div class="table-footer">
                     <span class="table-count"></span>
-                    {% if documentListUrl is not null %}
+                    {% if documentListUrl is not null or documentListToast is not null %}
                         <div class="table-footer-actions">
-                            <a class="button outline" href="{{ documentListUrl }}">{{ documentListLabel }}</a>
+                            {% if documentListUrl is not null %}
+                                <a class="button outline" href="{{ documentListUrl }}">{{ documentListLabel }}</a>
+                            {% else %}
+                                <a class="button outline" href="#" data-toast="{{ documentListToast }}">{{ documentListLabel }}</a>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
@@ -149,7 +154,7 @@
                             — open bills only.
                         </p>
                     {% endif %}
-                    <p><a class="link-strong" href="{{ agingUrl }}">Aged breakdown</a></p>
+                    <p><a class="link-strong" href="#" data-toast="AP Aging is not used by the shop.">Aged breakdown</a></p>
                 </div>
             </article>
 

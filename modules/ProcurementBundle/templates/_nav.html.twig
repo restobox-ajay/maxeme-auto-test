@@ -20,7 +20,8 @@
             {% if lead is defined and lead %}<p class="lead">{{ lead }}</p>{% endif %}
         </div>
         <div class="panel-actions">
-            <a class="button back-button" href="{{ path('admin_bundle_procurement_index') }}">Back</a>
+            {# Maxeme mockup: Back goes to Products (the hub page is closed). #}
+            <a class="button back-button" href="{{ path('admin_product_detail_index') }}">Back</a>
             {# The create button belongs in the title row, where /admin/company puts Create Company,
                rather than on a form sitting on the list. Optional, so every screen that includes
                this partial without one is unchanged — `is defined` rather than `default()` because

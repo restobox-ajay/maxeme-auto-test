@@ -403,8 +403,10 @@ final class VendorController extends AbstractProcurementController
             'link' => 'Number',
             'status' => 'Status',
             'empty' => 'This vendor has not billed us yet.',
-            'listRoute' => 'admin_bundle_procurement_bills',
+            // Maxeme mockup: the shop does not use bills (their pages are closed), so the link says so.
+            'listRoute' => null,
             'listLabel' => 'View all bills for this vendor',
+            'listToast' => 'Bills are not used by the shop.',
         ],
         'returns' => [
             'label' => 'Returns',
@@ -483,7 +485,6 @@ final class VendorController extends AbstractProcurementController
             // What we owe this vendor, taken from the report the AP Aging drill-down came from
             // rather than re-derived here; see openBalances().
             'openBalances' => $this->openBalances($vendor),
-            'agingUrl' => $this->generateUrl('admin_bundle_procurement_bill_aging', ['filters' => ['vendor' => $vendor->getId()]]),
             'documentTabs' => $documentTabs,
             'documentColumns' => $tab['columns'],
             'documentLinkColumn' => $tab['link'],
@@ -494,6 +495,7 @@ final class VendorController extends AbstractProcurementController
                 ? null
                 : $this->generateUrl($tab['listRoute'], ['filters' => ['vendor' => $vendor->getId()]]),
             'documentListLabel' => $tab['listLabel'],
+            'documentListToast' => $tab['listToast'] ?? null,
         ]);
     }
 

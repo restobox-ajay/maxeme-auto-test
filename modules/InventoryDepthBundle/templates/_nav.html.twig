@@ -10,7 +10,8 @@
             {% for action in actions|default([]) %}
                 <a class="button {{ action.class|default('') }}" href="{{ action.href }}">{{ action.label }}</a>
             {% endfor %}
-            <a class="button back-button" href="{{ path('admin_bundle_inventory_depth_index') }}">Back</a>
+            {# Maxeme mockup: Back goes to Products (the hub page is closed). #}
+            <a class="button back-button" href="{{ path('admin_product_detail_index') }}">Back</a>
             {% if createPath is defined and createPath %}
                 <a class="button primary" href="{{ createPath }}">{{ createLabel is defined ? createLabel : 'Create' }}</a>
             {% endif %}

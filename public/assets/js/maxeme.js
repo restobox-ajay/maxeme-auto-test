@@ -592,3 +592,18 @@
         watch.observe(overlay, { attributes: true, attributeFilter: ['class'] });
     };
 }());
+
+/*
+ * <a href="#" data-toast="…">: a link the mockup keeps for something the shop does not use; it says
+ * so in a toast instead of opening a page (vendor page: purchase orders, bills, AP aging).
+ */
+(function () {
+    'use strict';
+
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest('[data-toast]');
+        if (!link) { return; }
+        event.preventDefault();
+        if (window.WC && window.WC.showToast) { window.WC.showToast(link.getAttribute('data-toast'), 'info'); }
+    });
+}());
