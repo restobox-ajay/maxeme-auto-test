@@ -17,9 +17,9 @@
     {% set currentPage = page|default(1) %}
     {% set currentLimit = limit|default(100) %}
     {% set pageCount = max(1, (total / (currentLimit ?: 1))|round(0, 'ceil')) %}
-    {% set routeQuery = {q: search|default(''), sort: currentSort|default('id'), dir: currentDir|default('desc'), limit: currentLimit} %}
+    {% set routeQuery = {q: search|default(''), sort: currentSort|default('id'), dir: currentDir|default('desc'), limit: currentLimit, filters: filters|default({})} %}
     <section class="table-card error-log-grid no-paginate" 
-             data-ajax-url="{{ path('admin_error_log') }}"
+             data-ajax-url="{{ path('admin_error_log') }}" data-default-sort="id" data-default-dir="desc"
              data-current-page="{{ currentPage }}"
              data-per-page="{{ currentLimit }}"
              data-total="{{ total }}"
@@ -46,14 +46,10 @@
                         <th>Actions</th>
                     </tr>
                     <tr class="filter-row">
-                        <th><input type="text" aria-label="Filter ID"></th>
-                        <th><input type="text" aria-label="Filter date"></th>
-                        <th><input type="text" aria-label="Filter method"></th>
-                        <th><input type="text" aria-label="Filter summary"></th>
-                        <th><input type="text" aria-label="Filter error description"></th>
-                        <th><input type="text" aria-label="Filter IP"></th>
-                        <th><input type="text" aria-label="Filter user"></th>
-                        <th><input type="text" aria-label="Filter meta data"></th>
+                        {# filters[field] in the URL (app.js), read back by SystemController::errorLog. #}
+                        {% for field, label in { id: 'ID', createdAt: 'date', method: 'method', summary: 'summary', message: 'error description', ip: 'IP', user: 'user', meta: 'meta data' } %}
+                            <th><input type="text" data-filter-field="{{ field }}" value="{{ filters[field]|default('') }}" aria-label="Filter {{ label }}"></th>
+                        {% endfor %}
                         <th></th>
                     </tr>
                 </thead>

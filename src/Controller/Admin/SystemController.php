@@ -195,6 +195,48 @@ final class SystemController extends AbstractAdminController
                ->setParameter('q', '%' . $search . '%');
         }
 
+        // The header filter row (filters[field] in the URL, as the other lists): each box narrows
+        // the column it heads. Method / Summary / Description are read from the stored JSON.
+        $filters = $request->query->all()['filters'] ?? [];
+        $filters = is_array($filters) ? array_filter(array_map(static fn ($v): string => is_string($v) ? trim($v) : '', $filters), static fn (string $v): bool => $v !== '') : [];
+        foreach ($filters as $field => $text) {
+            $param = 'ef_' . preg_replace('/\W/', '', (string) $field);
+            $like = '%' . $text . '%';
+            switch ($field) {
+                case 'id':
+                    if (ctype_digit(ltrim($text, '#'))) {
+                        $qb->andWhere("e.id = :$param")->setParameter($param, (int) ltrim($text, '#'));
+                    } else {
+                        $qb->andWhere('1 = 0');
+                    }
+                    break;
+                case 'createdAt':
+                    // As shown ("11/20/2026", "11/20") or as stored ("2026-11-20").
+                    if (preg_match('~^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$~', $text, $m) === 1) {
+                        $like = '%' . (isset($m[3]) ? $m[3] : '') . '-' . str_pad($m[1], 2, '0', STR_PAD_LEFT) . '-' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '%';
+                    }
+                    $qb->andWhere("e.createdAt LIKE :$param")->setParameter($param, $like);
+                    break;
+                case 'method':
+                    $qb->andWhere("e.level LIKE :$param OR e.message LIKE :{$param}_json")
+                        ->setParameter($param, $like)->setParameter($param . '_json', '%"method":"' . $text . '%');
+                    break;
+                case 'summary':
+                    $qb->andWhere("e.area LIKE :$param OR e.message LIKE :$param")->setParameter($param, $like);
+                    break;
+                case 'message':
+                case 'meta':
+                    $qb->andWhere("e.message LIKE :$param")->setParameter($param, $like);
+                    break;
+                case 'ip':
+                    $qb->andWhere("e.ipAddress LIKE :$param")->setParameter($param, $like);
+                    break;
+                case 'user':
+                    $qb->andWhere("e.userType LIKE :$param OR e.userEmail LIKE :$param")->setParameter($param, $like);
+                    break;
+            }
+        }
+
         $totalQuery = clone $qb;
         $total = $totalQuery->select('COUNT(e.id)')->getQuery()->getSingleScalarResult();
 
@@ -260,7 +302,7 @@ final class SystemController extends AbstractAdminController
             'search' => (string) $search,
             'currentSort' => $sort,
             'currentDir' => strtolower($dir),
-            'filters' => [],
+            'filters' => $filters,
         ]);
     }
 
