@@ -10,7 +10,7 @@ git push dev main
 
 `dev` = `ssh://maxemend@maxemenew.dev.rp017.webhelplogin.com:2200/home/maxemend/app-root`, a plain repo on the
 server with `receive.denyCurrentBranch=updateInstead`: the push updates the files, then the `post-receive` hook
-(`~/app-root/.git/hooks/post-receive`, not in git) finishes the deploy and prints what it did:
+(`~/app-root/.git/hooks/post-receive`, not in git; the server repo has `core.hooksPath` set to its own `.git/hooks`, as the composer scripts would otherwise point it at `.githooks`) finishes the deploy and prints what it did:
 
 - `composer install --no-dev` when `composer.json` / `composer.lock` changed (`~/composer.phar`)
 - `doctrine:migrations:migrate`
