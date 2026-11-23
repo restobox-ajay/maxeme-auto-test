@@ -25,7 +25,7 @@ the change here and push instead.
 |---|---|
 | `app-root/` | the app (branch `main`); `711`, so the web server passes through but cannot list |
 | `app-root/.env.local` | server settings, not in git (`600`): `APP_ENV=prod`, its own `APP_SECRET`, `DEFAULT_URI` and `ADMIN_HOST` = the dev host, `MAILER_DSN="null://null"`, `IMPORT_PHP_BINARY` |
-| `app-root/var/data_prod.db` | SQLite (`600`), a copy of the local database of 2026-11-23 (real customer data from the legacy import, plus QA records) |
+| `app-root/var/data_prod.db` | SQLite (`600`). Copied from local on 2026-11-23, then cleaned the same day: no clients, vehicles, appointments, repair orders, invoices, payments, reminders, stock movements or logs; the real staff logins (11), the settings, tax classes, payment types, email templates, the real service catalogue (341) and parts (55, stock 0) kept; the test catalogue (QA / test services, all labour, government fees and service categories, QA parts, category and vendor) and the `@example.invalid` accounts removed. `var/data_prod.db.bak-20261122225344` is the uncleaned copy |
 | `app-root/public/` | web root; `~/public_html` is a link to it |
 | `app-root/public/mockup` | link to `mockup-root/public/mockup` |
 | `app-root/public/pull-*.php` | link to the mockup's "Proceed" pull page |
@@ -33,6 +33,10 @@ the change here and push instead.
 | `mockup-root/` | the mockup's own checkout (branch `mockup`, origin GitHub `axcelmediacorp/maxemeauto-symfony`); updated by its pull page, or `git push deploy mockup` from here |
 
 PHP: `/opt/cpanel/ea-php82/root/usr/bin/php` (8.2, the site's default).
+
+## Backups
+
+The server's SQLite is 3.26, which has no `VACUUM INTO`: back up with `PRAGMA wal_checkpoint(TRUNCATE)` then `cp -p`.
 
 ## Email
 
