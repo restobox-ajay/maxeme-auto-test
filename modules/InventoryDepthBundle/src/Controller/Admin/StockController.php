@@ -409,7 +409,8 @@ final class StockController extends AbstractInventoryDepthController
     /** The one place a note's timestamp is turned into display text, so the list and the JSON agree. */
     private function productNoteDate(ProductNote $note): string
     {
-        return $note->getCreatedAt()->format('M j, Y g:i A');
+        // In the shop's time zone, as every other note (stored UTC).
+        return $note->getCreatedAt()->setTimezone($this->appSettings->timezone())->format('M j, Y g:i A');
     }
 
     /** @return list<array{id:int,date:string,author:string,note:string}> */
