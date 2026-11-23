@@ -70,6 +70,7 @@ final class StockController extends AbstractInventoryDepthController
         private readonly ProductBarcodeSearchResolver $barcodeSearch,
         private readonly TrackingPolicyRepository $trackingPolicies,
         private readonly ProductSalesResolver $sales,
+        private readonly \App\Service\AppSettings $appSettings,
     ) {
         parent::__construct($em, $bundleStatusRepo, $inventoryModes);
     }
@@ -924,7 +925,8 @@ final class StockController extends AbstractInventoryDepthController
             $reference = (string) $group->getReference();
 
             return [
-                'date' => $group->getOccurredAt()->format('Y-m-d'),
+                // The shop's date: occurredAt is UTC, already tomorrow in the shop's evening.
+                'date' => $group->getOccurredAt()->setTimezone($this->appSettings->timezone())->format('Y-m-d'),
                 'type' => 'movement',
                 'label' => ucfirst(str_replace('_', ' ', $group->getType())) . ($reference !== '' ? ' ' . $reference : ''),
                 'quantity' => $sign . (str_contains($quantity, '.') ? rtrim(rtrim($quantity, '0'), '.') : $quantity),

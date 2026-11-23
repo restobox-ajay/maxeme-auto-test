@@ -9,6 +9,7 @@ use App\Contract\Inventory\ProductSalesProviderInterface;
 use App\Entity\ProductCore;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\RepairOrder;
+use App\Maxeme\Schedule\ScheduleSettings;
 use App\Repository\BundleStatusRepository;
 use App\Service\QuantityScale;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +31,7 @@ final class RepairOrderPartActivity implements ProductActivityProviderInterface,
         private readonly EntityManagerInterface $entityManager,
         private readonly DocumentNumbers $numbers,
         private readonly UrlGeneratorInterface $router,
+        private readonly ScheduleSettings $schedule,
     ) {
     }
 
@@ -62,7 +64,8 @@ final class RepairOrderPartActivity implements ProductActivityProviderInterface,
             }
             $quantity = QuantityScale::canonical((string) $movement->getQuantity());
             $rows[] = [
-                'date' => $group->getOccurredAt()->format('Y-m-d'),
+                // The shop's date: stored in UTC, which is already tomorrow in the shop's evening.
+                'date' => $this->schedule->toLocal($group->getOccurredAt())->format('Y-m-d'),
                 'label' => $label,
                 'quantity' => ($out ? '-' : '+') . self::plain($quantity),
                 'url' => $repairOrder !== null ? $this->router->generate('maxeme_repair_order_invoices', ['id' => $repairOrder->getId()]) : null,
