@@ -17,6 +17,10 @@ DirectoryIndex index.php index.html
     RewriteCond %{ENV:REDIRECT_STATUS} =""
     RewriteRule ^index\.php(?:/(.*)|$) %{ENV:BASE}/$1 [R=301,L]
 
+    # The static mockup beside the app (dev server: /mockup/ links to its own checkout) is never the
+    # app's: a missing file there is Apache's 404, not a Symfony one in the Error Log.
+    RewriteRule ^mockup(/|$) - [L]
+
     # Real files and folders are served as they are (a folder such as /mockup/ by its index.html);
     # everything else goes to Symfony.
     RewriteCond %{REQUEST_FILENAME} !-f
