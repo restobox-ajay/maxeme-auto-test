@@ -37,15 +37,26 @@ PHP: `/opt/cpanel/ea-php82/root/usr/bin/php` (8.2, the site's default).
 ## Email
 
 None leaves this server: `MAILER_DSN="null://null"` (the only mail transport; the database holds display
-addresses only), no `messenger:consume` worker, `GHL_API_TOKEN` blank. Keep it that way while the database holds
-real customer addresses.
+addresses only) and `GHL_API_TOKEN` is blank, so the queue worker below delivers nothing anywhere. Keep it that way
+while the database holds real customer addresses.
+
+## Cron (installed 2026-11-23; file `~/maxeme.crontab`, earlier crontab kept as `~/crontab.bak-*`)
+
+Server time is Mountain (MST/MDT); the shop runs on Vancouver time, one hour behind.
+
+| When (server time) | Job | Log (`~/app-root/var/log/`) |
+|---|---|---|
+| every minute | `messenger:consume async --time-limit=55 --limit=100` (emails, GHL calls) | `messenger.log` |
+| every minute | `import:process` (queued product imports; exits at once when none) | `import.log` |
+| :15 every hour | `app:inventory-recalc` (stock buckets drift) | `cron.log` |
+| 06:00 (05:00 shop) | `app:maxeme:generate-reminders` | `cron.log` |
+| 10:00 (09:00 shop) | `app:maxeme:send-service-reminders` (marked Sent; nothing leaves the server) | `cron.log` |
+| hourly | mockup: `cd ~/mockup-root && scripts/pull.sh` (pulls the `mockup` branch from GitHub) | `~/pull.log` |
+
+Change: edit `~/maxeme.crontab`, then `crontab ~/maxeme.crontab`.
 
 ## Not set up
 
-- The old hourly cron runs `~/app-root/scripts/pull.sh`, which the app does not have (it used to be the mockup's
-  and failed every hour even then, as it ran outside the repo). Point it at `cd ~/mockup-root && scripts/pull.sh`
-  if the mockup should pull from GitHub on its own, or remove it.
-- No cron for the app (message queue, reminders): email is off anyway.
 - The mockup's old cache headers (`no-store` for HTML) were in the mockup's web-root `.htaccess`, which is no longer
   the web root.
 
