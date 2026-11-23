@@ -271,9 +271,36 @@
     'use strict';
 
     var menu = null;
+    var anchor = null;
     var cache = {};
 
-    function close() { if (menu) { menu.remove(); menu = null; } }
+    function close() { if (menu) { menu.remove(); menu = null; anchor = null; } }
+
+    /*
+     * The menu floats on the page (fixed, in <body>) at its input, so a scrolling table around the
+     * input (.wide-table-wrap on the service lines, the repair order jobs, the invoice items) cannot
+     * cut it off. Below the input, or above it when there is more room there.
+     */
+    function place() {
+        if (!menu || !anchor) { return; }
+        var box = anchor.closest('.mx-name-group').getBoundingClientRect();
+        var below = window.innerHeight - box.bottom;
+        menu.style.left = box.left + 'px';
+        menu.style.width = box.width + 'px';
+        if (below < 200 && box.top > below) {
+            menu.style.top = 'auto';
+            menu.style.bottom = (window.innerHeight - box.top + 2) + 'px';
+            menu.style.maxHeight = Math.min(260, box.top - 8) + 'px';
+        } else {
+            menu.style.bottom = 'auto';
+            menu.style.top = (box.bottom + 2) + 'px';
+            menu.style.maxHeight = Math.min(260, Math.max(120, below - 8)) + 'px';
+        }
+    }
+
+    window.addEventListener('resize', place);
+    // A scroll of the page or of the table moves the input: the menu follows it (its own scroll aside).
+    document.addEventListener('scroll', function (event) { if (menu && event.target !== menu) { place(); } }, true);
 
     function load(url) {
         if (cache[url]) { return Promise.resolve(cache[url]); }
@@ -325,7 +352,10 @@
             empty.textContent = options.empty;
             menu.appendChild(empty);
         }
-        input.closest('.mx-name-group').appendChild(menu);
+        menu.classList.add('is-floating');
+        anchor = input;
+        document.body.appendChild(menu);
+        place();
     }
 
     function suggest(input, options) {
@@ -333,7 +363,9 @@
         var url = options.url(input, term);
         if (!url) { close(); return; }
         load(url).then(function (items) {
-            if (document.activeElement === input) { open(input, items, term, options); }
+            // Only the answer for what the box holds now: an earlier, slower answer (the empty box on
+            // focus, a shorter word) arriving last would otherwise replace the right list.
+            if (document.activeElement === input && input.value.trim() === term) { open(input, items, term, options); }
         });
     }
 

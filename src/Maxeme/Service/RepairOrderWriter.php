@@ -25,6 +25,7 @@ use App\Maxeme\Enum\WorkStatus;
 use App\Maxeme\Staff\Technicians;
 use App\Maxeme\Document\DocumentNumbers;
 use App\Maxeme\Entity\Vehicle;
+use App\Maxeme\Enum\MileageUnit;
 use App\Maxeme\Enum\RepairOrderStatus;
 use App\Maxeme\Enum\ServiceLineType;
 use App\Maxeme\Schedule\ScheduleSettings;
@@ -167,9 +168,43 @@ final class RepairOrderWriter
             $fromAppointment->setTechnician($repairOrder->getMasterTechnician() ?? $fromAppointment->getTechnician());
         }
         $this->applyAppointments($repairOrder, $form->appointments, $vehicle);
+        self::updateVehicleMileage($repairOrder, $vehicle);
         $this->entityManager->flush();
 
         return [];
+    }
+
+    /**
+     * The repair order's Odometer In is kept on the vehicle (as the invoice form does, legacy
+     * setupVehicleInfo) when it is higher than the vehicle's reading, so the vehicle page and the
+     * reminders show the latest mileage. A lower reading (a typo, an older repair order saved again)
+     * leaves the vehicle as it is; a vehicle with no reading, or free text, takes it.
+     */
+    private static function updateVehicleMileage(RepairOrder $repairOrder, ?Vehicle $vehicle): void
+    {
+        $reading = self::mileageNumber($repairOrder->getMileage());
+        if ($vehicle === null || $reading === null) {
+            return;
+        }
+        $current = self::mileageNumber($vehicle->getMileage());
+        if ($current !== null && $vehicle->getMileageUnit() !== $repairOrder->getMileageUnit()) {
+            // Compared in the repair order's unit: 1 mile = 1.609344 km.
+            $current = $repairOrder->getMileageUnit() === MileageUnit::Km ? $current * 1.609344 : $current / 1.609344;
+        }
+        if ($current !== null && $reading <= $current) {
+            return;
+        }
+        $vehicle
+            ->setMileage($repairOrder->getMileage())
+            ->setMileageUnit($repairOrder->getMileageUnit());
+    }
+
+    /** "120000", "120,000" or "120000.5" as a number; null for blank or free text ("unknown"). */
+    private static function mileageNumber(?string $mileage): ?float
+    {
+        $text = str_replace(',', '', trim((string) $mileage));
+
+        return preg_match('/^\d+(\.\d+)?$/', $text) === 1 ? (float) $text : null;
     }
 
     /**

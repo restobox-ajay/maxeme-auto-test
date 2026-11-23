@@ -157,6 +157,9 @@ class Appointment
 
     public function setPromisedAt(?\DateTimeImmutable $promisedAt): void
     {
+        if ($promisedAt == $this->promisedAt) {
+            return; // the same time again is no change (see reschedule())
+        }
         $this->promisedAt = $promisedAt;
         $this->touch();
     }
@@ -181,6 +184,12 @@ class Appointment
     {
         if ($end <= $start) {
             throw new \DomainException('The appointment must end after it starts.');
+        }
+        // The same times again (a repair order saved with its appointments untouched) are no change:
+        // a new object with the same value would still be written and logged as "updated".
+        // (Not yet set when the constructor schedules a new appointment.)
+        if (isset($this->startTime, $this->endTime) && $start == $this->startTime && $end == $this->endTime) {
+            return;
         }
         $this->startTime = $start;
         $this->endTime = $end;

@@ -390,6 +390,7 @@ td.mx-inline input, td.mx-inline select { width: 100%; min-width: 80px; min-heig
 .mx-ac-menu a:hover { background: var(--mx-primary-soft); }
 .mx-ac-menu a small { color: var(--muted); }
 .mx-ac-menu mark { background: transparent; color: var(--mx-danger); font-weight: 700; }
+.mx-ac-menu.is-floating { position: fixed; right: auto; margin-top: 0; z-index: 2000; }
 .mx-ac-empty { padding: 8px 10px; font-size: 0.8rem; color: var(--muted); }
 .mx-email-error { color: var(--mx-danger); font-size: 0.82rem; min-height: 1em; margin: 4px 0 0; }
 .mx-help { font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; }

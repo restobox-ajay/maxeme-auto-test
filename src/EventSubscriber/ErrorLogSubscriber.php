@@ -4,17 +4,24 @@ namespace App\EventSubscriber;
 
 use App\Entity\AdminUser;
 use App\Entity\CustomerUser;
-use App\Entity\ErrorLog;
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\DBAL\Connection;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
+/**
+ * Records an uncaught request exception in error_log (Logs › Error Log).
+ *
+ * Plain DBAL insert, never the ORM: flushing the EntityManager here would also commit whatever the
+ * failing request had persisted or changed before it threw (a repair order half-saved without its
+ * appointments, for one), and the EntityManager may be closed after a failed flush anyway. The same
+ * rule as App\Maxeme\Audit\ErrorLogWriter.
+ */
 final class ErrorLogSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly Connection $connection,
         private readonly Security $security,
     ) {
     }
@@ -53,18 +60,17 @@ final class ErrorLogSubscriber implements EventSubscriberInterface
         try {
             [$userType, $userId, $userEmail] = $this->resolveUser();
 
-            $log = (new ErrorLog())
-                ->setLevel('error')
-                ->setArea($area)
-                ->setMessage(json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: $exception->getMessage())
-                ->setIpAddress($request->getClientIp())
-                ->setUserType($userType)
-                ->setUserId($userId)
-                ->setUserEmail($userEmail)
-                ->setReferrer($request->headers->get('referer'));
-
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            $this->connection->insert('error_log', [
+                'level' => 'error',
+                'area' => mb_substr($area, 0, 80),
+                'message' => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR) ?: $exception->getMessage(),
+                'created_at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s'),
+                'ip_address' => $request->getClientIp(),
+                'user_type' => $userType,
+                'user_id' => $userId,
+                'user_email' => $userEmail,
+                'referrer' => $request->headers->get('referer'),
+            ]);
         } catch (\Throwable) {
             // Avoid cascading failures if DB is down or logging itself errors.
         }
