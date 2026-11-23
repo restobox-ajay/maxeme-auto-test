@@ -62,8 +62,8 @@ final class InvoiceRepository extends ServiceEntityRepository
     public const LIST_SORTS = [
         'id' => 'i.id',
         'createdOn' => 'i.createdOn',
-        // As the columns read (mockup: first + last name; year, make and model), case-insensitive.
-        'client' => "LOWER(TRIM(CONCAT(COALESCE(i.clientFirstName, ''), ' ', COALESCE(i.clientLastName, ''))))",
+        // As the columns read (mockup: first + last name (preferred); year, make and model), case-insensitive.
+        'client' => "LOWER(TRIM(CONCAT(COALESCE(i.clientFirstName, ''), ' ', COALESCE(i.clientLastName, ''), ' ', COALESCE(i.clientPreferredName, ''))))",
         'vehicle' => "LOWER(TRIM(CONCAT(COALESCE(i.vehicleYear, ''), ' ', COALESCE(i.vehicleManufacturer, ''), ' ', COALESCE(i.vehicleModel, ''))))",
         'status' => 'i.status',
         'totalPrice' => 'i.totalPrice',

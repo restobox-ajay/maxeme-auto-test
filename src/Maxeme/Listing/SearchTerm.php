@@ -86,8 +86,9 @@ final class SearchTerm
                 }
             }
 
-            if ($number !== null && ctype_digit(ltrim($word, '#0')) && ltrim($word, '#0') !== '') {
-                $query->setParameter($param . '_number', (int) ltrim($word, '#0'));
+            // An invoice number as shown ("inv-015842", "wo-00015836", "#15842") or bare ("15842").
+            if ($number !== null && preg_match('~^(?:[a-z]{1,5}[-/]|#)?0*(\d+)$~', $word, $match) === 1 && (int) $match[1] > 0) {
+                $query->setParameter($param . '_number', (int) $match[1]);
                 $or[] = $number($query, $param . '_number');
             }
 

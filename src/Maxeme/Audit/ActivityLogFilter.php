@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Maxeme\Audit;
 
+use App\Maxeme\Listing\ListQuery;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -29,9 +30,10 @@ final class ActivityLogFilter
 
     public static function fromRequest(Request $request): self
     {
-        $userId = $request->query->getInt('user');
+        // "Everyone" sends user= (blank), which getInt() answered with a 400.
+        $userId = ListQuery::intParam($request, 'user');
         $record = trim((string) $request->query->get('record', ''));
-        $recordId = $request->query->getInt('id');
+        $recordId = ListQuery::intParam($request, 'id');
 
         return new self(
             role: trim((string) $request->query->get('role', '')),

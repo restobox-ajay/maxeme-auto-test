@@ -10,7 +10,9 @@ use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Listing\ListPage;
 use App\Maxeme\Listing\ListQuery;
+use App\Maxeme\Listing\SearchTerm;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -89,7 +91,37 @@ final class AppointmentRepository extends ServiceEntityRepository
             $query->andWhere('a.startTime >= :from AND a.startTime < :to')->setParameter('from', $from)->setParameter('to', $to);
         }
 
-        return ListPage::paginate($query, $list, self::LIST_SORTS, ['c.firstName', 'c.lastName', 'c.preferredName', 'c.phone1', 'v.manufacturer', 'v.model', 'a.note', 'ro.name'], self::LIST_FILTERS);
+        // Phones are stored as digits but shown as "604-555-0101": the Phone box and the search box
+        // compare digits only, so the number finds its appointments however it is typed.
+        $filters = self::LIST_FILTERS;
+        $phone = $list->filters['phone'] ?? '';
+        if ($phone !== '' && ($digits = preg_replace('/\D+/', '', $phone) ?? '') !== '') {
+            unset($filters['phone']);
+            $query->andWhere(self::phoneDigitsLike(':filter_phone_digits'))->setParameter('filter_phone_digits', '%' . $digits . '%');
+        }
+
+        return ListPage::paginate(
+            $query,
+            $list,
+            self::LIST_SORTS,
+            ['c.firstName', 'c.lastName', 'c.preferredName', 'c.phone1', 'v.manufacturer', 'v.model', 'a.note', 'ro.name'],
+            $filters,
+            static function (QueryBuilder $query, string $text): ?string {
+                $digits = preg_replace('/\D+/', '', $text) ?? '';
+                if (strlen($digits) < 3) {
+                    return null;
+                }
+                $query->setParameter('list_search_phone', '%' . $digits . '%');
+
+                return self::phoneDigitsLike(':list_search_phone');
+            },
+        );
+    }
+
+    /** The client's first or second phone, punctuation removed, LIKE $param. */
+    private static function phoneDigitsLike(string $param): string
+    {
+        return sprintf('(%s LIKE %2$s OR %3$s LIKE %2$s)', SearchTerm::stripped('c.phone1'), $param, SearchTerm::stripped('c.phone2'));
     }
 
     /** Whether the vehicle has an appointment starting at $since (UTC) or later. */

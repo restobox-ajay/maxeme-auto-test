@@ -36,7 +36,7 @@ final class ListQuery
     {
         $sort = (string) $request->query->get('sort', '');
         $dir = strtolower((string) $request->query->get('dir', $defaultDir));
-        $limit = $request->query->getInt('limit', self::LIMITS[0]);
+        $limit = self::intParam($request, 'limit', self::LIMITS[0]);
         $filters = [];
         $raw = $request->query->all()['filters'] ?? [];
         foreach (is_array($raw) ? $raw : [] as $field => $value) {
@@ -49,12 +49,28 @@ final class ListQuery
             search: trim((string) $request->query->get('q', '')),
             sort: in_array($sort, $sortKeys, true) ? $sort : $sortKeys[0],
             dir: $dir === 'desc' ? 'desc' : 'asc',
-            page: max(1, $request->query->getInt('page', 1)),
+            page: max(1, self::intParam($request, 'page', 1)),
             limit: in_array($limit, self::LIMITS, true) ? $limit : self::LIMITS[0],
             defaultSort: $sortKeys[0],
             defaultDir: $defaultDir,
             filters: $filters,
         );
+    }
+
+    /**
+     * A whole-number query parameter, or $default when it is missing, blank or not a number.
+     * InputBag::getInt() answers a blank value ("?page=", a form's empty select) with a
+     * 400 Bad Request instead.
+     */
+    public static function intParam(Request $request, string $key, int $default = 0): int
+    {
+        $value = $request->query->all()[$key] ?? null;
+        if (!is_scalar($value)) {
+            return $default;
+        }
+        $int = filter_var(trim((string) $value), \FILTER_VALIDATE_INT);
+
+        return $int === false ? $default : $int;
     }
 
     /** 'filter "x", name "y", sorted by name asc': the view, for the Activity Log line of an export. */

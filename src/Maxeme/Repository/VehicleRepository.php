@@ -31,7 +31,8 @@ final class VehicleRepository extends ServiceEntityRepository
 
     /** Vehicles list sort key => column, in its column order (first = default sort). */
     public const LIST_SORTS = [
-        'customer' => "LOWER(TRIM(CONCAT(COALESCE(c.firstName, ''), ' ', COALESCE(c.lastName, ''), ' ', COALESCE(c.preferredName, ''))))",
+        // As the Customer column reads: the name, else the first phone, else the email (mockup's owner()).
+        'customer' => "LOWER(COALESCE(NULLIF(TRIM(CONCAT(COALESCE(c.firstName, ''), ' ', COALESCE(c.lastName, ''), ' ', COALESCE(c.preferredName, ''))), ''), NULLIF(c.phone1, ''), NULLIF(c.phone2, ''), NULLIF(c.phone3, ''), NULLIF(c.phone4, ''), c.email, ''))",
         'year' => 'v.year',
         // The Model column reads "make model" (mockup sorts it that way), case-insensitive.
         'model' => "LOWER(TRIM(CONCAT(COALESCE(v.manufacturer, ''), ' ', COALESCE(v.model, ''))))",

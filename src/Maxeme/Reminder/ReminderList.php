@@ -72,7 +72,7 @@ final class ReminderList
 
         $filters = $list->filters;
         $search = mb_strtolower($list->search);
-        $rows = array_values(array_filter($rows, static fn (array $row): bool => ($search === '' || str_contains($row['search'], $search))
+        $rows = array_values(array_filter($rows, static fn (array $row): bool => ($search === '' || self::searchMatches($row['search'], $search))
             && (($filters['status'] ?? '') === '' || $row['status'] === $filters['status'])
             && (($filters['phone'] ?? '') === '' || $row['phoneStatus'] === $filters['phone'])
             && (($filters['email'] ?? '') === '' || $row['emailStatus'] === $filters['email'])));
@@ -123,6 +123,23 @@ final class ReminderList
      *
      * @return array{kind: string, reminder: ?Reminder, entry: ?ServiceReminderQueueEntry, date: \DateTimeImmutable, status: string, statusLabel: string, statusBadge: string, emailStatus: ?string, phoneStatus: string, search: string}
      */
+    /**
+     * The search box text is in the row's text; a phone number also matches however it is typed
+     * ("604-555-0101" finds a phone stored as 6045550101).
+     */
+    private static function searchMatches(string $haystack, string $search): bool
+    {
+        if (str_contains($haystack, $search)) {
+            return true;
+        }
+        if (strlen(preg_replace('/\D+/', '', $search) ?? '') < 3) {
+            return false;
+        }
+        $strip = static fn (string $text): string => str_replace(['-', ' ', '(', ')', '.', '+'], '', $text);
+
+        return str_contains($strip($haystack), $strip($search));
+    }
+
     private static function row(string $kind, ?Reminder $reminder, ?ServiceReminderQueueEntry $entry, \DateTimeImmutable $date, string $status, string $label, string $badge, ?string $emailStatus, string $phoneStatus, array $searchable): array
     {
         return [
