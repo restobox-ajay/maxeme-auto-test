@@ -50,6 +50,15 @@ final class ScheduleSettings
         return $time->setTimezone(new \DateTimeZone('UTC'));
     }
 
+    /**
+     * The shop's wall-clock time now, without an offset ("2026-11-22T23:15:00"): the calendars run in
+     * timeZone 'UTC' on shop times, so this is their "now" (today's date, the today button).
+     */
+    public function nowWallClock(): string
+    {
+        return $this->toLocal(new \DateTimeImmutable())->format('Y-m-d\TH:i:s');
+    }
+
     /** A stored (UTC) time as shop time. */
     public function toLocal(\DateTimeImmutable $time): \DateTimeImmutable
     {

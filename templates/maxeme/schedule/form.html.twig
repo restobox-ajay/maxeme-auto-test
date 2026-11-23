@@ -42,6 +42,7 @@
                       slotMaxTime: settings.dayEnd,
                       slotMinutes: settings.slotMinutes,
                       busySlotCount: settings.busySlotCount,
+                      shopNow: settings.nowWallClock,
                   }|json_encode }}">
                 {{ csrf_field() }}
                 {{ mx.form_errors(errors) }}
@@ -129,5 +130,5 @@
 {% block javascripts %}
     {{ parent() }}
     {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-    <script src="/assets/js/maxeme-appointment-form.js?v=5"></script>
+    <script src="/assets/js/maxeme-appointment-form.js?v=6"></script>
 {% endblock %}

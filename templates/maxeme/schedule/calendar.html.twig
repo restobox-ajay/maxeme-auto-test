@@ -121,6 +121,7 @@
                     slotMinTime: settings.dayStart,
                     slotMaxTime: settings.dayEnd,
                     slotMinutes: settings.slotMinutes,
+                    shopNow: settings.nowWallClock,
                     canManage: canManage,
                     canOpenClient: canOpenClient,
                     canEditRepairOrders: canEditRepairOrders,
@@ -134,6 +135,6 @@
     {{ parent() }}
     {% if not list %}
         {% include 'maxeme/schedule/_fullcalendar.html.twig' %}
-        <script src="/assets/js/maxeme-calendar.js?v=6"></script>
+        <script src="/assets/js/maxeme-calendar.js?v=7"></script>
     {% endif %}
 {% endblock %}

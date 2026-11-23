@@ -173,8 +173,13 @@
         });
     }
 
+    // The shop's "now" on this wall-clock calendar (the browser's clock is in another day in the shop's
+    // evening, or anywhere else): the server's shop time at page load, carried forward.
+    var shopOffset = config.shopNow ? Date.parse(config.shopNow + 'Z') - Date.now() : 0;
+
     calendar = new FullCalendar.Calendar(element, {
         timeZone: 'UTC',
+        now: function () { return new Date(Date.now() + shopOffset); },
         initialView: config.view,
         allDaySlot: false,
         height: 700,

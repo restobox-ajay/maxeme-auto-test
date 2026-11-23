@@ -13,6 +13,9 @@
     if (!form || !window.FullCalendar) { return; }
 
     var config = JSON.parse(form.getAttribute('data-appointment-form'));
+    // The shop's wall-clock time at page load, carried forward (its date is not the browser's in the
+    // shop's evening, or for anyone outside its time zone).
+    var shopOffset = config.shopNow ? Date.parse(config.shopNow + 'Z') - Date.now() : 0;
     var $ = function (selector) { return document.querySelector(selector); };
     var startInput = $('#appointment_start_time');
     var endInput = $('#appointment_end_time');
@@ -93,6 +96,8 @@
         timeZone: 'UTC',
         initialView: config.initialDate ? 'timeGridDay' : 'dayGridMonth',
         initialDate: config.initialDate || undefined,
+        // The shop's "now" (today's date, the today button), not the browser's: see shopToday().
+        now: function () { return new Date(Date.now() + shopOffset); },
         allDaySlot: false,
         slotDuration: { minutes: config.slotMinutes },
         slotMinTime: config.slotMinTime,
@@ -177,7 +182,7 @@
         }
         var summary = (type ? '\nFor: ' + type.options[type.selectedIndex].text : '') + '\nVehicle: ' + vehicle.options[vehicle.selectedIndex].text + '\nStart: ' + longDate(start) + '\nEnd: ' + longDate(end);
         // A booking on a day already gone needs an explicit yes (an edit that keeps its day doesn't).
-        var today = new Date(); var todayKey = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
+        var todayKey = new Date(Date.now() + shopOffset).toISOString().slice(0, 10); // the shop's date
         var day = startInput.value.slice(0, 10);
         if (day < todayKey && day !== initialStart.slice(0, 10)) {
             summary += '\n\nThis day is in the past. Book it anyway?';
