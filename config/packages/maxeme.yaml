@@ -147,6 +147,8 @@ parameters:
     # the tracking worklist, lots), which those pages link to for a tracked product.
     maxeme.hidden_admin_pages:
         prefixes:
+            # Core's public storefront contact form (it emailed the shop); not in the mockup
+            - /contact
             # Core: selling, customers and the B2B storefront
             - /admin/order
             - /admin/estimate
