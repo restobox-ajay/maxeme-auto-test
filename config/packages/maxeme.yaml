@@ -243,12 +243,12 @@ parameters:
               - { key: units_of_measure, label: UoM, route: admin_product_unit_of_measure_index, role: /parts/view, match: [admin_product_unit_of_measure_] }
               - { key: vendors, label: Vendors, route: admin_bundle_procurement_vendors, role: /parts/view, match: [admin_bundle_procurement_vendor],
                   add: { label: Add a vendor, route: admin_bundle_procurement_vendor_create, role: /parts/edit } }
+        # No role on the group: a Technician sees Vehicles (/car/view) but not Client (/people/view).
         - key: people
           label: People
           icon: users
-          role: /people/view
           children:
-              - { key: clients, label: Client, route: maxeme_client_index, match: [maxeme_client_],
+              - { key: clients, label: Client, route: maxeme_client_index, role: /people/view, match: [maxeme_client_],
                   add: { label: Add a new client, route: maxeme_client_index, modal: manageAddModal, role: /people/edit } }
               - { key: vehicles, label: Vehicles, route: maxeme_vehicle_index, role: /car/view, match: [maxeme_vehicle_],
                   add: { label: Add a vehicle, route: maxeme_vehicle_new, role: /car/edit } }
