@@ -68,9 +68,22 @@ final class EmailNotifier
         }
     }
 
-    /** @return list<string> */
+    /**
+     * Who gets the "tell the admins" emails: the Admin Email setting when set, else every active admin.
+     *
+     * @return list<string>
+     */
     public function activeAdminEmails(): array
     {
+        // Maxeme: Config › Settings › Admin Email, when set, replaces "every active admin".
+        $configured = trim((string) $this->appSettings->get('admin_email', ''));
+        if ($configured !== '') {
+            return array_values(array_unique(array_filter(array_map(
+                static fn (string $a): string => strtolower(trim($a)),
+                preg_split('/[,;\s]+/', $configured) ?: [],
+            ), static fn (string $a): bool => $a !== '')));
+        }
+
         $admins = $this->entityManager->getRepository(AdminUser::class)->findBy(['status' => 'Active']);
 
         $emails = [];

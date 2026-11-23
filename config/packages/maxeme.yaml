@@ -292,6 +292,7 @@ parameters:
               - { key: payment_types, label: Payment Types, route: maxeme_settings_payment_type_index, match: [maxeme_settings_payment_type_],
                   add: { label: Add a payment type, route: maxeme_settings_payment_type_index, modal: manageAddModal } }
               - { key: reminder_emails, label: Reminder Emails, route: maxeme_settings_reminder_emails, match: [maxeme_settings_reminder_emails] }
+              - { key: admin_email, label: Admin Email, route: maxeme_settings_admin_email, match: [maxeme_settings_admin_email] }
         - key: logs
           label: Logs
           icon: log

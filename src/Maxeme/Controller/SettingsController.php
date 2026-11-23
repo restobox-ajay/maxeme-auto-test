@@ -6,6 +6,7 @@ namespace App\Maxeme\Controller;
 
 use App\Maxeme\Document\DocPrefixSettings;
 use App\Maxeme\Reminder\ReminderSettings;
+use App\Maxeme\Settings\AdminEmailSettings;
 use App\Maxeme\Dto\TaxRateData;
 use App\Maxeme\Repository\TaxRateRepository;
 use App\Maxeme\Security\Attribute\RequiresPermission;
@@ -96,5 +97,22 @@ final class SettingsController extends AbstractMaxemeController
         $this->addFlash($error === null ? 'success' : 'error', $error ?? 'Reminder email settings saved.');
 
         return $this->redirectToRoute('maxeme_settings_reminder_emails');
+    }
+
+    #[Route('/admin-email', name: '_admin_email', methods: ['GET'])]
+    #[RequiresPermission(Permission::SETTINGS)]
+    public function adminEmail(AdminEmailSettings $settings): Response
+    {
+        return $this->render('maxeme/settings/admin_email.html.twig', ['adminEmail' => $settings->adminEmail()]);
+    }
+
+    #[Route('/admin-email', name: '_admin_email_save', methods: ['POST'])]
+    #[RequiresPermission(Permission::SETTINGS)]
+    public function saveAdminEmail(Request $request, AdminEmailSettings $settings): RedirectResponse
+    {
+        $error = $settings->save((string) $request->request->get('admin_email', ''));
+        $this->addFlash($error === null ? 'success' : 'error', $error ?? 'Admin email saved.');
+
+        return $this->redirectToRoute('maxeme_settings_admin_email');
     }
 }

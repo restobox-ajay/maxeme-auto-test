@@ -1,0 +1,16 @@
+{# Config › Settings › Admin Email. Vars: adminEmail (the address(es) in force, or ''). #}
+{% extends 'maxeme/settings/_layout.html.twig' %}
+{% set tab = 'admin_email' %}
+{% block settings_body %}
+    <section class="panel">
+        <h2>Admin Email</h2>
+        <form class="form-grid" method="post" action="{{ path('maxeme_settings_admin_email_save') }}">
+            {{ csrf_field() }}
+            <label class="span-2">Admin email
+                <input type="text" name="admin_email" value="{{ adminEmail }}" maxlength="500" placeholder="admin@example.com">
+                <small class="muted-line">Where the system's emails for the admins go: the stock reconciliation alert, and contact-form messages when no contact address is set. Separate several addresses with commas. Blank sends them to every active admin user.</small>
+            </label>
+            <div class="form-actions span-2"><button class="button primary" type="submit">Save</button></div>
+        </form>
+    </section>
+{% endblock %}
