@@ -607,3 +607,18 @@
         if (window.WC && window.WC.showToast) { window.WC.showToast(link.getAttribute('data-toast'), 'info'); }
     });
 }());
+
+/*
+ * <form data-mx-confirm="Title" data-mx-confirm-text="Question?">: asks first, then submits (mockup:
+ * Sync Repair Order, "Replace the lines, fees and totals of INV-… ?").
+ */
+(function () {
+    'use strict';
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target.closest('form[data-mx-confirm]');
+        if (!form || !window.MxConfirm) { return; }
+        event.preventDefault();
+        window.MxConfirm(form.getAttribute('data-mx-confirm'), form.getAttribute('data-mx-confirm-text') || '', '', '', function () { form.submit(); });
+    });
+}());

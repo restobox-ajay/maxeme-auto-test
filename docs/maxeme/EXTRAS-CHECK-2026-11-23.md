@@ -118,7 +118,7 @@ in miles) (`e2ca759`).
 3. **DONE** (commit "Invoice builder: payments only through Add payment"). **Invoice builder totals**: read-only Paid and Balance due with "Add payment · View payments" ("Save first" on
    a new invoice) in place of Payment method / paid amount / Paid checkbox / Change; part "−" removes at once
    (no confirm, the last row too).
-4. **Shown on more pages than the mockup**: Out of date badge and Sync Repair Order off the Invoices list (keep on
+4. **DONE** (commit "Out of date, Sync and Remark only where the mockup has them"; the in-page Remark box on the repair order's invoice kept, user's choice). **Shown on more pages than the mockup**: Out of date badge and Sync Repair Order off the Invoices list (keep on
    the repair order's Invoices tab); Remark card off the printed invoice (keep on the repair order document);
    Out of date banner down to the mockup's Sync button.
 5. **Hints and help text** the mockup doesn't have (sections 2–5): board drag hint and "Services done" tooltip,

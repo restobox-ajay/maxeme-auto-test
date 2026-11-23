@@ -32,9 +32,6 @@
             {{ mx.logs_link(invoice, 'button outline') }}
         </div>
     </nav>
-    {% if kind.value == 'invoice' and invoice.saved and is_granted('/accounting/view') %}
-        {% include 'maxeme/invoice/_remark.html.twig' with { invoice: invoice } only %}
-    {% endif %}
     <div class="invoice-page-container">
         {% include kind.template with { invoice: invoice, kind: kind, vehicles: vehicles|default([]), addresses: addresses|default([]), address: address|default(null) } only %}
     </div>

@@ -1,7 +1,7 @@
 {# The invoice's Remark card (mockup d2fbfc8, P19): internal, shown to staff above the invoice, never
    part of it, never printed. The remark as text, then an Add / Edit remark link that opens the box.
-   Shared by the invoice page (maxeme/document/page.html.twig) and the older invoice print page
-   (maxeme/invoice/_document_page.html.twig). Vars: invoice. #}
+   On the repair order's invoice page (maxeme/document/page.html.twig) only, as in the mockup
+   (ro-document.html; invoice-print.html has none: a builder invoice's remark is in the builder). Vars: invoice. #}
 <section class="panel compact-panel no-print mx-remark-card" id="invoice-remark">
     <strong>Remark</strong> <span class="muted-line">(internal: never printed)</span>
     <div class="mx-remark-text-block">{% if invoice.adminNote %}{{ invoice.adminNote }}{% else %}<span class="muted-line">No remark.</span>{% endif %}</div>

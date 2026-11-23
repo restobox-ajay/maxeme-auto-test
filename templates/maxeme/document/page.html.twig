@@ -43,6 +43,10 @@
                 {% for action in actions|filter(a => a.menu is not defined) %}
                     <a class="button {{ action.class|default('outline') }}" href="{{ action.url }}">{{ action.label }}</a>
                 {% endfor %}
+                {% if outOfDate|default(false) and invoice and repairOrder and is_granted('/accounting/edit') %}
+                    {# Mockup 0a4baef (ro-document.html): the repair order changed since this unpaid invoice was issued. #}
+                    <form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form" data-mx-confirm="Sync Repair Order" data-mx-confirm-text="Replace the lines, fees and totals of {{ doc_number(invoice) }} with the repair order's current ones? Changes made on the invoice by hand are lost; its number, date and payments stay.">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-warning" type="submit" id="sync-ro" title="The repair order has changed since this invoice was issued">Sync Repair Order</button></form>
+                {% endif %}
                 {% set pay = paymentMenu|default(null) %}
                 {% if invoice and pay %}
                     {# Payment ▾ (mockup 345c037). #}
@@ -71,16 +75,6 @@
             </div>
         </div>
     </section>
-    {% if outOfDate|default(false) and invoice and repairOrder %}
-        {# The repair order changed since this unpaid invoice was issued (mockup 0a4baef). #}
-        <div class="mx-alert mx-alert-warn no-print" id="invoice-out-of-date" role="status">
-            <div>
-                <strong><span class="badge danger">Out of date</span> {{ ro_number(repairOrder) }} changed since {{ doc_number(invoice) }} was issued.</strong>
-                <p class="muted-line">Sync to bring the invoice up to the repair order's current lines, fees and totals. Its number, date and payments stay.</p>
-            </div>
-            {% if is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}
-        </div>
-    {% endif %}
     {% if offerClose|default(false) and repairOrder %}
         {# A payment made the invoice Paid while the repair order is still open (mockup 84d136d). #}
         <div class="mx-alert mx-alert-info no-print" id="offer-close" role="status">

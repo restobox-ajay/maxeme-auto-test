@@ -62,7 +62,7 @@
                                             {{ mx.delete_button(path('maxeme_invoice_issued_delete', { invoiceKey: invoice.invoiceKey }), '#invoice_' ~ invoice.id, doc_number(invoice), '', 'Delete invoice ') }}
                                         {% endif %}
                                     {% endif %}
-                                    {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="Take the repair order's current lines, fees and totals; the number, date and payments stay">Sync Repair Order</button></form>{% endif %}
+                                    {% if invoice.id in outOfDate|default([]) and is_granted('/accounting/edit') %}<form method="post" action="{{ path('maxeme_invoice_issued_sync', { invoiceKey: invoice.invoiceKey }) }}" class="mx-inline-form" data-mx-confirm="Sync Repair Order" data-mx-confirm-text="Replace the lines, fees and totals of {{ doc_number(invoice) }} with this repair order's current ones? Changes made on the invoice by hand are lost; its number, date and payments stay.">{{ csrf_field() }}<input type="hidden" name="_return" value="{{ app.request.requestUri }}"><button class="button mx-btn-sm mx-warning" type="submit" title="The repair order has changed since this invoice was issued">Sync Repair Order</button></form>{% endif %}
                                     {{ mx.logs_link(invoice) }}
                                 </div>
                             </td>

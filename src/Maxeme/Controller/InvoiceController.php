@@ -278,8 +278,6 @@ final class InvoiceController extends AbstractMaxemeController
         return $this->render('maxeme/invoice/index.html.twig', [
             'page' => $page,
             'find' => $find,
-            // Mockup 0a4baef: unpaid invoices whose repair order changed since.
-            'outOfDate' => array_map(static fn (Invoice $invoice): int => (int) $invoice->getId(), array_values(array_filter($page->items, $this->repairOrderInvoicing->isOutOfDate(...)))),
         ]);
     }
 
