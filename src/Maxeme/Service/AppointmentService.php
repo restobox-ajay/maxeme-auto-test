@@ -14,6 +14,10 @@ use App\Maxeme\Entity\Vehicle;
 use App\Maxeme\Enum\AppointmentStatus;
 use App\Maxeme\Schedule\ScheduleSettings;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Maxeme\Entity\Invoice;
+use App\Maxeme\Entity\RepairOrderInventoryReservation;
+use App\Maxeme\Entity\ServiceReminderQueueEntry;
+use App\Maxeme\Enum\RepairOrderStatus;
 
 /**
  * Appointment changes (legacy AppointmentController save / edit / time edit / status / delete).
@@ -119,15 +123,56 @@ final class AppointmentService
     }
 
     /** Only while it is not completed; its invoice goes with it. */
-    public function delete(Appointment $appointment): void
+    /**
+     * Deleted with its invoice. Its repair order goes too when it is still an untouched shell (made
+     * for this booking and never worked on: see isEmptyShell), unless $keepRepairOrder (deleted from
+     * that repair order's own page). A repair order with any work in it stays.
+     *
+     * @return bool whether its empty repair order was deleted with it
+     */
+    public function delete(Appointment $appointment, bool $keepRepairOrder = false): bool
     {
         $appointment->assertUnlocked();
         if ($appointment->getStatus() === AppointmentStatus::Complete) {
             throw new \DomainException('A completed appointment cannot be deleted.');
         }
+        $repairOrder = $appointment->getRepairOrder();
+        $dropRepairOrder = !$keepRepairOrder && $repairOrder !== null && $this->isEmptyShell($repairOrder, $appointment);
         $this->invoices->deleteFor($appointment);
         $this->entityManager->remove($appointment);
+        if ($dropRepairOrder) {
+            $this->entityManager->remove($repairOrder);
+        }
         $this->entityManager->flush();
+
+        return $dropRepairOrder;
+    }
+
+    /**
+     * Still as booking made it: Estimate Being Built, no services, fees or notes, no other
+     * appointment, and nothing else refers to it (invoice, stock hold, reminder).
+     */
+    private function isEmptyShell(RepairOrder $repairOrder, Appointment $appointment): bool
+    {
+        if ($repairOrder->getStatus() !== RepairOrderStatus::EstimateBeingBuilt
+            || $repairOrder->getJobs() !== [] || $repairOrder->getCharges() !== [] || !$repairOrder->getNotes()->isEmpty()) {
+            return false;
+        }
+        foreach ($repairOrder->getAppointments() as $other) {
+            if ($other !== $appointment) {
+                return false;
+            }
+        }
+        foreach ([Invoice::class, RepairOrderInventoryReservation::class, ServiceReminderQueueEntry::class] as $class) {
+            $count = (int) $this->entityManager->createQueryBuilder()
+                ->select('COUNT(x)')->from($class, 'x')->where('x.repairOrder = :ro')->setParameter('ro', $repairOrder)
+                ->getQuery()->getSingleScalarResult();
+            if ($count > 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -147,12 +147,12 @@ final class ScheduleController extends AbstractMaxemeController
     public function delete(#[MapEntity] Appointment $appointment): JsonResponse
     {
         try {
-            $this->appointments->delete($appointment);
+            $withRepairOrder = $this->appointments->delete($appointment);
         } catch (\DomainException $exception) {
             return $this->json(['message' => $exception->getMessage()], Response::HTTP_CONFLICT);
         }
 
-        return $this->json(['message' => 'Appointment deleted.']);
+        return $this->json(['message' => $withRepairOrder ? 'Appointment deleted, with its empty repair order.' : 'Appointment deleted.']);
     }
 
     /** The event strip's client icon: the client's profile, on its Appointments tab. */

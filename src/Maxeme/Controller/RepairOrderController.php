@@ -216,7 +216,7 @@ final class RepairOrderController extends AbstractMaxemeController
             return $this->json(['message' => 'A past appointment cannot be deleted.'], Response::HTTP_CONFLICT);
         }
         try {
-            $appointments->delete($appointment);
+            $appointments->delete($appointment, keepRepairOrder: true);
         } catch (\DomainException $exception) {
             return $this->json(['message' => $exception->getMessage()], Response::HTTP_CONFLICT);
         }
