@@ -174,7 +174,9 @@ final class AdjustmentController extends AbstractInventoryDepthController
                 'warehouses' => $this->activeWarehouses(),
                 'bins' => $this->em->getRepository(WarehouseLocation::class)->findBy(['status' => 'Active'], ['sortKey' => 'ASC', 'code' => 'ASC']),
                 'warehouseId' => $request->query->getInt('warehouse', 0),
-                'today' => (new \DateTimeImmutable())->format('Y-m-d'),
+                // The shop's date (its time zone), not the server's: in the shop's evening the server is
+                // already on tomorrow, which became the default and the latest date allowed.
+                'today' => $this->businessDate->today(),
                 // How many repeatable rows to render, for the two shapes that need one row per unit.
                 // A GET parameter and not JavaScript: "add ten more rows" is then a link, the form
                 // works with scripting off, and a re-render cannot lose what has been typed because
