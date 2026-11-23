@@ -25,7 +25,7 @@ the change here and push instead.
 |---|---|
 | `app-root/` | the app (branch `main`); `711`, so the web server passes through but cannot list |
 | `app-root/.env.local` | server settings, not in git (`600`): `APP_ENV=prod`, its own `APP_SECRET`, `DEFAULT_URI` and `ADMIN_HOST` = the dev host, `MAILER_DSN` / `MAILER_FROM` (see Email), `IMPORT_PHP_BINARY` |
-| `app-root/var/data_prod.db` | SQLite (`600`). Copied from local on 2026-11-23, then cleaned the same day: no clients, vehicles, appointments, repair orders, invoices, payments, reminders, stock movements or logs; the real staff logins (11), the settings, tax classes, payment types, email templates, the real service catalogue (341) and parts (55, stock 0) kept; the test catalogue (QA / test services, all labour, government fees and service categories, QA parts, category and vendor) and the `@example.invalid` accounts removed. `var/data_prod.db.bak-20261122225344` is the uncleaned copy |
+| `app-root/var/data_prod.db` | SQLite (`600`). Copied from local on 2026-11-23, then cleaned the same day: no clients, vehicles, appointments, repair orders, invoices, payments, reminders, stock movements or logs; the settings, tax classes, payment types, email templates, the real service catalogue (341) and parts (55, stock 0) kept; the test catalogue (QA / test services, all labour, government fees and service categories, QA parts, category and vendor) and the `@example.invalid` accounts removed; then all staff accounts but `ajay@restobox.com` removed. `var/data_prod.db.bak-20261122225344` is the uncleaned copy, `var/data_prod.db.bak-before-staff-removal-*` the one with the 11 staff |
 | `app-root/public/` | web root; `~/public_html` is a link to it |
 | `app-root/public/mockup` | link to `mockup-root/public/mockup` |
 | `app-root/public/pull-*.php` | link to the mockup's "Proceed" pull page |
@@ -47,8 +47,8 @@ The password was generated on the server and is kept only in `~/.no-reply-mailbo
 after changing it in cPanel (Email Accounts), update both and run `cache:clear`. Earlier settings: `.env.local.bak-*`.
 
 Checked: `bin/console mailer:test` to the mailbox itself arrived. Emails go through the queue (the cron worker
-sends them within a minute). The database holds no clients now, but it does hold the real staff logins: password
-resets and invitations to them really go out. To switch email off again: `MAILER_DSN="null://null"`, then
+sends them within a minute). The database holds no clients and only one staff login (ajay@restobox.com); staff added later get real
+invitations and password resets. To switch email off again: `MAILER_DSN="null://null"`, then
 `cache:clear`.
 
 ## Cron (installed 2026-11-23; file `~/maxeme.crontab`, earlier crontab kept as `~/crontab.bak-*`)
