@@ -286,6 +286,11 @@ final class RepairOrderController extends AbstractMaxemeController
             return $id === null ? null : $repairOrder->getClient();
         }
 
+        $saved = $repairOrder->getClient();
+        if ($saved !== null && $saved->getId() === (int) $id) {
+            return $saved; // its own customer, even once deleted
+        }
+
         return $this->entityManager->getRepository(Client::class)->findOneBy(['id' => (int) $id, 'active' => true]);
     }
 

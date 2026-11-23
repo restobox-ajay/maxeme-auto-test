@@ -87,8 +87,8 @@ final class RepairOrderWriter
         $before = self::fingerprint($repairOrder);
         $savedTotals = [$repairOrder->getSubtotal(), $repairOrder->getChargeTotal(), $repairOrder->getGst(), $repairOrder->getPst(), $repairOrder->getTotal()];
 
-        [$client, $clientErrors] = $this->client($form);
-        [$vehicle, $vehicleErrors] = $this->vehicle($form, $client);
+        [$client, $clientErrors] = $this->client($form, $repairOrder);
+        [$vehicle, $vehicleErrors] = $this->vehicle($form, $client, $repairOrder);
         $errors += $clientErrors + $vehicleErrors;
 
         // The advisor is no longer on the page (mockup 986d771): it stays the person who started it.
@@ -259,7 +259,7 @@ final class RepairOrderWriter
     }
 
     /** @return array{0: ?Client, 1: array<string, string>} */
-    private function client(RepairOrderForm $form): array
+    private function client(RepairOrderForm $form, RepairOrder $repairOrder): array
     {
         $id = $form->data->clientId;
         if ($id === null) {
@@ -281,13 +281,17 @@ final class RepairOrderWriter
             return [$client, $errors];
         }
 
-        $client = $this->entityManager->getRepository(Client::class)->findOneBy(['id' => (int) $id, 'active' => true]);
+        // Its own customer stays even once deleted (a deleted client keeps their repair orders); a new pick must be active.
+        $saved = $repairOrder->getClient();
+        $client = $saved !== null && $saved->getId() === (int) $id
+            ? $saved
+            : $this->entityManager->getRepository(Client::class)->findOneBy(['id' => (int) $id, 'active' => true]);
 
         return $client !== null ? [$client, []] : [null, ['clientId' => 'Choose a customer from the list.']];
     }
 
     /** @return array{0: ?Vehicle, 1: array<string, string>} */
-    private function vehicle(RepairOrderForm $form, ?Client $client): array
+    private function vehicle(RepairOrderForm $form, ?Client $client, RepairOrder $repairOrder): array
     {
         $id = $form->data->vehicleId;
         if ($id === null) {
@@ -312,7 +316,10 @@ final class RepairOrderWriter
             return [$vehicle, $errors];
         }
 
-        $vehicle = $this->entityManager->getRepository(Vehicle::class)->findOneBy(['id' => (int) $id, 'active' => true]);
+        $saved = $repairOrder->getVehicle();
+        $vehicle = $saved !== null && $saved->getId() === (int) $id
+            ? $saved
+            : $this->entityManager->getRepository(Vehicle::class)->findOneBy(['id' => (int) $id, 'active' => true]);
         if ($vehicle === null || $vehicle->getClient() !== $client) {
             return [null, ['vehicleId' => 'Choose one of the customer\'s vehicles.']];
         }
