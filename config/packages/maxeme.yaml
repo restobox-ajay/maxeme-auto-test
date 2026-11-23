@@ -261,16 +261,21 @@ parameters:
           children:
               - { key: summary_report, label: Payment Report, route: maxeme_report_summary, match: [maxeme_report_summary, maxeme_invoice_index, maxeme_invoice_find] }
               - { key: service_report, label: Service Report, route: maxeme_report_service, match: [maxeme_report_service] }
-        # No role on the group: each row has its own (staff screens for /staff/view, the service
-        # set-up screens for /service/view).
-        - key: config
-          label: Config
-          icon: cog
+        # Staff logins and their roles (user request 2026-11-23: own menu, out of Config). No role on
+        # the group: each row has its own.
+        - key: users
+          label: Users
+          icon: user
           children:
               - { key: admin_users, label: Admin User, route: maxeme_staff_index, role: /staff/view, match: [maxeme_staff_],
                   add: { label: Add a new user, route: maxeme_staff_index, modal: register-modal, role: /staff/create } }
               # Read-only (Super Admin): access changes by editing config/rbac/role_permissions/, so no "+".
               - { key: roles, label: Roles, route: maxeme_role_index, role: /role/view, match: [maxeme_role_] }
+        # No role on the group: each row has its own (the service set-up screens for /service/view).
+        - key: config
+          label: Config
+          icon: cog
+          children:
               - { key: service_categories, label: Service Categories, route: maxeme_service_category_index, role: /service/view, match: [maxeme_service_category_],
                   add: { label: Add a service category, route: maxeme_service_category_new, role: /service/edit } }
               - { key: service_reminders, label: Service Reminders, route: maxeme_service_reminder_index, role: /service/view, match: [maxeme_service_reminder_index, maxeme_service_reminder_create, maxeme_service_reminder_update, maxeme_service_reminder_delete],

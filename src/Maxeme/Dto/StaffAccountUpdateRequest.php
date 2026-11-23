@@ -12,7 +12,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * Manage Admins › Edit: the same fields as Add a new admin, except the password is optional
- * (blank keeps the current one) and a Tech Support account keeps its role (it is not assignable).
+ * (blank keeps the current one), and roles shown read-only (ones the editor may not give) are kept.
  */
 final class StaffAccountUpdateRequest extends AccountIdentityRequest
 {
@@ -38,9 +38,10 @@ final class StaffAccountUpdateRequest extends AccountIdentityRequest
         $dto = new self();
         $dto->fillIdentity($request);
 
-        $dto->roles = StaffRole::of($user) === StaffRole::TechSupport
-            ? StaffRole::allOf($user)
-            : StaffRole::listFrom($request->request->all()['roles'] ?? []);
+        // No roles_shown = the form showed the roles read-only (the editor may not change them): keep them.
+        $dto->roles = $request->request->has('roles_shown')
+            ? StaffRole::listFrom($request->request->all()['roles'] ?? [])
+            : StaffRole::allOf($user);
 
         $password = (string) $request->request->get('password', '');
         $confirm = (string) $request->request->get('password_confirm', '');

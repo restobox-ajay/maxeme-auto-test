@@ -63,13 +63,14 @@ enum StaffRole: string
     }
 
     /**
-     * The roles Manage Admins can give an account; Tech Support is the vendor's, set up outside the shop.
+     * Every role Manage Admins can give an account. Who may give which is StaffController's call:
+     * Super Admin and Tech Support only by a Super Admin (user request 2026-11-23).
      *
      * @return list<self>
      */
     public static function assignable(): array
     {
-        return array_values(array_filter(self::cases(), static fn (self $role): bool => $role !== self::TechSupport));
+        return self::cases();
     }
 
     /**

@@ -164,9 +164,9 @@ final class StaffController extends AbstractController
 
     /**
      * The roles the signed-in user may give an account. Only a Super Admin (or Tech Support) may
-     * grant Super Admin: otherwise an Admin could make a Super Admin account and, through it, reach
-     * the Super Admin-only pages and the database console (the same line StaffAccountVoter draws
-     * for changing an existing Super Admin account).
+     * grant Super Admin or Tech Support: otherwise an Admin could make such an account and, through
+     * it, reach the Super Admin-only pages and the database console (the same line StaffAccountVoter
+     * draws for changing an existing Super Admin or Tech Support account).
      *
      * @return list<StaffRole>
      */
@@ -176,7 +176,7 @@ final class StaffController extends AbstractController
             return StaffRole::assignable();
         }
 
-        return array_values(array_filter(StaffRole::assignable(), static fn (StaffRole $role): bool => $role !== StaffRole::SuperAdmin));
+        return array_values(array_filter(StaffRole::assignable(), static fn (StaffRole $role): bool => !in_array($role, [StaffRole::SuperAdmin, StaffRole::TechSupport], true)));
     }
 
     /**
@@ -190,6 +190,6 @@ final class StaffController extends AbstractController
         $assignable = $this->assignableRoles();
         $refused = array_filter($roles, static fn (StaffRole $role): bool => !in_array($role, $current, true) && !in_array($role, $assignable, true));
 
-        return $refused === [] ? [] : ['roles' => 'Only a Super Admin can give an account the Super Admin role.'];
+        return $refused === [] ? [] : ['roles' => 'Only a Super Admin can give an account the Super Admin or Tech Support role.'];
     }
 }

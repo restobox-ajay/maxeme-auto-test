@@ -22,6 +22,7 @@
                 {% if account.roles|filter(r => r not in assignableRoles) is not empty %}
                     <input type="text" value="{{ account.roles|map(r => r.label)|join(', ') }}" disabled>
                 {% else %}
+                    <input type="hidden" name="roles_shown" value="1">
                     <div class="mx-check-row">{% for role in assignableRoles %}<label class="mx-check"><input type="checkbox" name="roles[]" value="{{ role.value }}" {{ role in account.roles ? 'checked' }}> <span>{{ role.label }}</span></label>{% endfor %}</div>
                 {% endif %}
             </div>
