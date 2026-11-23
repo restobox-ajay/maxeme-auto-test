@@ -57,12 +57,28 @@ class TaxClass
     /** @return Collection<int, TaxRate> */
     public function getRates(): Collection { return $this->rates; }
 
-    /** @param iterable<TaxRate> $rates */
+    /**
+     * Only what differs is removed or added. clear() and re-adding on a saved class made Doctrine delete
+     * every link and re-insert only the rates the class did not have before, so saving a class with its
+     * taxes unchanged (or one added) left it charging nothing.
+     *
+     * @param iterable<TaxRate> $rates
+     */
     public function setRates(iterable $rates): self
     {
-        $this->rates->clear();
+        $wanted = [];
         foreach ($rates as $rate) {
-            $this->rates->add($rate);
+            $wanted[spl_object_id($rate)] = $rate;
+        }
+        foreach ($this->rates->toArray() as $rate) {
+            if (!isset($wanted[spl_object_id($rate)])) {
+                $this->rates->removeElement($rate);
+            }
+        }
+        foreach ($wanted as $rate) {
+            if (!$this->rates->contains($rate)) {
+                $this->rates->add($rate);
+            }
         }
 
         return $this;
