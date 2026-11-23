@@ -378,12 +378,15 @@ final class InvoiceController extends AbstractMaxemeController
 
         $intent = InvoiceSaveIntent::tryFrom((string) $request->request->get('intent')) ?? InvoiceSaveIntent::Save;
         try {
-            $this->invoices->save($invoice, $data, $intent);
+            $this->invoices->save($invoice, $data);
         } catch (\DomainException $exception) {
             return $this->renderForm($invoice, ['discount' => $exception->getMessage()], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
         }
-        // The builder's own payment (an invoice with no repair order) becomes a payment row (mockup 345c037).
-        $this->invoicePayments->adoptBuilderPayment($invoice);
+        // A new total can change Paid / Unpaid when payments were taken (mockup: syncPaid after a save);
+        // an invoice with none keeps its status, so an old one paid in the old system stays paid.
+        if ($this->invoicePayments->of($invoice) !== []) {
+            $this->invoicePayments->sync($invoice);
+        }
         $this->addFlash('success', sprintf('Invoice %s saved.', $this->numbers->number($invoice)));
 
         return match ($intent) {
@@ -398,13 +401,12 @@ final class InvoiceController extends AbstractMaxemeController
     /** @param array<string, string> $errors */
     private function renderForm(Invoice $invoice, array $errors, ?Response $response = null): Response
     {
-        $paymentTypes = $this->paymentTypes->findActiveOrOwn($invoice->getPaymentType());
-
         return $this->render('maxeme/invoice/form.html.twig', [
             'invoice' => $invoice,
             'errors' => $errors,
             'settings' => $this->settings,
-            'paymentTypes' => $paymentTypes,
+            // Paid / Balance due (mockup invoice-builder.html): what the payments took; null before the first save.
+            'paid' => $invoice->getId() !== null ? Money::fromCents($this->invoicePayments->paidCents($invoice)) : null,
         ], $response);
     }
 

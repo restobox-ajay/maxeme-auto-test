@@ -111,11 +111,11 @@ in miles) (`e2ca759`).
    Vendors → Products; Database Console Back → Settings. As built: `maxeme.hidden_admin_pages` in
    `config/packages/maxeme.yaml`; lot / serial tracking pages left open for item 10; the vendor page's purchase
    order, bills and AP aging links show the mockup's messages ("… not used by the shop") instead of opening a page.
-2. **Appointments › List as the mockup draws it**: all appointments, "All appointments", newest first, 20 a page,
+2. **LEFT AS IT IS** (user, 2026-11-23). **Appointments › List as the mockup draws it**: all appointments, "All appointments", newest first, 20 a page,
    no ‹ › day steps / All days / date picker; "today" fills the Date box; columns Date, Status, Client, Phone,
    Vehicle (plain), Repair order (type badge for non-repair), $, Description, Technician, Action; no "For" column
    or filter; actions Repair order / + Repair order, Client, Invoice, Delete (not on completed); no Check-in / Edit.
-3. **Invoice builder totals**: read-only Paid and Balance due with "Add payment · View payments" ("Save first" on
+3. **DONE** (commit "Invoice builder: payments only through Add payment"). **Invoice builder totals**: read-only Paid and Balance due with "Add payment · View payments" ("Save first" on
    a new invoice) in place of Payment method / paid amount / Paid checkbox / Change; part "−" removes at once
    (no confirm, the last row too).
 4. **Shown on more pages than the mockup**: Out of date badge and Sync Repair Order off the Invoices list (keep on

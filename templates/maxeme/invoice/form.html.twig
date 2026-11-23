@@ -115,17 +115,13 @@
                                 <td class="amount" id="tax-pst"></td><td></td>
                             </tr>
                             <tr id="total-row" class="tfoot"><td>Total:</td><td></td><td class="amount" id="total-sum-display"></td><td></td></tr>
-                            <tr id="payment-row" class="tfoot">
-                                <td>Payment method:</td>
-                                <td class="num">
-                                    <select name="payment_type" aria-label="Payment method">
-                                        {% for type in paymentTypes %}<option value="{{ type.id }}" {{ invoice.paymentType == type ? 'selected' }}>{{ type.name }}</option>{% endfor %}
-                                    </select>
-                                </td>
-                                <td class="num"><input id="paid-amount" type="text" name="payment_amount" value="{{ invoice.paymentAmount }}" {{ input_rule('money') }} aria-label="Paid amount"></td>
-                                <td class="ctl"><label class="check-row"><input id="paid-input" type="checkbox" name="paid" value="1" {{ invoice.paid ? 'checked' }}> Paid</label></td>
+                            {# Mockup invoice-builder.html: what the payments took and what is left, read-only;
+                               payments are taken on Add payment ("Save first" on a new invoice). #}
+                            <tr id="paid-row" class="tfoot"><td>Paid:</td><td></td><td class="amount" id="total-paid-display" data-paid="{{ paid ?? '0.00' }}">{{ paid ?? '0.00' }}</td><td></td></tr>
+                            <tr id="balance-row" class="tfoot">
+                                <td>Balance due:</td><td></td><td class="amount" id="total-balance-display"><strong></strong></td>
+                                <td class="mx-nowrap">{% if invoice.id %}<a href="{{ path('maxeme_invoice_payment_new', { invoiceKey: invoice.invoiceKey }) }}">Add payment</a> · <a href="{{ path('maxeme_invoice_payments', { invoiceKey: invoice.invoiceKey }) }}">View payments</a>{% else %}<span class="muted-line">Save first</span>{% endif %}</td>
                             </tr>
-                            <tr id="payment-change-row" class="tfoot"><td>Change:</td><td></td><td class="amount" id="total-change-display"></td><td></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -149,5 +145,5 @@
 {% endblock %}
 {% block javascripts %}
     {{ parent() }}
-    <script src="/assets/js/maxeme-invoice.js?v=4"></script>
+    <script src="/assets/js/maxeme-invoice.js?v=5"></script>
 {% endblock %}

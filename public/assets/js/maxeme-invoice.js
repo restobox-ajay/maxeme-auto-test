@@ -67,7 +67,9 @@
         $('#tax-gst').textContent = money(gst);
         $('#tax-pst').textContent = money(pst);
         $('#total-sum-display').textContent = money(total);
-        $('#total-change-display').textContent = money(cents($('#paid-amount').value) - total);
+        // Balance due = Total − what the payments took, never below zero (mockup invoice-builder.html).
+        var paid = cents($('#total-paid-display').getAttribute('data-paid'));
+        $('#total-balance-display strong').textContent = money(Math.max(0, total - paid));
     }
 
     /* ── Rows ─────────────────────────────────────────────────────────────── */
@@ -77,7 +79,12 @@
         var holder = document.createElement('tbody');
         holder.innerHTML = rowTemplate.replace(/__ROW__/g, String(nextRow++)).trim();
         var row = holder.firstElementChild;
-        after.parentNode.insertBefore(row, after.nextSibling);
+        if (after) {
+            after.parentNode.insertBefore(row, after.nextSibling);
+        } else {
+            var discountRow = $('#discount-row'); // no rows left: the new one goes above the totals
+            discountRow.parentNode.insertBefore(row, discountRow);
+        }
         $('.item-name-search', row).focus();
     }
 
@@ -104,9 +111,16 @@
     body.addEventListener('click', function (event) {
         var row = event.target.closest('tr.item-row');
         if (event.target.closest('.item-add')) { addRow(row); }
-        if (event.target.closest('.item-remove') && body.querySelectorAll('tr.item-row').length > 1) { removeAfterConfirm(row, 'item', calculate); }
+        // Mockup invoice-builder.html: an item row asks first when filled (any row, the last too); a part row just goes.
+        // The last row leaves an empty one behind, so "+" stays to add the next item.
+        if (event.target.closest('.item-remove')) {
+            removeAfterConfirm(row, 'item', function () {
+                if (!body.querySelector('tr.item-row')) { addRow(null); }
+                calculate();
+            });
+        }
         if (event.target.closest('.add_part')) { addPart(row); }
-        if (event.target.closest('.part-remove')) { removeAfterConfirm(event.target.closest('li.part-row'), 'part'); }
+        if (event.target.closest('.part-remove')) { event.target.closest('li.part-row').remove(); }
     });
     body.addEventListener('input', calculate);
     body.addEventListener('change', calculate);

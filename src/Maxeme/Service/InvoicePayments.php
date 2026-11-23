@@ -172,19 +172,6 @@ final class InvoicePayments
     }
 
     /**
-     * The invoice builder (an invoice with no repair order) still takes a method and an amount and can
-     * save the invoice Paid: that payment becomes the invoice's payment row when it has none yet.
-     */
-    public function adoptBuilderPayment(Invoice $invoice): void
-    {
-        if ($invoice->getId() === null || $this->of($invoice) !== [] || !$invoice->isPaid() || Money::toCents((string) $invoice->getPaymentAmount()) <= 0) {
-            return;
-        }
-        $this->entityManager->persist(new InvoicePayment($invoice, $invoice->getPaymentType(), Money::fromCents(min(Money::toCents((string) $invoice->getPaymentAmount()), Money::toCents($invoice->getTotalPrice()))), $invoice->getLastModified() ?? new \DateTimeImmutable()));
-        $this->entityManager->flush();
-    }
-
-    /**
      * The invoice follows its payments (and its repair order follows the invoice). $promoteOnly (an
      * issued-invoice edit, whose total can only go down): it may become Paid, never Unpaid, so an old
      * invoice paid in the old system for less than its total is not reopened by an unrelated edit.

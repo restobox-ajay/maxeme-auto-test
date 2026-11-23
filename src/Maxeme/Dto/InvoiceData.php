@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace App\Maxeme\Dto;
 
 use App\Maxeme\Enum\PaymentMethod;
-use App\Maxeme\Validation\Formatted;
-use App\Maxeme\Validation\InputRule;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * The invoice builder (legacy invoice_form.html.twig): the client and vehicle snapshot, the item
- * table, discount, taxes, payment and recommendations. The totals are not posted: they are
+ * table, discount, taxes and recommendations (payments are taken on Add payment). The totals are not posted: they are
  * calculated (InvoiceCalculator).
  */
 final class InvoiceData
@@ -62,16 +60,6 @@ final class InvoiceData
 
     public int $pstRate = 0;
 
-    /** A Config › Settings › Payment Types id. */
-    #[Assert\NotNull(message: 'Choose a payment method.')]
-    public ?int $paymentTypeId = null;
-
-    #[Formatted(InputRule::Money)]
-    public ?string $paymentAmount = null;
-
-    /** The Paid checkbox (it only decides the status when saving for the work order). */
-    public bool $paid = false;
-
     public static function fromRequest(Request $request): self
     {
         $data = new self();
@@ -88,10 +76,6 @@ final class InvoiceData
         $data->discount = \App\Service\TextInput::nullableString($post->get('discount_amount'));
         $data->gstRate = $post->getInt('gst');
         $data->pstRate = $post->getInt('pst');
-        $paymentType = $post->getInt('payment_type');
-        $data->paymentTypeId = $paymentType > 0 ? $paymentType : null;
-        $data->paymentAmount = \App\Service\TextInput::nullableString($post->get('payment_amount'));
-        $data->paid = $post->getBoolean('paid');
 
         foreach ($post->all('items') as $row) {
             $item = InvoiceItemData::fromArray(is_array($row) ? $row : []);

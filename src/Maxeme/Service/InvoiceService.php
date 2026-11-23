@@ -18,10 +18,8 @@ use App\Maxeme\Entity\ClientAddress;
 use App\Maxeme\Entity\Invoice;
 use App\Maxeme\Entity\InvoicePartLine;
 use App\Maxeme\Entity\InvoiceServiceLine;
-use App\Maxeme\Entity\PaymentType;
 use App\Maxeme\Entity\ServiceItem;
 use App\Maxeme\Entity\Vehicle;
-use App\Maxeme\Enum\InvoiceSaveIntent;
 use App\Maxeme\Repository\InvoiceRepository;
 use App\Maxeme\Schedule\ScheduleSettings;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,7 +59,7 @@ final class InvoiceService
     }
 
     /** @param InvoiceData $data already validated */
-    public function save(Invoice $invoice, InvoiceData $data, InvoiceSaveIntent $intent): void
+    public function save(Invoice $invoice, InvoiceData $data): void
     {
         $accessor = PropertyAccess::createPropertyAccessor();
         foreach ($data->snapshot as $property => $value) {
@@ -72,9 +70,7 @@ final class InvoiceService
         }
         $this->updateVehicle($invoice);
 
-        $invoice->setPaymentType($this->find(PaymentType::class, $data->paymentTypeId));
-        $invoice->setPaymentAmount($data->paymentAmount);
-        $invoice->setStatus($intent->status($data));
+        // Status, payment method and amount are the payments' (InvoicePayments::sync()), not the form's.
         $invoice->setLastModified(match (true) {
             $data->invoiceDate !== null => \DateTimeImmutable::createFromFormat(InvoiceData::DATE_FORMAT, $data->invoiceDate, $this->schedule->timezone())
                 ->setTimezone(new \DateTimeZone('UTC')),
