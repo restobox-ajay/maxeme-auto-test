@@ -72,7 +72,8 @@
                         <label>Model:<input type="text" name="vehicle_model" value="{{ invoice.vehicleModel }}" placeholder="Vehicle model"></label>
                         <label>License:<input type="text" name="vehicle_license" value="{{ invoice.vehicleLicense }}" placeholder="Vehicle license"></label>
                         <label>Vin number:<input type="text" name="vehicle_vin" value="{{ invoice.vehicleVin }}" placeholder="Vehicle VIN"></label>
-                        <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage"><select name="vehicle_mileage_unit" class="mx-unit-select" aria-label="KM or miles"><option value="km">KM</option><option value="miles" {{ invoice.vehicleMileageUnit.value == 'miles' ? 'selected' }}>MILES</option></select></span></label>
+                        <label>Mileage:<span class="mx-mileage"><input type="text" name="vehicle_mileage" value="{{ invoice.vehicleMileage }}" placeholder="Vehicle mileage">{# A fixed label as in the mockup (invoice-builder.html: "KM"), showing the unit the invoice holds
+   (from its vehicle or repair order), so one saved in miles reads MILES. Not posted: the unit is kept. #}<span>{{ invoice.vehicleMileageUnit.label }}</span></span></label>
                         <label class="span-2">Appointment Note:<textarea name="note" placeholder="Note">{{ invoice.note }}</textarea></label>
                     </div>
                 </section>
